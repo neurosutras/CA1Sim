@@ -12,6 +12,7 @@ from function_lib import *
 swc_types = [soma_type, axon_type, basal_type, apical_type, trunk_type, tuft_type] = [1, 2, 3, 4, 5, 6]
 sec_types = ['soma', 'axon', 'ais', 'basal', 'apical', 'trunk', 'tuft', 'spine_neck', 'spine_head']
 
+verbose = 0  # Turn on for text reporting during model initialization and simulation
 gid_max = 0  # Every new HocCell will receive a global identifier for network simulation, and increment this counter
 
 #-------Wrapper for converting SWC --> BtMorph --> Skeleton morphology in NEURON hoc------------------------
@@ -50,24 +51,18 @@ class HocCell(object):
             3) axon[2] : a cylindrical 'axon' section connected to axon[1](1)
         """
         raw_tree = btmorph.STree2() # import the full tree from an SWC file
-        raw_tree.read_SWC_tree_from_file(morph_dir+morph_filename,types=range(10))
-        soma_length = 12
-        soma_diam = 8
+        raw_tree.read_SWC_tree_from_file(morph_dir+morph_filename, types=range(10))
+        soma_length = 14
+        soma_diam = 9
         for index in range(2):
-            node = SHocNode(index)
-            self.make_section(node, 'soma')
+            node = self.make_section('soma')
             node.sec.L = soma_length/2
             node.sec.diam = soma_diam
             self._init_cable(node)  # consults the mech_dict to initialize Ra, cm, and nseg
-            self.soma.append(node)
-            self.index += 1
         self.tree.root = self.soma[0]
         self.soma[1].connect(self.soma[0], 0, 0)
-        for index in range(2,5):
-            node = SHocNode(index)
-            self.make_section(node, 'axon')
-            self.axon.append(node)
-            self.index += 1
+        for index in range(3):
+            self.make_section('axon')
         self.axon[0].sec.L = 20
         self.axon[0].set_diam_bounds(3, 2)  # stores the diameter boundaries for a tapered cylindrical section
         self.axon[1].type = 'ais'
@@ -75,29 +70,37 @@ class HocCell(object):
         self.axon[1].set_diam_bounds(2, 1)
         self.axon[2].sec.L = 500
         self.axon[2].sec.diam = 1
-        for node in self.axon:
-            self._init_cable(node)
         self.axon[0].connect(self.soma[0], 0, 0)
         self.axon[1].connect(self.axon[0], 1, 0)
         self.axon[2].connect(self.axon[1], 1, 0)
+        for node in self.axon:
+            self._init_cable(node)
         for child in raw_tree.root.children:
             self.make_skeleton(child, self.tree.root)
 
-    def make_section(self, node, sec_type):
+    def make_section(self, sec_type):
         """
         Create a new hoc section to associate with this node, and this cell, and store information about it in the
         node's content dictionary.
-        :param node: :class:'SHocNode'
         :param sec_type: str
+        :return node: :class:'SHocNode'
         """
+        node = SHocNode(self.index)
+        if self.index == 0:
+            self.tree.root = node
+        self.index += 1
         node.type = sec_type
+        if sec_type in ['spine_head', 'spine_neck']:
+            self._node_dict['spine'].append(node)
+        else:
+            self._node_dict[sec_type].append(node)
         node.sec = h.Section(name=node.name, cell=self)
+        return node
 
     def test_sec_properties(self, node=None):
         """
         Used for debugging and validating model specification.
         :param node:
-        :return:
         """
         if node is None:
             node = self.tree.root
@@ -136,20 +139,18 @@ class HocCell(object):
                                                         raw_node.parent.index)
             """
             if (leaves == 0) | (leaves > 1):
-                new_node = SHocNode(self.index)
                 sec_type = dend_types[1][dend_types[0].index(swc_type)]
-                self.make_section(new_node, sec_type)
+                new_node = self.make_section(sec_type)
                 new_node.sec.L = length
                 if (self.tree.is_root(parent)) & (sec_type == 'basal'):
                     parent = self.soma[1]
-                self._node_dict[sec_type].append(new_node)
                 new_node.connect(parent)
-                self.index += 1
                 if diams is None:
                     new_node.sec.diam = diam
                     self._init_cable(new_node)
-                    print '{} [nseg: {}, diam: {}, length: {}, parent: {}]'.format(new_node.name,
-                                                                new_node.sec.nseg, diam, length, new_node.parent.name)
+                    if verbose:
+                        print '{} [nseg: {}, diam: {}, length: {}, parent: {}]'.format(new_node.name, new_node.sec.nseg,
+                                                                                    diam, length, new_node.parent.name)
                 else:
                     diams.append(diam)
                     if len(diams) > 2:
@@ -158,24 +159,28 @@ class HocCell(object):
                         if stdev*2 > 1:  # If 95% of the values are within 1 um, don't taper
                             new_node.set_diam_bounds(mean+stdev, mean-stdev)
                             self._init_cable(new_node)
-                            print '{} [nseg: {}, diam: ({}:{}), length: {}, parent: {}]'.format(new_node.name,
+                            if verbose:
+                                print '{} [nseg: {}, diam: ({}:{}), length: {}, parent: {}]'.format(new_node.name,
                                                 new_node.sec.nseg, mean+stdev, mean-stdev, length, new_node.parent.name)
                         else:
                             new_node.sec.diam = mean
                             self._init_cable(new_node)
-                            print '{} [nseg: {}, diam: {}, length: {}, parent: {}]'.format(new_node.name,
+                            if verbose:
+                                print '{} [nseg: {}, diam: {}, length: {}, parent: {}]'.format(new_node.name,
                                                                 new_node.sec.nseg, mean, length, new_node.parent.name)
                     elif abs(diams[0]-diams[1]) > 1:
                         new_node.set_diam_bounds(diams[0], diams[1])
                         self._init_cable(new_node)
-                        print '{} [diam: ({}:{}), length: {}, parent: {}]'.format(new_node.name, new_node.sec.nseg,
+                        if verbose:
+                            print '{} [diam: ({}:{}), length: {}, parent: {}]'.format(new_node.name, new_node.sec.nseg,
                                                                     diams[0], diams[1], length, new_node.parent.name)
                     else:
                         mean = sp.mean(diams)
                         new_node.sec.diam = mean
                         self._init_cable(new_node)
-                        print '{} [nseg: {}, diam: {}, length: {}, parent: {}]'.format(new_node.name, new_node.sec.nseg,
-                                                                                    mean, length, new_node.parent.name)
+                        if verbose:
+                            print '{} [nseg: {}, diam: {}, length: {}, parent: {}]'.format(new_node.name,
+                                                                new_node.sec.nseg, mean, length, new_node.parent.name)
                 if leaves > 1:  # Follow all branches from this fork
                     for child in raw_node.children:
                         self.make_skeleton(child, new_node)
@@ -211,7 +216,8 @@ class HocCell(object):
         if not mech_filename is None:
             return read_from_pkl(data_dir+mech_filename)
         else:
-            return default_mech_dict
+            local_mech_dict = copy.deepcopy(default_mech_dict)
+            return local_mech_dict
 
     def _init_cable(self, node):
         """
@@ -336,6 +342,24 @@ class HocCell(object):
             else:
                 setattr(node.sec, param_name+"_"+mech_name, baseline)
 
+    def get_dendrite_origin(self, node):
+        """
+        This method determines the section type of the given node, and returns the node representing the primary branch
+        point for the given section type. Basal and trunk sections originate at the soma, and apical and tuft dendrites
+        originate at the trunk. For spines, recursively calls with parent node to identify the parent branch first.
+        :param node: :class:'SHocNode'
+        :return: :class:'SHocNode'
+        """
+        sec_type = node.type
+        if sec_type in ['spine_head', 'spine_neck']:
+            return self.get_dendrite_origin(node.parent)
+        elif sec_type in ['basal', 'trunk', 'axon', 'ais']:
+            return self._get_node_along_path_to_root(node, 'soma')
+        elif sec_type in ['apical', 'tuft']:
+            return self._get_node_along_path_to_root(node, 'trunk')
+        elif sec_type == 'soma':
+            return node
+
     def _get_node_along_path_to_root(self, node, sec_type):
         """
         This method follows the path from the given node to the root node, and returns the first node with section type
@@ -434,12 +458,18 @@ class HocCell(object):
                 rules['min'] = min
             mech_content = {param_name: rules}
         if not sec_type in self.mech_dict:  # No mechanisms have been inserted into this type of section yet
+            """
             if (self.get_nodes_of_subtype(sec_type)):
                 backup_content = None
                 self.mech_dict[sec_type] = {mech_name: mech_content}
                 insert = True
             else:
-                raise Exception('This cell does not yet contain sections of sec_type: {}'.format(sec_type))
+                # raise Exception('This cell does not yet contain sections of sec_type: {}'.format(sec_type))
+                print 'This cell does not yet contain sections of sec_type: {}'.format(sec_type)
+            """
+            backup_content = None
+            self.mech_dict[sec_type] = {mech_name: mech_content}
+            insert = True
         elif not mech_name in self.mech_dict[sec_type]:
             backup_content = copy.deepcopy(self.mech_dict[sec_type])
             self.mech_dict[sec_type][mech_name] = mech_content  # This mechanism has not yet been inserted into this
@@ -495,7 +525,8 @@ class HocCell(object):
             else:
                 self.mech_dict[sec_type] = copy.deepcopy(backup_content)
         finally:
-            pprint.pprint(self.mech_dict)
+            if verbose:
+                pprint.pprint(self.mech_dict)
 
     def export_mech_dict(self, mech_filename=None):
         """
@@ -504,40 +535,51 @@ class HocCell(object):
         current set of mechanism parameters to be recalled later.
         """
         if mech_filename is None:
-            mech_filename = 'mech_dict_'+str(datetime.datetime.today().strftime('%m%d%Y%H%M')+'.pkl')
-        write_to_pkl(data_dir+mech_filename+'.pkl', self.mech_dict)
+            mech_filename = 'mech_dict_'+datetime.datetime.today().strftime('%m%d%Y%H%M')+'.pkl'
+        write_to_pkl(data_dir+mech_filename, self.mech_dict)
         print "Exported mechanism dictionary to "+mech_filename
 
-    def get_node_by_distance_to_soma(self, distance, node_type):
+    def get_node_by_distance_to_soma(self, distance, sec_type):
         """
-        Gets the first node of the given node_type at least the given distance from a soma node.
+        Gets the first node of the given section type at least the given distance from a soma node.
         Not particularly useful, since it will always return the same node.
         :param distance: int or float
-        :param node_type: str
+        :param sec_type: str
         :return: :class:'SHocNode'
         """
-        nodes = self._node_dict[node_type]
+        nodes = self._node_dict[sec_type]
         for node in nodes:
             if self.get_distance_to_node(self.tree.root, node) >= distance:
                 return node
         raise Exception('No node is {} um from a soma node.'.format(distance))
 
-    def get_distance_to_node(self, root, node):
+    def get_distance_to_node(self, root, node, loc=None):
         """
-        Returns the distance from the origin of the node to the connection with a root node.
+        Returns the distance from the given location on the given node to its connection with a root node.
         :param root: :class:'SHocNode'
         :param node: :class:'SHocNode'
+        :param loc: float
         :return: int or float
         """
-        length = 0
+        length = 0.
+        if node in self.soma:
+            return length
+        if not loc is None:
+            length += loc*node.sec.L
         if root in self.soma:
             while not node.parent in self.soma:
+                node.sec.push()
+                loc = h.parent_connection()
+                h.pop_section()
                 node = node.parent
-                length += node.sec.L
+                length += loc*node.sec.L
         elif self.node_in_subtree(root, node):
             while not node.parent is root:
+                node.sec.push()
+                loc = h.parent_connection()
+                h.pop_section()
                 node = node.parent
-                length += node.sec.L
+                length += loc*node.sec.L
         else:
             return None  # node is not connected to root
         return length
@@ -580,19 +622,41 @@ class HocCell(object):
 
     def get_branch_order(self, node):
         """
-        Calculates the branch order of a SHocNode node and stores it in the node's content dictionary. The order is
-        defined as 0 for all soma, axon, and apical trunk dendrite nodes, but defined as 1 for basal dendrites that
-        branch from the soma, and apical and tuft dendrites that branch from the trunk. Increases by 1 after each
-        additional branch point.
+        Calculates the branch order of a SHocNode node. The order is defined as 0 for all soma, axon, and apical trunk
+        dendrite nodes, but defined as 1 for basal dendrites that branch from the soma, and apical and tuft dendrites
+        that branch from the trunk. Increases by 1 after each additional branch point. Makes sure not to count spines.
         :param node: :class:'SHocNode'
         :return: int
         """
         order = 0
         while not node in self.soma+self.axon+self.trunk:
-            if len(node.parent.children) > 1:
+            if len([child for child in node.parent.children if not child.type == 'spine_neck']) > 1:
                 order += 1
                 node = node.parent
         return order
+
+    def is_terminal(self, node):
+        """
+        Calculates if a node is a terminal branch.
+        :param node: :class:'SHocNode'
+        :return: Boolean
+        """
+        while node.children:
+            if len([child for child in node.children if not child.type == 'spine_neck']) > 1:
+                return False
+            else:
+                node = node.children[0]
+        return True
+
+    def set_stochastic_synapses(self, value):
+        """
+        This method turns stochastic filtering of release probability on or off for all synapses contained in this cell.
+        :param value: int in [0, 1]
+        """
+        for nodelist in self._node_dict.itervalues():
+            for node in nodelist:
+                for syn in node.synapses:
+                    syn.stochastic = value
 
     @property
     def gid(self):
@@ -640,6 +704,8 @@ class SHocNode(btmorph.btstructs2.SNode2):
         :param index: int : unique node identifier
         """
         btmorph.btstructs2.SNode2.__init__(self, index)
+        self.content['spines'] = []
+        self.content['synapses'] = []
 
     def get_sec(self):
         """
@@ -666,12 +732,16 @@ class SHocNode(btmorph.btstructs2.SNode2):
         Must be re-initialized whenever basic cable properties Ra or cm are changed. If the node is a tapered cylinder,
         it should contain at least 3 segments. The spatial resolution parameter increases the number of segments per
         section by a factor of an exponent of 3.
+        If a section's nseg has been manually increased beyond the suggestion of the mechanism dictionary, this method
+        does not decrease it.
         :param spatial_res: int
         """
         sugg_nseg = d_lambda_nseg(self.sec)
         if not self.get_diam_bounds() is None:
             sugg_nseg = max(sugg_nseg, 3)
-        self.sec.nseg = sugg_nseg * 3**spatial_res
+        sugg_nseg *= 3**spatial_res
+        if self.sec.nseg < sugg_nseg:
+            self.sec.nseg = sugg_nseg
 
     def reinit_diam(self):
         """
@@ -744,8 +814,8 @@ class SHocNode(btmorph.btstructs2.SNode2):
     @property
     def name(self):
         """
-        This is the str used to name the hoc section associated with this node. Consists of a type descriptor and an
-        index identifier.
+        Returns a str containing the name of the hoc section associated with this node. Consists of a type descriptor
+        and an index identifier.
         :return: str
         """
         if 'type' in self.content:
@@ -753,7 +823,261 @@ class SHocNode(btmorph.btstructs2.SNode2):
         else:
             raise Exception('This node does not yet have a defined type.')
 
+    @property
+    def spines(self):
+        """
+        Returns a list of the spine head sections attached to the hoc section associated with this node.
+        :return: list of :class:'SHocNode' of sec_type == 'spine_head'
+        """
+        return self.content['spines']
+
+    @property
+    def synapses(self):
+        """
+        Returns a list of the objects of :class:'Synapse' associated with this node.
+        :return: list of hoc objects, type depends on .mod file(s) used to implement synapses
+        """
+        return self.content['synapses']
+
 
 class CA1_Pyr(HocCell):
-    def __init__(self, morph_filename=None, mech_filename=None):
+    def __init__(self, morph_filename=None, mech_filename=None, full_spines=True):
         HocCell.__init__(self, morph_filename, mech_filename)
+        if full_spines:
+            self.insert_spines_()
+
+    def insert_spines(self):
+        """
+        This method populates the cell tree with spines following spine density information from Erk Bloss &
+        Nelson Spruston. Basal dendrites have no spines until the first branch point, and a higher density beyond the
+        second branch point. Trunk dendrites have no spines until the first branch point, and an increasing density
+        until the tuft branch point(s). Apical dendrites have a density that varies with the distance from the soma of
+        their original branch point from the trunk. Terminal tuft branches have a higher density than their parents.
+        Should standardize the implementation of the rules for each type of dendrite and import the
+        density dictionary from a file, similar to the implementation of the membrane mechanism dictionary.
+        """
+        np.random.seed(self.gid)  # This cell will always have the same spine locations
+        densities = {'trunk': {'min': 0.2418, 'max': 3.8,
+                               'start': self.get_distance_to_node(self.tree.root, self.apical[0]),
+                               'end': self.get_distance_to_node(self.tree.root, self.tuft[0])},
+                     'basal': {'1': 0., '2': 0.4428, '3': 1.891},
+                     'apical': {'min': 2.273, 'max': 2.688,
+                                'start': self.get_distance_to_node(self.tree.root, self.apical[0]),
+                                'end': max([self.get_distance_to_node(self.tree.root, branch)
+                                            for branch in self.apical if self.get_branch_order(branch) == 1])},
+                     'tuft': {'1': 1.354, 'terminal': 0.7157}
+                    }
+        for node in self.basal:
+            order = self.get_branch_order(node)
+            if order == 2:
+                self.insert_spines_every(node, densities['basal']['2'])
+            elif order > 2:
+                self.insert_spines_every(node, densities['basal']['3'])
+        for node in self.trunk:
+            distance = self.get_distance_to_node(self.tree.root, node)
+            if distance >= densities['trunk']['start']:
+                slope = (densities['trunk']['max'] - densities['trunk']['min']) / \
+                        (densities['trunk']['end'] - densities['trunk']['start'])
+                density = densities['trunk']['min'] + slope * (distance - densities['trunk']['start'])
+                self.insert_spines_every(node, density)
+        for node in self.apical:
+            distance = self.get_distance_to_node(self.tree.root, self.get_dendrite_origin(node), loc=1)
+            slope = (densities['apical']['max'] - densities['apical']['min']) / \
+                    (densities['apical']['end'] - densities['apical']['start'])
+            density = densities['apical']['min'] + slope * (distance - densities['apical']['start'])
+            self.insert_spines_every(node, density)
+        for node in self.tuft:
+            if self.is_terminal(node):
+                self.insert_spines_every(node, densities['tuft']['terminal'])
+            else:
+                self.insert_spines_every(node, densities['tuft']['1'])
+        self._reinit_mech(self.spine, 1)
+
+    def insert_spines_every(self, node, lam):
+        """
+        Given a mean inter-spine interval in um, insert spines in the node at the specified density.
+        :param node: :class:'SHocNode'
+        :param lam: float: mean interval
+        """
+        interval = 0.
+        L = node.sec.L
+        while interval < L:
+            interval += np.random.poisson(10000.*lam)/10000.  # random intervals with correct significant digits
+            self.insert_spine(node, interval/L)
+
+    def insert_spine(self, node, parent_loc, child_loc=0):
+        """
+        Spines consist of two hoc sections: a cylindrical spine head and a cylindrical spine neck.
+        :param node: :class:'SHocNode'
+        :param parent_loc: float
+        :param child_loc: int
+        """
+        neck = self.make_section('spine_neck')
+        neck.connect(node, 0.5, 0)
+        neck.sec.L = 1.58
+        neck.sec.diam = 0.077
+        self._init_cable(neck)
+        head = self.make_section('spine_head')
+        head.connect(neck)
+        node.spines.append(head)
+        head.sec.L = 0.408  # matches surface area of sphere with diam = 0.5
+        head.sec.diam = 0.408
+        self._init_cable(head)
+
+
+class Synapse(object):
+    """
+    The implementation in hoc of synaptic mechanisms that can be triggered is complicated. This container is an attempt
+    to wrap all the objects required to deliver synaptic events to a section, and have separable synaptic mechanisms
+    (e.g. GluA-Rs and GluN-Rs) respond with individually specifiable weights and kinetics.
+    To make model specification and simulation implementation straightforward, synapses are not meant to be moved once
+    they are initialized.
+    """
+    def __init__(self, cell, node, type_list=None, stochastic=1, loc=0.5, delay=0, source=None):
+        """
+        Design goals: A source (like a spike detector in a presynaptic neuron) can be specified. If not, a VecStim
+        object is used a source, which can be played events at specified times using its .play method. If stochastic,
+        all spikes are intercepted by a point process with release probability dynamics and its own unique and
+        independent random variable from a uniform distribution. If not, the specified synaptic mechanisms are connected
+        directly to the source of spikes.
+        :param cell: :class:'HocCell'
+        :param node: :class:'SHoCNode'
+        :param type_list: list of str
+        :param stochastic: int in [0, 1]
+        :param loc: int or float
+        :param delay: int or float
+        :param source: :class:'h.VecStim' or other source of spike events
+        """
+        self._cell = cell
+        self._node = node
+        self._stochastic = stochastic
+        self._loc = loc
+        self._delay = delay
+        self._syn = {}
+        self.randObj = None
+        if not source is None:
+            self.source = source
+        else:
+            self.source = h.VecStim()
+        if type_list is None:
+            type_list = ['AMPA_S']
+        if self.stochastic:
+            self._init_stochastic()
+        for type in type_list:
+            syn = getattr(h, type)(self.node.sec(self.loc))
+            self._syn[type] = {'target': syn}
+            if self.stochastic:
+                self._syn[type]['netcon'] = h.NetCon(self.target('Pr'), syn)
+            else:
+                self._syn[type]['netcon'] = h.NetCon(self.source, syn)
+            self.netcon(type).delay = self.delay
+            self.netcon(type).weight[0] = 1
+        self._node.synapses.append(self)
+
+    def _init_stochastic(self):
+        """
+        This method constructs and initializes a stochastic filtering mechanism that intercepts spikes delivered to this
+        synapse and calculates whether or not to pass a spike to the rest of the specified synaptic mechanisms.
+        """
+        if self.randObj is None:  # if this synapse has never been stochastic, it needs a new random number generator
+            self.randObj = h.Random()
+            self.randObj.MCellRan4(1, self.cell.gid*1e10+self.node.index*1e4+len(self.node.synapses)+1)
+            # a unique seed for up to 10,000 synapses per node and 1,000,000 sections per cell
+            self.randObj.uniform(0,1)
+        else:  # if this synapse has already been stochastic before, this restarts its random number generator
+            self.randObj.seq(1)
+        syn = getattr(h, 'Pr')(self.node.sec(self.loc))
+        self._syn['Pr'] = {'target': syn}
+        self._syn['Pr']['netcon'] = h.NetCon(self.source, syn)
+        self.netcon('Pr').delay = 0
+        self.netcon('Pr').weight[0] = 1
+        self.target('Pr').setRandObjRef(self.randObj)
+
+    def target(self, type):
+        """
+        Returns the hoc object for the synaptic mechanism of the specified type
+        :param type: str
+        :return: :class:'h.HocObject'
+        """
+        return self._syn[type]['target']
+
+    def netcon(self, type):
+        """
+        Returns the hoc network connection linking the synaptic mechanism of the specified type to a source of spikes.
+        :param type: str
+        :return: :class:'h.NetCon'
+        """
+        return self._syn[type]['netcon']
+
+    def get_stochastic(self):
+        """
+        Returns the value of an internal variable indicating if this synapse has a stochastic filter for spikes.
+        :return: int in [0, 1]
+        """
+        return self._stochastic
+
+    def set_stochastic(self, value):
+        """
+        Turns on or off stochastic filtering of spikes.
+        :param value: int in [0, 1]
+        """
+        if not (value == self._stochastic):
+            self._stochastic = value
+            if value:
+                self._init_stochastic()
+                for type in (type for type in self._syn if not type == 'Pr'):
+                    del self._syn[type]['netcon']
+                    self._syn[type]['netcon'] = h.NetCon(self.target('Pr'), self.target(type))
+                    self.netcon(type).delay = self._delay
+                    self.netcon(type).weight[0] = 1
+            else:
+                for type in (type for type in self._syn if not type == 'Pr'):
+                    del self._syn[type]['netcon']
+                    self._syn[type]['netcon'] = h.NetCon(self.source, self.target(type))
+                    self.netcon(type).delay = self._delay
+                    self.netcon(type).weight[0] = 1
+                del self._syn['Pr']
+
+    stochastic = property(get_stochastic, set_stochastic)
+
+    def get_delay(self):
+        """
+        Returns the value of the time delay (ms) between spike and activation for the specified synaptic mechanisms.
+        :return: int or float
+        """
+        return self._delay
+
+    def set_delay(self, value):
+        """
+        Changes the value of the time delay (ms) between spike and activation for the specified synaptic mechanisms.
+        :param value: int or float
+        """
+        self._delay = value
+        for type in (type for type in self._syn if not type == 'Pr'):
+            self.netcon(type).delay = value
+
+    delay = property(get_delay, set_delay)
+
+    @property
+    def cell(self):
+        """
+        Returns the cell containing this synapse.
+        :return: :class:'HocCell'
+        """
+        return self._cell
+
+    @property
+    def node(self):
+        """
+        Returns the node containing this synapse.
+        :return: :class:'SHocNode'
+        """
+        return self._node
+
+    @property
+    def loc(self):
+        """
+        Returns the location along the hoc section containing this synapse.
+        :return: int or float
+        """
+        return self._loc
