@@ -81,12 +81,12 @@ PARAMETER {
 
 	Cmax    = 1.        (mM)    	    : transmitter concentration during release event
 	Cdur	= 0.3       (ms)		    : transmitter duration (rising phase)
-	kon     = 7.92      (/ms/mM)        : unbound channel binding rate
-    koff    = 0.0482    (/ms)           : bound channel unbinding rate
-    Beta	= 0.0288    (/ms)	        : bound channel opening rate
-    Alpha   = 0.0553    (/ms)           : open channel closing rate
-    Delta   = 0.0236    (/ms)           : bound channel desensitization rate
-    Gamma   = 1.0251    (/ms)           : recovery from desensitization rate
+	kon     = 5.5355    (/ms/mM)        : unbound channel binding rate
+    koff    = 0.0220    (/ms)           : bound channel unbinding rate
+    Beta	= 0.0680    (/ms)	        : bound channel opening rate
+    Alpha   = 0.0986    (/ms)           : open channel closing rate
+    Delta   = 0.0343    (/ms)           : bound channel desensitization rate
+    Gamma   = 0.7161    (/ms)           : recovery from desensitization rate
 	Erev	= 0.        (mV)		    : reversal potential
     mg      = 1.0       (mM)            : extracellular Mg concentration
 	gmax	= 0.0015    (umho)	        : maximum conductance

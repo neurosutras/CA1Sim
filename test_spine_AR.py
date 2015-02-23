@@ -7,12 +7,12 @@ from neuron import h
 
 morph_filename = 'MC120914100xC3-scaled.swc'
 mech_filename = '022315 kap_scale kd ih_scale no_na.pkl'
-rec_filename = '022315 kap_scale kd ih_scale - ar'
+rec_filename = '022315 kap_scale kd ih_scale no_na - ar'
 
 
 equilibrate = 200.  # time to steady-state
 duration = 250.
-amp = 0.09
+amp = 0.06
 
 cell = CA1_Pyr(morph_filename, mech_filename, full_spines=False)
 for node in cell.basal+cell.trunk+cell.apical+cell.tuft:
@@ -30,7 +30,7 @@ sim.parameters['duration'] = duration
 sim.append_rec(cell, cell.tree.root, 0.5)
 sim.append_rec(cell, cell.tree.root, 0.5)
 
-spike_times = h.Vector([100])
+spike_times = h.Vector([equilibrate])
 
 f = h5py.File(data_dir+rec_filename+'.hdf5', 'w')
 simiter = 0

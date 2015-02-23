@@ -4,18 +4,19 @@ from plot_results import *
 from specify_cells import *
 from function_lib import *
 from neuron import h
-import scipy as sp
+#import scipy as sp
 """
 Iterate through every section, inject hyperpolarizing current to measure input resistance.
 """
 
 morph_filename = 'MC120914100xC3-scaled.swc'
 mech_filename = '022315 kap_scale kd ih_scale.pkl'
-rec_filename = '022315 kap_scale kd ih_scale'
+rec_filename = '022315 kap_scale kd ih_scale - rinp'
 
 
-equilibrate = 100.  # time to steady-state
-duration = 200.
+equilibrate = 200.  # time to steady-state
+duration = 300.
+stim_dur = 100.
 amp = -0.1
 
 cell = HocCell(morph_filename, mech_filename)
@@ -23,7 +24,7 @@ sim = QuickSim(duration)
 sim.append_rec(cell, cell.tree.root, 0.5)
 sim.append_stim(cell, cell.tree.root, 0.5, amp, equilibrate, stim_dur)
 
-f = h5py.File(data_dir+rec_filename+'.hdf5')
+f = h5py.File(data_dir+rec_filename+'.hdf5', 'w')
 simiter = 0
 for node in cell.basal+cell.trunk+cell.apical+cell.tuft:
     sim.modify_rec(0, node)

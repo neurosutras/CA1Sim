@@ -73,10 +73,10 @@ PARAMETER {
 
 	Cmax    = 1.        (mM)    	    : transmitter concentration during release event
 	Cdur	= 0.3       (ms)		    : transmitter duration (rising phase)
-	kon     = 12.5      (/ms/mM)        : unbound channel binding rate
-    koff    = 51.0      (/ms)           : bound channel unbinding rate
-    Beta	= 31.9      (/ms)	        : bound channel opening rate
-    Alpha   = 5.46      (/ms)           : open channel closing rate
+	kon     = 18.7173   (/ms/mM)        : unbound channel binding rate
+    koff    = 18.5095   (/ms)           : bound channel unbinding rate
+    Beta	= 19.2338   (/ms)	        : bound channel opening rate
+    Alpha   = 6.4123    (/ms)           : open channel closing rate
 	Erev	= 0.        (mV)		    : reversal potential
 	gmax	= 0.01      (umho)	        : maximum conductance
 }

@@ -42,13 +42,11 @@ def plot_AR(rec_filename):
             dendR[sec_type] = []
             neckR[sec_type] = []
         distances[sec_type].append(branch_rec.attrs['branch_distance'])
-        left, right = time2index(branch_tvec[:], equilibrate-3.0, equilibrate-1.0)
-        baseline_branch = np.average(branch_rec[left:right])
-        left, right = time2index(branch_tvec[:], equilibrate, duration)
-        peak_branch = np.max(branch_rec[left:right]) - baseline_branch
         left, right = time2index(spine_tvec[:], equilibrate-3.0, equilibrate-1.0)
+        baseline_branch = np.average(branch_rec[left:right])
         baseline_spine = np.average(spine_rec[left:right])
         left, right = time2index(spine_tvec[:], equilibrate, duration)
+        peak_branch = np.max(branch_rec[left:right]) - baseline_branch
         peak_spine = np.max(spine_rec[left:right]) - baseline_spine
         this_AR = peak_spine / peak_branch
         AR[sec_type].append(this_AR)
@@ -103,7 +101,7 @@ def plot_spine_amp(rec_filename):
     distances = {}
     spine_amp = {}
     branch_amp = {}
-    amp = f['0'].attrs['amp']
+    #amp = f['0'].attrs['amp']
     equilibrate = f['0'].attrs['equilibrate']
     duration = f['0'].attrs['duration']
     simiter = 0
@@ -128,11 +126,9 @@ def plot_spine_amp(rec_filename):
         distances[sec_type].append(branch_rec.attrs['branch_distance'])
         left, right = time2index(spine_tvec[:], equilibrate-3.0, equilibrate-1.0)
         baseline_branch = np.average(branch_rec[left:right])
-        left, right = time2index(spine_tvec[:], equilibrate, duration)
-        peak_branch = np.max(branch_rec[left:right]) - baseline_branch
-        left, right = time2index(spine_tvec[:], equilibrate-3.0, equilibrate-1.0)
         baseline_spine = np.average(spine_rec[left:right])
         left, right = time2index(spine_tvec[:], equilibrate, duration)
+        peak_branch = np.max(branch_rec[left:right]) - baseline_branch
         peak_spine = np.max(spine_rec[left:right]) - baseline_spine
         spine_amp[sec_type].append(peak_spine)
         branch_amp[sec_type].append(peak_branch)
@@ -161,6 +157,53 @@ def plot_spine_amp(rec_filename):
     f.close()
 
 
+def plot_spine_Vm(rec_filename, stim_loc='spine'):
+    """
+    Plots traces from either spine or branch stim. Superimposes all traces from a dendritic sec type. Separates spine
+    voltage from branch voltage.
+    :param rec_filename: str
+    :param stim_loc: str
+    """
+    f = h5py.File(data_dir+rec_filename+'.hdf5', 'r')
+    sec_types = []
+    equilibrate = f['0'].attrs['equilibrate']
+    duration = f['0'].attrs['duration']
+    fig, axes = plt.subplots(2, 4)
+    colors = ['b', 'g', 'r', 'c']
+    simiter = 0
+    while simiter < len(f):
+        if f[str(simiter)].attrs['stim_loc'] == stim_loc:
+            stim = f[str(simiter)]['rec']
+            tvec = f[str(simiter)]['time']
+        elif f[str(simiter+1)].attrs['stim_loc'] == stim_loc:
+            stim = f[str(simiter+1)]['rec']
+            tvec = f[str(simiter+1)]['time']
+        for rec in stim.itervalues():
+            if rec.attrs['description'] == 'branch':
+                branch_rec = rec
+                sec_type = rec.attrs['type']
+            elif rec.attrs['description'] == 'spine':
+                spine_rec = rec
+        if not sec_type in sec_types:
+            sec_types.append(sec_type)
+        left, right = time2index(tvec[:], equilibrate-5.0, duration)
+        i = sec_types.index(sec_type)
+        #color = colors[i]
+        axes[0][i].plot(tvec[left:right], spine_rec[left:right])
+        axes[0][i].set_xlabel('Time (ms)')
+        axes[0][i].set_ylabel('Spine Vm (mV)')
+        axes[0][i].set_title(sec_type)
+        axes[1][i].plot(tvec[left:right], branch_rec[left:right])
+        axes[0][i].set_xlabel('Time (ms)')
+        axes[0][i].set_ylabel('Branch Vm (mV)')
+        axes[0][i].set_title(sec_type)
+        simiter += 2
+    plt.subplots_adjust(hspace=0.3, wspace=0.3, left=0.05, right=0.98, top=0.95, bottom=0.05)
+    plt.show()
+    plt.close()
+    f.close()
+
+
 def plot_Rinp(rec_filename):
     """
     Produces a plot of input resistance vs. distance from primary branch for each dendritic subtype.
@@ -175,7 +218,7 @@ def plot_Rinp(rec_filename):
     amp = f['0']['stim']['0'].attrs['amp']
     start = f['0']['stim']['0'].attrs['delay']
     stop = start + f['0']['stim']['0'].attrs['dur']
-    simiter = 0
+    #simiter = 0
     for sim in f.itervalues():
         rec = sim['rec']['0']
         sec_type = rec.attrs['type']
