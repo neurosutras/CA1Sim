@@ -1,0 +1,75 @@
+1) install anaconda python, includes ipython, numpy, matplotlib
+
+2) install neuron for mac from disk image:
+http://www.neuron.yale.edu/ftp/neuron/versions/alpha/nrn-7.4.alpha-1226.x86_64-apple-osx10.7.5.dmg
+
+or install from mercurial
+
+hg clone http://www.neuron.yale.edu/hg/neuron/nrn -r ansi
+
+following tips from:
+
+http://www.neuron.yale.edu/neuron/download/compilestd_osx
+
+http://www.neuron.yale.edu/phpBB/viewtopic.php?f=4&t=3051#p12584
+
+and making sure to execute these commands before running 'make':
+
+export CFLAGS='-Qunused-arguments'
+export CXXFLAGS='-Qunused-arguments'
+
+cd nrn/src/nrnmpi
+sh mkdynam.sh
+
+3) If error: copy libreadline.6.2.dylib into /usr/lib from /anaconda/lib
+
+
+
+
+
+To run my simulations, make sure to execute nrnivmodl in the directory that contains the .mod and .py files. Make sure to put .swc files in the /morphologies directory and expect to find .pkl and .hdf5 data output files in the /data directory
+
+Then start an iPython session with: ipython
+
+and execute pieces of the similation with:
+run name_of_py_file
+
+build your own cell with
+
+from specify_cells import *
+from function_lib import *
+from plot_results import *
+
+cell = HocCell()
+cell.make_section('soma')
+
+or if you have an .swc file where different types of compartments have been appropriately annotated, you can specify the model use your morphology with:
+
+cell = HocCell('str_with_name_of_swc_file.swc')
+
+Ion channel mechanisms and cable parameters for various types of compartments can be inserted with:
+
+cell.modify_mech_param('soma', 'cable', 'Ra', 150.)
+cell.modify_mech_param('soma', 'pas', 'g', 0.0002)
+cell.modify_mech_param('basal', 'h', 'ghbar', origin='soma')
+cell.modify_mech_param(sec_type, 'kap', 'gkabar', origin='soma', slope=3.84e-4, max=0.24)
+
+Once you have a cell appropriately specified, you can save a file containing the mechanisms with:
+
+cell.export_mech_dict('str_with_name_of_pkl_file.pkl'), or with no arg to automatically generate a unique filename with the data and timestamp.
+
+A quick simulation using adaptive timestep integration can be run with:
+
+sim = QuickSim(duration)
+sim.append_rec(cell, cell.tree.root, 0.5, description='soma')
+sim.run()
+sim.plot()
+
+or
+
+sim.export_to_file(name_of_hdf5_object, index_of_similation_in_file)
+
+then calling a plot function on the output file:
+
+plot_superimpose_conditions('str_with_name_of_output_file') # no suffix necessary
+

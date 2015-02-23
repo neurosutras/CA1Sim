@@ -1,12 +1,12 @@
-__author__ = 'Aaron D. Milstein'
+__author__ = 'milsteina'
 import math
 import pickle
 import os.path
 import datetime
+import time
 import numpy as np
 import matplotlib.pyplot as plt
 import h5py
-
 from neuron import h
 
 
@@ -43,13 +43,33 @@ dict:
                                                 constant 'value' for the full length of sec.
                         'max':      float:      If 'slope' exists, 'max' is an upper limit for the value
                         'min':      float:      If 'slope' exists, min is a lower limit for the value
+
+
+default_mech_dict = {'ais': {'cable': {'Ra': {'origin': 'soma'}},
+                             'kdr': {'gkdrbar': {'origin': 'soma'}},
+                             'hh2': {'gnabar': {'origin': 'self', 'value': 0.25},
+                                     'gkbar': {'origin': 'soma'}},
+                             'pas': {'e': {'origin': 'soma'}, 'g': {'origin': 'soma'}}},
+                     'apical': {'cable': {'Ra': {'origin': 'soma'}},
+                                'pas': {'e': {'origin': 'soma'}, 'g': {'origin': 'soma'}}},
+                     'axon': {'cable': {'Ra': {'origin': 'soma'}},
+                              'kdr': {'gkdrbar': {'origin': 'soma'}},
+                              'hh2': {'gnabar': {'origin': 'soma'},
+                                      'gkbar': {'origin': 'soma'}},
+                              'pas': {'e': {'origin': 'soma'}, 'g': {'origin': 'soma'}}},
+                     'basal': {'cable': {'Ra': {'origin': 'soma'}},
+                               'pas': {'e': {'origin': 'soma'}, 'g': {'origin': 'soma'}}},
+                     'soma': {'cable': {'Ra': {'origin': 'self', 'value': 150}},
+                              'kdr': None,
+                              'hh2': {'gnabar': {'origin': 'self', 'value': 0.05}},
+                              'pas': {'e': {'origin': 'self', 'value': -65},
+                                      'g': {'origin': 'self', 'value': 2.5e-05}}},
+                     'trunk': {'cable': {'Ra': {'origin': 'soma'}},
+                               'pas': {'e': {'origin': 'soma'}, 'g': {'origin': 'soma'}}},
+                     'tuft': {'cable': {'Ra': {'origin': 'soma'}},
+                              'pas': {'e': {'origin': 'soma'}, 'g': {'origin': 'soma'}}}}
 """
-
-default_mech_dict = {'soma': {'pas': {'g': {'origin': 'self', 'value': 0.0001}},
-                              'hh2': {'gnabar': {'origin': 'self', 'value': 0.05}}},
-                     'ais': {'hh2': {'gnabar': {'origin': 'self', 'value': 0.25}}}}
-
-#default_mech_dict = {}
+default_mech_dict = {}
 
 
 def lambda_f(sec, f=freq):
@@ -68,10 +88,10 @@ def lambda_f(sec, f=freq):
 
 def d_lambda_nseg(sec, lam=d_lambda, f=freq):
     """
-    The AC length constant for this section and the user-defined fraction is used to determine the maximum size
-    of each segment to achieve the desired spatial and temporal resolution. This method returns the number of
-    segments to set the nseg parameter for this section. For tapered cylindrical sections, the diam parameter
-    will need to be reinitialized after nseg changes.
+    The AC length constant for this section and the user-defined fraction is used to determine the maximum size of each
+    segment to achieve the desired spatial and temporal resolution. This method returns the number of segments to set
+    the nseg parameter for this section. For tapered cylindrical sections, the diam parameter will need to be
+    reinitialized after nseg changes.
     :param sec : :class:'h.Section'
     :param lam : int
     :param f : int
@@ -146,42 +166,60 @@ def read_from_pkl(fname):
 class QuickSim(object):
     """
     This method is used to run a quick simulation with a set of current injections and a set of recording sites.
-    Can iterate through simulations, each with some modifications of the stimulation parameters, and save all the
-    recorded vectors to an HDF5 file.
-    Once defined, IClamp objects persist when using an interactive console, but not when executing standalone scripts.
-    Therefore, the best practice is simply to set amp to zero to turn off current injections, or move individual IClamp
-    processes to different locations rather then adding and deleting them.
+    Can save detailed information about the simulation to an HDF5 file after each run. Once defined, IClamp objects
+    persist when using an interactive console, but not when executing standalone scripts. Therefore, the best practice
+    is simply to set amp to zero to turn off current injections, or move individual IClamp processes to different
+    locations rather then adding and deleting them.
     class params:
-    self.stim_list: list of dicts with keys for 'cell', 'node', and 'stim': pointer to hoc IClamp object
-    self.rec_list: list of dicts with keys for 'cell', 'node', 'loc' and 'vec': pointer to hoc Vector object. Also
-    contains keys for 'name' and 'units' for recording parameters other than Vm.
+    self.stim_list:
+    self.rec_list:
     """
-    def __init__(self, tstop=400, dt=None):
-        self.rec_list = []
-        self.stim_list = []
+    def __init__(self, tstop=400, cvode=1, dt=None):
+        self.rec_list = []  # list of dicts with keys for 'cell', 'node', 'loc' and 'vec': pointer to hoc Vector object.
+                            # Also contains keys for 'ylabel' and 'units' for recording parameters other than Vm.
+        self.stim_list = []  # list of dicts with keys for 'cell', 'node', 'stim': pointer to hoc IClamp object, and
+                             # 'vec': recording of actual stimulus for plotting later
         self.tstop = tstop
+        h.load_file('stdrun.hoc')
+        h.celsius = 35.0
+        if cvode:
+            h.cvode_active(1)
+            h.cvode.atol(0.0001)
         if dt is None:
             self.dt = h.dt
         else:
             self.dt = dt
         self.tvec = h.Vector()
         self.tvec.record(h._ref_t)
+        self.parameters = {}
 
-    def run(self, v_init=-65): # these are going to have to be lists of lists so there can be more than one stim per run
+    def run(self, v_init=-65.):
+        start_time = time.time()
         h.tstop = self.tstop
         h.dt = self.dt
-        h.finitialize(v_init)
+        h.v_init = v_init
+        h.init()
         h.run()
-#        self.plot()
+        print 'Simulation runtime: ', time.time()-start_time, ' sec'
 
-    def append_rec(self, cell, node, loc, param='_ref_v', ylabel='Vm', units='mV'):
-        rec_dict = {'cell': cell, 'node': node, 'loc': loc, 'ylabel': ylabel, 'units': units}
+    def append_rec(self, cell, node, loc=0.5, param='_ref_v', object=None, ylabel='Vm', units='mV', description=None):
+        rec_dict = {'cell': cell, 'node': node, 'ylabel': ylabel, 'units': units}
+        if not description is None:
+            rec_dict['description'] = description
         rec_dict['vec'] = h.Vector()
-        rec_dict['vec'].record(getattr(node.sec(loc), param))
+        if object is None:
+            rec_dict['vec'].record(getattr(node.sec(loc), param))
+        else:
+            try:
+                loc = object.get_loc()
+            except:
+                loc = 0.5  # if the object doesn't have a .get_loc() method, default to 0.5
+            rec_dict['vec'].record(getattr(object, param))
+        rec_dict['loc'] = loc
         self.rec_list.append(rec_dict)
 
-    def append_stim(self, cell, node, loc, amp, delay, dur):
-        stim_dict = {'cell': cell, 'node': node}
+    def append_stim(self, cell, node, loc, amp, delay, dur, description='IClamp'):
+        stim_dict = {'cell': cell, 'node': node, 'description': description}
         stim_dict['stim'] = h.IClamp(node.sec(loc))
         stim_dict['stim'].amp = amp
         stim_dict['stim'].delay = delay
@@ -190,13 +228,13 @@ class QuickSim(object):
         stim_dict['vec'].record(stim_dict['stim']._ref_i)
         self.stim_list.append(stim_dict)
 
-    def modify_stim(self, index=0, node=None, loc=None, amp=None, delay=None, dur=None):
+    def modify_stim(self, index=0, node=None, loc=None, amp=None, delay=None, dur=None, description=None):
         stim_dict = self.stim_list[index]
         if (node is None) | (loc is None):
             if not node is None:
                 stim_dict['node'] = node
             if loc is None:
-                loc = stim_dict['stim'].get_loc()
+                loc = stim_dict['stim'].get_segment().x
             stim_dict['stim'].loc(stim_dict['node'].sec(loc))
         if not amp is None:
             stim_dict['stim'].amp = amp
@@ -204,119 +242,135 @@ class QuickSim(object):
             stim_dict['stim'].delay = delay
         if not dur is None:
             stim_dict['stim'].dur = dur
+        if not description is None:
+            stim_dict['description'] = description
 
-    def modify_rec(self, index=0, node=None, loc=None):
+    def modify_rec(self, index=0, node=None, loc=None, object=None, param=None, ylabel=None, units=None,
+                                                                                        description=None):
         rec_dict = self.rec_list[index]
-        if not node is None:
-            rec_dict['node'] = node
-            rec_dict['vec'].record(node.sec(rec_dict['loc'])._ref_v)
-        if not loc is None:
-            rec_dict['loc'] = loc
-            rec_dict['vec'].record(rec_dict['node'].sec(loc)._ref_v)
+        if param is None:
+            param = '_ref_v'
+        else:
+            if not ylabel is None:
+                rec_dict['ylabel'] = ylabel
+            if not units is None:
+                rec_dict['units'] = units
+        if object is None:
+            if not node is None:
+                rec_dict['node'] = node
+                rec_dict['vec'].record(getattr(node.sec(rec_dict['loc']), param))
+            if not loc is None:
+                rec_dict['loc'] = loc
+                rec_dict['vec'].record(getattr(rec_dict['node'].sec(loc), param))
+        else:
+            rec_dict['vec'].record(getattr(object, param))
+        if not description is None:
+            rec_dict['description'] = description
 
     def plot(self):
         for rec_dict in self.rec_list:
-            plt.plot(self.tvec, rec_dict['vec'], label=rec_dict['node'].name+'('+str(rec_dict['loc'])+')')
+            if 'description' in rec_dict:
+                description = str(rec_dict['description'])
+            else:
+                description = ''
+            plt.plot(self.tvec, rec_dict['vec'], label=rec_dict['node'].name+'('+str(rec_dict['loc'])+') - '+
+                                                                                description)
             plt.xlabel("Time (ms)")
             plt.ylabel(rec_dict['ylabel']+' ('+rec_dict['units']+')')
-        legend = plt.legend(loc='upper right')
+        plt.legend(loc='upper right')
+        if 'description' in self.parameters:
+            plt.title(self.parameters['description'])
         plt.show()
         plt.close()
 
     def export_to_file(self, f, simiter=0):
-        if simiter == 0:
-            f.create_dataset('time', compression='gzip', compression_opts=9, data=self.tvec)
+        """
+        Extracts important parameters from the lists of stimulation and recording sites, and exports to an HDF5
+        database. Arrays are saved as datasets and metadata is saved as attributes.
+        :param f: :class:'h5py.File'
+        :param simiter: int
+        """
+        start_time = time.time()
         f.create_group(str(simiter))
+        f[str(simiter)].create_dataset('time', compression='gzip', compression_opts=9, data=self.tvec)
+        f[str(simiter)]['time'].attrs['dt'] = self.dt
+        for parameter in self.parameters:
+            f[str(simiter)].attrs[parameter] = self.parameters[parameter]
         f[str(simiter)].create_group('stim')
         for index, stim in enumerate(self.stim_list):
             stim_out = f[str(simiter)]['stim'].create_dataset(str(index), compression='gzip', compression_opts=9,
                                                               data=stim['vec'])
-            stim_out.attrs['cell'] = stim['cell'].gid
-            stim_out.attrs['node'] = stim['node'].name
-            stim_out.attrs['loc'] = stim['stim'].get_loc()
+            cell = stim['cell']
+            stim_out.attrs['cell'] = cell.gid
+            node = stim['node']
+            stim_out.attrs['index'] = node.index
+            stim_out.attrs['type'] = node.type
+            loc = stim['stim'].get_segment().x
+            stim_out.attrs['loc'] = loc
+            distance = cell.get_distance_to_node(cell.tree.root, node, loc)
+            stim_out.attrs['soma_distance'] = distance
+            distance = cell.get_distance_to_node(cell.get_dendrite_origin(node), node, loc)
+            stim_out.attrs['branch_distance'] = distance
             stim_out.attrs['amp'] = stim['stim'].amp
             stim_out.attrs['delay'] = stim['stim'].delay
             stim_out.attrs['dur'] = stim['stim'].dur
+            stim_out.attrs['description'] = stim['description']
         f[str(simiter)].create_group('rec')
         for index, rec in enumerate(self.rec_list):
             rec_out = f[str(simiter)]['rec'].create_dataset(str(index), compression='gzip', compression_opts=9,
                                                             data=rec['vec'])
-            rec_out.attrs['cell'] = rec['cell'].gid
-            rec_out.attrs['node'] = rec['node'].name
+            cell = rec['cell']
+            rec_out.attrs['cell'] = cell.gid
+            node = rec['node']
+            rec_out.attrs['index'] = node.index
+            rec_out.attrs['type'] = node.type
             rec_out.attrs['loc'] = rec['loc']
+            distance = cell.get_distance_to_node(cell.tree.root, node, rec['loc'])
+            rec_out.attrs['soma_distance'] = distance
+            distance = cell.get_distance_to_node(cell.get_dendrite_origin(node), node, rec['loc'])
+            rec_out.attrs['branch_distance'] = distance
             rec_out.attrs['ylabel'] = rec['ylabel']
             rec_out.attrs['units'] = rec['units']
+            if 'description' in rec:
+                rec_out.attrs['description'] = rec['description']
+        print 'Simulation ',simiter,': exporting took: ', time.time()-start_time, ' s'
 
 
-def sim_multiple(sim, stim_mods=None, rec_filename=None):
+def time2index(tvec, start, stop):
     """
-    Iterate through modifications to stimuli and export all recorded vectors to unique hdf5 file.
-    :param sim: :class:'QuickSim'
-    :param stim_mods: list of dicts with {index: dict of kwargs} to modify stim parameters
-        example: [{0: {'amp': 0.3, 'loc': 1.0}}, {0: {'amp': 0.4}}]
-        would change the 1st IClamp object in the sim object to a new location and iterate for two simulations with
-        different current amplitudes.
+    When using adaptive time step (cvode), indices corresponding to specific time points cannot be calculated from a
+    fixed dt. This method returns the indices closest to the duration bounded by the specified time points.
+    :param tvec: :class:'numpy.array'
+    :param start: float
+    :param stop: float
+    :return: tuple of int
     """
-    if stim_mods is None:
-        stim_mods = [{}]
-    if rec_filename is None:
-        rec_filename = 'sim_output_'+str(datetime.datetime.today().strftime('%m%d%Y%H%M'))
-    f = h5py.File(data_dir+rec_filename+'.hdf5')
-    for simiter, stim_mod in enumerate(stim_mods):
-        if stim_mod:  # don't change any stim parameters for empty dictionaries in list
-            for index in range(len(sim.stim_list)):  # iterate through IClamp objects in sim.stim_list
-                if index in stim_mod:  # apply any modifications to IClamp object if specified by dictionary
-                    sim.modify_stim(index, **stim_mod[index])
-        sim.run()
-        sim.export_to_file(f, simiter)
-    f.close()
-    print 'Simulation output saved to: {}{}.hdf5'.format(data_dir, rec_filename)
-    global exported_filename
-    exported_filename = rec_filename
+    left = np.where(tvec >= start)[0][0]
+    if tvec[left] >= stop:
+        right = left
+        left -= 1
+        return left, right
+    right = np.where(tvec <= stop)[0][-1]
+    if right == left:
+        left -= 1
+    return left, right
 
 
-def sweep_and_plot(sim, param, min, max, inc, index=0):
-    pass
-
-
-def plot_from_file(rec_filename=None):
-    if rec_filename is None:
-        global exported_filename
-        rec_filename = exported_filename
-    f = h5py.File(data_dir+rec_filename+'.hdf5')
-    time = f['time']
-    fig, axes = plt.subplots(2, len(f)-1)
-    for column in range(len(f) - 1):
-        simiter = str(column)
-        for rec in f[simiter]['rec'].itervalues():
-            axes[0][column].plot(time, rec, label=rec.attrs['node']+'('+str(rec.attrs['loc'])+')')
-        axes[0][column].set_xlabel("Time (ms)")
-        axes[0][column].set_ylabel(rec.attrs['ylabel']+' ('+rec.attrs['units']+')')
-        axes[0][column].legend(loc='upper right')
-        for stim in f[simiter]['stim'].itervalues():
-            axes[1][column].plot(time, stim, label=stim.attrs['node']+'('+str(stim.attrs['loc']))
-        axes[1][column].set_xlabel("Time (ms)")
-        axes[1][column].set_ylabel('Current (nA)')
-        axes[1][column].legend(loc='upper right')
-    plt.show()
-    plt.close()
-    f.close()
-
-
-def plot_from_hdf(f):
-    time = f['time']
-    fig, axes = plt.subplots(2, len(f)-1)
-    for column in range(len(f) - 1):
-        simiter = str(column)
-        for rec in f[simiter]['rec'].itervalues():
-            axes[0][column].plot(time, rec, label=rec.attrs['node']+'('+str(rec.attrs['loc'])+')')
-        axes[0][column].set_xlabel("Time (ms)")
-        axes[0][column].set_ylabel(rec.attrs['ylabel']+' ('+rec.attrs['units']+')')
-        axes[0][column].legend(loc='upper right')
-        for stim in f[simiter]['stim'].itervalues():
-            axes[1][column].plot(time, stim, label=stim.attrs['node']+'('+str(stim.attrs['loc']))
-        axes[1][column].set_xlabel("Time (ms)")
-        axes[1][column].set_ylabel('Current (nA)')
-        axes[1][column].legend(loc='upper right')
-    plt.show()
-    plt.close()
+def get_Rinp(tvec, vec, start, stop, amp):
+    """
+    Calculate peak and steady-state input resistance from a step current injection. For waveform current injections, the
+    peak but not the steady-state will have meaning.
+    :param tvec:
+    :param vec:
+    :param start:
+    :param stop:
+    :param amp:
+    :return:
+    """
+    left, right = time2index(tvec, start-3., start-1.)
+    baseline = np.average(vec[left:right])
+    temp_vec = np.abs(vec - baseline)
+    peak = np.max(temp_vec)
+    left, right = time2index(tvec, stop-3., stop-1.)
+    plateau = np.average(temp_vec[left:right])
+    return peak/abs(amp), plateau/abs(amp)
