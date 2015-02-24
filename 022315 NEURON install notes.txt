@@ -23,11 +23,24 @@ sh mkdynam.sh
 
 3) If error: copy libreadline.6.2.dylib into /usr/lib from /anaconda/lib
 
+4) Install btmorph from
 
+http://btmorph.readthedocs.org/en/latest/readme.html#installation
 
+5) Make sure ~/neuron/nrnenv and ~/bash_profile have been set appropriately, including:
 
+export HOME=/Users/_your_user
+export PATH=$HOME/local/bin:$PATH
+export LD_LIBRARY_PATH=$HOME/local/lib/
+source $HOME/neuron/nrnenv
+export PATH="/Applications/NEURON-7.4:$PATH"
+export PATH="/anaconda/bin:$PATH"
+export PYTHONPATH="$PYTHONPATH:$HOME/python_modules/btmorph"
+export PYTHONPATH="$PYTHONPATH:/Applications/NEURON-7.4/nrn/lib/python"
 
-To run my simulations, make sure to execute nrnivmodl in the directory that contains the .mod and .py files. Make sure to put .swc files in the /morphologies directory and expect to find .pkl and .hdf5 data output files in the /data directory
+6) To run my simulations, make sure to execute nrnivmodl in the directory that contains the .mod and .py files.
+Make sure to put .swc files in the /morphologies directory and expect to find .pkl and .hdf5 data output files in the
+/data directory
 
 Then start an iPython session with: ipython
 
@@ -43,7 +56,8 @@ from plot_results import *
 cell = HocCell()
 cell.make_section('soma')
 
-or if you have an .swc file where different types of compartments have been appropriately annotated, you can specify the model use your morphology with:
+or if you have an .swc file where different types of compartments have been appropriately annotated, you can specify
+the model use your morphology with:
 
 cell = HocCell('str_with_name_of_swc_file.swc')
 
@@ -56,12 +70,17 @@ cell.modify_mech_param(sec_type, 'kap', 'gkabar', origin='soma', slope=3.84e-4, 
 
 Once you have a cell appropriately specified, you can save a file containing the mechanisms with:
 
-cell.export_mech_dict('str_with_name_of_pkl_file.pkl'), or with no arg to automatically generate a unique filename with the data and timestamp.
+cell.export_mech_dict('str_with_name_of_pkl_file.pkl'), or with no arg to automatically generate a unique filename with
+the data and timestamp.
+
+Then a cell can be instantiated with a mech_dict file:
+
+cell = HocCell('str_with_name_of_swc_file.swc', 'str_with_name_of_pkl_file.pkl')
 
 A quick simulation using adaptive timestep integration can be run with:
 
 sim = QuickSim(duration)
-sim.append_rec(cell, cell.tree.root, 0.5, description='soma')
+sim.append_rec(cell, cell.tree.root, loc=0.5, description='soma')
 sim.run()
 sim.plot()
 
