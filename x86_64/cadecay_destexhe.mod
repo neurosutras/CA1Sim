@@ -1,1 +1,0 @@
-../cadecay_destexhe.mod
