@@ -4,7 +4,7 @@ from plot_results import *
 from specify_cells import *
 from function_lib import *
 from neuron import h
-import scipy as sp
+import scipy.optimize as optimize
 """
 This simulation uses scipy.optimize to iterate through NMDAR gating parameters to fit target EPSP kinetics.
 """
@@ -34,7 +34,7 @@ def fit_exp_nonlinear(t, y, rise, decay):
     :param decay:
     :return:
     """
-    opt_parms, parm_cov = sp.optimize.curve_fit(diff_of_exp_model_func, t, y, p0=[1., rise, decay], maxfev=2000)
+    opt_parms, parm_cov = optimize.curve_fit(diff_of_exp_model_func, t, y, p0=[1., rise, decay], maxfev=2000)
     A1, tau1, tau2 = opt_parms
     return A1, tau1, tau2
 
@@ -44,12 +44,12 @@ def null_minimizer(fun, x0, args, **options):
     Rather than allow basinhopping to pass each local mimimum to a gradient descent algorithm for polishing, this method
     just catches and passes all local minima so basinhopping can proceed.
     """
-    return sp.optimize.OptimizeResult(x=x0, fun=fun(x0, *args), success=True, nfev=1)
+    return optimize.OptimizeResult(x=x0, fun=fun(x0, *args), success=True, nfev=1)
 
 
 class MyBounds(object):
     """
-    Implementation of parameters bounds used by some sp.optimize minimizers.
+    Implementation of parameters bounds used by some optimize minimizers.
     """
     def __init__(self, xmin, xmax):
         self.xmin = np.array(xmin)
@@ -190,12 +190,12 @@ bounds = [(low, high) for low, high in zip(xmin, xmax)]
 minimizer_kwargs = dict(method=null_minimizer, args=(syn_type, equilibrate, target_val, target_range))
 #mybounds = MyBounds(xmin, xmax)
 
-result = sp.optimize.basinhopping(nmda_kinetics_error, x0, niter= 720, minimizer_kwargs=minimizer_kwargs, disp=True,
+result = optimize.basinhopping(nmda_kinetics_error, x0, niter= 720, minimizer_kwargs=minimizer_kwargs, disp=True,
                                   interval=20, take_step=mytakestep)
 print('kon, koff, Beta, Alpha: %.4f, %.4f, %.4f, %.4f' % (result.x[0], result.x[1], result.x[2], result.x[3]))
 nmda_kinetics_error(result.x, syn_type, equilibrate, target_val, target_range, plot=1)
 """
-result2 = sp.optimize.minimize(nmda_kinetics_error, result.x, method='L-BFGS-B', args=(syn_type, equilibrate,
+result2 = optimize.minimize(nmda_kinetics_error, result.x, method='L-BFGS-B', args=(syn_type, equilibrate,
                                                                                        target_val, target_range),
                                bounds=bounds)
 """

@@ -10,9 +10,10 @@ A non-stochastic synapse is stimulated, and different synaptic mechanisms are it
 their time course and amplitude.
 """
 
-morph_filename = 'MC120914100xC3-scaled.swc'
+#morph_filename = 'MC120914100xC3-scaled.swc'
+morph_filename = 'Erik_Bloss_CA1_0215_Spliced_Tweaked.swc'
 mech_filename = '022315 kap_scale kd ih_scale no_na.pkl'
-rec_filename = '022315 Calibrate_NMDA_D'
+rec_filename = 'quick_test'
 
 amp, equilibrate, duration = 1., 200., 500
 

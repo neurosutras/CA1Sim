@@ -1,7 +1,7 @@
 :  Vector stream of events
 
 NEURON {
-:	THREADSAFE
+	THREADSAFE
     ARTIFICIAL_CELL VecStim
 	POINTER ptr
 }

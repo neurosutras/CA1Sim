@@ -4,11 +4,11 @@ import matplotlib.pyplot as plt
 
 #--------analyzing and visualizing morphology--------
 
-swc_tree= btmorph.STree2()
+swc_tree = btmorph.STree2()
 
 #cell_path="morphologies/020910_B09Lpy_JK.swc" #from Jinny but has no tuft
 cell_path="morphologies/MC120914100xC3-tweaked.swc"
-#cell_path="/Users/milsteina/neuron/CA3project/SWCfiles/DH070213C3-.Edit.scaled.swc.swc"
+#cell_path="morphologies/Erik_Bloss_CA1_0215_Spliced_Tweaked.swc"
 
 swc_tree.read_SWC_tree_from_file(cell_path)
 stats = btmorph.BTStats(swc_tree)

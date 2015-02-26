@@ -7,6 +7,7 @@ import time
 import numpy as np
 import matplotlib.pyplot as plt
 import h5py
+import scipy.optimize as optimize
 from neuron import h
 
 
@@ -101,15 +102,19 @@ def d_lambda_nseg(sec, lam=d_lambda, f=freq):
     return int((L/(lam*lambda_f(sec, f))+0.9)/2)*2+1
 
 
-def scaleSWC(filenameBase, mag=100):
+def scaleSWC(filenameBase, mag=100, scope='neurolucida'):
     # this function rescales the SWC file with the real distances.
-    f = open(filenameBase+'.swc')
+    f = open(morph_dir+filenameBase+'.swc')
     lines = f.readlines()
     f.close()
     Points = []
     if mag == 100:
-        xyDist = 0.065
-        zDist = 0.05
+        if scope == 'neurolucida':
+            xyDist = 0.036909375 # 0.07381875
+            zDist = 1.0
+        else:
+            xyDist = 0.065
+            zDist = 0.05
     else:
         raise Exception('Calibration for {}X objective unknown.'.format(mag))
     for line in lines:
@@ -126,11 +131,32 @@ def scaleSWC(filenameBase, mag=100):
         Points.append([nn,tp,py,px,z,r,np])
 
     print 'Saving SWC to file '+filenameBase+'-scaled.swc'
-    f = open(filenameBase+'-scaled.swc','w')
+    f = open(morph_dir+filenameBase+'-scaled.swc', 'w')
     for [nn,tp,py,px,z,r,np] in Points:
         ll = str(int(nn))+' '+str(int(tp))+' '+str(py)+' '+str(px)+' '+str(z)+' '+str(r)+' '+str(int(np))+'\n'
         f.write(ll)
     f.close()
+
+
+def investigateSWC(filenameBase):
+    # this function reports the min and max values for y, x, z, and radius from an SWC file.
+    f = open(morph_dir+filenameBase+'.swc')
+    lines = f.readlines()
+    f.close()
+    xvals = []
+    yvals = []
+    zvals = []
+    rvals = []
+    for line in lines:
+        ll = line.split(' ')
+        yvals.append(float(ll[2]))    # note the inversion of x, y.
+        xvals.append(float(ll[3]))
+        zvals.append(float(ll[4]))    # z
+        rvals.append(float(ll[5]))    # radius of the sphere.
+    print 'x - ',min(xvals),':',max(xvals)
+    print 'y - ',min(yvals),':',max(yvals)
+    print 'z - ',min(zvals),':',max(zvals)
+    print 'r - ',min(rvals),':',max(rvals)
 
 
 def write_to_pkl(fname, data):
@@ -183,8 +209,9 @@ class QuickSim(object):
         h.load_file('stdrun.hoc')
         h.celsius = 35.0
         if cvode:
-            h.cvode_active(1)
-            h.cvode.atol(0.0001)
+            self.cvode = h.CVode()
+            self.cvode.active(1)
+            self.cvode.atol(0.0001)
         if dt is None:
             self.dt = h.dt
         else:
@@ -345,7 +372,13 @@ def time2index(tvec, start, stop):
     :param stop: float
     :return: tuple of int
     """
-    left = np.where(tvec >= start)[0][0]
+    left = np.where(tvec >= start)[0]
+    if np.any(left):  # at least one value was found
+        left = left[0]
+    else:
+        right = len(tvec) - 1  # just take the last two indices
+        left = right - 1
+        return left, right
     if tvec[left] >= stop:
         right = left
         left -= 1
@@ -374,3 +407,29 @@ def get_Rinp(tvec, vec, start, stop, amp):
     left, right = time2index(tvec, stop-3., stop-1.)
     plateau = np.average(temp_vec[left:right])
     return peak/abs(amp), plateau/abs(amp)
+
+
+def diff_of_exp_model_func(t, amp, rise_tau, decay_tau):
+    """
+    Returns a difference of exponentials waveform with specified rise and decay kinetics.
+    :param t: :class:'np.array'
+    :param amp: float
+    :param rise_tau: float
+    :param decay_tau: float
+    :return: :class:'np.array'
+    """
+    return np.round(amp*(np.exp(t/decay_tau)-np.exp(t/rise_tau)), 10)
+
+
+def fit_exp_nonlinear(t, y, rise, decay):
+    """
+    Fits the input vectors to a difference of exponentials and returns the fit parameters.
+    :param t:
+    :param y:
+    :param rise:
+    :param decay:
+    :return:
+    """
+    opt_parms, parm_cov = optimize.curve_fit(diff_of_exp_model_func, t, y, p0=[1., rise, decay], maxfev=2000)
+    A1, tau1, tau2 = opt_parms
+    return A1, tau1, tau2

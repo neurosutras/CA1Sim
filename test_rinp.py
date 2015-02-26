@@ -4,14 +4,14 @@ from plot_results import *
 from specify_cells import *
 from function_lib import *
 from neuron import h
-#import scipy as sp
 """
 Iterate through every section, inject hyperpolarizing current to measure input resistance.
 """
 
 morph_filename = 'MC120914100xC3-scaled.swc'
+#morph_filename = 'Erik_Bloss_CA1_0215_Spliced_Tweaked.swc'
 mech_filename = '022315 kap_scale kd ih_scale.pkl'
-rec_filename = '022315 kap_scale kd ih_scale - rinp'
+rec_filename = '022615 kap_scale kd ih_scale full_spines - MCMorph - rinp'
 
 
 equilibrate = 200.  # time to steady-state
@@ -19,7 +19,8 @@ duration = 300.
 stim_dur = 100.
 amp = -0.1
 
-cell = HocCell(morph_filename, mech_filename)
+#cell = HocCell(morph_filename, mech_filename)
+cell = CA1_Pyr(morph_filename, mech_filename, full_spines=True)
 sim = QuickSim(duration)
 sim.append_rec(cell, cell.tree.root, 0.5)
 sim.append_stim(cell, cell.tree.root, 0.5, amp, equilibrate, stim_dur)

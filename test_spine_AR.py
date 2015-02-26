@@ -21,7 +21,7 @@ for node in cell.basal+cell.trunk+cell.apical+cell.tuft:
     cell.insert_spine(node, 0.5)
     syn = Synapse(cell, node.spines[0], ['EPSC'], stochastic=0)
     syn.netcon('EPSC').weight[0] = amp
-cell._reinit_mech(cell.spine, 1)
+cell._reinit_mech(cell.spine)
 
 sim = QuickSim(duration)
 sim.parameters['amp'] = amp

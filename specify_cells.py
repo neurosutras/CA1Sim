@@ -844,7 +844,7 @@ class CA1_Pyr(HocCell):
     def __init__(self, morph_filename=None, mech_filename=None, full_spines=True):
         HocCell.__init__(self, morph_filename, mech_filename)
         if full_spines:
-            self.insert_spines_()
+            self.insert_spines()
 
     def insert_spines(self):
         """
@@ -891,7 +891,7 @@ class CA1_Pyr(HocCell):
                 self.insert_spines_every(node, densities['tuft']['terminal'])
             else:
                 self.insert_spines_every(node, densities['tuft']['1'])
-        self._reinit_mech(self.spine, 1)
+        self._reinit_mech(self.spine)
 
     def insert_spines_every(self, node, lam):
         """
@@ -899,11 +899,11 @@ class CA1_Pyr(HocCell):
         :param node: :class:'SHocNode'
         :param lam: float: mean interval
         """
-        interval = 0.
         L = node.sec.L
+        interval = np.random.poisson(10000.*lam)/10000.  # random intervals with correct significant digits
         while interval < L:
-            interval += np.random.poisson(10000.*lam)/10000.  # random intervals with correct significant digits
             self.insert_spine(node, interval/L)
+            interval += np.random.poisson(10000.*lam)/10000.
 
     def insert_spine(self, node, parent_loc, child_loc=0):
         """
@@ -913,7 +913,7 @@ class CA1_Pyr(HocCell):
         :param child_loc: int
         """
         neck = self.make_section('spine_neck')
-        neck.connect(node, 0.5, 0)
+        neck.connect(node, parent_loc, child_loc)
         neck.sec.L = 1.58
         neck.sec.diam = 0.077
         self._init_cable(neck)

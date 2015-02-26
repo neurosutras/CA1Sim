@@ -56,12 +56,13 @@ from plot_results import *
 cell = HocCell()
 cell.make_section('soma')
 
-or if you have an .swc file where different types of compartments have been appropriately annotated, you can specify
-the model use your morphology with:
+You can also import a morphology from an .swc file:
 
 cell = HocCell('str_with_name_of_swc_file.swc')
 
-Ion channel mechanisms and cable parameters for various types of compartments can be inserted with:
+BtMorph requires that the compartments with indices 1, 2, and 3 all be of type 1 (soma), according to the standard used by NeuroMorpho.org . My model expects compartment types to be labeled as follows (1 = soma, 2 = axon, 3 = basal, 4 = apical, 5 = trunk, 6 = tuft). Soma and axon compartments are discarded and replaced with a simplified representation of soma and axon.
+
+Ion channel mechanisms and cable parameters for various types of compartments can be inserted with commands like:
 
 cell.modify_mech_param('soma', 'cable', 'Ra', 150.)
 cell.modify_mech_param('soma', 'pas', 'g', 0.0002)
