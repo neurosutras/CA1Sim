@@ -3,6 +3,7 @@ import math
 import pickle
 import os.path
 import datetime
+import copy
 import time
 import numpy as np
 import matplotlib.pyplot as plt
@@ -110,7 +111,7 @@ def scaleSWC(filenameBase, mag=100, scope='neurolucida'):
     Points = []
     if mag == 100:
         if scope == 'neurolucida':
-            xyDist = 0.036909375 # 0.07381875
+            xyDist = 0.036909375  # 0.07381875
             zDist = 1.0
         else:
             xyDist = 0.065
@@ -157,6 +158,81 @@ def investigateSWC(filenameBase):
     print 'y - ',min(yvals),':',max(yvals)
     print 'z - ',min(zvals),':',max(zvals)
     print 'r - ',min(rvals),':',max(rvals)
+
+
+def translateSWCs():
+    """
+    Eric Bloss has produced high resolution .swc files that each contain a volume 10 um deep in z. This method
+    determines from the filename the z offset of each file and translates the z coordinates of the .swc files to
+    facilitate stitching them together into a single volume. Also changes the sec_type of any node that is not a root
+    and has no children within a file to 7 to indicate a leaf that potentially needs to be connected to a nearby root.
+    """
+    num_nodes = 0
+    outputname = 'combined-offset-connected.swc'
+    out_f = open(outputname, 'w')
+    # out_test = open('combined-offset-connected.swc', 'w')
+    prev_nodes = {}
+    filenames = []
+    z_offsets = []
+    for filename in os.listdir('.'):
+        if '.swc' in filename and not '-offset' in filename:
+            filenames.append(filename)
+            z_offsets.append(float(filename.split('z=')[1].split(' ')[0])/10.0)
+    indexes = range(len(z_offsets))
+    indexes.sort(key=z_offsets.__getitem__)
+    for i in indexes:
+        f = open(filenames[i])
+        lines = f.readlines()
+        f.close()
+        num_nodes += len(prev_nodes)
+        nodes = {}
+        leaves = []
+        for line in [line.split(' ') for line in lines if not line.split(' ')[0] in ['#', '\r\n']]:
+            index = int(float(line[0])) + num_nodes  # node index
+            nodes[index] = {}
+            nodes[index]['type'] = int(float(line[1]))  # sec_type
+            nodes[index]['y'] = float(line[2])  # note the inversion of x, y.
+            nodes[index]['x'] = float(line[3])
+            nodes[index]['z'] = float(line[4]) + z_offsets[i]
+            nodes[index]['r'] = float(line[5])  # radius of the sphere.
+            nodes[index]['parent'] = int(float(line[6]))  # index of parent node
+            if not nodes[index]['parent'] == -1:
+                nodes[index]['parent'] += num_nodes
+                leaves.append(index)
+        for index in nodes:  # keep nodes with no children
+            parent = nodes[index]['parent']
+            if parent in leaves:
+                leaves.remove(parent)
+        for index in leaves:
+            nodes[index]['type'] = 7
+        print 'Saving '+filenames[i]+' to '+outputname
+        if prev_nodes:
+            leaves = [index for index in nodes if (nodes[index]['type'] == 7 or nodes[index]['parent'] == -1)]
+            for prev_index in [index for index in prev_nodes if (prev_nodes[index]['type'] == 7 or
+                                                                prev_nodes[index]['parent'] == -1)]:
+                for index in leaves:
+                    distance = math.sqrt((prev_nodes[prev_index]['x']-nodes[index]['x'])**2 +
+                                         (prev_nodes[prev_index]['y']-nodes[index]['y'])**2 +
+                                         (prev_nodes[prev_index]['z']-nodes[index]['z'])**2)
+                    # print prev_index, index, distance
+                    if distance < 2.:
+                        prev_nodes[prev_index]['type'] = 8
+                        nodes[index]['type'] = 8
+                        nodes[index]['parent'] = prev_index
+                        leaves.remove(index)
+                        break
+        for index in prev_nodes:
+            line = str(index)+' '+str(prev_nodes[index]['type'])+' '+str(prev_nodes[index]['y'])+' '+\
+                   str(prev_nodes[index]['x'])+' '+str(prev_nodes[index]['z'])+' '+str(prev_nodes[index]['r'])+' '+\
+                   str(prev_nodes[index]['parent'])+'\n'
+            out_f.write(line)
+        prev_nodes = copy.deepcopy(nodes)
+    for index in prev_nodes:
+        line = str(index)+' '+str(prev_nodes[index]['type'])+' '+str(prev_nodes[index]['y'])+' '+\
+               str(prev_nodes[index]['x'])+' '+str(prev_nodes[index]['z'])+' '+str(prev_nodes[index]['r'])+' '+\
+               str(prev_nodes[index]['parent'])+'\n'
+        out_f.write(line)
+    out_f.close()
 
 
 def write_to_pkl(fname, data):

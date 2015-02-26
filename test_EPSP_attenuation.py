@@ -5,13 +5,13 @@ from specify_cells import *
 from function_lib import *
 from neuron import h
 
-morph_filename = 'MC120914100xC3-scaled.swc'
-#morph_filename = 'Erik_Bloss_CA1_0215_Spliced_Tweaked.swc'
+morph_filename = 'EB022715-stitched-proofread.swc'
+#morph_filename = 'Erik_Bloss_CA1_0215_Stitched_Proofread.swc'
 mech_filename = '022315 kap_scale kd ih_scale no_na.pkl'
-rec_filename = '022515 kap_scale kd ih_scale no_na - MCmorph - ampar spine'
+rec_filename = '030215 kap_scale kd ih_scale no_na - EB2Morph - ampar spine'
 
 
-equilibrate = 150.  # time to steady-state
+equilibrate = 200.  # time to steady-state
 duration = 250.
 
 cell = CA1_Pyr(morph_filename, mech_filename, full_spines=True)
