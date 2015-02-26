@@ -1,18 +1,16 @@
 __author__ = 'Aaron D. Milstein'
 import time
-from plot_results import *
 from specify_cells import *
-from function_lib import *
-from neuron import h
+from plot_results import *
 
-morph_filename = 'EB022715-stitched-proofread.swc'
-#morph_filename = 'Erik_Bloss_CA1_0215_Stitched_Proofread.swc'
-mech_filename = '022315 kap_scale kd ih_scale no_na.pkl'
-rec_filename = '030215 kap_scale kd ih_scale no_na - EB2Morph - ampar spine'
+morph_filename = 'EB022715-stitched-proofread.swc'  # EB2: 11064 spines
+#morph_filename = 'Erik_Bloss_CA1_0215_Stitched_Proofread.swc'  #EB1:
+mech_filename = '030415 kap_kad_ampar_scale kd ih_scale no_na.pkl'
+rec_filename = '030415 kap_kad_ih_ampar_scale kd no_na - EB2 - EPSP_attenuation'
 
 
-equilibrate = 200.  # time to steady-state
-duration = 250.
+equilibrate = 150.  # time to steady-state
+duration = 200.
 
 cell = CA1_Pyr(morph_filename, mech_filename, full_spines=True)
 for node in cell.get_nodes_of_subtype('spine_head'):
@@ -22,8 +20,8 @@ sim = QuickSim(duration)
 sim.parameters['equilibrate'] = equilibrate
 sim.parameters['duration'] = duration
 sim.append_rec(cell, cell.tree.root, description='soma')
-trunk = [trunk for trunk in cell.trunk if ((len(trunk.children) > 1) & (trunk.children[0].type == 'trunk') &
-                                           (trunk.children[1].type == 'trunk'))][0]  # trunk bifurcation
+trunk = [trunk for trunk in cell.trunk if len(trunk.children) > 1 and trunk.children[0].type == 'trunk' and
+                                           trunk.children[1].type == 'trunk'][0]  # trunk bifurcation
 sim.append_rec(cell, trunk, description='trunk')
 sim.append_rec(cell, trunk, description='branch')  # placeholders for branch and spine
 sim.append_rec(cell, trunk, description='spine')

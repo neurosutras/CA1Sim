@@ -1,14 +1,12 @@
 __author__ = 'Aaron D. Milstein'
 import time
-from plot_results import *
 from specify_cells import *
-from function_lib import *
-from neuron import h
+from plot_results import *
 
-morph_filename = 'EB022715-stitched-proofread.swc'
-#morph_filename = 'Erik_Bloss_CA1_0215_Stitched_Proofread.swc'
+#morph_filename = 'EB022715-stitched-proofread.swc'
+morph_filename = 'Erik_Bloss_CA1_0215_Stitched_Proofread.swc'
 mech_filename = '022315 kap_scale kd ih_scale no_na.pkl'
-rec_filename = '030215 kap_scale kd ih_scale no_na - EB2Morph- ar'
+rec_filename = '030215 kap_scale kd ih_scale no_na - EB1Morph- ar'
 
 
 equilibrate = 200.  # time to steady-state

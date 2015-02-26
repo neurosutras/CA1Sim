@@ -103,7 +103,6 @@ def plot_spine_amp(rec_filename):
     distances = {}
     spine_amp = {}
     branch_amp = {}
-    #amp = f['0'].attrs['amp']
     equilibrate = f['0'].attrs['equilibrate']
     duration = f['0'].attrs['duration']
     simiter = 0
@@ -172,7 +171,6 @@ def plot_spine_Vm(rec_filename, stim_loc='spine'):
     equilibrate = f['0'].attrs['equilibrate']
     duration = f['0'].attrs['duration']
     fig, axes = plt.subplots(2, 4)
-    colors = ['b', 'g', 'r', 'c']
     simiter = 0
     while simiter < len(f):
         if f[str(simiter)].attrs['stim_loc'] == stim_loc:
@@ -191,7 +189,6 @@ def plot_spine_Vm(rec_filename, stim_loc='spine'):
             sec_types.append(sec_type)
         left, right = time2index(tvec[:], equilibrate-5.0, duration)
         i = sec_types.index(sec_type)
-        #color = colors[i]
         axes[0][i].plot(tvec[left:right], spine_rec[left:right])
         axes[0][i].set_xlabel('Time (ms)')
         axes[0][i].set_ylabel('Spine Vm (mV)')
@@ -222,7 +219,6 @@ def plot_Rinp(rec_filename):
     amp = f['0']['stim']['0'].attrs['amp']
     start = f['0']['stim']['0'].attrs['delay']
     stop = start + f['0']['stim']['0'].attrs['dur']
-    #simiter = 0
     for sim in f.itervalues():
         rec = sim['rec']['0']
         sec_type = rec.attrs['type']
@@ -238,8 +234,7 @@ def plot_Rinp(rec_filename):
         peak[sec_type].append(this_peak)
         steady[sec_type].append(this_steady)
         sag[sec_type].append(100*(1-this_steady/this_peak))
-    rowlen = len(sec_types)
-    fig, axes = plt.subplots(3, rowlen)
+    fig, axes = plt.subplots(3, len(sec_types))
     colors = ['b', 'g', 'r', 'c']
     sorted_distances = {}
     for i, sec_type in enumerate(sec_types):
@@ -335,7 +330,6 @@ def plot_EPSP_attenuation(rec_filename):
     duration = f['0'].attrs['duration']
     for sim in f.itervalues():
         input_loc = sim.attrs['input_loc']
-        # input_loc = sim['rec']['2'].attrs['type']
         if not input_loc in input_locs:
             input_locs.append(input_loc)
             distances[input_loc] = []
@@ -352,8 +346,7 @@ def plot_EPSP_attenuation(rec_filename):
             baseline = np.average(rec[left:right])
             left, right = time2index(tvec[:], equilibrate, duration)
             amps[input_loc][rec_loc].append(np.max(rec[left:right]) - baseline)
-    fig, axes = plt.subplots(len(input_locs), len(rec_locs))
-    #fig, axes = plt.subplots(1, len(amps[amps.keys()[0]]))
+    fig, axes = plt.subplots(max(2, len(input_locs)), len(rec_locs))
     colors = ['b', 'g', 'r', 'c']
     for i, input_loc in enumerate(input_locs):
         indexes = range(len(distances[input_loc]))
@@ -416,8 +409,8 @@ def plot_EPSP_kinetics(rec_filename):
             fit_amp, fit_rise, fit_decay = fit_exp_nonlinear(t, y, -5., -10.)
             rise_taus[input_loc][rec_loc].append(-1.*fit_rise)
             decay_taus[input_loc][rec_loc].append(-1*fit_decay)
-    fig1, axes1 = plt.subplots(len(input_locs), len(rec_locs))
-    fig2, axes2 = plt.subplots(len(input_locs), len(rec_locs))
+    fig1, axes1 = plt.subplots(max(2, len(input_locs)), len(rec_locs))
+    fig2, axes2 = plt.subplots(max(2, len(input_locs)), len(rec_locs))
     colors = ['b', 'g', 'r', 'c']
     for i, input_loc in enumerate(input_locs):
         indexes = range(len(distances[input_loc]))
@@ -437,8 +430,6 @@ def plot_EPSP_kinetics(rec_filename):
             axes2[i][j].set_title('Recording Loc: '+rec_loc)
     fig1.subplots_adjust(hspace=0.4, wspace=0.3, left=0.05, right=0.98, top=0.95, bottom=0.05)
     fig2.subplots_adjust(hspace=0.4, wspace=0.3, left=0.05, right=0.98, top=0.95, bottom=0.05)
-    #fig1.show()
-    #fig2.show()
     plt.show()
     plt.close()
     f.close()

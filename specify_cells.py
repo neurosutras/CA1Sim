@@ -126,6 +126,7 @@ class HocCell(object):
         :param length: int or float
         :param diams: None or (list: float)
         """
+        global verbose
         dend_types=([basal_type, apical_type, trunk_type, tuft_type], ['basal', 'apical', 'trunk', 'tuft'])
         swc = raw_node.get_content()['p3d']
         swc_type = swc.type
@@ -138,11 +139,11 @@ class HocCell(object):
                                                         swc_type, self.get_node_length_swc(raw_node), diam, leaves,
                                                         raw_node.parent.index)
             """
-            if (leaves == 0) | (leaves > 1):
+            if (leaves == 0) or (leaves > 1):
                 sec_type = dend_types[1][dend_types[0].index(swc_type)]
                 new_node = self.make_section(sec_type)
                 new_node.sec.L = length
-                if (self.tree.is_root(parent)) & (sec_type == 'basal'):
+                if (self.tree.is_root(parent)) and (sec_type == 'basal'):
                     parent = self.soma[1]
                 new_node.connect(parent)
                 if diams is None:
@@ -231,7 +232,7 @@ class HocCell(object):
         sec_type = node.type
         if sec_type in self.mech_dict and 'cable' in self.mech_dict[sec_type]:
             mech_content = copy.deepcopy(self.mech_dict[sec_type]['cable'])
-            if ('Ra' in mech_content) | ('cm' in mech_content):
+            if ('Ra' in mech_content) or ('cm' in mech_content):
                 if 'spatial_res' in mech_content:
                     del mech_content['spatial_res']
                 self._modify_mechanism(node, 'cable', mech_content)
@@ -244,35 +245,62 @@ class HocCell(object):
     def reinit_mechanisms(self, reset_cable=0):
         """
         Once a mechanism dictionary has been loaded, and a morphology has been specified, this method traverses through
-        the tree of SHocNode nodes breadth-first and properly sets membrane mechanism parameters, including gradients
-        and inheritance of parameters from nodes along the path from root. Since cable parameters are set during
-        specification of morphology, it is not necessary to immediately reinitialize these parameters again. However,
-        they can be manually reinitialized with the reset_cable flag.
+        the tree of SHocNode nodes following order of inheritance and properly sets membrane mechanism parameters,
+        including gradients and inheritance of parameters from nodes along the path from root. Since cable parameters
+        are set during specification of morphology, it is not necessary to immediately reinitialize these parameters
+        again. However, they can be manually reinitialized with the reset_cable flag.
         :param reset_cable: boolean
         """
-        nodes = [self.tree.root]
-        for node in nodes:
-            nodes.extend(node.children)
+        nodes = self.soma+self.basal+self.trunk+self.apical+self.tuft+self.spine
+        #for node in nodes:
+        #    nodes.extend(node.children)
         self._reinit_mech(nodes, reset_cable)
+
+    def init_synaptic_mechanisms(self):
+        """
+        Spines and synapses are inserted after loading a morphology and specifying membrane mechanisms. This method can
+        be executed after inserting synapses. It traverses the dendritic tree in order of inheritance and just sets
+        synaptic mechanism parameters specified in the mechanism dictionary.
+        """
+        for dend_type in ['basal', 'trunk', 'apical', 'tuft']:
+            if 'synapse' in self.mech_dict[dend_type] and self.has_synapses(dend_type):
+                for node in self.get_nodes_of_subtype(dend_type):
+                    self._modify_mechanism(node, 'synapse', self.mech_dict[dend_type]['synapse'])
+
+    def has_synapses(self, sec_type):
+        """
+
+        :param sec_type: str
+        :return: bool
+        """
+        for node in self.get_nodes_of_subtype(sec_type):
+            if node.synapses:
+                return True
+            else:
+                for spine in node.spines:
+                    if spine.synapses:
+                        return True
+        return False
 
     def _reinit_mech(self, nodes, reset_cable=0):
         """
         Given a list of nodes, this method loops through all the mechanisms specified in the mechanism dictionary for
         the hoc section type of each node and updates their associated parameters. If the reset_cable flag is set to 1,
         cable parameters are modified first, then the parameters for all other mechanisms are reinitialized.
+        Parameters for synaptic point processes can also be specified in the mechanism dictionary, so it is important to
+        reinitialize mechanisms after inserting spines and synapses.
         :param nodes: list of :class:'SHocNode'
         :param reset_cable: boolean
         """
         for node in nodes:
             sec_type = node.type
             if sec_type in self.mech_dict:
-                if ('cable' in self.mech_dict[sec_type]) & reset_cable:  # cable properties must be set first, as they
+                if ('cable' in self.mech_dict[sec_type]) and reset_cable:  # cable properties must be set first, as they
                                                                          # can change nseg, which will affect insertion
                                                                          # of membrane mechanism gradients
                     self._init_cable(node)
                 for mech_name in (mech_name for mech_name in self.mech_dict[sec_type]
                                   if not mech_name in ['cable', 'ions']):
-                    node.sec.insert(mech_name)
                     self._modify_mechanism(node, mech_name, self.mech_dict[sec_type][mech_name])
                 # ion-related parameters do not exist until after membrane mechanisms have been inserted
                 if 'ions' in self.mech_dict[sec_type]:
@@ -287,32 +315,59 @@ class HocCell(object):
         :param mech_content: dict
         """
         if not mech_content is None:
-            for param_name in mech_content:
-                self._parse_mech_content(node, mech_name, param_name, mech_content[param_name])
+            # only modify synaptic mechanism parameters if synapses have been inserted
+            if not mech_name == 'synapse' or self.has_synapses(node.type):
+                for param_name in mech_content:
+                    # accommodate multiple dict entries with different location constraints for a single parameter
+                    if type(mech_content[param_name]) == dict:
+                        self._parse_mech_content(node, mech_name, param_name, mech_content[param_name])
+                    else:
+                        for mech_content_entry in mech_content[param_name]:
+                            self._parse_mech_content(node, mech_name, param_name, mech_content_entry)
+        else:
+            node.sec.insert(mech_name)
 
     def _parse_mech_content(self, node, mech_name, param_name, rules):
         """
         This method loops through all the segments in a node and sets the value(s) for a single mechanism parameter by
         interpreting the rules specified in the mechanism dictionary. Properly handles ion channel gradients and
-        inheritance of values from the closest segment of a specified type of section along the path from root.
+        inheritance of values from the closest segment of a specified type of section along the path from root. Also
+        handles rules that are restricted by distance, and rules to set synaptic (point process) parameters.
         :param node: :class:'SHocNode'
         :param mech_name: str
         :param param_name: str
         :param rules: dict
         """
-        if rules['origin'] == 'self':
-            baseline = rules['value']
+        if mech_name == 'synapse' and not 'syn_type' in rules:
+            raise Exception('Cannot set synaptic mechanism parameter: {} without a specified point process'.
+                                                                                                    format(param_name))
+        if 'origin' in rules:  # an 'origin' with no 'value' inherits a starting parameter from the origin sec_type
+                               # a 'value' with no 'origin' is independent of other sec_types
+                               # an 'origin' with a 'value' uses the origin sec_type only as a reference point for
+                               # applying a distance-dependent gradient
+            if rules['origin'] in sec_types:
+                donor = self._get_node_along_path_to_root(node, rules['origin'])
+            else:
+                raise Exception('Mechanism: {} parameter: {} cannot reference unknown sec_type: {}'.format(mech_name,
+                                                                                        param_name, rules['origin']))
+        else:
             donor = None
-        elif rules['origin'] in sec_types:
-            sec_type = rules['origin']
-            donor = self._get_node_along_path_to_root(node, sec_type)
-            if (mech_name == 'cable') & (param_name == 'spatial_res'):
+        if 'value' in rules:
+            baseline = rules['value']
+        elif donor is None:
+            raise Exception('Cannot set mechanism: {} parameter: {} without a specified origin or value'.format(
+                mech_name, param_name))
+        else:
+            if (mech_name == 'cable') and (param_name == 'spatial_res'):
                 baseline = self._get_spatial_res(donor)
+            elif mech_name == 'synapse':
+                if self.has_synapses(donor.type):
+                    baseline = self._inherit_mech_param(node, donor, mech_name, param_name, rules['syn_type'])
+                else:
+                    raise Exception('Cannot inherit synaptic mechanism: {} parameter: {} from sec_type: {}').format(
+                                                                            rules['syn_type'], param_name, donor.type)
             else:
                 baseline = self._inherit_mech_param(node, donor, mech_name, param_name)
-        else:
-            raise Exception('Cannot inherit mechanism: {} parameter: {} from unknown sec_type: {}'.format(mech_name,
-                                                                                                param_name, node.type))
         if mech_name == 'cable':  # cable properties can be inherited, but cannot be specified as gradients
             if param_name == 'spatial_res':
                 node.init_nseg(baseline)
@@ -320,27 +375,102 @@ class HocCell(object):
                 setattr(node.sec, param_name, baseline)
                 node.init_nseg(self._get_spatial_res(node))
             node.reinit_diam()
-        elif 'slope' in rules:
-            if not donor is None:
-                distance = self.get_distance_to_node(donor, node)
-                baseline += rules['slope'] * distance
-            for seg in node.sec:
-                value = baseline + rules['slope'] * seg.x * node.sec.L
-                if (not rules['min'] is None) & (value < rules['min']):
-                    value = rules['min']
-                elif (rules['min'] is None) & (value < 0):
-                    value = 0
-                elif (not rules['max'] is None) & (value > rules['max']):
-                    value = rules['max']
-                if mech_name == 'ions':
-                    setattr(seg, param_name, value)
-                else:
-                    setattr(getattr(seg, mech_name), param_name, value)
         else:
-            if mech_name == 'ions':
+            min_distance = None
+            max_distance = None
+            if 'min_loc' in rules or 'max_loc' in rules or 'slope' in rules:
+                if donor is None:
+                    raise Exception('Cannot follow specifications for mechanism: {} parameter: {} without a provided '
+                                    'origin'.format(mech_name, param_name))
+                if 'min_loc' in rules:
+                    min_distance = rules['min_loc']
+                if 'max_loc' in rules:
+                    max_distance = rules['max_loc']
+                if mech_name == 'synapse':
+                    self._specify_synaptic_parameter(node, param_name, baseline, rules, donor, min_distance,
+                                                                                                max_distance)
+                else:
+                    min_seg_distance = self.get_distance_to_node(donor, node, 0.5/node.sec.nseg)
+                    max_seg_distance = self.get_distance_to_node(donor, node, (0.5 + node.sec.nseg - 1)/node.sec.nseg)
+                    # if any part of the section is within the location constraints, insert the mechanism, and specify
+                    # the parameter at the segment level
+                    if (min_distance is None or max_seg_distance >= min_distance) and \
+                            (max_distance is None or min_seg_distance <= max_distance):
+                        if not mech_name == 'ions':
+                            node.sec.insert(mech_name)
+                        if min_distance is None:
+                            min_distance = 0.
+                        for seg in node.sec:
+                            seg_loc = self.get_distance_to_node(donor, node, seg.x)
+                            if seg_loc >= min_distance and (max_distance is None or seg_loc <= max_distance):
+                                if 'slope' in rules:
+                                    seg_loc -= min_distance
+                                    value = baseline + rules['slope'] * seg_loc
+                                    if 'min' in rules and value < rules['min']:
+                                        value = rules['min']
+                                    elif value < 0.:
+                                        value = 0.
+                                    elif 'max' in rules and value > rules['max']:
+                                        value = rules['max']
+                                else:
+                                    value = baseline
+                            else:   # if only some segments in a section meet the location constraints, the
+                                    # parameter is set to zero everywhere else
+                                value = 0.
+                            if mech_name == 'ions':
+                                setattr(seg, param_name, value)
+                            else:
+                                setattr(getattr(seg, mech_name), param_name, value)
+            elif mech_name == 'ions':
                 setattr(node.sec, param_name, baseline)
+            elif mech_name == 'synapse':
+                self._specify_synaptic_parameter(node, param_name, baseline, rules)
             else:
+                node.sec.insert(mech_name)
                 setattr(node.sec, param_name+"_"+mech_name, baseline)
+
+    def _specify_synaptic_parameter(self, node, param_name, baseline, rules, donor=None, min_distance=None,
+                                    max_distance=None):
+        """
+        This method interprets an entry from the mechanism dictionary to set parameters associated with a synaptic
+        point_process mechanism that has been inserted either into a spine attached to this node, or inserted directly
+        in this node. Appropriately implements slopes and inheritances.
+        :param node: :class:'SHocNode'
+        :param param_name: str
+        :param baseline: float
+        :param rules: dict
+        :param donor: :class:'SHocNode' or None
+        :param min_distance: float or None
+        :param max_distance: float or None
+        """
+        syn_list = []
+        syn_list.extend(node.synapses)
+        for spine in node.spines:
+            syn_list.extend(spine.synapses)
+        if min_distance is None:
+            min_distance = 0.
+        for syn in syn_list:
+            target = syn.target(rules['syn_type'])
+            if donor is None:
+                value = baseline
+            else:
+                distance = self.get_distance_to_node(donor, node, syn.loc)
+                if distance >= min_distance and (max_distance is None or distance <= max_distance):
+                    if 'slope' in rules:
+                        distance -= min_distance
+                        value = baseline + rules['slope'] * distance
+                        if 'min' in rules and value < rules['min']:
+                            value = rules['min']
+                        elif value < 0.:
+                            value = 0.
+                        elif 'max' in rules and value > rules['max']:
+                            value = rules['max']
+                    else:
+                        value = baseline
+                else:   # if only some synapses in a section meet the location constraints, the synaptic parameter is
+                        # set to zero everywhere else
+                    value = 0.
+            setattr(target, param_name, value)
 
     def get_dendrite_origin(self, node):
         """
@@ -377,27 +507,62 @@ class HocCell(object):
             else:
                 parent = parent.parent
         raise Exception('The path from node: {} to root does not contain sections of type: {}'.format(node.name,
-                                                                                    sec_type))
+                                                                                                        sec_type))
 
-    def _inherit_mech_param(self, node, donor, mech_name, param_name):
+    def _get_closest_synapse(self, node, loc):
+        """
+        This method finds the closest synapse to the specified location within or downstream of the provided node. Used
+        for inheritance of synaptic mechanism parameters.
+        :param node: :class:'SHocNode'
+        :param loc: float
+        :return: :class:'Synapse'
+        """
+        syn_list = []
+        syn_list.extend(node.synapses)
+        for spine in node.spines:
+            syn_list.extend(spine.synapses)
+        if not syn_list:
+            for child in [child for child in node.children if child.type == node.type]:
+                return self._get_closest_synapse(child, 0.)
+        else:
+            min_distance = 1.
+            target_syn = None
+            for syn in syn_list:
+                distance = abs(syn.loc - loc)
+                if distance < min_distance:
+                    min_distance = distance
+                    target_syn = syn
+            return target_syn
+
+    def _inherit_mech_param(self, node, donor, mech_name, param_name, syn_type=None):
         """
         When the mechanism dictionary specifies that a node inherit a parameter value from a donor node, this method
-        returns the value of that parameter found in the section or final segment of the donor node.
+        returns the value of that parameter found in the section or final segment of the donor node. For synaptic
+        mechanism parameters, searches for the closest synapse in the donor node. If the donor node does not contain
+        synapses due to location constraints, this method searches child branches of the same sec_type as the donor
+        node.
         :param node: :class:'SHocNode'
         :param donor: :class:'SHocNode'
         :param mech_name: str
         :param param_name: str
-        :return: list: float
+        :param syn_type: str
+        :return: float
         """
         try:
             if mech_name in ['cable', 'ions']:
                 return getattr(donor.sec, param_name)
+            elif mech_name == 'synapse':
+                return getattr(self._get_closest_synapse(donor, 1.).target(syn_type), param_name)
             else:
                 loc = donor.sec.nseg/(donor.sec.nseg + 1.)  # accesses the last segment of the section
                 return getattr(getattr(donor.sec(loc), mech_name), param_name)
-        except (AttributeError, NameError):
-            print 'Exception: Mechanism: {} parameter: {} cannot be inherited from sec_type: {}'.format(mech_name,
+        except (AttributeError, NameError, KeyError):
+            if syn_type is None:
+                print 'Exception: Mechanism: {} parameter: {} cannot be inherited from sec_type: {}'.format(mech_name,
                                                                                                 param_name, donor.type)
+            else:
+                print 'Exception: Problem inheriting synaptic mechanism: {} parameter {} from sec_type: {}'.format(
+                                                                                    syn_type, param_name, donor.type)
             raise KeyError
 
     def _get_spatial_res(self, node):
@@ -411,13 +576,21 @@ class HocCell(object):
             rules = self.mech_dict[node.type]['cable']['spatial_res']
         except KeyError:
             return 0
-        if rules['origin'] == 'self':
+        if 'value' in rules:
             return rules['value']
-        elif rules['origin'] in sec_types:  # if this sec_type also inherits the value, continue following the path
-            return self._get_spatial_res(self._get_node_along_path_to_root(node, rules['origin']))
+        elif 'origin' in rules:
+            if rules['origin'] in sec_types:  # if this sec_type also inherits the value, continue following the path
+                return self._get_spatial_res(self._get_node_along_path_to_root(node, rules['origin']))
+            else:
+                print 'Exception: Spatial resolution cannot be inherited from sec_type: {}'.format(rules['origin'])
+                raise KeyError
+        else:
+            print 'Exception: Cannot set spatial resolution without a specified origin or value'
+            raise KeyError
 
-    def modify_mech_param(self, sec_type, mech_name, param_name=None, value=None, origin=None, slope=None, max=None,
-                                                                                                    min=None):
+
+    def modify_mech_param(self, sec_type, mech_name, param_name=None, value=None, origin=None, slope=None, min=None,
+                                                    max=None, min_loc=None, max_loc=None, syn_type=None, replace=True):
         """
         Modifies or inserts new membrane mechanisms into hoc sections of type sec_type. First updates the mechanism
         dictionary, the sets the corresponding hoc parameters. This method is meant to be called manually during initial
@@ -430,95 +603,91 @@ class HocCell(object):
         :param value: float
         :param origin: str
         :param slope: float
-        :param max: float
         :param min: float
+        :param max: float
+        :param min_loc: float
+        :param max_loc: float
+        :param syn_type: str
+        :param replace: bool
         """
-        insert = False
-        if param_name is None:  # In this case, the mechanism will be inserted, but no parameters will be specified.
-            if mech_name in ['cable', 'ions']:
+        global verbose
+        backup_content = None
+        mech_content = None
+        if not sec_type in sec_types:
+            raise Exception('Cannot specify mechanism: {} parameter: {} for unknown sec_type: {}'.format(mech_name,
+                                                                                                param_name, sec_type))
+        if mech_name in ['cable', 'ions', 'synapse']:
+            if param_name is None:
                 raise Exception('No parameter specified for mechanism: {}'.format(mech_name))
-            else:
-                mech_content = None
-                insert = True
-        else:
-            if origin is None:
-                origin = 'self'
-            elif not origin in sec_types:
-                raise Exception('Cannot inherit mechanism: {} parameter: {} from unknown sec_type: {}'.format(mech_name,
-                                                                                                    param_name, origin))
-            rules = {'origin': origin}
-            if origin == 'self':
-                if not value is None:
-                    rules['value'] = value
+        if not param_name is None:
+            if value is None and origin is None:
+                raise Exception('Cannot set mechanism: {} parameter: {} without a specified origin or value'.format(
+                                                                                                mech_name, param_name))
+            if mech_name == 'synapse' and syn_type is None:
+                raise Exception('Cannot set synaptic mechanism parameter: {} without a specified point process'.format(
+                                                                                                            param_name))
+            rules = {}
+            if not origin is None:
+                if not origin in sec_types:
+                    raise Exception('Cannot inherit mechanism: {} parameter: {} from unknown sec_type: {}'.format(
+                                                                                    mech_name, param_name, origin))
                 else:
-                    raise Exception('No value provided for mechanism: {} parameter: {}'.format(mech_name, param_name))
+                    rules['origin'] = origin
+            if not value is None:
+                rules['value'] = value
             if not slope is None:
                 rules['slope'] = slope
-                rules['max'] = max
+            if not min is None:
                 rules['min'] = min
+            if not max is None:
+                rules['max'] = max
+            if not min_loc is None:
+                rules['min_loc'] = min_loc
+            if not max_loc is None:
+                rules['max_loc'] = max_loc
+            if not syn_type is None:
+                rules['syn_type'] = syn_type
             mech_content = {param_name: rules}
         if not sec_type in self.mech_dict:  # No mechanisms have been inserted into this type of section yet
-            """
-            if (self.get_nodes_of_subtype(sec_type)):
-                backup_content = None
-                self.mech_dict[sec_type] = {mech_name: mech_content}
-                insert = True
-            else:
-                # raise Exception('This cell does not yet contain sections of sec_type: {}'.format(sec_type))
-                print 'This cell does not yet contain sections of sec_type: {}'.format(sec_type)
-            """
-            backup_content = None
             self.mech_dict[sec_type] = {mech_name: mech_content}
-            insert = True
-        elif not mech_name in self.mech_dict[sec_type]:
-            backup_content = copy.deepcopy(self.mech_dict[sec_type])
-            self.mech_dict[sec_type][mech_name] = mech_content  # This mechanism has not yet been inserted into this
-            insert = True                                       # type of section
-        elif self.mech_dict[sec_type][mech_name] is None:
-            backup_content = copy.deepcopy(self.mech_dict[sec_type])
-            self.mech_dict[sec_type][mech_name] = mech_content  # This mechanism has been inserted, but no parameters
-                                                                # have been specified
-        elif not param_name is None:
-            backup_content = copy.deepcopy(self.mech_dict[sec_type])
-            self.mech_dict[sec_type][mech_name][param_name] = rules  # This mechanism has been inserted, but this
-                                                                     # parameter has not yet been specified
+        elif not mech_name in self.mech_dict[sec_type]:                 # This mechanism has not yet been inserted into
+            backup_content = copy.deepcopy(self.mech_dict[sec_type])    # this type of section
+            self.mech_dict[sec_type][mech_name] = mech_content
+        elif self.mech_dict[sec_type][mech_name] is None:               # This mechanism has been inserted, but no
+            backup_content = copy.deepcopy(self.mech_dict[sec_type])    # parameters have been specified
+            self.mech_dict[sec_type][mech_name] = mech_content
+        elif param_name in self.mech_dict[sec_type][mech_name]:         # This parameter has already been specified. Now
+            backup_content = copy.deepcopy(self.mech_dict[sec_type])    # have to determine whether to replace or extend
+            if replace:                                                 # the current dictionary entry.
+                self.mech_dict[sec_type][mech_name][param_name] = rules
+            elif type(self.mech_dict[sec_type][mech_name][param_name]) == dict:
+                self.mech_dict[sec_type][mech_name][param_name] = [self.mech_dict[sec_type][mech_name][param_name],
+                                                                   rules]
+            elif type(self.mech_dict[sec_type][mech_name][param_name]) == list:
+                self.mech_dict[sec_type][mech_name][param_name].append(rules)
+        elif not param_name is None:                                    # This mechanism has been inserted, but this
+            backup_content = copy.deepcopy(self.mech_dict[sec_type])    # parameter has not yet been specified
+            self.mech_dict[sec_type][mech_name][param_name] = rules
         try:
+            nodes = self.get_nodes_of_subtype(sec_type)
             if mech_name == 'cable':  # all membrane mechanisms in sections of type sec_type must be reinitialized after
                                       # changing cable properties
                 if param_name in ['Ra', 'cm', 'spatial_res']:
-                    self._reinit_mech(self.get_nodes_of_subtype(sec_type), reset_cable=1)
+                    self._reinit_mech(nodes, reset_cable=1)
                 else:
                     print 'Exception: Unknown cable property: {}'.format(param_name)
                     raise KeyError
             else:
-                for node in self.get_nodes_of_subtype(sec_type):
-                    if not mech_name == 'ions':
-                        if insert:
-                            try:
-                                node.sec.insert(mech_name)
-                            except ValueError:
-                                print 'Exception: Unknown mechanism: {}'.format(mech_name)
-                                raise KeyError
-                        try:
-                            self._modify_mechanism(node, mech_name, mech_content)
-                        except AttributeError:
-                            if insert:
-                                self.mech_dict[sec_type][mech_name] = None
-                                raise Exception('Mechanism: {} inserted but parameter: {} is unknown'.format(mech_name,
-                                                                                                            param_name))
-                            else:
-                                self.mech_dict[sec_type] = copy.deepcopy(backup_content)
-                                raise Exception('Mechanism: {} parameter: {} is unknown'.format(mech_name, param_name))
-                    else:
-                        try:
-                            self._modify_mechanism(node, mech_name, mech_content)
-                        except AttributeError:
-                            print 'Exception: Unknown ion parameter: {}'.format(param_name)
-                            raise KeyError
-                        except NameError:
-                            print 'Exception: Ion parameter: {} has not yet been defined for section type: {}'.format(
-                                                                                                param_name, node.type)
-                            raise KeyError
+                for node in nodes:
+                    try:
+                        self._modify_mechanism(node, mech_name, mech_content)
+                    except (AttributeError, NameError, ValueError, KeyError):
+                        if not param_name is None:
+                            print 'Exception: Problem modifying mechanism: {} parameter: {}'.format(mech_name,
+                                                                                                    param_name)
+                        else:
+                            print 'Exception: Problem inserting mechanism: {}'.format(mech_name)
+                        raise KeyError
         except KeyError:
             if backup_content is None:
                 del self.mech_dict[sec_type]
@@ -650,7 +819,7 @@ class HocCell(object):
 
     def set_stochastic_synapses(self, value):
         """
-        This method turns stochastic filtering of release probability on or off for all synapses contained in this cell.
+        This method turns stochastic filtering of presynaptic release on or off for all synapses contained in this cell.
         :param value: int in [0, 1]
         """
         for nodelist in self._node_dict.itervalues():
@@ -858,21 +1027,24 @@ class CA1_Pyr(HocCell):
         """
         np.random.seed(self.gid)  # This cell will always have the same spine locations
         densities = {'trunk': {'min': 0.2418, 'max': 3.8,
-                               'start': self.get_distance_to_node(self.tree.root, self.apical[0]),
-                               'end': self.get_distance_to_node(self.tree.root, self.tuft[0])},
-                     'basal': {'1': 0., '2': 0.4428, '3': 1.891},
+                               'start': min([self.get_distance_to_node(self.tree.root, branch) for branch in
+                                                                                                self.apical]),
+                               'end': max([self.get_distance_to_node(self.tree.root, branch) for branch in
+                                                                                                self.trunk])},
+                     'basal': {'1': 0., '2': 0.4428, '>2': 1.891},
                      'apical': {'min': 2.273, 'max': 2.688,
-                                'start': self.get_distance_to_node(self.tree.root, self.apical[0]),
+                                'start': min([self.get_distance_to_node(self.tree.root, branch) for branch in
+                                                                                                self.apical]),
                                 'end': max([self.get_distance_to_node(self.tree.root, branch)
                                             for branch in self.apical if self.get_branch_order(branch) == 1])},
-                     'tuft': {'1': 1.354, 'terminal': 0.7157}
+                     'tuft': {'parent': 1.354, 'terminal': 0.7157}
                     }
         for node in self.basal:
             order = self.get_branch_order(node)
             if order == 2:
                 self.insert_spines_every(node, densities['basal']['2'])
             elif order > 2:
-                self.insert_spines_every(node, densities['basal']['3'])
+                self.insert_spines_every(node, densities['basal']['>2'])
         for node in self.trunk:
             distance = self.get_distance_to_node(self.tree.root, node)
             if distance >= densities['trunk']['start']:
@@ -881,7 +1053,7 @@ class CA1_Pyr(HocCell):
                 density = densities['trunk']['min'] + slope * (distance - densities['trunk']['start'])
                 self.insert_spines_every(node, density)
         for node in self.apical:
-            distance = self.get_distance_to_node(self.tree.root, self.get_dendrite_origin(node), loc=1)
+            distance = self.get_distance_to_node(self.tree.root, self.get_dendrite_origin(node), loc=1.)
             slope = (densities['apical']['max'] - densities['apical']['min']) / \
                     (densities['apical']['end'] - densities['apical']['start'])
             density = densities['apical']['min'] + slope * (distance - densities['apical']['start'])
@@ -890,16 +1062,17 @@ class CA1_Pyr(HocCell):
             if self.is_terminal(node):
                 self.insert_spines_every(node, densities['tuft']['terminal'])
             else:
-                self.insert_spines_every(node, densities['tuft']['1'])
+                self.insert_spines_every(node, densities['tuft']['parent'])
         self._reinit_mech(self.spine)
 
-    def insert_spines_every(self, node, lam):
+    def insert_spines_every(self, node, density):
         """
-        Given a mean inter-spine interval in um, insert spines in the node at the specified density.
+        Given a mean spine density in /um, insert spines in the node at the specified density.
         :param node: :class:'SHocNode'
-        :param lam: float: mean interval
+        :param density: float: mean density in /um
         """
         L = node.sec.L
+        lam = 1./density
         interval = np.random.poisson(10000.*lam)/10000.  # random intervals with correct significant digits
         while interval < L:
             self.insert_spine(node, interval/L)
@@ -960,7 +1133,7 @@ class Synapse(object):
         else:
             self.source = h.VecStim()
         if type_list is None:
-            type_list = ['AMPA_S']
+            type_list = ['AMPA_KIN']
         if self.stochastic:
             self._init_stochastic()
         for type in type_list:
@@ -1077,7 +1250,15 @@ class Synapse(object):
     @property
     def loc(self):
         """
-        Returns the location along the hoc section containing this synapse.
+        Returns the location along the hoc section containing this synapse. For convenience, if the synapse is
+        contained in a spine_head, this property method returns the location along the branch section where the
+        spine_neck is connected.
         :return: int or float
         """
-        return self._loc
+        if self.node.type == 'spine_head':
+            self.node.parent.sec.push()
+            loc = h.parent_connection()
+            h.pop_section()
+            return loc
+        else:
+            return self._loc

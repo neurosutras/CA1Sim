@@ -166,6 +166,8 @@ def translateSWCs():
     determines from the filename the z offset of each file and translates the z coordinates of the .swc files to
     facilitate stitching them together into a single volume. Also changes the sec_type of any node that is not a root
     and has no children within a file to 7 to indicate a leaf that potentially needs to be connected to a nearby root.
+    Also attempts to connect unconnected nodes that are within 2 um of each other across consecutive slices, and labels
+    them with sec_type = 8. This doesn't work particularly well and files must be extensively proofread in NeuTuMac.
     """
     num_nodes = 0
     outputname = 'combined-offset-connected.swc'
@@ -288,6 +290,8 @@ class QuickSim(object):
             self.cvode = h.CVode()
             self.cvode.active(1)
             self.cvode.atol(0.0001)
+        else:
+            self.cvode = None
         if dt is None:
             self.dt = h.dt
         else:
@@ -299,7 +303,9 @@ class QuickSim(object):
     def run(self, v_init=-65.):
         start_time = time.time()
         h.tstop = self.tstop
-        h.dt = self.dt
+        if self.cvode is None:
+            print 'getting here: cvode not working'
+            h.dt = self.dt
         h.v_init = v_init
         h.init()
         h.run()
@@ -333,7 +339,7 @@ class QuickSim(object):
 
     def modify_stim(self, index=0, node=None, loc=None, amp=None, delay=None, dur=None, description=None):
         stim_dict = self.stim_list[index]
-        if (node is None) | (loc is None):
+        if (node is None) or (loc is None):
             if not node is None:
                 stim_dict['node'] = node
             if loc is None:

@@ -1,21 +1,19 @@
 __author__ = 'milsteina'
 import time
-from plot_results import *
 from specify_cells import *
-from function_lib import *
-from neuron import h
+from plot_results import *
 """
 Iterate through every section, inject hyperpolarizing current to measure input resistance.
 """
 
-morph_filename = 'EB022715-stitched-proofread.swc'
-#morph_filename = 'Erik_Bloss_CA1_0215_Stitched_Proofread.swc'
-mech_filename = '022315 kap_scale kd ih_scale.pkl'
-rec_filename = '030215 kap_scale kd ih_scale full_spines - EB2Morph - rinp'
+#morph_filename = 'Erik_Bloss_CA1_0215_Stitched_Proofread.swc'  # EB1
+morph_filename = 'EB022715-stitched-proofread.swc'  # EB2
+mech_filename = '030415 kap_kad_scale kd ih_scale na.pkl'
+rec_filename = '030415 kap_kad_ih_scale kd na full_spines - EB2 - rinp'
 
 
-equilibrate = 200.  # time to steady-state
-duration = 300.
+equilibrate = 150.  # time to steady-state
+duration = 250.
 stim_dur = 100.
 amp = -0.1
 

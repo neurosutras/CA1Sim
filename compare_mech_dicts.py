@@ -4,13 +4,13 @@ from plot_results import *
 from specify_cells import *
 from function_lib import *
 from neuron import h
-import scipy as sp
 """
 Specify two cells with different ion channel mechanisms, and probe with current injections to explore features of
 spikes and input resistance.
 """
 
-morph_filename = 'MC120914100xC3-scaled.swc'
+#morph_filename = 'EB022715-stitched-proofread.swc'  # EB2: 11067 spines
+morph_filename = 'Erik_Bloss_CA1_0215_Stitched_Proofread.swc'  # EB1: 10777 spines
 #mech_filename = 'mech_dict_021920151042.pkl'
 rec_filename = '022315 compare_mech_dicts'
 
