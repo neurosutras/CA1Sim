@@ -8,10 +8,10 @@ from neuron import h
 Iterate through every section, inject hyperpolarizing current to measure input resistance.
 """
 
-morph_filename = 'MC120914100xC3-scaled.swc'
-#morph_filename = 'Erik_Bloss_CA1_0215_Spliced_Tweaked.swc'
+morph_filename = 'EB022715-stitched-proofread.swc'
+#morph_filename = 'Erik_Bloss_CA1_0215_Stitched_Proofread.swc'
 mech_filename = '022315 kap_scale kd ih_scale.pkl'
-rec_filename = '022615 kap_scale kd ih_scale full_spines - MCMorph - rinp'
+rec_filename = '030215 kap_scale kd ih_scale full_spines - EB2Morph - rinp'
 
 
 equilibrate = 200.  # time to steady-state

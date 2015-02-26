@@ -5,9 +5,10 @@ from specify_cells import *
 from function_lib import *
 from neuron import h
 
-morph_filename = 'MC120914100xC3-scaled.swc'
+morph_filename = 'EB022715-stitched-proofread.swc'
+#morph_filename = 'Erik_Bloss_CA1_0215_Stitched_Proofread.swc'
 mech_filename = '022315 kap_scale kd ih_scale no_na.pkl'
-rec_filename = '022315 kap_scale kd ih_scale no_na - ar'
+rec_filename = '030215 kap_scale kd ih_scale no_na - EB2Morph- ar'
 
 
 equilibrate = 200.  # time to steady-state
