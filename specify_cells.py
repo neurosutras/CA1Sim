@@ -50,7 +50,7 @@ class HocCell(object):
             2) axon[1] : a tapered cylindrical 'axon initial segment' section connected to axon[0](1)
             3) axon[2] : a cylindrical 'axon' section connected to axon[1](1)
         """
-        raw_tree = btmorph.STree2() # import the full tree from an SWC file
+        raw_tree = btmorph.STree2()  # import the full tree from an SWC file
         raw_tree.read_SWC_tree_from_file(morph_dir+morph_filename, types=range(10))
         soma_length = 14
         soma_diam = 9
@@ -262,8 +262,9 @@ class HocCell(object):
         be executed after inserting synapses. It traverses the dendritic tree in order of inheritance and just sets
         synaptic mechanism parameters specified in the mechanism dictionary.
         """
-        for dend_type in ['basal', 'trunk', 'apical', 'tuft']:
-            if 'synapse' in self.mech_dict[dend_type] and self.has_synapses(dend_type):
+        for dend_type in ['soma', 'basal', 'trunk', 'apical', 'tuft']:
+            if dend_type in self.mech_dict and 'synapse' in self.mech_dict[dend_type] and \
+                                                self.has_synapses(dend_type):
                 for node in self.get_nodes_of_subtype(dend_type):
                     self._modify_mechanism(node, 'synapse', self.mech_dict[dend_type]['synapse'])
 
@@ -450,27 +451,28 @@ class HocCell(object):
         if min_distance is None:
             min_distance = 0.
         for syn in syn_list:
-            target = syn.target(rules['syn_type'])
-            if donor is None:
-                value = baseline
-            else:
-                distance = self.get_distance_to_node(donor, node, syn.loc)
-                if distance >= min_distance and (max_distance is None or distance <= max_distance):
-                    if 'slope' in rules:
-                        distance -= min_distance
-                        value = baseline + rules['slope'] * distance
-                        if 'min' in rules and value < rules['min']:
-                            value = rules['min']
-                        elif value < 0.:
-                            value = 0.
-                        elif 'max' in rules and value > rules['max']:
-                            value = rules['max']
-                    else:
-                        value = baseline
-                else:   # if only some synapses in a section meet the location constraints, the synaptic parameter is
-                        # set to zero everywhere else
-                    value = 0.
-            setattr(target, param_name, value)
+            if rules['syn_type'] in syn._syn:  # not all synapses contain every synaptic mechanism
+                target = syn.target(rules['syn_type'])
+                if donor is None:
+                    value = baseline
+                else:
+                    distance = self.get_distance_to_node(donor, node, syn.loc)
+                    if distance >= min_distance and (max_distance is None or distance <= max_distance):
+                        if 'slope' in rules:
+                            distance -= min_distance
+                            value = baseline + rules['slope'] * distance
+                            if 'min' in rules and value < rules['min']:
+                                value = rules['min']
+                            elif value < 0.:
+                                value = 0.
+                            elif 'max' in rules and value > rules['max']:
+                                value = rules['max']
+                        else:
+                            value = baseline
+                    else:   # if only some synapses in a section meet the location constraints, the synaptic parameter
+                            # is set to zero everywhere else
+                        value = 0.
+                setattr(target, param_name, value)
 
     def get_dendrite_origin(self, node):
         """
@@ -1172,7 +1174,10 @@ class Synapse(object):
         :param type: str
         :return: :class:'h.HocObject'
         """
-        return self._syn[type]['target']
+        if type in self._syn:
+            return self._syn[type]['target']
+        else:
+            raise Exception('Synapse type: {} not found at a synapse in {}'.format(type, self._node.name))
 
     def netcon(self, type):
         """

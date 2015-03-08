@@ -307,7 +307,7 @@ def plot_superimpose_conditions(rec_filename):
             axes[i].plot(tvec[:], rec[:], label=sim_id)
     for i in range(len(rec_ids)):
         axes[i].legend(loc='best')
-    plt.subplots_adjust(hspace=0.3, wspace=0.3, left=0.05, right=0.98, top=0.95, bottom=0.05)
+    plt.subplots_adjust(hspace=0.4, wspace=0.3, left=0.05, right=0.98, top=0.95, bottom=0.05)
     plt.show()
     plt.close()
     f.close()
@@ -359,7 +359,7 @@ def plot_EPSP_attenuation(rec_filename):
             axes[i][j].set_xlabel('Location (um)')
             axes[i][j].set_ylabel('Spine Location: '+input_loc+'\nEPSP Amp (mV)')
             axes[i][j].set_title('Recording Loc: '+rec_loc)
-    plt.subplots_adjust(hspace=0.3, wspace=0.3, left=0.05, right=0.98, top=0.95, bottom=0.05)
+    plt.subplots_adjust(hspace=0.4, wspace=0.3, left=0.05, right=0.98, top=0.95, bottom=0.05)
     plt.show()
     plt.close()
     f.close()
