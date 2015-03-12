@@ -80,6 +80,6 @@ if __name__ == '__main__':
         time.sleep(60)
     rec_file_list = result.get()
     print 'Parallel execution took: ', time.time()-start_time, ' s'
-    new_rec_filename = '030515 kap_kad_ih_scale kd na full_spines - EB1 - rinp'
-    combine_output_files(rec_file_list, new_rec_filename)
-    plot_Rinp(new_rec_filename)
+    #new_rec_filename = '030515 kap_kad_ih_scale kd na full_spines - EB1 - rinp'
+    #combine_output_files(rec_file_list, new_rec_filename)
+    #plot_Rinp(new_rec_filename)

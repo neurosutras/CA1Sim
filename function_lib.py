@@ -406,25 +406,26 @@ class QuickSim(object):
         f[str(simiter)]['time'].attrs['dt'] = self.dt
         for parameter in self.parameters:
             f[str(simiter)].attrs[parameter] = self.parameters[parameter]
-        f[str(simiter)].create_group('stim')
-        for index, stim in enumerate(self.stim_list):
-            stim_out = f[str(simiter)]['stim'].create_dataset(str(index), compression='gzip', compression_opts=9,
-                                                              data=stim['vec'])
-            cell = stim['cell']
-            stim_out.attrs['cell'] = cell.gid
-            node = stim['node']
-            stim_out.attrs['index'] = node.index
-            stim_out.attrs['type'] = node.type
-            loc = stim['stim'].get_segment().x
-            stim_out.attrs['loc'] = loc
-            distance = cell.get_distance_to_node(cell.tree.root, node, loc)
-            stim_out.attrs['soma_distance'] = distance
-            distance = cell.get_distance_to_node(cell.get_dendrite_origin(node), node, loc)
-            stim_out.attrs['branch_distance'] = distance
-            stim_out.attrs['amp'] = stim['stim'].amp
-            stim_out.attrs['delay'] = stim['stim'].delay
-            stim_out.attrs['dur'] = stim['stim'].dur
-            stim_out.attrs['description'] = stim['description']
+        if self.stim_list:
+            f[str(simiter)].create_group('stim')
+            for index, stim in enumerate(self.stim_list):
+                stim_out = f[str(simiter)]['stim'].create_dataset(str(index), compression='gzip', compression_opts=9,
+                                                                  data=stim['vec'])
+                cell = stim['cell']
+                stim_out.attrs['cell'] = cell.gid
+                node = stim['node']
+                stim_out.attrs['index'] = node.index
+                stim_out.attrs['type'] = node.type
+                loc = stim['stim'].get_segment().x
+                stim_out.attrs['loc'] = loc
+                distance = cell.get_distance_to_node(cell.tree.root, node, loc)
+                stim_out.attrs['soma_distance'] = distance
+                distance = cell.get_distance_to_node(cell.get_dendrite_origin(node), node, loc)
+                stim_out.attrs['branch_distance'] = distance
+                stim_out.attrs['amp'] = stim['stim'].amp
+                stim_out.attrs['delay'] = stim['stim'].delay
+                stim_out.attrs['dur'] = stim['stim'].dur
+                stim_out.attrs['description'] = stim['description']
         f[str(simiter)].create_group('rec')
         for index, rec in enumerate(self.rec_list):
             rec_out = f[str(simiter)]['rec'].create_dataset(str(index), compression='gzip', compression_opts=9,
@@ -443,7 +444,8 @@ class QuickSim(object):
             rec_out.attrs['units'] = rec['units']
             if 'description' in rec:
                 rec_out.attrs['description'] = rec['description']
-        print 'Simulation ',simiter,': exporting took: ', time.time()-start_time, ' s'
+        if self.verbose:
+            print 'Simulation ', simiter, ': exporting took: ', time.time()-start_time, ' s'
 
 
 def combine_output_files(rec_file_list, new_rec_filename=None):

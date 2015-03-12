@@ -383,14 +383,17 @@ class HocCell(object):
                 if donor is None:
                     raise Exception('Cannot follow specifications for mechanism: {} parameter: {} without a provided '
                                     'origin'.format(mech_name, param_name))
-                if 'min_loc' in rules:
-                    min_distance = rules['min_loc']
-                if 'max_loc' in rules:
-                    max_distance = rules['max_loc']
                 if mech_name == 'synapse':
-                    self._specify_synaptic_parameter(node, param_name, baseline, rules, donor, min_distance,
-                                                                                                max_distance)
+                    self._specify_synaptic_parameter(node, param_name, baseline, rules, donor)
                 else:
+                    if 'min_loc' in rules:
+                        min_distance = rules['min_loc']
+                    else:
+                        min_distance = None
+                    if 'max_loc' in rules:
+                        max_distance = rules['max_loc']
+                    else:
+                        max_distance = None
                     min_seg_distance = self.get_distance_to_node(donor, node, 0.5/node.sec.nseg)
                     max_seg_distance = self.get_distance_to_node(donor, node, (0.5 + node.sec.nseg - 1)/node.sec.nseg)
                     # if any part of the section is within the location constraints, insert the mechanism, and specify
@@ -415,13 +418,15 @@ class HocCell(object):
                                         value = rules['max']
                                 else:
                                     value = baseline
-                            else:   # if only some segments in a section meet the location constraints, the
-                                    # parameter is set to zero everywhere else
-                                value = 0.
-                            if mech_name == 'ions':
-                                setattr(seg, param_name, value)
-                            else:
-                                setattr(getattr(seg, mech_name), param_name, value)
+                            elif 'outside' in rules:        # by default, if only some segments in a section meet the
+                                value = rules['outside']    # location constraints, the parameter inherits the
+                            else:                           # mechanism's default value. if another value is desired, it
+                                value = None                # can be specified via an 'outside' key in the mechanism
+                            if not value is None:           # dictionary entry
+                                if mech_name == 'ions':
+                                    setattr(seg, param_name, value)
+                                else:
+                                    setattr(getattr(seg, mech_name), param_name, value)
             elif mech_name == 'ions':
                 setattr(node.sec, param_name, baseline)
             elif mech_name == 'synapse':
@@ -430,8 +435,7 @@ class HocCell(object):
                 node.sec.insert(mech_name)
                 setattr(node.sec, param_name+"_"+mech_name, baseline)
 
-    def _specify_synaptic_parameter(self, node, param_name, baseline, rules, donor=None, min_distance=None,
-                                    max_distance=None):
+    def _specify_synaptic_parameter(self, node, param_name, baseline, rules, donor=None):
         """
         This method interprets an entry from the mechanism dictionary to set parameters associated with a synaptic
         point_process mechanism that has been inserted either into a spine attached to this node, or inserted directly
@@ -441,22 +445,29 @@ class HocCell(object):
         :param baseline: float
         :param rules: dict
         :param donor: :class:'SHocNode' or None
-        :param min_distance: float or None
-        :param max_distance: float or None
         """
         syn_list = []
         syn_list.extend(node.synapses)
         for spine in node.spines:
             syn_list.extend(spine.synapses)
-        if min_distance is None:
+        if 'min_loc' in rules:
+            min_distance = rules['min_loc']
+        else:
             min_distance = 0.
+        if 'max_loc' in rules:
+            max_distance = rules['max_loc']
+        else:
+            max_distance = None
         for syn in syn_list:
             if rules['syn_type'] in syn._syn:  # not all synapses contain every synaptic mechanism
                 target = syn.target(rules['syn_type'])
                 if donor is None:
-                    value = baseline
+                    setattr(target, param_name, baseline)
                 else:
                     distance = self.get_distance_to_node(donor, node, syn.loc)
+                    # note: if only some synapses in a section meet the location constraints, the synaptic parameter
+                    # will maintain its default value in all other locations. values for other locations must be
+                    # specified with an additional entry in the mechanism dictionary
                     if distance >= min_distance and (max_distance is None or distance <= max_distance):
                         if 'slope' in rules:
                             distance -= min_distance
@@ -469,10 +480,8 @@ class HocCell(object):
                                 value = rules['max']
                         else:
                             value = baseline
-                    else:   # if only some synapses in a section meet the location constraints, the synaptic parameter
-                            # is set to zero everywhere else
-                        value = 0.
-                setattr(target, param_name, value)
+                        setattr(target, param_name, value)
+
 
     def get_dendrite_origin(self, node):
         """
@@ -592,7 +601,7 @@ class HocCell(object):
 
 
     def modify_mech_param(self, sec_type, mech_name, param_name=None, value=None, origin=None, slope=None, min=None,
-                                                    max=None, min_loc=None, max_loc=None, syn_type=None, replace=True):
+                                    max=None, min_loc=None, max_loc=None, outside=None, syn_type=None, replace=True):
         """
         Modifies or inserts new membrane mechanisms into hoc sections of type sec_type. First updates the mechanism
         dictionary, the sets the corresponding hoc parameters. This method is meant to be called manually during initial
@@ -609,6 +618,7 @@ class HocCell(object):
         :param max: float
         :param min_loc: float
         :param max_loc: float
+        :param outside: float
         :param syn_type: str
         :param replace: bool
         """
@@ -647,6 +657,8 @@ class HocCell(object):
                 rules['min_loc'] = min_loc
             if not max_loc is None:
                 rules['max_loc'] = max_loc
+            if not outside is None:
+                rules['outside'] = outside
             if not syn_type is None:
                 rules['syn_type'] = syn_type
             mech_content = {param_name: rules}

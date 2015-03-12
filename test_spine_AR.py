@@ -44,7 +44,8 @@ for node in cell.basal+cell.trunk+cell.apical+cell.tuft:
     sim.run()
     print 'Took: ', time.time() - start_time, ' sec'
     sim.export_to_file(f, simiter)
-    syn.source = None
+    syn.source.play(h.Vector())  # playing an empty vector turns this synapse off for future runs while keeping the
+                                 # VecStim source object in existence so it can be activated again
     simiter += 1
     start_time = time.time()
     sim.parameters['stim_loc'] = 'branch'
@@ -54,7 +55,8 @@ for node in cell.basal+cell.trunk+cell.apical+cell.tuft:
     sim.run()
     print 'Took: ', time.time() - start_time, ' sec'
     sim.export_to_file(f, simiter)
-    syn.source = None
+    syn.source.play(h.Vector())  # playing an empty vector turns this synapse off for future runs while keeping the
+                                 # VecStim source object in existence so it can be activated again
     simiter += 1
 f.close()
 

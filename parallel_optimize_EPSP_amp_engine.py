@@ -11,6 +11,9 @@ num_cores = 4
 
 def epsp_amp_error(x, syn):
     """
+    Function called by optimize.minimize. Sets specified synaptic point_process parameters, runs a simulation
+    stimulating one spine synapse, and calculates error based on distance from target amplitude of resulting somatic
+    EPSP.
     :param x: list of parameters
     :param syn: :class:'Synapse'
     :return: float: error
@@ -35,12 +38,19 @@ def epsp_amp_error(x, syn):
 
 
 def optimize_single_synapse(syn_index):
+    """
+    Called by controller, mapped to each engine. Runs optimization procedure for a single spine, returns the optimized
+    parameters, distance of the spine from the soma, and the sec_type of the associated dendritic branch.
+    :param syn_index: str
+    :return: dict
+    """
     start_time = time.time()
     syn = syn_list[syn_index]
     syn.source.play(spike_times)
     result = optimize.minimize(epsp_amp_error, x0, method='L-BFGS-B', tol=1e-3, args=[syn], bounds=bounds)
     # options={'maxfun': 25}
-    syn.source = None
+    syn.source.play(h.Vector())  # playing an empty vector turns this synapse off for future runs while keeping the
+                                 # VecStim source object in existence so it can be activated again
     print 'Process:', os.getpid(), 'optimized Spine:', syn.node.index, 'on Node:', syn.node.parent.parent.name, 'in', \
         time.time() - start_time, 's. x:', result.x, 'after', result.nfev, 'iterations'
     distance = cell.get_distance_to_node(cell.tree.root, syn.node.parent.parent, syn.loc)
@@ -59,6 +69,7 @@ duration = 200.
 v_init = -65.
 syn_type = 'AMPA_KIN'
 param_names = ['gmax']
+param_ylabels = ['Peak Conductance (uS)']
 
 syn_list = []
 cell = CA1_Pyr(morph_filename, mech_filename, full_spines=True)
