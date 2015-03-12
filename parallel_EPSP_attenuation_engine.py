@@ -10,7 +10,7 @@ import os
 #morph_filename = 'Erik_Bloss_CA1_0215_Stitched_Proofread.swc'  # EB1
 morph_filename = 'EB022715-stitched-proofread.swc'  # EB2
 #mech_filename = '030515 kap_kad_ih_ampar_scale kd with_na.pkl'
-mech_filename = '031015 kap_kad_ih_ampar_scale kd no_na.pkl'
+mech_filename = '031215 kap_kad_ih_ampar_scale kd no_na.pkl'
 rec_filename = 'output'+datetime.datetime.today().strftime('%m%d%Y%H%M')+'-pid'+str(os.getpid())
 
 
