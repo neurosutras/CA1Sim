@@ -6,9 +6,8 @@ which section to simulate (full sampling of sections).
 from specify_cells import *
 import os
 
-#morph_filename = 'Erik_Bloss_CA1_0215_Stitched_Proofread.swc'  # EB1
-morph_filename = 'EB022715-stitched-proofread.swc'  # EB2
-#mech_filename = '030515 kap_kad_ih_ampar_scale kd with_na.pkl'
+#morph_filename = 'EB1-early-bifurcation.swc'
+morph_filename = 'EB2-late-bifurcation.swc'
 mech_filename = '031215 kap_kad_ih_ampar_scale kd no_na.pkl'
 rec_filename = 'output'+datetime.datetime.today().strftime('%m%d%Y%H%M')+'-pid'+str(os.getpid())
 

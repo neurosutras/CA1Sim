@@ -6,9 +6,8 @@ import random
 """
 Pick num_stim random synapses along the trunk to stimulate at 5 x 100 Hz, with and without NMDARs.
 """
-
-morph_filename = 'EB022715-stitched-proofread.swc'  # EB2
-#mech_filename = '031215 kap_kad_ih_ampar_scale nmda kd no_na.pkl'
+#morph_filename = 'EB1-early-bifurcation.swc'
+morph_filename = 'EB2-late-bifurcation.swc'
 mech_filename = '031815 kap_kad_ih_ampar_scale nmda kd no_na.pkl'  # 7.7e-3
 rec_filename = 'calibrate_nmda_gmax'
 

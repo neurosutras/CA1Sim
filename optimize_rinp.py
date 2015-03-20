@@ -6,7 +6,8 @@ import scipy.optimize as optimize
 Optimizes input resistance by injecting hyperpolarizing current at soma, trunk, and tuft. Modifies g_pas to fit target
 values from Magee 1995, Bittner et al., 2012 in the absence of Ih.
 """
-morph_filename = 'EB022715-stitched-proofread.swc'  # EB2
+#morph_filename = 'EB1-early-bifurcation.swc'
+morph_filename = 'EB2-late-bifurcation.swc'
 mech_filename = '031815 calibrate nmda gmax.pkl'
 rec_filename = 'calibrate_rinp'
 

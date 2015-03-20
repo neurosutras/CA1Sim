@@ -1,14 +1,13 @@
 __author__ = 'milsteina'
+from specify_cells import *
+import random
+import os
 """
 Builds a cell locally so each engine is ready to receive jobs one at a time, specified by an index corresponding to
 which synapse to stimulate (coarse sampling of the full set of spines).
 """
-from specify_cells import *
-import random
-import os
-
-#morph_filename = 'Erik_Bloss_CA1_0215_Stitched_Proofread.swc'  # EB1
-morph_filename = 'EB022715-stitched-proofread.swc'  # EB2
+#morph_filename = 'EB1-early-bifurcation.swc'
+morph_filename = 'EB2-late-bifurcation.swc'
 #mech_filename = '030515 kap_kad_ih_ampar_scale kd with_na.pkl'
 mech_filename = '031215 kap_kad_ih_ampar_scale kd no_na.pkl'
 rec_filename = 'output'+datetime.datetime.today().strftime('%m%d%Y%H%M')+'-pid'+str(os.getpid())

@@ -3,11 +3,10 @@ import time
 from specify_cells import *
 from plot_results import *
 
-morph_filename = 'EB022715-stitched-proofread.swc'  # EB2: 11064 spines
-#morph_filename = 'Erik_Bloss_CA1_0215_Stitched_Proofread.swc'  #EB1:
+#morph_filename = 'EB1-early-bifurcation.swc'
+morph_filename = 'EB2-late-bifurcation.swc'
 mech_filename = '030415 kap_kad_ampar_scale kd ih_scale no_na.pkl'
 rec_filename = '030415 kap_kad_ih_ampar_scale kd no_na - EB2 - EPSP_attenuation'
-
 
 equilibrate = 150.  # time to steady-state
 duration = 200.

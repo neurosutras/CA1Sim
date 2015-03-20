@@ -6,8 +6,8 @@ from plot_results import *
 Iterate through every section, inject hyperpolarizing current to measure input resistance.
 """
 
-#morph_filename = 'Erik_Bloss_CA1_0215_Stitched_Proofread.swc'  # EB1
-morph_filename = 'EB022715-stitched-proofread.swc'  # EB2
+#morph_filename = 'EB1-early-bifurcation.swc'
+morph_filename = 'EB2-late-bifurcation.swc'
 mech_filename = '030415 kap_kad_scale kd ih_scale na.pkl'
 rec_filename = '030415 kap_kad_ih_scale kd na full_spines - EB2 - rinp'
 

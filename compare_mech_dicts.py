@@ -8,9 +8,8 @@ from neuron import h
 Specify two cells with different ion channel mechanisms, and probe with current injections to explore features of
 spikes and input resistance.
 """
-
-#morph_filename = 'EB022715-stitched-proofread.swc'  # EB2: 11067 spines
-morph_filename = 'Erik_Bloss_CA1_0215_Stitched_Proofread.swc'  # EB1: 10777 spines
+#morph_filename = 'EB1-early-bifurcation.swc'  # 10777 spines
+morph_filename = 'EB2-late-bifurcation.swc'  # 11067 spines
 #mech_filename = 'mech_dict_021920151042.pkl'
 rec_filename = '022315 compare_mech_dicts'
 
