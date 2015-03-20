@@ -365,8 +365,8 @@ class HocCell(object):
                 if self.has_synapses(donor.type):
                     baseline = self._inherit_mech_param(node, donor, mech_name, param_name, rules['syn_type'])
                 else:
-                    raise Exception('Cannot inherit synaptic mechanism: {} parameter: {} from sec_type: {}').format(
-                                                                            rules['syn_type'], param_name, donor.type)
+                    raise Exception('Cannot inherit synaptic mechanism: {} parameter: {} from sec_type: {}'.format(
+                                                                            rules['syn_type'], param_name, donor.type))
             else:
                 baseline = self._inherit_mech_param(node, donor, mech_name, param_name)
         if mech_name == 'cable':  # cable properties can be inherited, but cannot be specified as gradients
@@ -520,21 +520,25 @@ class HocCell(object):
         raise Exception('The path from node: {} to root does not contain sections of type: {}'.format(node.name,
                                                                                                         sec_type))
 
-    def _get_closest_synapse(self, node, loc):
+    def _get_closest_synapse(self, node, loc, downstream=True):
         """
         This method finds the closest synapse to the specified location within or downstream of the provided node. Used
-        for inheritance of synaptic mechanism parameters.
+        for inheritance of synaptic mechanism parameters. Can also look upstream instead.
         :param node: :class:'SHocNode'
         :param loc: float
         :return: :class:'Synapse'
         """
+
         syn_list = []
         syn_list.extend(node.synapses)
         for spine in node.spines:
             syn_list.extend(spine.synapses)
         if not syn_list:
-            for child in [child for child in node.children if child.type == node.type]:
-                return self._get_closest_synapse(child, 0.)
+            if downstream:
+                for child in [child for child in node.children if child.type == node.type]:
+                    return self._get_closest_synapse(child, 0.)
+            elif node.parent.type == node.type:
+                return self._get_closest_synapse(node.parent, 1., downstream=False)
         else:
             min_distance = 1.
             target_syn = None
@@ -544,6 +548,7 @@ class HocCell(object):
                     min_distance = distance
                     target_syn = syn
             return target_syn
+
 
     def _inherit_mech_param(self, node, donor, mech_name, param_name, syn_type=None):
         """
@@ -563,7 +568,10 @@ class HocCell(object):
             if mech_name in ['cable', 'ions']:
                 return getattr(donor.sec, param_name)
             elif mech_name == 'synapse':
-                return getattr(self._get_closest_synapse(donor, 1.).target(syn_type), param_name)
+                try:  # first look downstream for a nearby synapse, then upstream.
+                    return getattr(self._get_closest_synapse(donor, 1.).target(syn_type), param_name)
+                except AttributeError:
+                    return getattr(self._get_closest_synapse(donor, 1., downstream=False).target(syn_type), param_name)
             else:
                 loc = donor.sec.nseg/(donor.sec.nseg + 1.)  # accesses the last segment of the section
                 return getattr(getattr(donor.sec(loc), mech_name), param_name)
@@ -1027,9 +1035,9 @@ class CA1_Pyr(HocCell):
     def __init__(self, morph_filename=None, mech_filename=None, full_spines=True):
         HocCell.__init__(self, morph_filename, mech_filename)
         if full_spines:
-            self.insert_spines()
+            self.insert_spines_in_subset(['basal', 'trunk', 'apical', 'tuft'])
 
-    def insert_spines(self):
+    def insert_spines_in_subset(self, sec_type_list):
         """
         This method populates the cell tree with spines following spine density information from Erk Bloss &
         Nelson Spruston. Basal dendrites have no spines until the first branch point, and a higher density beyond the
@@ -1038,6 +1046,7 @@ class CA1_Pyr(HocCell):
         their original branch point from the trunk. Terminal tuft branches have a higher density than their parents.
         Should standardize the implementation of the rules for each type of dendrite and import the
         density dictionary from a file, similar to the implementation of the membrane mechanism dictionary.
+        :param sec_type_list: list of str
         """
         np.random.seed(self.gid)  # This cell will always have the same spine locations
         densities = {'trunk': {'min': 0.2418, 'max': 3.8,
@@ -1053,30 +1062,34 @@ class CA1_Pyr(HocCell):
                                             for branch in self.apical if self.get_branch_order(branch) == 1])},
                      'tuft': {'parent': 1.354, 'terminal': 0.7157}
                     }
-        for node in self.basal:
-            order = self.get_branch_order(node)
-            if order == 2:
-                self.insert_spines_every(node, densities['basal']['2'])
-            elif order > 2:
-                self.insert_spines_every(node, densities['basal']['>2'])
-        for node in self.trunk:
-            distance = self.get_distance_to_node(self.tree.root, node)
-            if distance >= densities['trunk']['start']:
-                slope = (densities['trunk']['max'] - densities['trunk']['min']) / \
-                        (densities['trunk']['end'] - densities['trunk']['start'])
-                density = densities['trunk']['min'] + slope * (distance - densities['trunk']['start'])
+        if 'basal' in sec_type_list:
+            for node in self.basal:
+                order = self.get_branch_order(node)
+                if order == 2:
+                    self.insert_spines_every(node, densities['basal']['2'])
+                elif order > 2:
+                    self.insert_spines_every(node, densities['basal']['>2'])
+        if 'trunk' in sec_type_list:
+            for node in self.trunk:
+                distance = self.get_distance_to_node(self.tree.root, node)
+                if distance >= densities['trunk']['start']:
+                    slope = (densities['trunk']['max'] - densities['trunk']['min']) / \
+                            (densities['trunk']['end'] - densities['trunk']['start'])
+                    density = densities['trunk']['min'] + slope * (distance - densities['trunk']['start'])
+                    self.insert_spines_every(node, density)
+        if 'apical' in sec_type_list:
+            for node in self.apical:
+                distance = self.get_distance_to_node(self.tree.root, self.get_dendrite_origin(node), loc=1.)
+                slope = (densities['apical']['max'] - densities['apical']['min']) / \
+                        (densities['apical']['end'] - densities['apical']['start'])
+                density = densities['apical']['min'] + slope * (distance - densities['apical']['start'])
                 self.insert_spines_every(node, density)
-        for node in self.apical:
-            distance = self.get_distance_to_node(self.tree.root, self.get_dendrite_origin(node), loc=1.)
-            slope = (densities['apical']['max'] - densities['apical']['min']) / \
-                    (densities['apical']['end'] - densities['apical']['start'])
-            density = densities['apical']['min'] + slope * (distance - densities['apical']['start'])
-            self.insert_spines_every(node, density)
-        for node in self.tuft:
-            if self.is_terminal(node):
-                self.insert_spines_every(node, densities['tuft']['terminal'])
-            else:
-                self.insert_spines_every(node, densities['tuft']['parent'])
+        if 'tuft' in sec_type_list:
+            for node in self.tuft:
+                if self.is_terminal(node):
+                    self.insert_spines_every(node, densities['tuft']['terminal'])
+                else:
+                    self.insert_spines_every(node, densities['tuft']['parent'])
         self._reinit_mech(self.spine)
 
     def insert_spines_every(self, node, density):

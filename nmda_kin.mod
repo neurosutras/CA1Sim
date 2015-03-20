@@ -1,7 +1,10 @@
 COMMENT
 -----------------------------------------------------------------------------
 
-GluA-R (AMPA-type Glutamate Receptors)
+GluN-R (NMDA-type Glutamate Receptors)
+
+Postsynaptic current is additionally constrained by voltage-dependent channel
+block by extracellular Mg.
 
 -----------------------------------------------------------------------------
 Synaptic mechanism based on a simplified model of transmitter binding to
@@ -56,8 +59,8 @@ i = weight * gmax * Ro * (V-Erev)
 ENDCOMMENT
 
 NEURON {
-	POINT_PROCESS AMPA_KIN
-	RANGE Cmax, Cdur, kon, koff, CC, CO, Beta, Alpha, Erev, gmax, g
+	POINT_PROCESS NMDA_KIN
+	RANGE Cmax, Cdur, kon, koff, CC, CO, Beta, Alpha, Erev, mg, gmax, g, B
 	NONSPECIFIC_CURRENT i
 }
 UNITS {
@@ -71,14 +74,15 @@ PARAMETER {
 
 	Cmax    = 1.        (mM)    	    : transmitter concentration during release event
 	Cdur	= 0.3       (ms)		    : transmitter duration (rising phase)
-	kon     = 64.86     (/ms/mM)        : unbound receptor ligand-binding rate
-    koff    = 31.92     (/ms)           : bound receptor ligand-unbinding rate
-    CC      = 93.75     (/ms)           : bound receptor cleft closing rate
-    CO      = 8.33      (/ms)           : bound receptor cleft opening rate
-    Beta	= 53.76     (/ms)	        : channel opening rate
-    Alpha   = 32.99     (/ms)           : open channel closing rate
+	kon     = 13.0      (/ms/mM)        : unbound receptor ligand-binding rate
+    koff    = 0.05      (/ms)           : bound receptor ligand-unbinding rate
+    CC      = 24.96     (/ms)           : bound receptor cleft closing rate
+    CO      = 31.04     (/ms)           : bound receptor cleft opening rate
+    Beta	= 2.56      (/ms)	        : channel opening rate
+    Alpha   = 1.53      (/ms)           : open channel closing rate
 	Erev	= 0.        (mV)		    : reversal potential
-	gmax	= 0.005     (umho)	        : maximum conductance
+	mg      = 1.0       (mM)            : extracellular Mg concentration
+    gmax	= 0.000145  (umho)	        : maximum conductance
 }
 
 
@@ -87,6 +91,7 @@ ASSIGNED {
 	i 		(nA)		: current = g * (v - Erev)
 	g 		(umho)		: conductance
 	C                   : unbound transmitter concentration
+    B                   : fraction of channels not blocked by extracellular Mg
     scale               : allow netcon weight to scale conductance
 }
 
@@ -103,12 +108,14 @@ INITIAL {
     Rb = 0.
     Rc = 0.
     Ro = 0.
+    B = 0.
     scale = 1.
 }
 
 BREAKPOINT {
+    B = mgblock(v)
     SOLVE kstates METHOD sparse
-	g = scale * gmax * Ro
+	g = scale * gmax * B * Ro
     i = g * (v - Erev)
 }
 
@@ -126,4 +133,9 @@ NET_RECEIVE(weight) {
     } else {    : a self event
         C = 0.
     }
+}
+
+FUNCTION mgblock(v(mV)) {
+	: from Jahr & Stevens
+    mgblock = 1. / (1. + exp(0.062 (/mV) * (-v)) * (mg / 3.57 (mM)))
 }

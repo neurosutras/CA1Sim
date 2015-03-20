@@ -516,27 +516,14 @@ def get_Rinp(tvec, vec, start, stop, amp):
     return peak/abs(amp), plateau/abs(amp)
 
 
-def diff_of_exp_model_func(t, amp, rise_tau, decay_tau):
-    """
-    Returns a difference of exponentials waveform with specified rise and decay kinetics.
-    :param t: :class:'np.array'
-    :param amp: float
-    :param rise_tau: float
-    :param decay_tau: float
-    :return: :class:'np.array'
-    """
-    return np.round(amp*(np.exp(t/decay_tau)-np.exp(t/rise_tau)), 10)
+def model_exp_rise_decay(t, tau_rise, tau_decay):
+    shape = np.exp(-t/tau_decay)-np.exp(-t/tau_rise)
+    return shape/np.max(shape)
 
 
-def fit_exp_nonlinear(t, y, rise, decay):
-    """
-    Fits the input vectors to a difference of exponentials and returns the fit parameters.
-    :param t:
-    :param y:
-    :param rise:
-    :param decay:
-    :return:
-    """
-    opt_parms, parm_cov = optimize.curve_fit(diff_of_exp_model_func, t, y, p0=[1., rise, decay], maxfev=2000)
-    A1, tau1, tau2 = opt_parms
-    return A1, tau1, tau2
+def model_exp_rise(t, tau):
+    return 1-np.exp(-t/tau)
+
+
+def model_exp_decay(t, tau):
+    return np.exp(-t/tau)

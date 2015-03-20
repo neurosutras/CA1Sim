@@ -274,15 +274,15 @@ def plot_superimpose_conditions(rec_filename):
     rec_ids = []
     sim_ids = []
     for sim in f.itervalues():
-        if ('description' in sim.attrs) and not (sim.attrs['description'] in sim_ids):
+        if 'description' in sim.attrs and not sim.attrs['description'] in sim_ids:
             sim_ids.append(sim.attrs['description'])
-    for rec in f['0']['rec'].itervalues():
-        if ('description' in rec.attrs):
-            rec_id = rec.attrs['description']
-        else:
-            rec_id = rec.attrs['type']+str(rec.attrs['index'])
-        if not rec_id in (id['id'] for id in rec_ids):
-            rec_ids.append({'id': rec_id, 'ylabel': rec.attrs['ylabel']+' ('+rec.attrs['units']+')'})
+        for rec in sim['rec'].itervalues():
+            if 'description' in rec.attrs:
+                rec_id = rec.attrs['description']
+            else:
+                rec_id = rec.attrs['type']+str(rec.attrs['index'])
+            if not rec_id in (id['id'] for id in rec_ids):
+                rec_ids.append({'id': rec_id, 'ylabel': rec.attrs['ylabel']+' ('+rec.attrs['units']+')'})
     if len(rec_ids) > 1:
         fig, axes = plt.subplots(1, len(rec_ids))
     else:
@@ -292,13 +292,13 @@ def plot_superimpose_conditions(rec_filename):
         axes[i].set_xlabel('Time (ms)')
         axes[i].set_ylabel(rec_ids[i]['ylabel'])
         axes[i].set_title(rec_ids[i]['id'])
-    for simiter in f:
-        if 'description' in f[simiter].attrs:
-            sim_id = f[simiter].attrs['description']
+    for sim in f.itervalues():
+        if 'description' in sim.attrs:
+            sim_id = sim.attrs['description']
         else:
             sim_id = ''
-        tvec = f[simiter]['time']
-        for rec in f[simiter]['rec'].itervalues():
+        tvec = sim['time']
+        for rec in sim['rec'].itervalues():
             if ('description' in rec.attrs):
                 rec_id = rec.attrs['description']
             else:
@@ -444,7 +444,7 @@ def plot_synaptic_parameter(rec_filename):
     with h5py.File(data_dir+rec_filename+'.hdf5', 'r') as f:
         fig, axes = plt.subplots(1, max(2, len(f)))
         for i, sec_type in enumerate(f):
-            for dataset in [dataset for dataset in f[sec_type] if not dataset == 'distance']:
+            for dataset in [dataset for dataset in f[sec_type] if not dataset == 'distances']:
                 axes[i].scatter(f[sec_type]['distances'][:], f[sec_type][dataset][:], label=f.attrs['syn_type'])
                 axes[i].set_title(sec_type+' spines')
                 axes[i].set_xlabel('Distance from Soma (um)')
@@ -455,11 +455,11 @@ def plot_synaptic_parameter(rec_filename):
         plt.close()
 
 
-def plot_gmax_distribution(cell):
+def plot_synaptic_param_distribution(cell, syn_type, param_name):
     """
     Takes a cell as input rather than a file. No simulation is required, this method just takes a fully specified cell
-    and plots the relationship between distance and AMPA_KIN.gmax for all spines. Used while debugging specification
-    of synaptic parameters.
+    and plots the relationship between distance and the specified synaptic parameter for all spines. Used while
+    debugging specification of synaptic parameters.
     :param cell: :class:'HocCell'
     """
     colors = ['r', 'b', 'g', 'c']
@@ -468,18 +468,17 @@ def plot_gmax_distribution(cell):
     for i, sec_type in enumerate(dend_types):
         syn_list = []
         distances = []
-        gmax_vals = []
+        param_vals = []
         for branch in cell.get_nodes_of_subtype(sec_type):
             for spine in branch.spines:
                 syn_list.extend(spine.synapses)
-        for syn in syn_list:
+        for syn in [syn for syn in syn_list if syn_type in syn._syn]:
             distances.append(cell.get_distance_to_node(cell.tree.root, syn.node.parent.parent, syn.loc))
-            gmax_vals.append(syn.target('AMPA_KIN').gmax)
-        plt.scatter(distances, gmax_vals, color=colors[i], label=sec_type)
+            param_vals.append(getattr(syn.target(syn_type), param_name))
+        plt.scatter(distances, param_vals, color=colors[i], label=sec_type)
     plt.legend(loc='best')
     plt.show()
     plt.close()
-
     print '# spines: ', len(cell.get_nodes_of_subtype('spine_head'))
 
 
