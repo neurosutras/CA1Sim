@@ -5,8 +5,8 @@ import scipy.optimize as optimize
 """
 This simulation uses scipy.optimize to iterate through NMDAR gating parameters to fit target kinetics.
 """
-
-morph_filename = 'EB022715-stitched-proofread.swc'  # EB2
+#morph_filename = 'EB1-early-bifurcation.swc'
+morph_filename = 'EB2-late-bifurcation.swc'
 mech_filename = '031215 kap_kad_ih_ampar_scale nmda kd no_na.pkl'
 
 

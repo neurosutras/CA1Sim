@@ -8,8 +8,8 @@ Specify two cells with different ion channel mechanisms, and probe with current 
 spikes and input resistance.
 """
 
-#morph_filename = 'EB022715-stitched-proofread.swc'  # EB2: 11067 spines
-morph_filename = 'Erik_Bloss_CA1_0215_Stitched_Proofread.swc'  # EB1: 10777 spines
+#morph_filename = 'EB1-early-bifurcation.swc'
+morph_filename = 'EB2-late-bifurcation.swc'
 mech_filename1 = '030515 kap_kad_ih_ampar_scale kd no_na.pkl'
 mech_filename2 = '030515 kap_kad_ih_ampar_scale kd with_na.pkl'
 rec_filename = '030515 compare_spines'

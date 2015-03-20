@@ -7,8 +7,8 @@ import random
 """
 This simulation uses scipy.optimize to iterate through NMDAR peak conductance to fit target NMDA\AMPA ratio by area.
 """
-
-morph_filename = 'EB022715-stitched-proofread.swc'  # EB2
+#morph_filename = 'EB1-early-bifurcation.swc'
+morph_filename = 'EB2-late-bifurcation.swc'
 mech_filename = '031815 calibrate nmda gmax.pkl'
 rec_filename = 'calibrate_nmda_gmax'
 
