@@ -4,12 +4,13 @@ import random
 import os
 """
 Builds a cell locally so each engine is ready to receive jobs one at a time, specified by an index corresponding to
-which synapse to stimulate (coarse sampling of the full set of spines).
+which synapse to stimulate (coarse sampling of the full set of spines). Mechanism dictionary should either specify a
+constant value for synaptic conductance, or inherit the default parameter, rather than implement scaling.
 """
-#morph_filename = 'EB1-early-bifurcation.swc'
-morph_filename = 'EB2-late-bifurcation.swc'
-#mech_filename = '030515 kap_kad_ih_ampar_scale kd with_na.pkl'
-mech_filename = '031215 kap_kad_ih_ampar_scale kd no_na.pkl'
+morph_filename = 'EB1-early-bifurcation.swc'
+#morph_filename = 'EB2-late-bifurcation.swc'
+#mech_filename = '032315 kap_kad_ampar_scale nmda kd pas no_ih no_na.pkl'
+mech_filename = '032315 kap_kad_ih_scale kd pas no_na.pkl'
 rec_filename = 'output'+datetime.datetime.today().strftime('%m%d%Y%H%M')+'-pid'+str(os.getpid())
 
 

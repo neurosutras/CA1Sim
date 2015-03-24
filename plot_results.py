@@ -234,6 +234,7 @@ def plot_Rinp(rec_filename):
         peak[sec_type].append(this_peak)
         steady[sec_type].append(this_steady)
         sag[sec_type].append(100*(1-this_steady/this_peak))
+        #print sec_type, rec.attrs['index'], this_steady
     fig, axes = plt.subplots(3, len(sec_types))
     colors = ['b', 'g', 'r', 'c']
     sorted_distances = {}
@@ -399,16 +400,21 @@ def plot_EPSP_kinetics(rec_filename):
                 rise_taus[input_loc][rec_loc] = []
                 decay_taus[input_loc][rec_loc] = []
             left, right = time2index(tvec[:], equilibrate-3.0, equilibrate-1.0)
+            interp_t = np.arange(0, duration, 0.001)
             baseline = np.average(rec[left:right])
-            left, right = time2index(tvec[:], equilibrate, duration)
-            y = rec[left:right] - baseline
-            t = tvec[left:right]
-            t -= t[0]
-            amp = np.max(y)
-            y /= amp
-            fit_amp, fit_rise, fit_decay = fit_exp_nonlinear(t, y, -5., -10.)
-            rise_taus[input_loc][rec_loc].append(-1.*fit_rise)
-            decay_taus[input_loc][rec_loc].append(-1*fit_decay)
+            interp_vm = np.interp(interp_t, tvec[:], rec[:])
+            start, end = time2index(interp_t, equilibrate, duration)
+            interp_t = interp_t[start:end]
+            interp_vm = interp_vm[start:end] - baseline
+            amp = np.max(interp_vm)
+            t_peak = np.where(interp_vm == amp)[0][0]
+            interp_vm /= amp
+            interp_t -= interp_t[0]
+            rise_tau = optimize.curve_fit(model_exp_rise, interp_t[1:t_peak], interp_vm[1:t_peak], p0=0.3)[0]
+            decay_tau = optimize.curve_fit(model_exp_decay, interp_t[t_peak+1:]-interp_t[t_peak], interp_vm[t_peak+1:],
+                                             p0=5.)[0]
+            rise_taus[input_loc][rec_loc].append(rise_tau)
+            decay_taus[input_loc][rec_loc].append(decay_tau)
     fig1, axes1 = plt.subplots(max(2, len(input_locs)), len(rec_locs))
     fig2, axes2 = plt.subplots(max(2, len(input_locs)), len(rec_locs))
     colors = ['b', 'g', 'r', 'c']

@@ -264,23 +264,37 @@ class HocCell(object):
         """
         for dend_type in ['soma', 'basal', 'trunk', 'apical', 'tuft']:
             if dend_type in self.mech_dict and 'synapse' in self.mech_dict[dend_type] and \
-                                                self.has_synapses(dend_type):
+                                                self.sec_type_has_synapses(dend_type):
                 for node in self.get_nodes_of_subtype(dend_type):
                     self._modify_mechanism(node, 'synapse', self.mech_dict[dend_type]['synapse'])
 
-    def has_synapses(self, sec_type):
+    def node_has_synapses(self, node, syn_type=None):
         """
+        Checks if a given node contains synapses, or spines with synapses. Can also check for a synaptic point process
+        of a specific type.
+        :param node: :class:'SHocNode'
+        :param syn_type: str
+        :return: boolean
+        """
+        if [syn for syn in node.synapses if syn_type is None or syn_type in syn._syn]:
+            return True
+        else:
+            for spine in node.spines:
+                if [syn for syn in spine.synapses if syn_type is None or syn_type in syn._syn]:
+                    return True
+        return False
 
+    def sec_type_has_synapses(self, sec_type, syn_type=None):
+        """
+        Checks if any nodes of a given sec_type contain synapses, or spines with synapses. Can also check for a synaptic
+        point process of a specific type.
         :param sec_type: str
-        :return: bool
+        :param syn_type: str
+        :return: boolean
         """
         for node in self.get_nodes_of_subtype(sec_type):
-            if node.synapses:
+            if self.node_has_synapses(node, syn_type):
                 return True
-            else:
-                for spine in node.spines:
-                    if spine.synapses:
-                        return True
         return False
 
     def _reinit_mech(self, nodes, reset_cable=0):
@@ -288,10 +302,10 @@ class HocCell(object):
         Given a list of nodes, this method loops through all the mechanisms specified in the mechanism dictionary for
         the hoc section type of each node and updates their associated parameters. If the reset_cable flag is set to 1,
         cable parameters are modified first, then the parameters for all other mechanisms are reinitialized.
-        Parameters for synaptic point processes can also be specified in the mechanism dictionary, so it is important to
-        reinitialize mechanisms after inserting spines and synapses.
+        Parameters for synaptic point processes can also be specified in the mechanism dictionary, so one must use the
+        method init_synaptic_mechanisms() after inserting synapses.
         :param nodes: list of :class:'SHocNode'
-        :param reset_cable: boolean
+        :param reset_cable: int or boolean
         """
         for node in nodes:
             sec_type = node.type
@@ -307,6 +321,19 @@ class HocCell(object):
                 if 'ions' in self.mech_dict[sec_type]:
                     self._modify_mechanism(node, 'ions', self.mech_dict[sec_type]['ions'])
 
+    def reinitialize_subset_mechanisms(self, sec_type, mech_name):
+        """
+        During parameter optimization, it is often convenient to reinitialize all the parameters for a single mechanism
+        in a subset of compartments. For example, g_pas in basal dendrites that inherit the value from the soma after
+        modifying the value in the soma compartment.
+        :param sec_type: str
+        :param mech_name: str
+        :return:
+        """
+        if sec_type in self.mech_dict and mech_name in self.mech_dict[sec_type]:
+            for node in self.get_nodes_of_subtype(sec_type):
+                self._modify_mechanism(node, mech_name, self.mech_dict[sec_type][mech_name])
+
     def _modify_mechanism(self, node, mech_name, mech_content):
         """
         This method loops through all the parameters for a single mechanism specified in the mechanism dictionary and
@@ -317,7 +344,7 @@ class HocCell(object):
         """
         if not mech_content is None:
             # only modify synaptic mechanism parameters if synapses have been inserted
-            if not mech_name == 'synapse' or self.has_synapses(node.type):
+            if not mech_name == 'synapse' or self.node_has_synapses(node):
                 for param_name in mech_content:
                     # accommodate multiple dict entries with different location constraints for a single parameter
                     if type(mech_content[param_name]) == dict:
@@ -333,15 +360,19 @@ class HocCell(object):
         This method loops through all the segments in a node and sets the value(s) for a single mechanism parameter by
         interpreting the rules specified in the mechanism dictionary. Properly handles ion channel gradients and
         inheritance of values from the closest segment of a specified type of section along the path from root. Also
-        handles rules that are restricted by distance, and rules to set synaptic (point process) parameters.
+        handles rules with distance boundaries, and rules to set synaptic (point process) parameters.
         :param node: :class:'SHocNode'
         :param mech_name: str
         :param param_name: str
         :param rules: dict
         """
-        if mech_name == 'synapse' and not 'syn_type' in rules:
-            raise Exception('Cannot set synaptic mechanism parameter: {} without a specified point process'.
+        if mech_name == 'synapse':
+            if not 'syn_type' in rules:
+                raise Exception('Cannot set synaptic mechanism parameter: {} without a specified point process'.
                                                                                                     format(param_name))
+            elif not self.node_has_synapses(node, rules['syn_type']):
+                print 'getting here', node.name, mech_name, param_name
+                return None  # ignore mechanism dictionary entries for types of synapses that have not been inserted
         if 'origin' in rules:  # an 'origin' with no 'value' inherits a starting parameter from the origin sec_type
                                # a 'value' with no 'origin' is independent of other sec_types
                                # an 'origin' with a 'value' uses the origin sec_type only as a reference point for
@@ -362,7 +393,7 @@ class HocCell(object):
             if (mech_name == 'cable') and (param_name == 'spatial_res'):
                 baseline = self._get_spatial_res(donor)
             elif mech_name == 'synapse':
-                if self.has_synapses(donor.type):
+                if self.sec_type_has_synapses(donor.type, rules['syn_type']):
                     baseline = self._inherit_mech_param(node, donor, mech_name, param_name, rules['syn_type'])
                 else:
                     raise Exception('Cannot inherit synaptic mechanism: {} parameter: {} from sec_type: {}'.format(
@@ -520,25 +551,26 @@ class HocCell(object):
         raise Exception('The path from node: {} to root does not contain sections of type: {}'.format(node.name,
                                                                                                         sec_type))
 
-    def _get_closest_synapse(self, node, loc, downstream=True):
+    def _get_closest_synapse(self, node, loc, syn_type=None, downstream=True):
         """
         This method finds the closest synapse to the specified location within or downstream of the provided node. Used
-        for inheritance of synaptic mechanism parameters. Can also look upstream instead.
+        for inheritance of synaptic mechanism parameters. Can also look upstream instead. Can also find the closest
+        synapse containing a synaptic point_process of a specific type.
         :param node: :class:'SHocNode'
         :param loc: float
+        :param syn_type: str
         :return: :class:'Synapse'
         """
 
-        syn_list = []
-        syn_list.extend(node.synapses)
+        syn_list = [syn for syn in node.synapses if syn_type is None or syn_type in syn._syn]
         for spine in node.spines:
-            syn_list.extend(spine.synapses)
+            syn_list.extend([syn for syn in spine.synapses if syn_type is None or syn_type in syn._syn])
         if not syn_list:
             if downstream:
                 for child in [child for child in node.children if child.type == node.type]:
-                    return self._get_closest_synapse(child, 0.)
+                    return self._get_closest_synapse(child, 0., syn_type)
             elif node.parent.type == node.type:
-                return self._get_closest_synapse(node.parent, 1., downstream=False)
+                return self._get_closest_synapse(node.parent, 1., syn_type, downstream=False)
         else:
             min_distance = 1.
             target_syn = None
@@ -549,14 +581,13 @@ class HocCell(object):
                     target_syn = syn
             return target_syn
 
-
     def _inherit_mech_param(self, node, donor, mech_name, param_name, syn_type=None):
         """
         When the mechanism dictionary specifies that a node inherit a parameter value from a donor node, this method
         returns the value of that parameter found in the section or final segment of the donor node. For synaptic
         mechanism parameters, searches for the closest synapse in the donor node. If the donor node does not contain
-        synapses due to location constraints, this method searches child branches of the same sec_type as the donor
-        node.
+        synapses due to location constraints, this method searches first child branches, then parent nodes of the same
+        sec_type as the donor node.
         :param node: :class:'SHocNode'
         :param donor: :class:'SHocNode'
         :param mech_name: str
@@ -569,9 +600,10 @@ class HocCell(object):
                 return getattr(donor.sec, param_name)
             elif mech_name == 'synapse':
                 try:  # first look downstream for a nearby synapse, then upstream.
-                    return getattr(self._get_closest_synapse(donor, 1.).target(syn_type), param_name)
-                except AttributeError:
-                    return getattr(self._get_closest_synapse(donor, 1., downstream=False).target(syn_type), param_name)
+                    return getattr(self._get_closest_synapse(donor, 1., syn_type).target(syn_type), param_name)
+                except (AttributeError, KeyError):
+                    return getattr(self._get_closest_synapse(donor, 1., syn_type, downstream=False).target(syn_type),
+                                   param_name)
             else:
                 loc = donor.sec.nseg/(donor.sec.nseg + 1.)  # accesses the last segment of the section
                 return getattr(getattr(donor.sec(loc), mech_name), param_name)
@@ -1202,7 +1234,8 @@ class Synapse(object):
         if type in self._syn:
             return self._syn[type]['target']
         else:
-            raise Exception('Synapse type: {} not found at a synapse in {}'.format(type, self._node.name))
+            print 'Synapse type: {} not found at a synapse in {}'.format(type, self._node.name)
+            raise KeyError
 
     def netcon(self, type):
         """

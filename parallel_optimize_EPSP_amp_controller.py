@@ -12,10 +12,14 @@ Assumes a controller is already running in another process with:
 ipcluster start -n num_cores
 Works best with hyperthreading off (a feature of the machine, can be disabled through XCode Instruments on Mac)
 """
+new_rec_filename = '032415 kap_kad_ih_scale kd pas no_na - EB2 - AMPAR_scaling'
+
 c = Client()
-v = c[:]
+dv = c[:]
+dv.clear()
+dv.block = True
 start_time = time.time()
-v.execute('from parallel_optimize_EPSP_amp_engine import *')
+dv.execute('from parallel_optimize_EPSP_amp_engine import *')
 v = c.load_balanced_view()
 map_result = v.map_async(parallel_optimize_EPSP_amp_engine.optimize_single_synapse,
                          range(len(parallel_optimize_EPSP_amp_engine.syn_list)))
@@ -46,7 +50,6 @@ for result in results:
     distances[result['sec_type']].append(result['distance'])
     for i, param_name in enumerate(parallel_optimize_EPSP_amp_engine.param_names):
         param_vals[result['sec_type']][param_name].append(result['result'][i])
-new_rec_filename = '030815 kap_kad_ih_ampar_scale kd no_na optimize_EPSP_amp - EB1'
 with h5py.File(data_dir+new_rec_filename+'.hdf5', 'w') as f:
     f.attrs['syn_type'] = parallel_optimize_EPSP_amp_engine.syn_type
     for i, param_name in enumerate(parallel_optimize_EPSP_amp_engine.param_names):

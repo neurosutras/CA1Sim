@@ -10,13 +10,17 @@ Parallel version: Iterates through every section, injecting hyperpolarizing curr
 Assumes a controller is already running in another process with:
 ipcluster start -n num_cores
 """
-new_rec_filename = '031215 kap_kad_ih_ampar_scale kd no_na full_spines - EB2 - rinp'
+new_rec_filename = '032315 kap_kad_ih_ampar_scale nmda kd pas no_na - EB1 - rinp'
 
 c = Client()
 num_secs = len(parallel_rinp_engine.nodes)
-v = c[:]
+
+dv = c[:]
+dv.clear()
+dv.block = True
 start_time = time.time()
-v.execute('from parallel_rinp_engine import *')
+dv.execute('from parallel_rinp_engine import *')
+v = c.load_balanced_view()
 result = v.map_async(parallel_rinp_engine.test_single_section, range(num_secs))
 while not result.ready():
     clear_output()
@@ -27,11 +31,11 @@ while not result.ready():
                 print lines[-2]
     sys.stdout.flush()
     time.sleep(60)
-rec_file_list = result.get()
 for stdout in [stdout for stdout in result.stdout if stdout][-len(c):]:
     lines = stdout.split('\n')
     if lines[-2]:
         print lines[-2]
 print 'Parallel execution took: ', time.time()-start_time, ' s'
+rec_file_list = dv['rec_filename']
 combine_output_files(rec_file_list, new_rec_filename)
 plot_Rinp(new_rec_filename)

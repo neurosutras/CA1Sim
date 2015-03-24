@@ -1,14 +1,16 @@
 __author__ = 'milsteina'
+from specify_cells import *
+import os
+
 """
 Builds a cell locally so each engine is ready to receive jobs one at a time, specified by an index corresponding to
 which section to simulate (full sampling of sections).
 """
-from specify_cells import *
-import os
 
-#morph_filename = 'EB1-early-bifurcation.swc'
-morph_filename = 'EB2-late-bifurcation.swc'
-mech_filename = '031215 kap_kad_ih_ampar_scale kd no_na.pkl'
+morph_filename = 'EB1-early-bifurcation.swc'
+#morph_filename = 'EB2-late-bifurcation.swc'
+#mech_filename = '032315 kap_kad_ampar_scale nmda kd pas no_ih no_na.pkl'
+mech_filename = '032315 kap_kad_ih_ampar_scale nmda kd pas no_na.pkl'
 rec_filename = 'output'+datetime.datetime.today().strftime('%m%d%Y%H%M')+'-pid'+str(os.getpid())
 
 
@@ -29,9 +31,9 @@ def test_single_section(sec_index):
     return rec_filename
 
 
-equilibrate = 150.  # time to steady-state
-duration = 250.
-stim_dur = 100.
+equilibrate = 200.  # time to steady-state
+stim_dur = 500.
+duration = equilibrate + stim_dur
 amp = -0.1
 v_init = -65.
 

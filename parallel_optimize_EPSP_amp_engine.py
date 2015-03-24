@@ -8,10 +8,8 @@ which synapse to optimize (coarse sampling of the full set of spines).
 """
 #morph_filename = 'EB1-early-bifurcation.swc'
 morph_filename = 'EB2-late-bifurcation.swc'
-mech_filename = '030515 kap_kad_ih_ampar_scale kd no_na.pkl'
+mech_filename = '032315 kap_kad_ih_scale kd pas no_na.pkl'
 #rec_filename = 'output'+datetime.datetime.today().strftime('%m%d%Y%H%M')+'-pid'+str(os.getpid())
-
-num_cores = 4
 
 
 def epsp_amp_error(x, syn):
@@ -36,7 +34,7 @@ def epsp_amp_error(x, syn):
     result = {'EPSP_amp': amp}
     Err = 0.
     for target in result:
-        Err += round(((target_val[target] - result[target])/target_range[target])**2., 10)
+        Err += ((target_val[target] - result[target])/target_range[target])**2.
     print 'Process:', os.getpid(), 'Spine:', syn.node.index, 'Node:', syn.node.parent.parent.name, 'Time:', \
         time.time() - start_time, 's, x:', x, 'Amp:', amp, 'Error:', Err
     return Err
@@ -52,7 +50,7 @@ def optimize_single_synapse(syn_index):
     start_time = time.time()
     syn = syn_list[syn_index]
     syn.source.play(spike_times)
-    result = optimize.minimize(epsp_amp_error, x0, method='L-BFGS-B', tol=1e-3, args=[syn], bounds=bounds)
+    result = optimize.minimize(epsp_amp_error, x0, method='L-BFGS-B', args=[syn], bounds=xbounds)
     # options={'maxfun': 25}
     syn.source.play(h.Vector())  # playing an empty vector turns this synapse off for future runs while keeping the
                                  # VecStim source object in existence so it can be activated again
@@ -72,7 +70,7 @@ param_ylabels = ['Peak Conductance (uS)']
 
 syn_list = []
 cell = CA1_Pyr(morph_filename, mech_filename, full_spines=True)
-random.seed(num_cores)
+random.seed(0)
 for branch in cell.basal+cell.trunk+cell.apical+cell.tuft:
     if len(branch.spines) > 1:
         if branch.sec.L <= 10.:
@@ -100,11 +98,11 @@ target_range = {'EPSP_amp': 0.02}
 
 #the initial guess
 # x = [gmax]
-x0 = [0.001]
+x0 = [0.0005]
 
 # the bounds
-xmin = [0.00001]
-xmax = [0.75]
+xmin = [0.000001]
+xmax = [1.]
 
 # rewrite the bounds in the way required by L-BFGS-B
-bounds = [(low, high) for low, high in zip(xmin, xmax)]
+xbounds = [(low, high) for low, high in zip(xmin, xmax)]

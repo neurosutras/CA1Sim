@@ -510,7 +510,7 @@ def get_Rinp(tvec, vec, start, stop, amp):
     left, right = time2index(tvec, start-3., start-1.)
     baseline = np.average(vec[left:right])
     temp_vec = np.abs(vec - baseline)
-    peak = np.max(temp_vec)
+    peak = np.max(temp_vec[right:])
     left, right = time2index(tvec, stop-3., stop-1.)
     plateau = np.average(temp_vec[left:right])
     return peak/abs(amp), plateau/abs(amp)

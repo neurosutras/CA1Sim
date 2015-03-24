@@ -59,6 +59,8 @@ if __name__ == '__main__':
 
     c = Client()
     v = c[:]
+    v.clear()
+    v.block=True
     start_time = time.time()
     v.execute('from parallel_calibrate_performance import *')
     result = v.map_async(split_simulation, range(len(c)))

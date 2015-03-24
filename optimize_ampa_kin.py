@@ -7,7 +7,8 @@ This simulation uses scipy.optimize to iterate through AMPAR gating parameters t
 """
 #morph_filename = 'EB1-early-bifurcation.swc'
 morph_filename = 'EB2-late-bifurcation.swc'
-mech_filename = '031215 kap_kad_ih_ampar_scale nmda kd no_na.pkl'
+#mech_filename = '032315 kap_kad_ampar_scale nmda kd pas no_ih no_na.pkl'
+mech_filename = '032315 kap_kad_ih_ampar_scale nmda kd pas no_na.pkl'
 
 
 def null_minimizer(fun, x0, args, **options):
@@ -42,6 +43,8 @@ class MyTakeStep(object):
             sinc = min(self.xmax[i] - x[i], snew)
             sdec = min(x[i]-self.xmin[i], snew)
             x[i] += np.random.uniform(-sdec, sinc)
+            #  chooses new value in log space to allow fair sampling across orders of magnitude
+            #x[i] = np.exp(np.random.uniform(np.log(x[i]-sdec), np.log(x[i]+sinc)))
         return x
 
 
@@ -111,8 +114,8 @@ equilibrate = 150.  # time to steady-state
 duration = 225.
 v_init = -65.
 
-cell = CA1_Pyr(morph_filename, mech_filename, full_spines=False)
-cell.insert_spines_in_subset(['trunk', 'apical'])
+cell = CA1_Pyr(morph_filename, mech_filename, full_spines=True)
+#cell.insert_spines_in_subset(['trunk', 'apical'])
 syn_type = 'AMPA_KIN'
 
 sim = QuickSim(duration)
@@ -127,17 +130,18 @@ sim.append_rec(cell, head, param='_ref_Rb', object=syn.target(syn_type), descrip
 sim.append_rec(cell, head, param='_ref_Ro', object=syn.target(syn_type), description='Ro')
 
 #the target values and acceptable ranges
-target_val = {'Ro': 0.6, 'rise_tau': 0.2, 'decay_tau': 5.}
-target_range = {'Ro': 0.06, 'rise_tau': 0.02, 'decay_tau': 0.5}
+target_val = {'Ro': 0.6, 'rise_tau': 0.3, 'decay_tau': 8.}
+target_range = {'Ro': 0.06, 'rise_tau': 0.03, 'decay_tau': 0.4}
 
 #the initial guess and bounds
 # x = [kon, koff, Beta, Alpha]
 #x0 = [10., 50., 25., 2.5, 10., 6.]  # Milstein 2007
 #xmin = [0.1, 0.1, 0.1, 0.1, 0.1, 0.1]  # first-pass bounds
 #xmax = [100., 100., 100., 100., 100., 100.]
-x0 = [64.86, 31.92, 93.75, 8.33, 53.76, 32.99]  # result from blocksize = 0.5
-xmin = [10., 10., 10., 0.1, 10., 10.]  # second-pass bounds did not change result after 100 iterations.
-xmax = [200., 200., 200., 100., 200., 200.]
+#x0 = [64.86, 31.92, 93.75, 8.33, 53.76, 32.99]  # result from blocksize = 0.5
+xmin = [1., 1., 1., 1., 1., 1.]  # second-pass bounds did not change result after 100 iterations.
+xmax = [100., 100., 100., 100., 100., 100.]
+x0 = [61.55, 10.28, 57.20, 5.02, 97.32, 64.16]  # fit to 0.3 rise, 8 ms decay
 
 # rewrite the bounds in the way required by optimize.minimize
 xbounds = [(low, high) for low, high in zip(xmin, xmax)]

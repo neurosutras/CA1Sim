@@ -71,14 +71,14 @@ PARAMETER {
 
 	Cmax    = 1.        (mM)    	    : transmitter concentration during release event
 	Cdur	= 0.3       (ms)		    : transmitter duration (rising phase)
-	kon     = 64.86     (/ms/mM)        : unbound receptor ligand-binding rate
-    koff    = 31.92     (/ms)           : bound receptor ligand-unbinding rate
-    CC      = 93.75     (/ms)           : bound receptor cleft closing rate
-    CO      = 8.33      (/ms)           : bound receptor cleft opening rate
-    Beta	= 53.76     (/ms)	        : channel opening rate
-    Alpha   = 32.99     (/ms)           : open channel closing rate
+	kon     = 61.55     (/ms/mM)        : unbound receptor ligand-binding rate
+    koff    = 10.28     (/ms)           : bound receptor ligand-unbinding rate
+    CC      = 57.20     (/ms)           : bound receptor cleft closing rate
+    CO      = 5.02      (/ms)           : bound receptor cleft opening rate
+    Beta	= 97.32     (/ms)	        : channel opening rate
+    Alpha   = 64.16     (/ms)           : open channel closing rate
 	Erev	= 0.        (mV)		    : reversal potential
-	gmax	= 0.005     (umho)	        : maximum conductance
+	gmax	= 0.0005     (umho)	        : maximum conductance
 }
 
 
