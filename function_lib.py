@@ -527,3 +527,7 @@ def model_exp_rise(t, tau):
 
 def model_exp_decay(t, tau):
     return np.exp(-t/tau)
+
+
+def model_scaled_exp(t, A, tau, A0=0):
+    return A*np.exp(t/tau)+A0

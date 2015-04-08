@@ -480,6 +480,8 @@ def plot_synaptic_param_distribution(cell, syn_type, param_name):
                 syn_list.extend(spine.synapses)
         for syn in [syn for syn in syn_list if syn_type in syn._syn]:
             distances.append(cell.get_distance_to_node(cell.tree.root, syn.node.parent.parent, syn.loc))
+            if sec_type == 'basal':
+                    distances[-1] *= -1
             param_vals.append(getattr(syn.target(syn_type), param_name))
         plt.scatter(distances, param_vals, color=colors[i], label=sec_type)
     plt.legend(loc='best')
@@ -506,6 +508,8 @@ def plot_mech_param_distribution(cell, mech_name, param_name):
         for branch in cell.get_nodes_of_subtype(sec_type):
             for seg in [seg for seg in branch.sec if hasattr(seg, mech_name)]:
                 distances.append(cell.get_distance_to_node(cell.tree.root, branch, seg.x))
+                if sec_type == 'basal':
+                    distances[-1] *= -1
                 param_vals.append(getattr(getattr(seg, mech_name), param_name))
         plt.scatter(distances, param_vals, color=colors[i], label=sec_type)
     plt.legend(loc='best')

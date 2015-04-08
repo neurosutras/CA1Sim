@@ -360,7 +360,9 @@ class HocCell(object):
         This method loops through all the segments in a node and sets the value(s) for a single mechanism parameter by
         interpreting the rules specified in the mechanism dictionary. Properly handles ion channel gradients and
         inheritance of values from the closest segment of a specified type of section along the path from root. Also
-        handles rules with distance boundaries, and rules to set synaptic (point process) parameters.
+        handles rules with distance boundaries, and rules to set synaptic (point process) parameters. For gradients,
+        specifying a slope implies a linear gradient, while specifying both a slope and a tau implies an exponential
+        gradient.
         :param node: :class:'SHocNode'
         :param mech_name: str
         :param param_name: str
@@ -371,7 +373,6 @@ class HocCell(object):
                 raise Exception('Cannot set synaptic mechanism parameter: {} without a specified point process'.
                                                                                                     format(param_name))
             elif not self.node_has_synapses(node, rules['syn_type']):
-                print 'getting here', node.name, mech_name, param_name
                 return None  # ignore mechanism dictionary entries for types of synapses that have not been inserted
         if 'origin' in rules:  # an 'origin' with no 'value' inherits a starting parameter from the origin sec_type
                                # a 'value' with no 'origin' is independent of other sec_types
@@ -440,7 +441,10 @@ class HocCell(object):
                             if seg_loc >= min_distance and (max_distance is None or seg_loc <= max_distance):
                                 if 'slope' in rules:
                                     seg_loc -= min_distance
-                                    value = baseline + rules['slope'] * seg_loc
+                                    if 'tau' in rules:  # exponential gradient
+                                        value = baseline + rules['slope'] * np.exp(seg_loc/rules['tau'])
+                                    else:  # linear gradient
+                                        value = baseline + rules['slope'] * seg_loc
                                     if 'min' in rules and value < rules['min']:
                                         value = rules['min']
                                     elif value < 0.:
@@ -502,7 +506,10 @@ class HocCell(object):
                     if distance >= min_distance and (max_distance is None or distance <= max_distance):
                         if 'slope' in rules:
                             distance -= min_distance
-                            value = baseline + rules['slope'] * distance
+                            if 'tau' in rules:  # exponential gradient
+                                value = baseline + rules['slope'] * np.exp(distance/rules['tau'])
+                            else:  # linear gradient
+                                value = baseline + rules['slope'] * distance
                             if 'min' in rules and value < rules['min']:
                                 value = rules['min']
                             elif value < 0.:
@@ -640,8 +647,8 @@ class HocCell(object):
             raise KeyError
 
 
-    def modify_mech_param(self, sec_type, mech_name, param_name=None, value=None, origin=None, slope=None, min=None,
-                                    max=None, min_loc=None, max_loc=None, outside=None, syn_type=None, replace=True):
+    def modify_mech_param(self, sec_type, mech_name, param_name=None, value=None, origin=None, slope=None, tau=None,
+                            min=None, max=None, min_loc=None, max_loc=None, outside=None, syn_type=None, replace=True):
         """
         Modifies or inserts new membrane mechanisms into hoc sections of type sec_type. First updates the mechanism
         dictionary, the sets the corresponding hoc parameters. This method is meant to be called manually during initial
@@ -654,6 +661,7 @@ class HocCell(object):
         :param value: float
         :param origin: str
         :param slope: float
+        :param tau: float
         :param min: float
         :param max: float
         :param min_loc: float
@@ -689,6 +697,8 @@ class HocCell(object):
                 rules['value'] = value
             if not slope is None:
                 rules['slope'] = slope
+            if not tau is None:
+                rules['tau'] = tau
             if not min is None:
                 rules['min'] = min
             if not max is None:
