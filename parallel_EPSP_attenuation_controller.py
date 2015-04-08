@@ -11,7 +11,7 @@ and kinetics. Mechanism dictionary specifying gmax gradients is specified in par
 Assumes a controller is already running in another process with:
 ipcluster start -n num_cores
 """
-new_rec_filename = '040815 kap_kad_ih_ampar_scale kd pas no_na - EB2 - epsp_attenuation'
+new_rec_filename = '040815 kap_kad_ampar_scale kd pas no_ih no_na - EB2 - epsp_attenuation'
 
 num_syns = len(parallel_EPSP_attenuation_engine.syn_list)
 c = Client()
