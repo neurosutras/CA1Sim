@@ -1,25 +1,46 @@
 __author__ = 'Aaron D. Milstein'
 from specify_cells import *
 from plot_results import *
+import random
 
 #morph_filename = 'EB1-early-bifurcation.swc'
 morph_filename = 'EB2-late-bifurcation.swc'
-mech_filename = '022315 kap_scale kd ih_scale no_na.pkl'
-rec_filename = '030215 kap_scale kd ih_scale no_na - EB1Morph- ar'
+mech_filename = '040815 kap_kad_ih_ampar_scale nmda kd pas no_na.pkl'
+rec_filename = '040815 kap_kad_ih_ampar_scale nmda kd pas no_na - EB1 - spine AR'
 
 
 equilibrate = 200.  # time to steady-state
 duration = 250.
 amp = 0.06
+syn_type = 'AMPA_KIN'
 
-cell = CA1_Pyr(morph_filename, mech_filename, full_spines=False)
-for node in cell.basal+cell.trunk+cell.apical+cell.tuft:
-    syn = Synapse(cell, node, ['EPSC'], stochastic=0)
-    syn.netcon('EPSC').weight[0] = amp
-    cell.insert_spine(node, 0.5)
-    syn = Synapse(cell, node.spines[0], ['EPSC'], stochastic=0)
-    syn.netcon('EPSC').weight[0] = amp
-cell._reinit_mech(cell.spine)
+spine_syn_list = []
+branch_syn_list = []
+cell = CA1_Pyr(morph_filename, mech_filename, full_spines=True)
+
+random.seed(0)
+for branch in cell.basal+cell.trunk+cell.apical+cell.tuft:
+    node_list = []
+    if len(branch.spines) > 1:
+        if branch.sec.L <= 10.:
+            node = branch.spines[random.sample(range(0, len(branch.spines)), 1)[0]]
+            node_list.append(node)
+        else:
+            num_syns = min(len(branch.spines), int(branch.sec.L//10.))  # a random synapse every 10 um
+            for i in random.sample(range(0, len(branch.spines)), num_syns):
+                node = branch.spines[i]
+                node_list.append(node)
+    elif branch.spines:
+        node = branch.spines[0]
+        node_list.append(node)
+    for node in node_list:
+        syn = Synapse(cell, node, [syn_type], stochastic=0)
+        syn.netcon(syn_type).weight[0] = amp
+        spine_syn_list.append(syn)
+        loc = syn.loc
+        syn = Synapse(cell, branch, [syn_type], stochastic=0, loc=loc)
+        syn.netcon(syn_type).weight[0] = amp
+        branch_syn_list.append(syn)
 
 sim = QuickSim(duration)
 sim.parameters['amp'] = amp
