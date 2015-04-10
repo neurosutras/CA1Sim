@@ -9,8 +9,9 @@ This simulation uses scipy.optimize to iterate through NMDAR peak conductance to
 """
 #morph_filename = 'EB1-early-bifurcation.swc'
 morph_filename = 'EB2-late-bifurcation.swc'
-mech_filename = '031815 calibrate nmda gmax.pkl'
-rec_filename = 'calibrate_nmda_gmax'
+#mech_filename = '031815 calibrate nmda gmax.pkl'
+mech_filename = '040815 kap_kad_ih_ampar_scale nmda kd pas no_na.pkl'
+rec_filename = '041015 calibrate_nmda_gmax - apical - EB2'
 
 
 def nmda_ampa_area_error(x, plot=0):
@@ -68,27 +69,20 @@ duration = 550.
 v_init = -65.
 num_stim = 40
 
-cell = CA1_Pyr(morph_filename, mech_filename, full_spines=False)
-cell.insert_spines_in_subset(['trunk', 'tuft'])  # 'apical'
+cell = CA1_Pyr(morph_filename, mech_filename, full_spines=True)
 
 syn_types = ['AMPA_KIN', 'NMDA_KIN']
 spike_times = h.Vector([equilibrate])
-spine_list = []
-stim_syn_list = []
+syn_list = []
 
-for branch in cell.trunk+cell.tuft:  # cell.apical
-    spine_list.extend(branch.spines)
-
-for spine in spine_list:
-    syn = Synapse(cell, spine, syn_types, stochastic=0)
+for branch in cell.trunk+cell.apical:
+    for spine in branch.spines:
+        syn = Synapse(cell, spine, syn_types, stochastic=0)
+        syn_list.append(syn)
 cell.init_synaptic_mechanisms()
 
-spine_list = []
-for branch in cell.tuft:
-    spine_list.extend(branch.spines)
-
 random.seed(0)
-stim_syn_list = [spine_list[i].synapses[0] for i in random.sample(range(len(spine_list)), num_stim)]
+stim_syn_list = [syn_list[i] for i in random.sample(range(len(syn_list)), num_stim)]
 for syn in stim_syn_list:
     syn.source.play(spike_times)
 
@@ -98,8 +92,8 @@ trunk = [trunk for trunk in cell.trunk if len(trunk.children) > 1 and trunk.chil
 sim.append_rec(cell, trunk, description='trunk', loc=1.)
 
 #the target values and acceptable ranges
-target_val = {'%Area': 0.65}  # 0.35 for apical. 0.65 for tuft
-target_range = {'%Area': 0.065}  #
+target_val = {'%Area': 0.35}  # 0.35 for apical. 0.65 for tuft
+target_range = {'%Area': 0.035}  #
 
 #the initial guess and bounds
 # x = [gmax]
