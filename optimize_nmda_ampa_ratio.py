@@ -10,8 +10,8 @@ This simulation uses scipy.optimize to iterate through NMDAR peak conductance to
 #morph_filename = 'EB1-early-bifurcation.swc'
 morph_filename = 'EB2-late-bifurcation.swc'
 #mech_filename = '031815 calibrate nmda gmax.pkl'
-mech_filename = '040815 kap_kad_ih_ampar_scale nmda kd pas no_na.pkl'
-rec_filename = '041015 calibrate_nmda_gmax - apical - EB2'
+mech_filename = '040815 kap_kad_ampar_scale low mg kd pas no_ih no_na.pkl'
+rec_filename = '041315 calibrate_nmda_gmax - apical - EB2'
 
 
 def nmda_ampa_area_error(x, plot=0):
@@ -73,12 +73,34 @@ cell = CA1_Pyr(morph_filename, mech_filename, full_spines=True)
 
 syn_types = ['AMPA_KIN', 'NMDA_KIN']
 spike_times = h.Vector([equilibrate])
-syn_list = []
 
-for branch in cell.trunk+cell.apical:
+# record from the trunk near where the tuft begins. to calibrate distal SR, stimulate only synapses on the trunk or
+# alone apical obliques that originate <100 micron from the border of SR and SLM. to calibrate SLM, stimulate only
+# synapses in tuft branches that originate <100 uM from the border.
+
+sim = QuickSim(duration)  # , verbose=0)
+trunk = [trunk for trunk in cell.trunk if len(trunk.children) > 1 and trunk.children[0].type in ['trunk','tuft'] and
+                                            trunk.children[1].type in ['trunk', 'tuft']][0]  # tuft bifurcation
+sim.append_rec(cell, trunk, description='trunk', loc=0.)
+# Holding current calibrated to return Vm to -65
+i_inj_delay = 25.
+sim.append_stim(cell, trunk, loc=0., amp=0.223, delay=i_inj_delay, dur=duration-i_inj_delay,
+                description='Holding I_inj')
+
+syn_list = []
+border_loc = cell.get_distance_to_node(cell.tree.root, trunk, loc=1.)
+
+for branch in cell.trunk+cell.apical:  # cell.tuft:
     for spine in branch.spines:
         syn = Synapse(cell, spine, syn_types, stochastic=0)
-        syn_list.append(syn)
+        if (branch.type == 'trunk' and
+            border_loc - cell.get_distance_to_node(cell.tree.root, branch, loc=syn.loc) <= 100.) or \
+            (branch.type == 'apical' and
+            border_loc - cell.get_distance_to_node(cell.tree.root, cell.get_dendrite_origin(branch), 1.) <= 100.) or \
+            (branch.type == 'tuft' and
+            cell.get_distance_to_node(cell.get_dendrite_origin(branch), branch, loc=syn.loc) <= 100.):
+                #if branch.type == 'tuft':  # remove this line when probing trunk + apical synapses
+                syn_list.append(syn)
 cell.init_synaptic_mechanisms()
 
 random.seed(0)
@@ -86,28 +108,33 @@ stim_syn_list = [syn_list[i] for i in random.sample(range(len(syn_list)), num_st
 for syn in stim_syn_list:
     syn.source.play(spike_times)
 
-sim = QuickSim(duration, verbose=0)
-trunk = [trunk for trunk in cell.trunk if len(trunk.children) > 1 and trunk.children[0].type == 'trunk' and
-                                               trunk.children[1].type == 'trunk'][0]  # trunk bifurcation
-sim.append_rec(cell, trunk, description='trunk', loc=1.)
-
 #the target values and acceptable ranges
 target_val = {'%Area': 0.35}  # 0.35 for apical. 0.65 for tuft
-target_range = {'%Area': 0.035}  #
+target_range = {'%Area': 0.01}  #
 
 #the initial guess and bounds
 # x = [gmax]
 x0 = [2.9e-4]
 xmin = [1e-6]  # first-pass bounds
 xmax = [0.1]
+
+#mech_dict: before g_pas optimization
 #x0 = [0.000145]  # result from L-BFGS-B for apical
 #x0 = [0.000464]  # result from L-BFGS-B for tuft
+#mech_dict: '040815 kap_kad_ampar_scale low mg kd pas no_ih no_na.pkl'
+#x0 = [2.30e-4]  # result from L-BFGS-B for distal apical+trunk
+#x0 = [1.39e-3]  # result from L-BFGS-B for proximal tuft
 
 # rewrite the bounds in the way required by optimize.minimize
 xbounds = [(low, high) for low, high in zip(xmin, xmax)]
+"""
+result = optimize.minimize(nmda_ampa_area_error, x0, method='L-BFGS-B', bounds=xbounds,
+                           options={'ftol': 1e-3, 'eps': 1e-6})
 
-result = optimize.minimize(nmda_ampa_area_error, x0, method='L-BFGS-B', bounds=xbounds, options={'ftol': 1e-4})
 print('%s.gmax: %.6f' % (syn_types[1], result.x[0]))
+"""
+result = optimize.minimize(nmda_ampa_area_error, x0, method='Nelder-Mead', options={'ftol': 1e-3, 'disp': True})
+print result
 nmda_ampa_area_error(result.x, plot=1)
 """
 nmda_ampa_area_error(x0, plot=1)

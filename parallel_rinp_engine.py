@@ -7,10 +7,14 @@ Builds a cell locally so each engine is ready to receive jobs one at a time, spe
 which section to simulate (full sampling of sections).
 """
 
-morph_filename = 'EB1-early-bifurcation.swc'
-#morph_filename = 'EB2-late-bifurcation.swc'
+#morph_filename = 'EB1-early-bifurcation.swc'
+morph_filename = 'EB2-late-bifurcation.swc'
 #mech_filename = '032315 kap_kad_ampar_scale nmda kd pas no_ih no_na.pkl'
-mech_filename = '032315 kap_kad_ih_ampar_scale nmda kd pas no_na.pkl'
+#mech_filename = '032315 kap_kad_ih_ampar_scale nmda kd pas no_na.pkl'
+#mech_filename = '041615 soma_pas - EB2.pkl'
+#mech_filename = '041615 soma_pas spines - EB2.pkl'
+#mech_filename = '041615 soma_pas kdr ka_scale - EB2.pkl'
+mech_filename = '041615 soma_pas kdr ka_scale - corrected - EB2.pkl'
 rec_filename = 'output'+datetime.datetime.today().strftime('%m%d%Y%H%M')+'-pid'+str(os.getpid())
 
 
@@ -35,11 +39,13 @@ equilibrate = 200.  # time to steady-state
 stim_dur = 500.
 duration = equilibrate + stim_dur
 amp = -0.1
-v_init = -65.
+#v_init = -67.
+v_init = -77.
 
 cell = CA1_Pyr(morph_filename, mech_filename, full_spines=True)
+#cell = CA1_Pyr(morph_filename, mech_filename, full_spines=False)
 
-nodes = cell.basal+cell.trunk+cell.apical+cell.tuft
+nodes = cell.soma+cell.basal+cell.trunk+cell.apical+cell.tuft
 
 sim = QuickSim(duration, verbose=False)
 sim.append_rec(cell, cell.tree.root, 0.5)

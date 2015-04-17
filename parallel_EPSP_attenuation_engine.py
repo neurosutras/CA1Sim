@@ -17,7 +17,8 @@ morph_filename = 'EB2-late-bifurcation.swc'
 
 # exponential ampar conductance gradient applied to trunk and basal, inheritance applied to apical and tuft
 #mech_filename = '040815 kap_kad_ih_ampar_scale nmda kd pas no_na.pkl'
-mech_filename = '040815 kap_kad_ampar_scale nmda kd pas no_ih no_na.pkl'
+#mech_filename = '040815 kap_kad_ampar_scale nmda kd pas no_ih no_na.pkl'
+mech_filename = '041515 soma_pas - EB2.pkl'
 
 rec_filename = 'output'+datetime.datetime.today().strftime('%m%d%Y%H%M')+'-pid'+str(os.getpid())
 

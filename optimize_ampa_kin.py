@@ -11,43 +11,6 @@ morph_filename = 'EB2-late-bifurcation.swc'
 mech_filename = '032315 kap_kad_ih_ampar_scale nmda kd pas no_na.pkl'
 
 
-def null_minimizer(fun, x0, args, **options):
-    """
-    Rather than allow basinhopping to pass each local mimimum to a gradient descent algorithm for polishing, this method
-    just catches and passes all local minima so basinhopping can proceed.
-    """
-    return optimize.OptimizeResult(x=x0, fun=fun(x0, *args), success=True, nfev=1)
-
-
-class MyTakeStep(object):
-    """
-    Converts basinhopping absolute stepsize into different stepsizes for each parameter such that the stepsizes are
-    some fraction of the ranges specified by xmin and xmax. Also enforces bounds for x.
-    """
-    def __init__(self, blocksize, xmin, xmax, stepsize=0.5):
-        self.stepsize = stepsize
-        self.blocksize = blocksize
-        self.xmin = xmin
-        self.xmax = xmax
-        self.xrange = []
-        for i in range(len(self.xmin)):
-            self.xrange.append(self.xmax[i] - self.xmin[i])
-
-    def __call__(self, x):
-        for i in range(len(x)):
-            if x[i] < self.xmin[i]:
-                x[i] = self.xmin[i]
-            if x[i] > self.xmax[i]:
-                x[i] = self.xmax[i]
-            snew = self.stepsize / 0.5 * self.blocksize * self.xrange[i] / 2.
-            sinc = min(self.xmax[i] - x[i], snew)
-            sdec = min(x[i]-self.xmin[i], snew)
-            x[i] += np.random.uniform(-sdec, sinc)
-            #  chooses new value in log space to allow fair sampling across orders of magnitude
-            #x[i] = np.exp(np.random.uniform(np.log(x[i]-sdec), np.log(x[i]+sinc)))
-        return x
-
-
 def synaptic_kinetics_error(x, plot=0):
     """
     :param x: list of parameters

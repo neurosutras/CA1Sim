@@ -9,7 +9,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 import h5py
 import scipy.optimize as optimize
-from neuron import h
+from neuron import h  # must be found in system $PYTHONPATH
 
 
 #---------------------------------------Some global variables and functions------------------------------
@@ -46,32 +46,26 @@ dict:
                         'max':      float:      If 'slope' exists, 'max' is an upper limit for the value
                         'min':      float:      If 'slope' exists, min is a lower limit for the value
 
-
-default_mech_dict = {'ais': {'cable': {'Ra': {'origin': 'soma'}},
-                             'kdr': {'gkdrbar': {'origin': 'soma'}},
-                             'hh2': {'gnabar': {'origin': 'self', 'value': 0.25},
-                                     'gkbar': {'origin': 'soma'}},
-                             'pas': {'e': {'origin': 'soma'}, 'g': {'origin': 'soma'}}},
-                     'apical': {'cable': {'Ra': {'origin': 'soma'}},
-                                'pas': {'e': {'origin': 'soma'}, 'g': {'origin': 'soma'}}},
-                     'axon': {'cable': {'Ra': {'origin': 'soma'}},
-                              'kdr': {'gkdrbar': {'origin': 'soma'}},
-                              'hh2': {'gnabar': {'origin': 'soma'},
-                                      'gkbar': {'origin': 'soma'}},
-                              'pas': {'e': {'origin': 'soma'}, 'g': {'origin': 'soma'}}},
-                     'basal': {'cable': {'Ra': {'origin': 'soma'}},
-                               'pas': {'e': {'origin': 'soma'}, 'g': {'origin': 'soma'}}},
-                     'soma': {'cable': {'Ra': {'origin': 'self', 'value': 150}},
-                              'kdr': None,
-                              'hh2': {'gnabar': {'origin': 'self', 'value': 0.05}},
-                              'pas': {'e': {'origin': 'self', 'value': -65},
-                                      'g': {'origin': 'self', 'value': 2.5e-05}}},
-                     'trunk': {'cable': {'Ra': {'origin': 'soma'}},
-                               'pas': {'e': {'origin': 'soma'}, 'g': {'origin': 'soma'}}},
-                     'tuft': {'cable': {'Ra': {'origin': 'soma'}},
-                              'pas': {'e': {'origin': 'soma'}, 'g': {'origin': 'soma'}}}}
 """
-default_mech_dict = {}
+
+default_mech_dict = {'ais': {'cable': {'Ra': {'origin': 'soma'}, 'cm': {'origin': 'soma'}},
+                             'pas': {'e': {'origin': 'soma'}, 'g': {'origin': 'soma'}}},
+                     'apical': {'cable': {'Ra': {'origin': 'soma'}, 'cm': {'origin': 'soma'}},
+                                'pas': {'e': {'origin': 'soma'}, 'g': {'origin': 'soma'}}},
+                     'axon': {'cable': {'Ra': {'origin': 'soma'}, 'cm': {'origin': 'soma'}},
+                              'pas': {'e': {'origin': 'soma'}, 'g': {'origin': 'soma'}}},
+                     'basal': {'cable': {'Ra': {'origin': 'soma'}, 'cm': {'origin': 'soma'}},
+                               'pas': {'e': {'origin': 'soma'}, 'g': {'origin': 'soma'}}},
+                     'soma': {'cable': {'Ra': {'value': 150.}, 'cm': {'value': 1.}},
+                              'pas': {'e': {'value': -67.}, 'g': {'value': 2.5e-05}}},
+                     'trunk': {'cable': {'Ra': {'origin': 'soma'}, 'cm': {'origin': 'soma'}},
+                               'pas': {'e': {'origin': 'soma'}, 'g': {'origin': 'soma'}}},
+                     'tuft': {'cable': {'Ra': {'origin': 'soma'}, 'cm': {'origin': 'soma'}},
+                              'pas': {'e': {'origin': 'soma'}, 'g': {'origin': 'soma'}}},
+                     'spine_neck': {'cable': {'Ra': {'origin': 'soma'}, 'cm': {'origin': 'soma'}},
+                              'pas': {'e': {'origin': 'soma'}, 'g': {'origin': 'soma'}}},
+                     'spine_head': {'cable': {'Ra': {'origin': 'soma'}, 'cm': {'origin': 'soma'}},
+                              'pas': {'e': {'origin': 'soma'}, 'g': {'origin': 'soma'}}}}
 
 
 def lambda_f(sec, f=freq):
@@ -505,15 +499,18 @@ def get_Rinp(tvec, vec, start, stop, amp):
     :param start:
     :param stop:
     :param amp:
-    :return:
+    :return: tuple of float
     """
-    left, right = time2index(tvec, start-3., start-1.)
-    baseline = np.average(vec[left:right])
-    temp_vec = np.abs(vec - baseline)
+
+    interp_t = np.arange(0, stop, 0.01)
+    interp_vm = np.interp(interp_t, tvec, vec)
+    left, right = time2index(interp_t, start-3., start-1.)
+    baseline = np.average(interp_vm[left:right])
+    temp_vec = np.abs(interp_vm - baseline)
     peak = np.max(temp_vec[right:])
-    left, right = time2index(tvec, stop-3., stop-1.)
+    left, right = time2index(interp_t, stop-3., stop-1.)
     plateau = np.average(temp_vec[left:right])
-    return peak/abs(amp), plateau/abs(amp)
+    return baseline, peak/abs(amp), plateau/abs(amp)
 
 
 def model_exp_rise_decay(t, tau_rise, tau_decay):
@@ -531,3 +528,44 @@ def model_exp_decay(t, tau):
 
 def model_scaled_exp(t, A, tau, A0=0):
     return A*np.exp(t/tau)+A0
+
+
+def null_minimizer(fun, x0, args, **options):
+    """
+    Rather than allow basinhopping to pass each local mimimum to a gradient descent algorithm for polishing, this method
+    just catches and passes all local minima so basinhopping can proceed.
+    """
+    return optimize.OptimizeResult(x=x0, fun=fun(x0, *args), success=True, nfev=1)
+
+
+class MyTakeStep(object):
+    """
+    For use with scipy.optimize packages like basinhopping that allow a customized step-taking method.
+    Converts basinhopping absolute stepsize into different stepsizes for each parameter such that the stepsizes are
+    some fraction of the ranges specified by xmin and xmax. Also enforces bounds for x, and explores the range in
+    log space when the range is greater than 3 orders of magnitude.
+    """
+    def __init__(self, blocksize, xmin, xmax, stepsize=0.5):
+        self.stepsize = stepsize
+        self.blocksize = blocksize
+        self.xmin = xmin
+        self.xmax = xmax
+        self.xrange = []
+        for i in range(len(self.xmin)):
+            self.xrange.append(self.xmax[i] - self.xmin[i])
+
+    def __call__(self, x):
+        for i in range(len(x)):
+            if x[i] < self.xmin[i]:
+                x[i] = self.xmin[i]
+            if x[i] > self.xmax[i]:
+                x[i] = self.xmax[i]
+            snew = self.stepsize / 0.5 * self.blocksize * self.xrange[i] / 2.
+            sinc = min(self.xmax[i] - x[i], snew)
+            sdec = min(x[i]-self.xmin[i], snew)
+            #  chooses new value in log space to allow fair sampling across orders of magnitude
+            if np.log10(self.xmax[i]) - np.log10(self.xmin[i]) >= 3.:
+                x[i] = np.exp(np.random.uniform(np.log(x[i]-sdec), np.log(x[i]+sinc)))
+            else:
+                x[i] += np.random.uniform(-sdec, sinc)
+        return x

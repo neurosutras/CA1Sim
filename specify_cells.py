@@ -1,12 +1,9 @@
 __author__ = 'Aaron D. Milstein'
-# Includes modification of an early version of SWC_neuron.py by Daniele Linaro
-import copy
-import pprint
-import scipy as sp
-import btmorph
-from neuron import h
+# Includes modification of an early version of SWC_neuron.py by Daniele Linaro.
+# Includes an extension of BtMorph, created by Ben Torben-Nielsen and modified by Daniele Linaro.
 from function_lib import *
-
+import pprint
+import btmorph  # must be found in system $PYTHONPATH
 
 # SWC files must use this nonstandard convention to exploit trunk and tuft categorization
 swc_types = [soma_type, axon_type, basal_type, apical_type, trunk_type, tuft_type] = [1, 2, 3, 4, 5, 6]
@@ -155,8 +152,8 @@ class HocCell(object):
                 else:
                     diams.append(diam)
                     if len(diams) > 2:
-                        mean = sp.mean(diams)
-                        stdev = sp.std(diams)
+                        mean = np.mean(diams)
+                        stdev = np.std(diams)
                         if stdev*2 > 1:  # If 95% of the values are within 1 um, don't taper
                             new_node.set_diam_bounds(mean+stdev, mean-stdev)
                             self._init_cable(new_node)
@@ -176,7 +173,7 @@ class HocCell(object):
                             print '{} [diam: ({}:{}), length: {}, parent: {}]'.format(new_node.name, new_node.sec.nseg,
                                                                     diams[0], diams[1], length, new_node.parent.name)
                     else:
-                        mean = sp.mean(diams)
+                        mean = np.mean(diams)
                         new_node.sec.diam = mean
                         self._init_cable(new_node)
                         if verbose:
@@ -378,7 +375,14 @@ class HocCell(object):
                                # a 'value' with no 'origin' is independent of other sec_types
                                # an 'origin' with a 'value' uses the origin sec_type only as a reference point for
                                # applying a distance-dependent gradient
-            if rules['origin'] in sec_types:
+            if rules['origin'] == 'parent':
+                if node.type == 'spine_head':
+                    donor = node.parent.parent
+                elif node.type == 'spine_neck':
+                    donor = node.parent
+                else:
+                    donor = self.get_dendrite_origin(node)
+            elif rules['origin'] in sec_types:
                 donor = self._get_node_along_path_to_root(node, rules['origin'])
             else:
                 raise Exception('Mechanism: {} parameter: {} cannot reference unknown sec_type: {}'.format(mech_name,
@@ -688,7 +692,7 @@ class HocCell(object):
                                                                                                             param_name))
             rules = {}
             if not origin is None:
-                if not origin in sec_types:
+                if not origin in sec_types+['parent']:
                     raise Exception('Cannot inherit mechanism: {} parameter: {} from unknown sec_type: {}'.format(
                                                                                     mech_name, param_name, origin))
                 else:

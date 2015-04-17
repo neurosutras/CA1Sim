@@ -13,42 +13,6 @@ mech_filename = '032315 kap_kad_ih_ampar_scale nmda kd pas no_na.pkl'
 rec_filename = 'calibrate_rinp'
 
 
-def null_minimizer(fun, x0, args, **options):
-    """
-    Rather than allow basinhopping to pass each local mimimum to a gradient descent algorithm for polishing, this method
-    just catches and passes all local minima so basinhopping can proceed.
-    """
-    return optimize.OptimizeResult(x=x0, fun=fun(x0, *args), success=True, nfev=1)
-
-
-class MyTakeStep(object):
-    """
-    Converts basinhopping absolute stepsize into different stepsizes for each parameter such that the stepsizes are
-    some fraction of the ranges specified by xmin and xmax. Also enforces bounds for x.
-    """
-    def __init__(self, blocksize, xmin, xmax, stepsize=0.5):
-        self.stepsize = stepsize
-        self.blocksize = blocksize
-        self.xmin = xmin
-        self.xmax = xmax
-        self.xrange = []
-        for i in range(len(self.xmin)):
-            self.xrange.append(self.xmax[i] - self.xmin[i])
-
-    def __call__(self, x):
-        for i in range(len(x)):
-            if x[i] < self.xmin[i]:
-                x[i] = self.xmin[i]
-            if x[i] > self.xmax[i]:
-                x[i] = self.xmax[i]
-            snew = self.stepsize / 0.5 * self.blocksize * self.xrange[i] / 2.
-            sinc = min(self.xmax[i] - x[i], snew)
-            sdec = min(x[i]-self.xmin[i], snew)
-            #  chooses new value in log space to allow fair sampling across orders of magnitude
-            x[i] = np.exp(np.random.uniform(np.log(x[i]-sdec), np.log(x[i]+sinc)))
-        return x
-
-
 def plot_rinp_sec_types():
     """
 
@@ -61,7 +25,7 @@ def plot_rinp_sec_types():
         sim.modify_stim(0, node=node)
         sim.run(v_init)
         sim.export_to_file(f, i)
-        rinps.append(get_Rinp(np.array(sim.tvec), np.array(sim.rec_list[0]['vec']), equilibrate, duration, amp)[1])
+        rinps.append(get_Rinp(np.array(sim.tvec), np.array(sim.rec_list[0]['vec']), equilibrate, duration, amp)[2])
     f.close()
     print('R_Inp: soma: %i, trunk: %i, tuft: %i' % (rinps[0], rinps[1], rinps[2]))
     plot_superimpose_conditions(rec_filename)
@@ -92,7 +56,7 @@ def rinp_error(x, plot=0):
         if plot:
             sim.export_to_file(f, i)
             i += 1
-        result[sec_type] = get_Rinp(np.array(sim.tvec), np.array(sim.rec_list[0]['vec']), equilibrate, duration, amp)[1]
+        result[sec_type] = get_Rinp(np.array(sim.tvec), np.array(sim.rec_list[0]['vec']), equilibrate, duration, amp)[2]
     Err = 0.
     for target in result:
         Err += ((target_val[target] - result[target])/target_range[target])**2.

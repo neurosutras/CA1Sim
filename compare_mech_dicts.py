@@ -30,7 +30,8 @@ def update_amp(sim, amp):
 
 def print_Rinp(sim):
     for rec in sim.rec_list:
-        peak, steady = get_Rinp(np.array(sim.tvec), np.array(rec['vec']), equilibrate, equilibrate+stim_dur, amp)
+        v_rest, peak, steady = get_Rinp(np.array(sim.tvec), np.array(rec['vec']), equilibrate, equilibrate+stim_dur,
+                                        amp)
         print rec['description'], ', Rinp: peak: ', peak, ', steady-state: ', steady, ', % sag: ', 1-steady/peak
 
 
