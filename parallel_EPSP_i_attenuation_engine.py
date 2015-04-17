@@ -9,10 +9,8 @@ which synapse to stimulate (coarse sampling of the full set of spines).
 #morph_filename = 'EB1-early-bifurcation.swc'
 morph_filename = 'EB2-late-bifurcation.swc'
 
-#mech_filename = '041515 soma_pas - EB2.pkl'
-#mech_filename = '041515 soma_pas spines - EB2.pkl'
-#mech_filename = '041615 soma_pas kdr ka_scale - corrected - EB2.pkl'
-mech_filename = '041615 soma_pas spines - EB2.pkl'
+mech_filename = '042015 soma_pas spines - EB2.pkl'
+#mech_filename = '042015 soma_pas kdr ka_scale - adjusted - EB2.pkl'
 
 rec_filename = 'output'+datetime.datetime.today().strftime('%m%d%Y%H%M')+'-pid'+str(os.getpid())
 
@@ -39,11 +37,12 @@ def stimulate_single_synapse(syn_index):
 
 
 equilibrate = 200.  # time to steady-state
-duration = 250.
+duration = 300.
 v_init = -77.
 syn_type = 'EPSC'
 
-cell = CA1_Pyr(morph_filename, mech_filename, full_spines=True)  # False)
+#cell = CA1_Pyr(morph_filename, mech_filename, full_spines=False)
+cell = CA1_Pyr(morph_filename, mech_filename, full_spines=True)
 
 nodes = cell.soma+cell.basal+cell.trunk+cell.apical+cell.tuft
 

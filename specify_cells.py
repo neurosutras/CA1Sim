@@ -26,7 +26,7 @@ class HocCell(object):
         gid_max += 1
         self.tree = btmorph.STree2()  # Builds a simple tree to store nodes of type 'SHocNode'
         self.index = 0  # Keep track of number of nodes
-        self._node_dict = {'soma': [], 'axon': [], 'basal': [], 'apical': [], 'trunk': [], 'tuft': [], 'spine': []}
+        self._node_dict = {'soma': [], 'axon': [], 'basal': [], 'trunk': [], 'apical': [], 'tuft': [], 'spine': []}
         self.mech_dict = self.load_mech_dict(mech_filename)  # Refer to function_lib for description of structure of
                                                              # mechanism dictionary. loads from .pkl or
                                                              # default_mech_dict in function_lib
@@ -248,10 +248,10 @@ class HocCell(object):
         again. However, they can be manually reinitialized with the reset_cable flag.
         :param reset_cable: boolean
         """
-        nodes = self.soma+self.basal+self.trunk+self.apical+self.tuft+self.spine
-        #for node in nodes:
-        #    nodes.extend(node.children)
-        self._reinit_mech(nodes, reset_cable)
+        for sec_type in ['soma', 'axon', 'ais', 'basal', 'trunk', 'apical', 'tuft', 'spine_neck', 'spine_head']:
+            if sec_type in self.mech_dict:
+                nodes = self.get_nodes_of_subtype(sec_type)
+                self._reinit_mech(nodes, reset_cable)
 
     def init_synaptic_mechanisms(self):
         """

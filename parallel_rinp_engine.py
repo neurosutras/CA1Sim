@@ -9,12 +9,10 @@ which section to simulate (full sampling of sections).
 
 #morph_filename = 'EB1-early-bifurcation.swc'
 morph_filename = 'EB2-late-bifurcation.swc'
-#mech_filename = '032315 kap_kad_ampar_scale nmda kd pas no_ih no_na.pkl'
-#mech_filename = '032315 kap_kad_ih_ampar_scale nmda kd pas no_na.pkl'
-#mech_filename = '041615 soma_pas - EB2.pkl'
-#mech_filename = '041615 soma_pas spines - EB2.pkl'
-#mech_filename = '041615 soma_pas kdr ka_scale - EB2.pkl'
-mech_filename = '041615 soma_pas kdr ka_scale - corrected - EB2.pkl'
+#mech_filename = '042015 soma_pas spines - EB2.pkl'
+#mech_filename = '042015 soma_pas kdr ka_scale - EB2.pkl'
+mech_filename = '042015 soma_pas kdr ka_scale - adjusted - EB2.pkl'
+
 rec_filename = 'output'+datetime.datetime.today().strftime('%m%d%Y%H%M')+'-pid'+str(os.getpid())
 
 

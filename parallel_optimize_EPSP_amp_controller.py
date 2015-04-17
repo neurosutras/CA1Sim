@@ -32,7 +32,8 @@ while not map_result.ready():
     sys.stdout.flush()
     time.sleep(60)
 results = map_result.get()
-for stdout in [stdout for stdout in map_result.stdout if stdout][-len(c):]:
+for stdout in map_result.stdout:
+    if stdout:
         lines = stdout.split('\n')
         if lines[-2]:
             print lines[-2]

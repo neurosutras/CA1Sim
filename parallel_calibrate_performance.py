@@ -66,15 +66,15 @@ if __name__ == '__main__':
     result = v.map_async(split_simulation, range(len(c)))
     while not result.ready():
         clear_output()
-        for stdout in result.stdout:
-            if stdout:
-                lines = stdout.split('\n')
-                if lines[-2]:
-                    print lines[-2]
+        for stdout in [stdout for stdout in result.stdout if stdout][-len(c):]:
+            lines = stdout.split('\n')
+            if lines[-2]:
+                print lines[-2]
         sys.stdout.flush()
-        time.sleep(5)
-    for stdout in [stdout for stdout in result.stdout if stdout][-len(c):]:
-        lines = stdout.split('\n')
-        if lines[-2]:
-            print lines[-2]
+        time.sleep(60)
+    for stdout in result.stdout:
+        if stdout:
+            lines = stdout.split('\n')
+            if lines[-2]:
+                print lines[-2]
     print 'Parallel execution took: ', time.time()-start_time, ' s'
