@@ -12,7 +12,8 @@ morph_filename = 'EB2-late-bifurcation.swc'
 #mech_filename = '041515 soma_pas - EB2.pkl'
 #mech_filename = '041515 soma_pas spines - EB2.pkl'
 #mech_filename = '041615 soma_pas kdr ka_scale - corrected - EB2.pkl'
-mech_filename = '041615 soma_pas spines - EB2.pkl'
+#mech_filename = '041615 soma_pas spines - EB2.pkl'
+mech_filename = '041615 soma_pas - EB2.pkl'
 
 rec_filename = 'output'+datetime.datetime.today().strftime('%m%d%Y%H%M')+'-pid'+str(os.getpid())
 
@@ -43,7 +44,7 @@ duration = 250.
 v_init = -77.
 syn_type = 'EPSC'
 
-cell = CA1_Pyr(morph_filename, mech_filename, full_spines=True)  # False)
+cell = CA1_Pyr(morph_filename, mech_filename, full_spines=False)
 
 nodes = cell.soma+cell.basal+cell.trunk+cell.apical+cell.tuft
 
