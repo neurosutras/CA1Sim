@@ -11,7 +11,8 @@ which section to simulate (full sampling of sections).
 morph_filename = 'EB2-late-bifurcation.swc'
 #mech_filename = '042015 soma_pas spines - EB2.pkl'
 #mech_filename = '042015 soma_pas kdr ka_scale - EB2.pkl'
-mech_filename = '042015 soma_pas kdr ka_scale - adjusted - EB2.pkl'
+#mech_filename = '042015 soma_pas kdr ka_scale - adjusted - EB2.pkl'
+mech_filename = '042015 pas_ka_scale kdr - EB2.pkl'
 
 rec_filename = 'output'+datetime.datetime.today().strftime('%m%d%Y%H%M')+'-pid'+str(os.getpid())
 

@@ -280,13 +280,13 @@ def plot_AR_vm(rec_file_list, description_list=""):
                     interp_t -= interp_t[left] + 5.
                     axes[i][j].plot(interp_t[left:right], interp_branch_vm[left:right], color=colors[index])
                     axes[i][j+1].plot(interp_t[left:right], interp_spine_vm[left:right], color=colors[index])
+        label_handles.append(mlines.Line2D([], [], color=colors[index], label=description_list[index]))
     for i, sec_type in enumerate(sec_types):
         for j, label in enumerate(['Stim Branch - Record Branch', 'Stim Branch - Record Spine',
                                    'Stim Spine - Record Branch', 'Stim Spine - Record Spine']):
             axes[i][j].set_xlabel('Time (ms)')
             axes[i][j].set_ylabel('Input Loc: '+sec_type+'\nVm (mV)')
             axes[i][j].set_title(label)
-    label_handles.append(mlines.Line2D([], [], color=colors[index], label=description_list[index]))
     if not description_list == [""]:
         axes[0][0].legend(handles=label_handles, framealpha=0.5, frameon=False)
     plt.subplots_adjust(hspace=0.5, wspace=0.3, left=0.05, right=0.98, top=0.95, bottom=0.05)

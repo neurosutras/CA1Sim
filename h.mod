@@ -14,8 +14,7 @@ UNITS {
 
 PARAMETER {
 	v 		        (mV)
-    eh  		    (mV)
-	celsius 	    (degC)
+    eh=-30.		    (mV)
 	ghbar=.0001 	(mho/cm2)
     vhalfl=-90   	(mV)
     vhalft=-75   	(mV)
@@ -36,6 +35,7 @@ ASSIGNED {
     linf
     taul
     g
+    celsius 	    (degC)
 }
 
 INITIAL {
