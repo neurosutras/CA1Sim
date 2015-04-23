@@ -131,12 +131,9 @@ class HocCell(object):
             diam = swc.radius*2
             length += self.get_node_length_swc(raw_node)
             leaves = len(raw_node.children)
-            """
-            print 'raw node {}: [type:{}, length:{}, diam:{}] has {} children, parent is {}'.format(raw_node.index,
-                                                        swc_type, self.get_node_length_swc(raw_node), diam, leaves,
-                                                        raw_node.parent.index)
-            """
-            if (leaves == 0) or (leaves > 1):
+            # create a new node when encountering 1) branch points, 2) terminal ends, or 3) change in swc_type
+            if leaves > 1 or leaves == 0 or \
+                    (leaves == 1 and not raw_node.children[0].get_content()['p3d'].type == swc_type):
                 sec_type = dend_types[1][dend_types[0].index(swc_type)]
                 new_node = self.make_section(sec_type)
                 new_node.sec.L = length
@@ -179,9 +176,9 @@ class HocCell(object):
                         if verbose:
                             print '{} [nseg: {}, diam: {}, length: {}, parent: {}]'.format(new_node.name,
                                                                 new_node.sec.nseg, mean, length, new_node.parent.name)
-                if leaves > 1:  # Follow all branches from this fork
-                    for child in raw_node.children:
-                        self.make_skeleton(child, new_node)
+                # Follow all branches from this fork
+                for child in raw_node.children:
+                    self.make_skeleton(child, new_node)
             else:  # Follow unbranched dendrite
                 if diams is None:
                     diams = [diam]
@@ -451,8 +448,8 @@ class HocCell(object):
                                         value = baseline + rules['slope'] * seg_loc
                                     if 'min' in rules and value < rules['min']:
                                         value = rules['min']
-                                    elif value < 0.:
-                                        value = 0.
+                                    #elif value < 0.:
+                                    #    value = 0.
                                     elif 'max' in rules and value > rules['max']:
                                         value = rules['max']
                                 else:
@@ -516,8 +513,8 @@ class HocCell(object):
                                 value = baseline + rules['slope'] * distance
                             if 'min' in rules and value < rules['min']:
                                 value = rules['min']
-                            elif value < 0.:
-                                value = 0.
+                            #elif value < 0.:
+                            #    value = 0.
                             elif 'max' in rules and value > rules['max']:
                                 value = rules['max']
                         else:

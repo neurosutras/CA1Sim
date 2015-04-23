@@ -8,9 +8,9 @@ values from Magee 1995, Bittner et al., 2012 in the absence of Ih.
 """
 #morph_filename = 'EB1-early-bifurcation.swc'
 morph_filename = 'EB2-late-bifurcation.swc'
-#mech_filename = '032315 kap_kad_ampar_scale nmda kd pas no_ih no_na.pkl'
-#mech_filename = '032315 kap_kad_ih_ampar_scale nmda kd pas no_na.pkl'
-mech_filename = '042015 soma_pas - EB2.pkl'
+
+#mech_filename = '042215 soma_pas - EB2.pkl'
+mech_filename = '042215 soma_pas kdr ka_scale - EB2.pkl'
 #rec_filename = 'calibrate_rinp'
 
 
@@ -30,7 +30,7 @@ def rinp_error(x, plot=0):
     for target in result:
         Err += ((target_val[target] - result[target])/target_range[target])**2.
     print('Simulation took %.3f s' % (time.time()-start_time))
-    print('g_pas: %.4E, Error: %.4E, R_Inp: soma: %i' % (x[0], Err, result['soma']))
+    print('g_pas: %.4E, Error: %.4E, R_Inp: soma: %.3f' % (x[0], Err, result['soma']))
     if plot:
         sim.plot()
     else:
@@ -40,8 +40,8 @@ def rinp_error(x, plot=0):
 equilibrate = 200.  # time to steady-state
 stim_dur = 500.
 duration = equilibrate + stim_dur
-amp = -0.1
-v_init = -77.
+amp = -0.15
+v_init = -80.
 
 cell = CA1_Pyr(morph_filename, mech_filename, full_spines=True)
 #cell = CA1_Pyr(morph_filename, mech_filename, full_spines=False)
@@ -57,10 +57,10 @@ target_range = {'soma': 1.}
 
 #the initial guess and bounds
 # x = [soma.g_pas]
-x0 = [1e-6]
+x0 = [1e-5]
 xmin = [1e-7]  # first-pass bounds
 xmax = [1e-4]
-#x0 = [8.95E-06]  # following first pass basinhopping
+#x0 = [6.52e-05]  # following simplex (042215 soma_pas - EB2.pkl)
 
 # rewrite the bounds in the way required by optimize.minimize
 xbounds = [(low, high) for low, high in zip(xmin, xmax)]

@@ -12,8 +12,9 @@ Assumes a controller is already running in another process with:
 ipcluster start -n num_cores
 """
 
-new_rec_filename = '042015 soma_pas spine_adjusted - EB2 - epsp_i attenuation'
+#new_rec_filename = '042015 soma_pas spine_adjusted - EB2 - epsp_i attenuation'
 #new_rec_filename = '042015 soma_pas kdr ka_scale - adjusted - EB2 - epsp_i attenuation'
+new_rec_filename = '042015 pas_ka_scale kdr - EB2 - epsp_i attenuation'
 
 num_syns = len(parallel_EPSP_i_attenuation_engine.nodes)
 c = Client()
