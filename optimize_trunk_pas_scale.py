@@ -89,8 +89,8 @@ target_range = {'soma': 1., 'trunk': 1.}
 x0 = [1.79e-5, 3.04e-7]
 xmin = [1e-7, 1e-9]  # first-pass bounds
 xmax = [1e-4, 1e-5]
-#x0 =   # following first pass basinhopping
-#x1 =   # following polishing by simplex
+#x0 = [  1.83760464e-06,   7.85100952e-07]  # following first pass basinhopping
+#x1 = [  4.53052536e-06,   7.16564454e-07]  # following polishing by simplex
 
 # rewrite the bounds in the way required by optimize.minimize
 xbounds = [(low, high) for low, high in zip(xmin, xmax)]

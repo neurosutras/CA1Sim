@@ -49,6 +49,8 @@ def rinp_error(x, plot=0):
     result['r_trunk'] = rinp_steady
     result['sag'] = 100*((rinp_peak-rinp_steady)/rinp_peak)
     Err = 0.
+    if x[0] < 0.:
+        Err += 1e6
     for target in result:
         Err += ((target_val[target] - result[target])/target_range[target])**2.
     print('Simulation took %.3f s' % (time.time()-start_time))
@@ -97,8 +99,8 @@ target_range = {'r_soma': 1., 'v_rest_trunk': 1., 'r_trunk': 1., 'sag': 1.}
 x0 = [5e-5, 7.56e-8]
 xmin = [1e-10, 1e-9]  # first-pass bounds
 xmax = [1e-4, 1e-6]
-#x1 =  # following first pass basinhopping, building on exp pas_scale
-#x1 =  # following polishing by simplex
+x1 = [  1.14835196e-05,   9.99554443e-07] # following first pass basinhopping, building on exp pas_scale
+#x1 = [ -2.12586868e-04,   4.02436109e-05] # following polishing by simplex
 
 # rewrite the bounds in the way required by optimize.minimize
 xbounds = [(low, high) for low, high in zip(xmin, xmax)]
@@ -109,10 +111,13 @@ blocksize = 0.5  # defines the fraction of the xrange that will be explored at e
 mytakestep = MyTakeStep(blocksize, xmin, xmax)
 
 minimizer_kwargs = dict(method=null_minimizer)
-
+"""
 result = optimize.basinhopping(rinp_error, x0, niter= 720, niter_success=100, disp=True, interval=20,
                                                     minimizer_kwargs=minimizer_kwargs, take_step=mytakestep)
 #rinp_error(result.x, plot=1)
 
 polished_result = optimize.minimize(rinp_error, result.x, method='Nelder-Mead', options={'ftol': 1e-3, 'disp': True})
+rinp_error(polished_result.x, plot=1)
+"""
+polished_result = optimize.minimize(rinp_error, x1, method='Nelder-Mead', options={'ftol': 1e-3, 'disp': True})
 rinp_error(polished_result.x, plot=1)

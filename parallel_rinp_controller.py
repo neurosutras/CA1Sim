@@ -16,8 +16,8 @@ ipcluster start -n num_cores
 #new_rec_filename = '042215 soma_pas spine_adjusted - EB2 - rinp'
 #new_rec_filename = '042215 soma_pas kdr ka_scale - EB2 - rinp'
 #new_rec_filename = '042215 soma_pas kdr ka_scale - adjusted - EB2 - rinp'
-new_rec_filename = '042215 pas_exp_scale kdr ka_scale - EB2 - rinp'
-#new_rec_filename = '042115 pas_exp_scale kdr ka_scale - EB2 - rinp'
+#new_rec_filename = '042215 pas_exp_scale kdr ka_scale - EB2 - rinp'
+new_rec_filename = '042315 pas_ka_scale kdr - EB2 - rinp'
 
 c = Client()
 num_secs = len(parallel_rinp_engine.nodes)

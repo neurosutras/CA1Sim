@@ -6,7 +6,8 @@ from plot_results import *
 morph_filename = 'EB2-late-bifurcation.swc'
 
 #mech_filename = '042015 pas_ka_scale kdr - EB2.pkl'
-mech_filename = '042215 pas_exp_scale kdr ka_scale - EB2.pkl'
+#mech_filename = '042215 pas_exp_scale kdr ka_scale - EB2.pkl'
+mech_filename = '042315 pas_ka_scale kdr - EB2.pkl'
 
 cell = CA1_Pyr(morph_filename, mech_filename, full_spines=True)
 
