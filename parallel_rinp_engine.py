@@ -9,10 +9,13 @@ which section to simulate (full sampling of sections).
 
 #morph_filename = 'EB1-early-bifurcation.swc'
 morph_filename = 'EB2-late-bifurcation.swc'
-#mech_filename = '042015 soma_pas spines - EB2.pkl'
-#mech_filename = '042015 soma_pas kdr ka_scale - EB2.pkl'
-#mech_filename = '042015 soma_pas kdr ka_scale - adjusted - EB2.pkl'
-mech_filename = '042015 pas_ka_scale kdr - EB2.pkl'
+
+#mech_filename = '042215 soma_pas - EB2.pkl'
+#mech_filename = '042215 soma_pas spines - EB2.pkl'
+#mech_filename = '042215 soma_pas kdr ka_scale - EB2.pkl'
+#mech_filename = '042215 soma_pas kdr ka_scale - adjusted - EB2.pkl'
+mech_filename = '042215 pas_exp_scale kdr ka_scale - EB2.pkl'
+#mech_filename = '042115 pas_exp_scale kdr ka_scale - EB2.pkl'
 
 rec_filename = 'output'+datetime.datetime.today().strftime('%m%d%Y%H%M')+'-pid'+str(os.getpid())
 
@@ -37,9 +40,8 @@ def test_single_section(sec_index):
 equilibrate = 200.  # time to steady-state
 stim_dur = 500.
 duration = equilibrate + stim_dur
-amp = -0.1
-#v_init = -67.
-v_init = -77.
+amp = -0.15
+v_init = -80.
 
 cell = CA1_Pyr(morph_filename, mech_filename, full_spines=True)
 #cell = CA1_Pyr(morph_filename, mech_filename, full_spines=False)
