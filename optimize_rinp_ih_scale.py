@@ -99,8 +99,8 @@ target_range = {'r_soma': 1., 'v_rest_trunk': 1., 'r_trunk': 1., 'sag': 1.}
 x0 = [5e-5, 7.56e-8]
 xmin = [1e-10, 1e-9]  # first-pass bounds
 xmax = [1e-4, 1e-6]
-x1 = [  1.14835196e-05,   9.99554443e-07] # following first pass basinhopping, building on exp pas_scale
-#x1 = [ -2.12586868e-04,   4.02436109e-05] # following polishing by simplex
+x1 = [  1.14835196e-05,   9.99554443e-07] # following first pass basinhopping (pas_exp_scale)
+#x1 = [ 1.10e-8,   4.56e-6] # following polishing by simplex (pas_exp_scale)
 
 # rewrite the bounds in the way required by optimize.minimize
 xbounds = [(low, high) for low, high in zip(xmin, xmax)]

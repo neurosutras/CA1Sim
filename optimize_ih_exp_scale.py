@@ -44,7 +44,7 @@ def rinp_error(x, plot=0):
     sim.modify_rec(node=trunk)
     sim.run(v_init)
     v_rest, rinp_peak, rinp_steady = get_Rinp(np.array(sim.tvec), np.array(sim.rec_list[0]['vec']), equilibrate,
-                                              duration, amp)[2]
+                                              duration, amp)
     result['v_rest_trunk'] = v_rest
     result['r_trunk'] = rinp_steady
     result['sag'] = 100*((rinp_peak-rinp_steady)/rinp_peak)
@@ -65,7 +65,7 @@ equilibrate = 200.  # time to steady-state
 stim_dur = 500.
 duration = equilibrate + stim_dur
 amp = -0.15
-v_init = -67.
+v_init = -65.
 
 cell = CA1_Pyr(morph_filename, mech_filename, full_spines=True)
 

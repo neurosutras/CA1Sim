@@ -39,7 +39,7 @@ def stimulate_single_synapse(syn_index):
 
 equilibrate = 200.  # time to steady-state
 duration = 300.
-v_init = -77.
+v_init = -80.
 syn_type = 'EPSC'
 
 #cell = CA1_Pyr(morph_filename, mech_filename, full_spines=False)
@@ -56,8 +56,19 @@ sim = QuickSim(duration, verbose=False)
 sim.parameters['equilibrate'] = equilibrate
 sim.parameters['duration'] = duration
 sim.append_rec(cell, cell.tree.root, description='soma', loc=0.)
-trunk = [trunk for trunk in cell.trunk if len(trunk.children) > 1 and trunk.children[0].type in ['trunk','tuft'] and
-                                            trunk.children[1].type in ['trunk', 'tuft']][0]  # tuft bifurcation
+
+# look for a trunk bifurcation
+trunk_bifurcation = [trunk for trunk in cell.trunk if len(trunk.children) > 1 and trunk.children[0].type == 'trunk' and
+                     trunk.children[1].type == 'trunk']
+
+# get where the thickest trunk branch gives rise to the tuft
+if trunk_bifurcation:  # follow the thicker trunk
+    trunk = max(trunk_bifurcation[0].children[:2], key=lambda node: node.sec(0.).diam)
+    trunk = (node for node in cell.trunk if cell.node_in_subtree(trunk, node) and 'tuft' in (child.type for child in
+                                                                                             node.children)).next()
+else:
+    trunk = (node for node in cell.trunk if 'tuft' in (child.type for child in node.children)).next()
+
 sim.append_rec(cell, trunk, description='trunk', loc=0.)
 sim.append_rec(cell, trunk, description='branch')  # placeholder for branch
 

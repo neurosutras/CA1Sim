@@ -15,7 +15,8 @@ morph_filename = 'EB2-late-bifurcation.swc'
 #mech_filename = '042215 soma_pas kdr ka_scale - EB2.pkl'
 #mech_filename = '042215 soma_pas kdr ka_scale - adjusted - EB2.pkl'
 #mech_filename = '042215 pas_exp_scale kdr ka_scale - EB2.pkl'
-mech_filename = '042315 pas_ka_scale kdr - EB2.pkl'
+#mech_filename = '042315 pas_ka_scale kdr - EB2.pkl'
+mech_filename = '042315 pas_exp_scale kdr ka_ih_scale - EB2.pkl'
 
 rec_filename = 'output'+datetime.datetime.today().strftime('%m%d%Y%H%M')+'-pid'+str(os.getpid())
 
@@ -41,7 +42,7 @@ equilibrate = 200.  # time to steady-state
 stim_dur = 500.
 duration = equilibrate + stim_dur
 amp = -0.15
-v_init = -80.
+v_init = -65.  # -80.
 
 cell = CA1_Pyr(morph_filename, mech_filename, full_spines=True)
 #cell = CA1_Pyr(morph_filename, mech_filename, full_spines=False)
