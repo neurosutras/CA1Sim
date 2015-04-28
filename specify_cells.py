@@ -209,7 +209,7 @@ class HocCell(object):
         :param mech_filename: str
         """
         if not mech_filename is None:
-            return read_from_pkl(data_dir+mech_filename)
+            return read_from_pkl(data_dir+mech_filename+'.pkl')
         else:
             local_mech_dict = copy.deepcopy(default_mech_dict)
             return local_mech_dict
@@ -442,8 +442,12 @@ class HocCell(object):
                             if seg_loc >= min_distance and (max_distance is None or seg_loc <= max_distance):
                                 if 'slope' in rules:
                                     seg_loc -= min_distance
-                                    if 'tau' in rules:  # exponential gradient
-                                        value = baseline + rules['slope'] * np.exp(seg_loc/rules['tau'])
+                                    if 'tau' in rules:
+                                        if 'xhalf' in rules:  # sigmoidal gradient
+                                            value = baseline + rules['slope'] / (1. +
+                                                                    np.exp((rules['xhalf'] - seg_loc) / rules['tau']))
+                                        else:  # exponential gradient
+                                            value = baseline + rules['slope'] * np.exp(seg_loc / rules['tau'])
                                     else:  # linear gradient
                                         value = baseline + rules['slope'] * seg_loc
                                     if 'min' in rules and value < rules['min']:
@@ -508,7 +512,11 @@ class HocCell(object):
                         if 'slope' in rules:
                             distance -= min_distance
                             if 'tau' in rules:  # exponential gradient
-                                value = baseline + rules['slope'] * np.exp(distance/rules['tau'])
+                                if 'xhalf' in rules:  # sigmoidal gradient
+                                    value = baseline + rules['slope'] / (1. +
+                                                            np.exp((rules['xhalf'] - distance) / rules['tau']))
+                                else:
+                                    value = baseline + rules['slope'] * np.exp(distance / rules['tau'])
                             else:  # linear gradient
                                 value = baseline + rules['slope'] * distance
                             if 'min' in rules and value < rules['min']:
@@ -649,7 +657,7 @@ class HocCell(object):
 
 
     def modify_mech_param(self, sec_type, mech_name, param_name=None, value=None, origin=None, slope=None, tau=None,
-                            min=None, max=None, min_loc=None, max_loc=None, outside=None, syn_type=None, replace=True):
+                xhalf=None, min=None, max=None, min_loc=None, max_loc=None, outside=None, syn_type=None, replace=True):
         """
         Modifies or inserts new membrane mechanisms into hoc sections of type sec_type. First updates the mechanism
         dictionary, the sets the corresponding hoc parameters. This method is meant to be called manually during initial
@@ -663,6 +671,7 @@ class HocCell(object):
         :param origin: str
         :param slope: float
         :param tau: float
+        :param xhalf: float
         :param min: float
         :param max: float
         :param min_loc: float
@@ -700,6 +709,8 @@ class HocCell(object):
                 rules['slope'] = slope
             if not tau is None:
                 rules['tau'] = tau
+            if not xhalf is None:
+                rules['xhalf'] = xhalf
             if not min is None:
                 rules['min'] = min
             if not max is None:
@@ -770,7 +781,7 @@ class HocCell(object):
         """
         if mech_filename is None:
             mech_filename = 'mech_dict_'+datetime.datetime.today().strftime('%m%d%Y%H%M')+'.pkl'
-        write_to_pkl(data_dir+mech_filename, self.mech_dict)
+        write_to_pkl(data_dir+mech_filename+'.pkl', self.mech_dict)
         print "Exported mechanism dictionary to "+mech_filename
 
     def get_node_by_distance_to_soma(self, distance, sec_type):

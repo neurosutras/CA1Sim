@@ -119,5 +119,8 @@ result = optimize.basinhopping(rinp_error, x0, niter= 720, niter_success=100, di
 polished_result = optimize.minimize(rinp_error, result.x, method='Nelder-Mead', options={'ftol': 1e-3, 'disp': True})
 rinp_error(polished_result.x, plot=1)
 """
-polished_result = optimize.minimize(rinp_error, x1, method='Nelder-Mead', options={'ftol': 1e-3, 'disp': True})
-rinp_error(polished_result.x, plot=1)
+#polished_result = optimize.minimize(rinp_error, x1, method='Nelder-Mead', options={'ftol': 1e-3, 'disp': True})
+#rinp_error(polished_result.x, plot=1)
+sim.append_rec(cell, cell.soma[0])
+sim.append_rec(cell, cell.tuft[-1])
+rinp_error(x1, plot=1)

@@ -10,9 +10,8 @@ Parallel version dynamically submits jobs to available cores.
 
 Assumes a controller is already running in another process with:
 ipcluster start -n num_cores
-Works best with hyperthreading off (a feature of the machine, can be disabled through XCode Instruments on Mac)
 """
-new_rec_filename = '032415 kap_kad_ih_scale kd pas no_na - EB2 - AMPAR_scaling'
+new_rec_filename = '042315 pas_ih_exp_scale kdr ka_scale - EB2 - AMPAR_scaling'
 
 c = Client()
 dv = c[:]

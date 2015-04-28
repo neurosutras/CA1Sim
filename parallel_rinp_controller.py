@@ -10,15 +10,8 @@ Parallel version: Iterates through every section, injecting hyperpolarizing curr
 Assumes a controller is already running in another process with:
 ipcluster start -n num_cores
 """
-
-#new_rec_filename = '042215 soma_pas no_spines - EB2 - rinp'
-#new_rec_filename = '042215 soma_pas spines - EB2 - rinp'
-#new_rec_filename = '042215 soma_pas spine_adjusted - EB2 - rinp'
-#new_rec_filename = '042215 soma_pas kdr ka_scale - EB2 - rinp'
-#new_rec_filename = '042215 soma_pas kdr ka_scale - adjusted - EB2 - rinp'
-#new_rec_filename = '042215 pas_exp_scale kdr ka_scale - EB2 - rinp'
-#new_rec_filename = '042315 pas_ka_scale kdr - EB2 - rinp'
-new_rec_filename = '042315 pas_exp_scale kdr ka_ih_scale - EB2 - rinp'
+filename_suffix = ' - Rinp'
+new_rec_filename = parallel_rinp_engine.mech_filename+filename_suffix
 
 c = Client()
 num_secs = len(parallel_rinp_engine.nodes)

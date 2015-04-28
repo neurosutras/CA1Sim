@@ -8,8 +8,8 @@ which synapse to optimize (coarse sampling of the full set of spines).
 """
 #morph_filename = 'EB1-early-bifurcation.swc'
 morph_filename = 'EB2-late-bifurcation.swc'
-mech_filename = '032315 kap_kad_ih_scale kd pas no_na.pkl'
-#rec_filename = 'output'+datetime.datetime.today().strftime('%m%d%Y%H%M')+'-pid'+str(os.getpid())
+
+mech_filename = '042315 pas_ih_exp_scale kdr ka_scale - EB2.pkl'
 
 
 def epsp_amp_error(x, syn):
@@ -26,11 +26,13 @@ def epsp_amp_error(x, syn):
     start_time = time.time()
     sim.run()
     t = np.array(sim.tvec)
-    left, right = time2index(t, equilibrate-2.0, equilibrate)
     vm = np.array(sim.rec_list[0]['vec'])
-    baseline = np.average(vm[left:right])
-    vm -= baseline
-    amp = np.max(vm[right:])
+    interp_t = np.arange(0, duration, 0.001)
+    interp_vm = np.interp(interp_t, t, vm)
+    left, right = time2index(interp_t, equilibrate-3.0, equilibrate-1.0)
+    baseline = np.average(interp_vm[left:right])
+    start, end = time2index(interp_t, equilibrate, duration)
+    amp = np.max(interp_vm[start:end]) - baseline
     result = {'EPSP_amp': amp}
     Err = 0.
     for target in result:
@@ -50,8 +52,10 @@ def optimize_single_synapse(syn_index):
     start_time = time.time()
     syn = syn_list[syn_index]
     syn.source.play(spike_times)
-    result = optimize.minimize(epsp_amp_error, x0, method='L-BFGS-B', args=[syn], bounds=xbounds)
+    #result = optimize.minimize(epsp_amp_error, x0, method='L-BFGS-B', args=(syn,), options={'ftol': 1e-3},
+    #                           bounds=xbounds)
     # options={'maxfun': 25}
+    result = optimize.minimize(epsp_amp_error, x0, method='Nelder-Mead', args=(syn,), options={'ftol': 1e-3})
     syn.source.play(h.Vector())  # playing an empty vector turns this synapse off for future runs while keeping the
                                  # VecStim source object in existence so it can be activated again
     print 'Process:', os.getpid(), 'optimized Spine:', syn.node.index, 'on Node:', syn.node.parent.parent.name, 'in', \
@@ -61,8 +65,8 @@ def optimize_single_synapse(syn_index):
     return {'distance': distance, 'result': param_vals, 'sec_type': syn.node.parent.parent.type}
 
 
-equilibrate = 150.  # time to steady-state
-duration = 200.
+equilibrate = 200.  # time to steady-state
+duration = 250.
 v_init = -65.
 syn_type = 'AMPA_KIN'
 param_names = ['gmax']
