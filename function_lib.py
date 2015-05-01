@@ -334,7 +334,7 @@ class QuickSim(object):
 
     def modify_stim(self, index=0, node=None, loc=None, amp=None, delay=None, dur=None, description=None):
         stim_dict = self.stim_list[index]
-        if (node is None) or (loc is None):
+        if not (node is None and loc is None):
             if not node is None:
                 stim_dict['node'] = node
             if loc is None:
@@ -565,7 +565,7 @@ class MyTakeStep(object):
             sdec = min(x[i]-self.xmin[i], snew)
             #  chooses new value in log space to allow fair sampling across orders of magnitude
             if np.log10(self.xmax[i]) - np.log10(self.xmin[i]) >= 3.:
-                x[i] = np.exp(np.random.uniform(np.log(x[i]-sdec), np.log(x[i]+sinc)))
+                x[i] = np.power(10, np.random.uniform(np.log10(x[i]-sdec), np.log10(x[i]+sinc)))
             else:
                 x[i] += np.random.uniform(-sdec, sinc)
         return x

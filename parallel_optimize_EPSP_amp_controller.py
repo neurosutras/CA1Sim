@@ -11,7 +11,8 @@ Parallel version dynamically submits jobs to available cores.
 Assumes a controller is already running in another process with:
 ipcluster start -n num_cores
 """
-new_rec_filename = '042315 pas_ih_exp_scale kdr ka_scale - EB2 - AMPAR_scaling'
+filename_suffix = ' - AMPAR_scaling'
+new_rec_filename = parallel_optimize_EPSP_amp_engine.mech_filename+filename_suffix
 
 c = Client()
 dv = c[:]
