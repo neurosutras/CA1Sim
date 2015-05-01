@@ -12,9 +12,8 @@ parallel_spine_attenuation_ratio_engine.py
 Assumes a controller is already running in another process with:
 ipcluster start -n num_cores
 """
-#new_rec_filename = '042015 soma_pas spine_adjusted - EB2 - spine AR'
-#new_rec_filename = '042015 soma_pas kdr ka_scale - adjusted - EB2 - spine AR'
-new_rec_filename = '042015 pas_ka_scale kdr - EB2 - spine AR'
+filename_suffix = ' - spine AR'
+new_rec_filename = parallel_spine_attenuation_ratio_engine.mech_filename+filename_suffix
 
 num_syns = len(parallel_spine_attenuation_ratio_engine.spine_syn_list)
 c = Client()

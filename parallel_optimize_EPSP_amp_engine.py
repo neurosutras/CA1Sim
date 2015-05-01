@@ -9,7 +9,7 @@ which synapse to optimize (coarse sampling of the full set of spines).
 #morph_filename = 'EB1-early-bifurcation.swc'
 morph_filename = 'EB2-late-bifurcation.swc'
 
-mech_filename = '042315 pas_ih_exp_scale kdr ka_scale - EB2.pkl'
+mech_filename = '043015 pas_exp_scale kdr ka_scale ih_sig_scale - EB2'
 
 
 def epsp_amp_error(x, syn):
@@ -37,8 +37,9 @@ def epsp_amp_error(x, syn):
     Err = 0.
     for target in result:
         Err += ((target_val[target] - result[target])/target_range[target])**2.
-    print 'Process:', os.getpid(), 'Spine:', syn.node.index, 'Node:', syn.node.parent.parent.name, 'Time:', \
-        time.time() - start_time, 's, x:', x, 'Amp:', amp, 'Error:', Err
+    print 'Process:', os.getpid(), 'Spine:', syn.node.index, 'Node:', syn.node.parent.parent.name, 'Time: %.3f s, x: ' \
+                                                            '%.4E, Amp: %.3f, Error: %.4E' % (time.time() - start_time,
+                                                            x[0], amp, Err)
     return Err
 
 
@@ -55,11 +56,13 @@ def optimize_single_synapse(syn_index):
     #result = optimize.minimize(epsp_amp_error, x0, method='L-BFGS-B', args=(syn,), options={'ftol': 1e-3},
     #                           bounds=xbounds)
     # options={'maxfun': 25}
-    result = optimize.minimize(epsp_amp_error, x0, method='Nelder-Mead', args=(syn,), options={'ftol': 1e-3})
+    result = optimize.minimize(epsp_amp_error, x0, method='Nelder-Mead', args=(syn,), options={'xtol': 1e-7,
+                                                                                               'ftol': 1e-3})
     syn.source.play(h.Vector())  # playing an empty vector turns this synapse off for future runs while keeping the
                                  # VecStim source object in existence so it can be activated again
-    print 'Process:', os.getpid(), 'optimized Spine:', syn.node.index, 'on Node:', syn.node.parent.parent.name, 'in', \
-        time.time() - start_time, 's. x:', result.x, 'after', result.nfev, 'iterations'
+    print 'Process:', os.getpid(), 'optimized Spine:', syn.node.index, 'on Node:', syn.node.parent.parent.name, ' in ' \
+                                                '%.3f s, x: %.4E, after %i iterations' % (time.time() - start_time,
+                                                            result.x[0], result.nfev)
     distance = cell.get_distance_to_node(cell.tree.root, syn.node.parent.parent, syn.loc)
     param_vals = [p for p in result.x]
     return {'distance': distance, 'result': param_vals, 'sec_type': syn.node.parent.parent.type}
@@ -67,15 +70,15 @@ def optimize_single_synapse(syn_index):
 
 equilibrate = 200.  # time to steady-state
 duration = 250.
-v_init = -65.
-syn_type = 'AMPA_KIN'
+v_init = -67.
+syn_type = 'AMPA_coop'
 param_names = ['gmax']
 param_ylabels = ['Peak Conductance (uS)']
 
 syn_list = []
 cell = CA1_Pyr(morph_filename, mech_filename, full_spines=True)
 random.seed(0)
-for branch in cell.basal+cell.trunk+cell.apical+cell.tuft:
+for branch in cell.trunk:  # cell.basal+cell.trunk+cell.apical+cell.tuft:
     if len(branch.spines) > 1:
         if branch.sec.L <= 10.:
             node = branch.spines[random.sample(range(0, len(branch.spines)), 1)[0]]
@@ -98,7 +101,7 @@ spike_times = h.Vector([equilibrate])
 
 #the target values and acceptable ranges
 target_val = {'EPSP_amp': 0.2}
-target_range = {'EPSP_amp': 0.02}
+target_range = {'EPSP_amp': 0.01}
 
 #the initial guess
 # x = [gmax]

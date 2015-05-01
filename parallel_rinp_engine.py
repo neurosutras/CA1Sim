@@ -10,16 +10,18 @@ which section to simulate (full sampling of sections).
 #morph_filename = 'EB1-early-bifurcation.swc'
 morph_filename = 'EB2-late-bifurcation.swc'
 
-#mech_filename = '042215 soma_pas - EB2.pkl'
-#mech_filename = '042215 soma_pas spines - EB2.pkl'
-#mech_filename = '042215 soma_pas kdr ka_scale - EB2.pkl'
-#mech_filename = '042215 soma_pas kdr ka_scale - adjusted - EB2.pkl'
-#mech_filename = '042215 pas_exp_scale kdr ka_scale - EB2.pkl'
-#mech_filename = '042315 pas_ka_scale kdr - EB2.pkl'
-#mech_filename = '042315 pas_exp_scale kdr ka_ih_scale - EB2.pkl'
-#mech_filename = '042315 pas_ih_exp_scale kdr ka_scale - EB2.pkl'
-#mech_filename = '042415 e_g_pas_ih_exp_scale kdr ka_scale - EB2.pkl'
-mech_filename = '042815 pas_sig_scale kdr ka_scale - EB2'
+#mech_filename = '042215 soma_pas - EB2'
+#mech_filename = '042215 soma_pas spines - EB2'
+#mech_filename = '042215 soma_pas kdr ka_scale - EB2'
+#mech_filename = '042215 soma_pas kdr ka_scale - adjusted - EB2'
+#mech_filename = '042215 pas_exp_scale kdr ka_scale - EB2'
+#mech_filename = '042315 pas_ka_scale kdr - EB2'
+#mech_filename = '042315 pas_exp_scale kdr ka_ih_scale - EB2'
+#mech_filename = '042315 pas_ih_exp_scale kdr ka_scale - EB2'
+#mech_filename = '042415 e_g_pas_ih_exp_scale kdr ka_scale - EB2'
+#mech_filename = '042815 pas_sig_scale kdr ka_scale - EB2'
+#mech_filename = '042915 pas_sig_scale kdr ka_scale - EB2'
+mech_filename = '043015 pas_exp_scale kdr ka_scale ih_exp_scale - EB2'
 
 rec_filename = 'output'+datetime.datetime.today().strftime('%m%d%Y%H%M')+'-pid'+str(os.getpid())
 

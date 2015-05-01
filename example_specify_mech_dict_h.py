@@ -7,11 +7,13 @@ morph_filename = 'EB2-late-bifurcation.swc'
 
 #mech_filename = '042015 pas_ka_scale kdr - EB2.pkl'
 #mech_filename = '042215 pas_exp_scale kdr ka_scale - EB2.pkl'
-mech_filename = '042315 pas_ka_scale kdr - EB2.pkl'
+#mech_filename = '042315 pas_ka_scale kdr - EB2.pkl'
+#mech_filename = '042915 pas_exp_scale kdr ka_scale - EB2'
+mech_filename = '042915 pas_sig_scale kdr ka_scale - EB2'
 
 cell = CA1_Pyr(morph_filename, mech_filename, full_spines=True)
 
-cell.modify_mech_param('soma', 'h', 'ghbar', 0.00005)
+cell.modify_mech_param('soma', 'h', 'ghbar', 1e-4)
 cell.modify_mech_param('soma', 'h', 'vhalfl', -82.)
 cell.modify_mech_param('soma', 'h', 'eh', -30.)
 

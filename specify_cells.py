@@ -782,7 +782,7 @@ class HocCell(object):
         if mech_filename is None:
             mech_filename = 'mech_dict_'+datetime.datetime.today().strftime('%m%d%Y%H%M')+'.pkl'
         write_to_pkl(data_dir+mech_filename+'.pkl', self.mech_dict)
-        print "Exported mechanism dictionary to "+mech_filename
+        print "Exported mechanism dictionary to "+mech_filename+'.pkl'
 
     def get_node_by_distance_to_soma(self, distance, sec_type):
         """
