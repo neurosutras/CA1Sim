@@ -11,7 +11,8 @@ and kinetics. Mechanism dictionary specifying gmax gradients is specified in par
 Assumes a controller is already running in another process with:
 ipcluster start -n num_cores
 """
-new_rec_filename = '041515 soma_pas no_spines - EB2 - epsp_i attenuation'
+filename_suffix = ' - epsp attenuation'
+new_rec_filename = parallel_EPSP_attenuation_engine.mech_filename
 
 num_syns = len(parallel_EPSP_attenuation_engine.syn_list)
 c = Client()
@@ -35,7 +36,7 @@ for stdout in result.stdout:
         lines = stdout.split('\n')
         if lines[-2]:
             print lines[-2]
-print 'Parallel execution took:', time.time()-start_time, 's'
+print 'Parallel execution took: %.3f s' % (time.time()-start_time)
 rec_file_list = dv['rec_filename']
 combine_output_files(rec_file_list, new_rec_filename)
 plot_EPSP_attenuation(new_rec_filename)

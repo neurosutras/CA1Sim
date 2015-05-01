@@ -7,8 +7,8 @@ import scipy.interpolate as interpolate
 import matplotlib.pyplot as plt
 
 #rec_filename = '032415 kap_kad_ih_scale kd pas no_na - EB1 - AMPAR_scaling'
-rec_filename = '032615 kap_kad_ih_scale kd pas no_na - EB2 - AMPAR_scaling'
-
+#rec_filename = '032615 kap_kad_ih_scale kd pas no_na - EB2 - AMPAR_scaling'
+rec_filename = '043015 pas_exp_scale kdr ka_scale ih_sig_scale - EB2 - AMPAR_scaling'
 
 def fit_exp_linear(t, y, A0=0):
     """
@@ -47,8 +47,8 @@ def fit_synaptic_parameter_distribution(rec_filename, sec_type, syn_type, param_
             fit = model_scaled_exp(interp_distances, A, tau, A1)
             plt.scatter(sorted_distances, sorted_dataset, label=syn_type+':'+param_name)
             plt.plot(interp_distances, fit, label='fit')
-            gfit = model_scaled_exp(interp_distances, x_av[0], x_av[1], x_av[2])
-            plt.plot(interp_distances, gfit, label='global fit')
+            #gfit = model_scaled_exp(interp_distances, x_av[0], x_av[1], x_av[2])
+            #plt.plot(interp_distances, gfit, label='global fit')
             plt.legend(loc="best")
             plt.show()
         else:
@@ -57,8 +57,7 @@ def fit_synaptic_parameter_distribution(rec_filename, sec_type, syn_type, param_
     #return sorted_distances, sorted_dataset, interp_distances
 
 # trunk parameters from both morphologies:
-trunk_EB1 = [0.00039168828539039226, 46.765092844753902, 0.00089820146712824803]
-trunk_EB2 = [0.00031993063270730745, 43.44372490545944, 0.00085101040031032116]
+trunk_EB2 = [3.37e-5, 75.1, 2.30e-4]  # from '043015 pas_exp_scale kdr ka_scale ih_sig_scale - EB2'
 trunk_av = np.mean([trunk_EB1, trunk_EB2], axis=0)
 # trunk_av = [  3.55809459e-04,   4.51044089e+01,   8.74605934e-04]
 
@@ -68,6 +67,6 @@ basal_av = np.mean([basal_EB1, basal_EB2], axis=0)
 # basal_av = [  5.92782025e-04,   6.16048735e+01,   6.17113368e-04]
 x_av = basal_av
 
-#x, y, fit = fit_synaptic_parameter_distribution(rec_filename, 'trunk', 'AMPA_KIN', 'gmax')
-x = fit_synaptic_parameter_distribution(rec_filename, 'basal', 'AMPA_KIN', 'gmax')
-print x
+result = [x, y, fit] = fit_synaptic_parameter_distribution(rec_filename, 'trunk', 'AMPA_coop', 'gmax')
+#x = fit_synaptic_parameter_distribution(rec_filename, 'basal', 'AMPA_KIN', 'gmax')
+print result

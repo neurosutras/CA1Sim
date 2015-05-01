@@ -9,16 +9,8 @@ which synapse to stimulate (coarse sampling of the full set of spines).
 #morph_filename = 'EB1-early-bifurcation.swc'
 morph_filename = 'EB2-late-bifurcation.swc'
 
-# linear ampar conductance gradient applied to trunk and basal, inheritance applied to apical and tuft
-#mech_filename = '032315 kap_kad_ampar_scale nmda kd pas no_ih no_na.pkl'
-
-# constant ampar conductance
-#mech_filename = '032315 kap_kad_ih_scale kd pas no_na.pkl'
-
-# exponential ampar conductance gradient applied to trunk and basal, inheritance applied to apical and tuft
-#mech_filename = '040815 kap_kad_ih_ampar_scale nmda kd pas no_na.pkl'
-#mech_filename = '040815 kap_kad_ampar_scale nmda kd pas no_ih no_na.pkl'
-mech_filename = '041515 soma_pas - EB2.pkl'
+# exponential ampar conductance gradient applied to trunk; inheritance applied to apical and tuft; constant basal
+mech_filename = '043015 pas_exp_scale kdr ka_scale ih_sig_scale ampar_exp_scale - EB2'
 
 rec_filename = 'output'+datetime.datetime.today().strftime('%m%d%Y%H%M')+'-pid'+str(os.getpid())
 
@@ -42,22 +34,18 @@ def stimulate_single_synapse(syn_index):
     syn.source.play(h.Vector())  # playing an empty vector turns this synapse off for future runs while keeping the
                                  # VecStim source object in existence so it can be activated again
     print 'Process:', os.getpid(), 'completed Iteration:', syn_index, 'Spine:', syn.node.index, 'Node:', \
-        syn.node.parent.parent.name, 'in', time.time() - start_time, 's'
+        syn.node.parent.parent.name, 'in %.3f s' % (time.time() - start_time)
     return rec_filename
 
 
 equilibrate = 150.  # time to steady-state
 duration = 200.
-v_init = -65.
-syn_type = 'AMPA_KIN'
+v_init = -67.
+syn_type = 'AMPA_coop'
 
 syn_list = []
 cell = CA1_Pyr(morph_filename, mech_filename, full_spines=True)
-"""
-for node in cell.get_nodes_of_subtype('spine_head'):
-    syn = Synapse(cell, node, ['AMPA_KIN'], stochastic=0)
-    syn_list.append(syn)
-"""
+
 random.seed(0)
 for branch in cell.basal+cell.trunk+cell.apical+cell.tuft:
     if len(branch.spines) > 1:
@@ -81,8 +69,19 @@ sim = QuickSim(duration, verbose=False)
 sim.parameters['equilibrate'] = equilibrate
 sim.parameters['duration'] = duration
 sim.append_rec(cell, cell.tree.root, description='soma')
-trunk = [trunk for trunk in cell.trunk if len(trunk.children) > 1 and trunk.children[0].type == 'trunk' and
-                                           trunk.children[1].type == 'trunk'][0]  # trunk bifurcation
+
+# look for a trunk bifurcation
+trunk_bifurcation = [trunk for trunk in cell.trunk if len(trunk.children) > 1 and trunk.children[0].type == 'trunk' and
+                     trunk.children[1].type == 'trunk']
+
+# get where the thickest trunk branch gives rise to the tuft
+if trunk_bifurcation:  # follow the thicker trunk
+    trunk = max(trunk_bifurcation[0].children[:2], key=lambda node: node.sec(0.).diam)
+    trunk = (node for node in cell.trunk if cell.node_in_subtree(trunk, node) and 'tuft' in (child.type for child in
+                                                                                             node.children)).next()
+else:
+    trunk = (node for node in cell.trunk if 'tuft' in (child.type for child in node.children)).next()
+
 sim.append_rec(cell, trunk, description='trunk')
 sim.append_rec(cell, trunk, description='branch')  # placeholders for branch and spine
 sim.append_rec(cell, trunk, description='spine')

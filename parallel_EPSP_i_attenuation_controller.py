@@ -15,7 +15,7 @@ ipcluster start -n num_cores
 filename_suffix = ' - epsp_i attenuation'
 #new_rec_filename = '042015 soma_pas spine_adjusted - EB2 - epsp_i attenuation'
 #new_rec_filename = '042015 soma_pas kdr ka_scale - adjusted - EB2 - epsp_i attenuation'
-new_rec_filename = parallel_EPSP_i_attenuation_engine.mech_filename
+new_rec_filename = parallel_EPSP_i_attenuation_engine.mech_filename + filename_suffix
 
 num_syns = len(parallel_EPSP_i_attenuation_engine.nodes)
 c = Client()
