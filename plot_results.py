@@ -447,7 +447,7 @@ def plot_Rinp_vm(rec_file_list, description_list="", title=None):
                 axes[i].set_title(sec_type)
         label_handles.append(mlines.Line2D([], [], color=colors[index], label=description_list[index]))
     if not description_list == [""]:
-        axes[0].legend(handles=label_handles, framealpha=0.5)
+        axes[0].legend(handles=label_handles, framealpha=0.5, frameon=False)
     fig.subplots_adjust(hspace=0.4, wspace=0.3, left=0.05, right=0.98, top=0.95, bottom=0.05)
     if not title is None:
         fig.set_size_inches(19.2, 12)
@@ -486,7 +486,8 @@ def plot_Rinp_av_vm(rec_file_list, description_list="", title=None):
     # sec_types
     sec_types = [sec_type for sec_type in default_sec_types if sec_type in temp_sec_types]+\
                  [sec_type for sec_type in temp_sec_types if not sec_type in default_sec_types]
-    fig, axes = plt.subplots(2, max(2, len(sec_types)))
+    rows = max(2, len(sec_types)/4)
+    fig, axes = plt.subplots(rows, min(4, len(sec_types)))
     colors = ['k', 'r', 'c', 'y', 'm', 'g', 'b']
     label_handles = []
     for index, rec_filename in enumerate(rec_file_list):
@@ -508,8 +509,10 @@ def plot_Rinp_av_vm(rec_file_list, description_list="", title=None):
                 tvec = sim['time']
                 interp_t = np.arange(0, stop, 0.01)
                 interp_vm = np.interp(interp_t, tvec[:], rec[:])
+                left, right = time2index(interp_t, start-3.0, start-1.0)
+                baseline = np.average(interp_vm[left:right])
                 left, right = time2index(interp_t, start-5.0, stop)
-                interp_vm = interp_vm[left:right]
+                interp_vm = interp_vm[left:right] - baseline
                 interp_t -= interp_t[left] + 5.
                 interp_t = interp_t[left:right]
                 if sec_type in average_vm:
@@ -518,18 +521,19 @@ def plot_Rinp_av_vm(rec_file_list, description_list="", title=None):
                 else:
                     average_vm[sec_type] = {'count': 1, 'trace': interp_vm[:]}
             for i, sec_type in enumerate(sec_types):
-                axes[i].plot(interp_t[:], average_vm[sec_type]['trace']/average_vm[sec_type]['count'],
+
+                axes[i/4][i%4].plot(interp_t[:], average_vm[sec_type]['trace']/average_vm[sec_type]['count'],
                              color=colors[index])
-                axes[i].set_xlabel('Time (ms)')
-                axes[i].set_ylabel('Vm (mV)')
-                axes[i].set_title(sec_type)
+                axes[i/4][i%4].set_xlabel('Time (ms)')
+                axes[i/4][i%4].set_ylabel('Vm (mV)')
+                axes[i/4][i%4].set_title(sec_type)
         label_handles.append(mlines.Line2D([], [], color=colors[index], label=description_list[index]))
     if not description_list == [""]:
-        axes[0].legend(handles=label_handles, framealpha=0.5)
+        axes[0][0].legend(handles=label_handles, framealpha=0.5, frameon=False)
     fig.subplots_adjust(hspace=0.4, wspace=0.3, left=0.05, right=0.98, top=0.95, bottom=0.05)
     if not title is None:
         fig.set_size_inches(19.2, 12)
-        fig.savefig(data_dir+title+' - Rinp - traces.svg', format='svg')
+        fig.savefig(data_dir+title+' - Rinp - average traces.svg', format='svg')
     plt.show()
     plt.close()
 
@@ -639,10 +643,12 @@ def plot_EPSP_attenuation(rec_file_list, description_list="", title=None):
                 distances[input_loc].append(sim['rec']['3'].attrs['branch_distance'])
                 for rec in sim['rec'].itervalues():
                     rec_loc = rec.attrs['description']
-                    left, right = time2index(tvec[:], equilibrate-3.0, equilibrate-1.0)
-                    baseline = np.average(rec[left:right])
-                    left, right = time2index(tvec[:], equilibrate, duration)
-                    amps[input_loc][rec_loc].append(np.max(rec[left:right]) - baseline)
+                    interp_t = np.arange(0, duration, 0.001)
+                    interp_vm = np.interp(interp_t, tvec[:], rec[:])
+                    left, right = time2index(interp_t, equilibrate-3.0, equilibrate-1.0)
+                    baseline = np.average(interp_vm[left:right])
+                    start, end = time2index(interp_t, equilibrate, duration)
+                    amps[input_loc][rec_loc].append(np.max(interp_vm[start:end]) - baseline)
             for i, input_loc in enumerate(input_locs):
                 for j, rec_loc in enumerate(rec_locs):
                     axes[i][j].scatter(distances[input_loc], amps[input_loc][rec_loc], color=colors[index],
@@ -756,6 +762,97 @@ def plot_EPSP_kinetics(rec_file_list, description_list="", title=None):
         fig1.savefig(data_dir+title+' - EPSP attenuation - rise.svg', format='svg')
         fig2.set_size_inches(19.2, 12)
         fig2.savefig(data_dir+title+' - EPSP attenuation - decay.svg', format='svg')
+    plt.show()
+    plt.close()
+
+
+def plot_EPSP_av_vm(rec_file_list, description_list="", title=None):
+    """
+    Expects each file in list to be generated by parallel_EPSP_attenuation.
+    Files contain simultaneous voltage recordings from 4 locations (soma, trunk, branch, spine) during single spine
+    stimulation. Spines are distributed across 4 dendritic sec_types (basal, trunk, apical, tuft). Trunk and apical
+    sections are subgrouped as proximal or distal.
+    Produces one figure containing a grid of 24 plots of Vm vs. time.
+    Superimposes results from multiple files in list.
+    :param rec_file_list: list of str
+    :param description_list: list of str
+    :param title: str
+    """
+    if not type(rec_file_list) == list:
+        rec_file_list = [rec_file_list]
+    if not type(description_list) == list:
+        description_list = [description_list]
+    default_input_locs = ['basal', 'trunk_prox', 'trunk_dist', 'apical_prox', 'apical_dist', 'tuft']
+    default_rec_locs = ['soma', 'trunk', 'branch', 'spine']
+    with h5py.File(data_dir+rec_file_list[0]+'.hdf5', 'r') as f:
+        temp_input_locs = []
+        temp_rec_locs = []
+        for sim in f.itervalues():
+            input_loc = sim.attrs['input_loc']
+            if not input_loc in temp_input_locs:
+                if input_loc in ['trunk', 'apical']:
+                    temp_input_locs.append(input_loc+'_prox')
+                    temp_input_locs.append(input_loc+'_dist')
+                else:
+                    temp_input_locs.append(input_loc)
+            for rec in sim['rec'].itervalues():
+                rec_loc = rec.attrs['description']
+                if not rec_loc in temp_rec_locs:
+                    temp_rec_locs.append(rec_loc)
+    # enforce the default order of input and recording locations for plotting, but allow for adding or subtracting
+    # sec_types
+    input_locs = [input_loc for input_loc in default_input_locs if input_loc in temp_input_locs]+\
+                 [input_loc for input_loc in temp_input_locs if not input_loc in default_input_locs]
+    rec_locs = [rec_loc for rec_loc in default_rec_locs if rec_loc in temp_rec_locs]+\
+                 [rec_loc for rec_loc in temp_rec_locs if not rec_loc in default_rec_locs]
+    fig, axes = plt.subplots(max(2, len(input_locs)), max(2, len(rec_locs)))
+    colors = ['k', 'r', 'c', 'y', 'm', 'g', 'b']
+    for index, rec_filename in enumerate(rec_file_list):
+        average_vm = {}
+        for input_loc in input_locs:
+            average_vm[input_loc] = {}
+        with h5py.File(data_dir+rec_filename+'.hdf5', 'r') as f:
+            equilibrate = f['0'].attrs['equilibrate']
+            duration = f['0'].attrs['duration']
+            for sim in f.itervalues():
+                tvec = sim['time']
+                input_loc = sim.attrs['input_loc']
+                if input_loc in ['trunk', 'apical']:
+                    spine_rec = sim['rec']['3'].attrs
+                    distance = spine_rec['soma_distance'] if input_loc == 'trunk' else spine_rec['soma_distance'] - \
+                                                                                       spine_rec['branch_distance']
+                    if distance <= 150.:
+                        input_loc += '_prox'
+                    else:
+                        input_loc += '_dist'
+                for rec in sim['rec'].itervalues():
+                    rec_loc = rec.attrs['description']
+                    interp_t = np.arange(0, duration, 0.001)
+                    interp_vm = np.interp(interp_t, tvec[:], rec[:])
+                    left, right = time2index(interp_t, equilibrate-3.0, equilibrate-1.0)
+                    baseline = np.average(interp_vm[left:right])
+                    left, right = time2index(interp_t, equilibrate-5.0, duration)
+                    interp_vm = interp_vm[left:right] - baseline
+                    interp_t -= interp_t[left] + 5.
+                    interp_t = interp_t[left:right]
+                    if rec_loc in average_vm[input_loc]:
+                        average_vm[input_loc][rec_loc]['count'] += 1
+                        average_vm[input_loc][rec_loc]['trace'] += interp_vm[:]
+                    else:
+                        average_vm[input_loc][rec_loc] = {'count': 1, 'trace': interp_vm[:]}
+            for i, input_loc in enumerate(input_locs):
+                for j, rec_loc in enumerate(rec_locs):
+                    axes[i][j].plot(interp_t[:], average_vm[input_loc][rec_loc]['trace'] /
+                            average_vm[input_loc][rec_loc]['count'], color=colors[index], label=description_list[index])
+                    axes[i][j].set_xlabel('Time (ms)')
+                    axes[i][j].set_ylabel('Spine Location:\n'+input_loc+'\nEPSP (mV)')
+                    axes[i][j].set_title('Recording Loc: '+rec_loc)
+    if not description_list == [""]:
+        axes[0][0].legend(loc='best', scatterpoints=1, frameon=False, framealpha=0.5)
+    plt.subplots_adjust(hspace=0.85, wspace=0.35, left=0.06, right=0.98, top=0.95, bottom=0.05)
+    if not title is None:
+        fig.set_size_inches(19.2, 12)
+        fig.savefig(data_dir+title+' - EPSP average traces.svg', format='svg')
     plt.show()
     plt.close()
 

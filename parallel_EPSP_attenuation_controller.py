@@ -12,7 +12,7 @@ Assumes a controller is already running in another process with:
 ipcluster start -n num_cores
 """
 filename_suffix = ' - epsp attenuation'
-new_rec_filename = parallel_EPSP_attenuation_engine.mech_filename
+new_rec_filename = parallel_EPSP_attenuation_engine.mech_filename+filename_suffix
 
 num_syns = len(parallel_EPSP_attenuation_engine.syn_list)
 c = Client()
@@ -40,4 +40,4 @@ print 'Parallel execution took: %.3f s' % (time.time()-start_time)
 rec_file_list = dv['rec_filename']
 combine_output_files(rec_file_list, new_rec_filename)
 plot_EPSP_attenuation(new_rec_filename)
-plot_EPSP_kinetics(new_rec_filename)
+#plot_EPSP_kinetics(new_rec_filename)

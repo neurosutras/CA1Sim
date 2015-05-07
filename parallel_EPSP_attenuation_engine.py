@@ -38,10 +38,10 @@ def stimulate_single_synapse(syn_index):
     return rec_filename
 
 
-equilibrate = 150.  # time to steady-state
-duration = 200.
+equilibrate = 250.  # time to steady-state
+duration = 325.
 v_init = -67.
-syn_type = 'AMPA_coop'
+syn_type = 'AMPA_KIN'
 
 syn_list = []
 cell = CA1_Pyr(morph_filename, mech_filename, full_spines=True)
