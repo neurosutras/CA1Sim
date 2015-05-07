@@ -7,7 +7,9 @@ GluA-R (AMPA-type Glutamate Receptors)
 Synaptic mechanism based on a simplified model of transmitter binding to
 postsynaptic receptors.
 
-Aaron Milstein, 2015 modified original code by:
+Written by Aaron Milstein, 2015.
+
+Modification of original code by:
 
 A. Destexhe & Z. Mainen, The Salk Institute, March 12, 1993.
 Last modif. Sept 8, 1993.
@@ -32,13 +34,14 @@ C     _____ . . . . . . Cmax
 The receptors then bind transmitter, change conformation, and open their
 channel according to the following kinetic scheme:
 
-       ---[C] * kon-->        -----Beta----->
-C + Ru <-----koff-----   Rb   <----Alpha-----   Ro
+       ---[C] * kon-->        -------CC----->        -----Beta----->
+C + Ru <-----koff-----   Rb   <------CO------   Rc   <----Alpha-----   Ro
 
-where Ru, Rb, and Ro are respectively the fraction of channels in the unbound,
-closed bound, and open states of the postsynaptic receptor. kon and koff are
-the binding and unbinding rate constants, and Beta and Alpha are the opening
-and closing rates of the channel.
+where Ru, Rb, Rc, and Ro are respectively the fraction of channels in the
+unbound, closed bound, closed cleft, and open states of the postsynaptic
+receptor. kon and koff are the binding and unbinding rate constants, CC and
+CO are the closing and opening rates of the receptor ligand-binding cleft,
+and Beta and Alpha are the opening and closing rates of the channel.
 
 The maximal conductance of the channel can be set for each instance of the
 synaptic mechanism by specifying gmax, and the relative weight of events
@@ -54,7 +57,7 @@ ENDCOMMENT
 
 NEURON {
 	POINT_PROCESS AMPA_KIN
-	RANGE Cmax, Cdur, kon, koff, Beta, Alpha, Erev, gmax, g
+	RANGE Cmax, Cdur, kon, koff, CC, CO, Beta, Alpha, Erev, gmax, g
 	NONSPECIFIC_CURRENT i
 }
 UNITS {
@@ -68,12 +71,14 @@ PARAMETER {
 
 	Cmax    = 1.        (mM)    	    : transmitter concentration during release event
 	Cdur	= 0.3       (ms)		    : transmitter duration (rising phase)
-	kon     = 1008.94   (/ms/mM)        : unbound receptor ligand-binding rate
-    koff    = 49.67     (/ms)           : bound receptor ligand-unbinding rate
-    Beta	= 43.77     (/ms)	        : channel opening rate
-    Alpha   = 0.74      (/ms)           : open channel closing rate
+	kon     = 12.88     (/ms/mM)        : unbound receptor ligand-binding rate
+    koff    = 6.47      (/ms)           : bound receptor ligand-unbinding rate
+    CC      = 69.97     (/ms)           : bound receptor cleft closing rate
+    CO      = 6.16      (/ms)           : bound receptor cleft opening rate
+    Beta	= 100.63    (/ms)	        : channel opening rate
+    Alpha   = 173.04    (/ms)           : open channel closing rate
 	Erev	= 0.        (mV)		    : reversal potential
-	gmax	= 0.0005     (umho)	        : maximum conductance
+	gmax	= 0.001     (umho)	        : maximum conductance
 }
 
 
@@ -87,14 +92,16 @@ ASSIGNED {
 
 STATE {
     Ru                  : fraction of receptors not bound to transmitter
-    Rb                  : fraction of receptors bound to transmitter with closed channel
-    Ro                  : fraction of receptors bound to transmitter with open channel
+    Rb                  : fraction of receptors bound to transmitter
+    Rc                  : fraction of receptors in closed cleft state
+    Ro                  : fraction of channels in open state
 }
 
 INITIAL {
 	C = 0.
     Ru = 1.
     Rb = 0.
+    Rc = 0.
     Ro = 0.
     scale = 1.
 }
@@ -107,7 +114,8 @@ BREAKPOINT {
 
 KINETIC kstates {
     ~ Ru <-> Rb     (C * kon, koff)
-    ~ Rb <-> Ro     (Beta, Alpha)
+    ~ Rb <-> Rc     (CC, CO)
+    ~ Rc <-> Ro     (Beta, Alpha)
 }
 
 NET_RECEIVE(weight) {

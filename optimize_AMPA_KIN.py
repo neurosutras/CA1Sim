@@ -4,7 +4,7 @@ from plot_results import *
 import scipy.optimize as optimize
 import random
 """
-This simulation uses scipy.optimize to iterate through NMDA_KIN mechanism parameters to fit target EPSP kinetics.
+This simulation uses scipy.optimize to iterate through AMPA_KIN mechanism parameters to fit target EPSP kinetics.
 """
 #morph_filename = 'EB1-early-bifurcation.swc'
 morph_filename = 'EB2-late-bifurcation.swc'
@@ -28,14 +28,14 @@ def synaptic_kinetics_error(x, plot=0):
     sim.run(v_init)
 
     t = np.array(sim.tvec)
-    g = np.array(sim.rec_list[0]['vec'])
+    vm = np.array(sim.rec_list[0]['vec'])
     interp_t = np.arange(0, duration, 0.001)
-    interp_g = np.interp(interp_t, t, g)
-    #left, right = time2index(interp_t, equilibrate-3., equilibrate-1.)
-    #baseline = np.average(interp_g[left:right])
-    #interp_g -= baseline
+    interp_vm = np.interp(interp_t, t, vm)
+    left, right = time2index(interp_t, equilibrate-3., equilibrate-1.)
+    baseline = np.average(interp_vm[left:right])
+    interp_vm -= baseline
     start, end = time2index(interp_t, equilibrate, duration)
-    y = interp_g[start:end]
+    y = interp_vm[start:end]
     interp_t = interp_t[start:end]
     interp_t -= interp_t[0]
     amp = np.max(y)
@@ -50,8 +50,8 @@ def synaptic_kinetics_error(x, plot=0):
         decay_tau = interp_t[decay_10[0]] - interp_t[decay_90]
     else:
         decay_tau = 1000.  # large error if trace has not decayed to 10% in 1 second
-    Ro = np.array(sim.rec_list[2]['vec'])
-    Rc_max = np.max(np.array(sim.rec_list[1]['vec'])+Ro)
+    Ro = np.array(sim.rec_list[3]['vec'])
+    Rc_max = np.max(np.array(sim.rec_list[1]['vec'])+np.array(sim.rec_list[2]['vec'])+Ro)
     """
     if 4. * decay_tau > duration - equilibrate:
         steady_state = Ro[-1]
@@ -96,7 +96,7 @@ spike_times = h.Vector([equilibrate])
 
 cell = CA1_Pyr(morph_filename, mech_filename, full_spines=True)
 
-syn_type = 'NMDA_KIN'
+syn_type = 'AMPA_KIN2'
 
 sim = QuickSim(duration)
 
@@ -126,26 +126,25 @@ stim_syn_list = [spine_list[i].synapses[0] for i in random.sample(range(len(spin
 
 for i, syn in enumerate(stim_syn_list):
     syn.source.play(spike_times)
-    syn.target(syn_type).mg = 0.1
-    #syn.target(syn_type).gmax = 0.005
 
 sim.append_rec(cell, syn.node, object=syn.target(syn_type), param='_ref_g')
+sim.append_rec(cell, syn.node, object=syn.target(syn_type), param='_ref_Rb')
 sim.append_rec(cell, syn.node, object=syn.target(syn_type), param='_ref_Rc')
 sim.append_rec(cell, syn.node, object=syn.target(syn_type), param='_ref_Ro')
 
 #the target values and acceptable ranges
-target_val = {'rise_tau': 3., 'decay_tau': 75., 'Rc_max': 0.6}  # extrapolating from Chen...Murphy and Harnett...Magee
-target_range = {'rise_tau': 0.1, 'decay_tau': .5, 'Rc_max': 0.01}
+target_val = {'rise_tau': .1, 'decay_tau': 7., 'Rc_max': 0.9}  # extrapolating from Chen...Murphy and Harnett...Magee
+target_range = {'rise_tau': 0.01, 'decay_tau': 0.1, 'Rc_max': 0.01}
 
 #the initial guess and bounds
 #x = [kon, koff, CC, CO, Beta, Alpha)
 #x0 = [10., .05, 25., 31., 2.5, 1.5]
-#x0 = [157.24, 6.43e-2, 7.29, 14.28, 8.91, 12.84]
-xmin = [1., .0005, .1, .1, .1, .1]
-xmax = [1000., 10., 200., 50., 200., 200.]
-#x1 = [719.4, 0.047, 6.36, 25.09, 4.46, 1.23]  # first pass basinhopping and simplex generated outward current
-#x1 = [745.01, 9.58e-02, 1.67, 24.82, 7.03, 0.17]  # produces 1.35 cooperativity in g during 5 pulses at 100 Hz
-x1 = [965.05, 0.12, 1.52, 12.85, 4.78, 0.19]  # produces 1.35 cooperativity in g during 5 pulses at 100 Hz
+#x0 = [60., 10., 60., 5., 100., 60.]
+x0 = [139.87, 4.05, 54.54, 10.85, 102.37, 111.66]  # following basinhopping and stalled simplex
+xmin = [10., .1, 1., 1., 1., 1.]
+xmax = [500., 10., 100., 50., 200., 200.]
+#x1 = [139.87, 4.05, 54.54, 10.85, 102.37, 111.66]  # following basinhopping and stalled simplex
+x1 = [12.88, 6.47, 69.97, 6.16, 100.63, 173.04]
 
 # rewrite the bounds in the way required by optimize.minimize
 xbounds = [(low, high) for low, high in zip(xmin, xmax)]
@@ -156,16 +155,13 @@ blocksize = 0.5  # defines the fraction of the xrange that will be explored at e
 mytakestep = MyTakeStep(blocksize, xmin, xmax)
 
 minimizer_kwargs = dict(method=null_minimizer)
-"""
+
 result = optimize.basinhopping(synaptic_kinetics_error, x0, niter= 720, niter_success=100, disp=True, interval=20,
                                                             minimizer_kwargs=minimizer_kwargs, take_step=mytakestep)
 #synaptic_kinetics_error(result.x, plot=1)
 
 polished_result = optimize.minimize(synaptic_kinetics_error, result.x, method='Nelder-Mead', options={'ftol': 1e-3,
                                                                                                       'disp': True})
-"""
-polished_result = optimize.minimize(synaptic_kinetics_error, x1, method='Nelder-Mead', options={'ftol': 1e-3,
-                                                                                                      'disp': True})
 synaptic_kinetics_error(polished_result.x, plot=1)
 
-#synaptic_kinetics_error(x0, plot=1)
+#synaptic_kinetics_error(x1, plot=1)
