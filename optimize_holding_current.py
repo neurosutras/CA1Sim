@@ -11,7 +11,8 @@ absence of ih.
 #morph_filename = 'EB1-early-bifurcation.swc'
 morph_filename = 'EB2-late-bifurcation.swc'
 #mech_filename = '031815 calibrate nmda gmax.pkl'
-mech_filename = '040815 kap_kad_ampar_scale low mg kd pas no_ih no_na.pkl'
+#mech_filename = '040815 kap_kad_ampar_scale low mg kd pas no_ih no_na'
+mech_filename = '050715 pas_exp_scale kdr ka_scale no_ih ampar_exp_scale - EB2'
 #rec_filename = '041315 calibrate holding i_inj - EB2'
 
 
@@ -40,25 +41,35 @@ def holding_current_error(x, plot=0):
 
 delay = 25.
 duration = 300.
-amp = 0.1
-v_init = -65.
+amp = 0.16
+v_init = -67.
 num_stim = 40
 
 cell = CA1_Pyr(morph_filename, mech_filename, full_spines=True)
 
 sim = QuickSim(duration, verbose=0)
-trunk = [trunk for trunk in cell.trunk if len(trunk.children) > 1 and trunk.children[0].type in ['trunk','tuft'] and
-                                            trunk.children[1].type in ['trunk', 'tuft']][0]  # tuft bifurcation
+# look for a trunk bifurcation
+trunk_bifurcation = [trunk for trunk in cell.trunk if len(trunk.children) > 1 and trunk.children[0].type == 'trunk' and
+                     trunk.children[1].type == 'trunk']
+
+# get where the thickest trunk branch gives rise to the tuft
+if trunk_bifurcation:  # follow the thicker trunk
+    trunk = max(trunk_bifurcation[0].children[:2], key=lambda node: node.sec(0.).diam)
+    trunk = (node for node in cell.trunk if cell.node_in_subtree(trunk, node) and 'tuft' in (child.type for child in
+                                                                                             node.children)).next()
+else:
+    trunk = (node for node in cell.trunk if 'tuft' in (child.type for child in node.children)).next()
+tuft = (child for child in trunk.children if child.type == 'tuft').next()
 sim.append_rec(cell, trunk, description='trunk', loc=0.)
 sim.append_stim(cell, trunk, loc=0., amp=amp, delay=delay, dur=duration-delay, description='Holding I_inj')
 
 #the target values and acceptable ranges
-target_val = {'Vm_Rest': -65.}
-target_range = {'Vm_Rest': -1.}
+target_val = {'Vm_Rest': -67.}
+target_range = {'Vm_Rest': 1.}
 
 #the initial guess and bounds
 x0 = [amp]
-xmin = [0.01]  # first-pass bounds
+xmin = [0.1]  # first-pass bounds
 xmax = [1.]
 
 # rewrite the bounds in the way required by optimize.minimize

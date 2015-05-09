@@ -66,7 +66,7 @@ NET_RECEIVE(weight) {
         P = 1
     } else {
 :        P = P0*F*D1*D2
-       P = P0*F*D1
+        P = P0*F*D1
     }
     random = randGen()
     if (random <= P) {
