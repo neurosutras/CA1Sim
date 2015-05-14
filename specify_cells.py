@@ -873,25 +873,47 @@ class HocCell(object):
         :param node: :class:'SHocNode'
         :return: int
         """
-        order = 0
-        while not node in self.soma+self.axon+self.trunk:
-            if len([child for child in node.parent.children if not child.type == 'spine_neck']) > 1:
-                order += 1
-                node = node.parent
-        return order
+        if node.type in ['soma', 'axon']:
+            return 0
+        elif node.type == 'trunk':
+            children = [child for child in node.parent.children if not child.type == 'spine_neck']
+            if len(children) > 1 and children[0].type == 'trunk' and children[1].type == 'trunk':
+                return 1
+            else:
+                return 0
+        else:
+            order = 0
+            path = [branch for branch in self.tree.path_between_nodes(node, self.get_dendrite_origin(node)) if
+                    not branch.type in ['soma', 'trunk']]
+            for node in path:
+                if self.is_terminal(node):
+                    order += 1
+                elif len([child for child in node.parent.children if not child.type == 'spine_neck']) > 1:
+                    order += 1
+                elif node.parent.type == 'trunk':
+                    order += 1
+            return order
 
     def is_terminal(self, node):
         """
-        Calculates if a node is a terminal branch.
+        Calculates if a node is a terminal dendritic branch.
         :param node: :class:'SHocNode'
-        :return: Boolean
+        :return: bool
         """
-        while node.children:
-            if len([child for child in node.children if not child.type == 'spine_neck']) > 1:
-                return False
-            else:
-                node = node.children[0]
-        return True
+        if node.type in ['soma', 'axon']:
+            return False
+        else:
+            return not bool([child for child in node.children if not child.type == 'spine_neck'])
+
+    def is_bifurcation(self, node, child_type):
+        """
+        Calculates if a node bifurcates into at least two children of specified type.
+        :param node: :class:'SHocNode'
+        :param child_type: string
+        :return: bool
+        """
+        return len([child for child in node.children if child.type == child_type]) >= 2
+
 
     def set_stochastic_synapses(self, value):
         """

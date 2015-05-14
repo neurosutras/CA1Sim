@@ -27,8 +27,10 @@ def sim_stim_train(ISI):
     """
     #x = x['x']
     #x[0] = int(1000 * x[0])
-    param_dict = {param_names[i]: x[i] for i in range(len(x))}
-    param_dict['n'] = int(param_dict['n'])
+    param_dict = {}
+    for i in range(len(x)):
+    	param_dict[param_names[i]] = x[i]
+    param_dict['n'] = int(param_dict['n'] * 1000)
     #return param_dict
     random.seed(0)
     duration = equilibrate + ISI * (num_stims - 1) + 101
@@ -51,7 +53,7 @@ def sim_stim_train(ISI):
     baseline = np.average(vm[left:right])
     vm -= baseline
     rec = np.interp(interp_t, t, vm)
-    print 'Process:', os.getpid(), 'ISI:', ISI, 'synapses:', x[0], 'took', time.time() - start_time, 's'
+    print 'Process:', os.getpid(), 'ISI:', ISI, 'synapses:', param_dict['n'], 'took', time.time() - start_time, 's'
     if ISI == 300:
         left, right = time2index(interp_t, equilibrate-2.0, equilibrate+100)
         unit_vm = rec[left:right]
@@ -61,15 +63,14 @@ def sim_stim_train(ISI):
         unit_vm /= float(num_stims)
         return {ISI: unit_vm}
     else:
-        left, right = time2index(interp_t, equilibrate-2.0, equilibrate+100)
+        left, right = time2index(interp_t, equilibrate-2.0, duration)
         return {ISI: rec[left:right]}
 
 
-def restore_random_sequence_locations(index):
+def restore_random_sequence_locations():
     """
     Restores the random object for each synapse to the initial position of its sequence. Should be done in between
     basinhopping steps.
-    :param index: int
     """
     for i, syn in enumerate(syn_list):
         syn.randObj.seq(rand_seq_locs[i])
@@ -82,8 +83,8 @@ syn_types = ['AMPA_KIN', 'NMDA_KIN']
 
 syn_list = []
 rand_seq_locs = []
-cell = CA1_Pyr(morph_filename, mech_filename, full_spines=False)
-cell.insert_spines_in_subset(['trunk', 'apical'])
+cell = CA1_Pyr(morph_filename, mech_filename, full_spines=True)
+#cell.insert_spines_in_subset(['trunk', 'apical'])
 for branch in cell.trunk+cell.apical:
     for node in branch.spines:
         syn = Synapse(cell, node, syn_types, stochastic=1)

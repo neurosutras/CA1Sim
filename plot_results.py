@@ -5,10 +5,16 @@ import matplotlib as mpl
 import numpy as np
 
 mpl.rcParams['svg.fonttype'] = 'none'
-mpl.rcParams['font.size'] = 14.
+mpl.rcParams['font.size'] = 14.  # 18.
 mpl.rcParams['font.sans-serif'] = 'Arial'
 mpl.rcParams['text.usetex'] = False
-
+"""
+mpl.rcParams['axes.labelsize'] = 'larger'
+mpl.rcParams['axes.titlesize'] = 'xx-large'
+mpl.rcParams['xtick.labelsize'] = 'large'
+mpl.rcParams['ytick.labelsize'] = 'large'
+mpl.rcParams['legend.fontsize'] = 'x-large'
+"""
 
 def plot_AR(rec_file_list, description_list="", title=None):
     """
@@ -101,24 +107,24 @@ def plot_AR(rec_file_list, description_list="", title=None):
             for i, sec_type in enumerate(sec_types):
                 axes[0][i].scatter(distances[sec_type], AR[sec_type], label=description_list[index],
                                    color=colors[index])
-                axes[0][i].set_xlabel('Distance from Dendrite Origin (um)')
-                axes[0][i].set_ylabel('Amplitude Ratio')
-                axes[0][i].set_title(sec_type)
+                axes[0][i].set_xlabel('Distance from Dendrite Origin (um)')  # , fontsize=20)
+                axes[0][i].set_title(sec_type)  # , fontsize=28)
                 axes[1][i].scatter(distances[sec_type], dendR[sec_type], label=description_list[index],
                                    color=colors[index])
-                axes[1][i].set_xlabel('Distance from Dendrite Origin (um)')
-                axes[1][i].set_ylabel('R_Dend (MOhm)')
-                axes[1][i].set_title(sec_type)
+                axes[1][i].set_xlabel('Distance from Dendrite Origin (um)')  # , fontsize=20)
+                axes[1][i].set_title(sec_type)  # , fontsize=28)
                 axes[2][i].scatter(distances[sec_type], neckR[sec_type], label=description_list[index],
                                    color=colors[index])
-                axes[2][i].set_xlabel('Distance from Dendrite Origin (um)')
-                axes[2][i].set_ylabel('R_Neck (MOhm)')
-                axes[2][i].set_title(sec_type)
+                axes[2][i].set_xlabel('Distance from Dendrite Origin (um)')  # , fontsize=20)
+                axes[2][i].set_title(sec_type)  # , fontsize=28)
+    axes[0][0].set_ylabel('Amplitude Ratio')  # , fontsize=20)
+    axes[1][0].set_ylabel('R_Dend (MOhm)')  # , fontsize=20)
+    axes[2][0].set_ylabel('R_Neck (MOhm)')  # , fontsize=20)
     if not description_list == [""]:
         axes[0][0].legend(loc='best', scatterpoints=1, frameon=False, framealpha=0.5)
-    fig.subplots_adjust(hspace=0.4, wspace=0.3, left=0.05, right=0.98, top=0.95, bottom=0.05)
+    fig.subplots_adjust(hspace=0.45, wspace=0.3, left=0.06, right=0.94, top=0.94, bottom=0.06)
     if not title is None:
-        fig.set_size_inches(19.2, 12)
+        fig.set_size_inches(20.8, 13)
         fig.savefig(data_dir+title+' - spine AR.svg', format='svg')
     plt.show()
     plt.close()
@@ -371,28 +377,25 @@ def plot_Rinp(rec_file_list, description_list="", title=None):
                 axes[0][i].scatter(distances[sec_type], peak[sec_type], label=description_list[index],
                                    color=colors[index])
                 axes[0][i].set_xlabel('Distance from Dendrite Origin (um)')
-                axes[0][i].set_ylabel('Input Resistance\nPeak (MOhm)')
-                axes[0][i].set_title(sec_type)
+                axes[1][i].set_title(sec_type)
                 axes[1][i].scatter(distances[sec_type], steady[sec_type], label=description_list[index],
                                    color=colors[index])
                 axes[1][i].set_xlabel('Distance from Dendrite Origin (um)')
-                axes[1][i].set_ylabel('Input Resistance\nSteady-state (MOhm)')
-                axes[1][i].set_title(sec_type)
                 axes[2][i].scatter(distances[sec_type], sag[sec_type], label=description_list[index],
                                    color=colors[index])
                 axes[2][i].set_xlabel('Distance from Dendrite Origin (um)')
-                axes[2][i].set_ylabel('% Sag')
-                axes[2][i].set_title(sec_type)
                 axes[3][i].scatter(distances[sec_type], v_rest[sec_type], label=description_list[index],
                                    color=colors[index])
                 axes[3][i].set_xlabel('Distance from Dendrite Origin (um)')
-                axes[3][i].set_ylabel('Resting Vm (mV)')
-                axes[3][i].set_title(sec_type)
+    axes[0][1].set_ylabel('Input Resistance\nPeak (MOhm)')
+    axes[1][1].set_ylabel('Input Resistance\nSteady-state (MOhm)')
+    axes[2][1].set_ylabel('% Sag')
+    axes[3][1].set_ylabel('Resting Vm (mV)')
     if not description_list == [""]:
         axes[0][0].legend(loc='best', scatterpoints=1, frameon=False, framealpha=0.5)
-    fig.subplots_adjust(hspace=0.5, wspace=0.3, left=0.05, right=0.98, top=0.95, bottom=0.05)
+    fig.subplots_adjust(hspace=0.45, wspace=0.45, left=0.05, right=0.95, top=0.95, bottom=0.05)
     if not title is None:
-        fig.set_size_inches(19.2, 12)
+        fig.set_size_inches(20.8, 13)  # 19.2, 12)
         fig.savefig(data_dir+title+' - Rinp.svg', format='svg')
     plt.show()
     plt.close()
@@ -487,14 +490,14 @@ def plot_Rinp_av_vm(rec_file_list, description_list="", title=None):
     # sec_types
     sec_types = [sec_type for sec_type in default_sec_types if sec_type in temp_sec_types]+\
                  [sec_type for sec_type in temp_sec_types if not sec_type in default_sec_types]
-    rows = max(2, len(sec_types)/4)
+    rows = max(3, len(sec_types)/4)
     fig, axes = plt.subplots(rows, min(4, len(sec_types)))
     colors = ['k', 'r', 'c', 'y', 'm', 'g', 'b']
     label_handles = []
     for index, rec_filename in enumerate(rec_file_list):
         with h5py.File(data_dir+rec_filename+'.hdf5', 'r') as f:
             start = f['0']['stim']['0'].attrs['delay']
-            stop = start + f['0']['stim']['0'].attrs['dur']
+            stop = start + 200. # f['0']['stim']['0'].attrs['dur']
             average_vm = {}
             for sim in f.itervalues():
                 rec = sim['rec']['0']
@@ -525,15 +528,15 @@ def plot_Rinp_av_vm(rec_file_list, description_list="", title=None):
 
                 axes[i/4][i%4].plot(interp_t[:], average_vm[sec_type]['trace']/average_vm[sec_type]['count'],
                              color=colors[index])
-                axes[i/4][i%4].set_xlabel('Time (ms)')
-                axes[i/4][i%4].set_ylabel('Vm (mV)')
-                axes[i/4][i%4].set_title(sec_type)
+                axes[i/4][i%4].set_xlabel('Time (ms)')  #, fontsize=20)
+                axes[i/4][0].set_ylabel('Voltage (mV)')  #, fontsize=20)
+                axes[i/4][i%4].set_title(sec_type)  #, fontsize=28)
         label_handles.append(mlines.Line2D([], [], color=colors[index], label=description_list[index]))
     if not description_list == [""]:
-        axes[0][0].legend(handles=label_handles, framealpha=0.5, frameon=False)
-    fig.subplots_adjust(hspace=0.4, wspace=0.3, left=0.05, right=0.98, top=0.95, bottom=0.05)
+        axes[0][0].legend(handles=label_handles, framealpha=0.5, frameon=False, fontsize=20)
+    fig.subplots_adjust(hspace=0.5, wspace=0.4, left=0.05, right=0.95, top=0.95, bottom=0.05)
     if not title is None:
-        fig.set_size_inches(19.2, 12)
+        fig.set_size_inches(20.8, 13)
         fig.savefig(data_dir+title+' - Rinp - average traces.svg', format='svg')
     plt.show()
     plt.close()
@@ -560,11 +563,7 @@ def plot_superimpose_conditions(rec_filename, legend=True):
                 rec_id = rec.attrs['type']+str(rec.attrs['index'])
             if not rec_id in (id['id'] for id in rec_ids):
                 rec_ids.append({'id': rec_id, 'ylabel': rec.attrs['ylabel']+' ('+rec.attrs['units']+')'})
-    if len(rec_ids) > 1:
-        fig, axes = plt.subplots(1, len(rec_ids))
-    else:
-        fig, ax = plt.subplots(1, 1)
-        axes = [ax]
+    fig, axes = plt.subplots(1, max(2, len(rec_ids)))
     for i in range(len(rec_ids)):
         axes[i].set_xlabel('Time (ms)')
         axes[i].set_ylabel(rec_ids[i]['ylabel'])
@@ -585,7 +584,7 @@ def plot_superimpose_conditions(rec_filename, legend=True):
     if legend:
         for i in range(len(rec_ids)):
             axes[i].legend(loc='best', framealpha=0.5, frameon=False)
-    plt.subplots_adjust(hspace=0.4, wspace=0.3, left=0.05, right=0.98, top=0.95, bottom=0.05)
+    plt.subplots_adjust(hspace=0.4, wspace=0.3, left=0.05, right=0.95, top=0.95, bottom=0.1)
     plt.show()
     plt.close()
     f.close()
@@ -654,14 +653,15 @@ def plot_EPSP_attenuation(rec_file_list, description_list="", title=None):
                 for j, rec_loc in enumerate(rec_locs):
                     axes[i][j].scatter(distances[input_loc], amps[input_loc][rec_loc], color=colors[index],
                                         label=description_list[index])
-                    axes[i][j].set_xlabel('Distance from Dendrite Origin (um)')
-                    axes[i][j].set_ylabel('Spine Location: '+input_loc+'\nEPSP Amp (mV)')
-                    axes[i][j].set_title('Recording Loc: '+rec_loc)
+                    axes[i][j].set_xlabel('Distance from Dendrite Origin (um)', fontsize='x-large')
+                axes[i][0].set_ylabel('Spine Location: '+input_loc+'\nEPSP Amp (mV)', fontsize='xx-large')
+            for j, rec_loc in enumerate(rec_locs):
+                axes[0][j].set_title('Recording Loc: '+rec_loc)
     if not description_list == [""]:
         axes[0][0].legend(loc='best', scatterpoints=1, frameon=False, framealpha=0.5)
-    plt.subplots_adjust(hspace=0.5, wspace=0.3, left=0.05, right=0.98, top=0.95, bottom=0.05)
+    plt.subplots_adjust(hspace=0.4, wspace=0.3, left=0.05, right=0.95, top=0.95, bottom=0.05)
     if not title is None:
-        fig.set_size_inches(19.2, 12)
+        fig.set_size_inches(20.8, 15.6)  # 19.2, 12)19.2, 12)
         fig.savefig(data_dir+title+' - EPSP attenuation.svg', format='svg')
     plt.show()
     plt.close()
@@ -759,9 +759,9 @@ def plot_EPSP_kinetics(rec_file_list, description_list="", title=None):
     fig1.subplots_adjust(hspace=0.5, wspace=0.3, left=0.05, right=0.98, top=0.95, bottom=0.05)
     fig2.subplots_adjust(hspace=0.5, wspace=0.3, left=0.05, right=0.98, top=0.95, bottom=0.05)
     if not title is None:
-        fig1.set_size_inches(19.2, 12)
+        fig1.set_size_inches(20.8, 15.6)  # 19.2, 12)19.2, 12)
         fig1.savefig(data_dir+title+' - EPSP attenuation - rise.svg', format='svg')
-        fig2.set_size_inches(19.2, 12)
+        fig2.set_size_inches(20.8, 15.6)  # 19.2, 12)19.2, 12)
         fig2.savefig(data_dir+title+' - EPSP attenuation - decay.svg', format='svg')
     plt.show()
     plt.close()
@@ -846,14 +846,15 @@ def plot_EPSP_av_vm(rec_file_list, description_list="", title=None):
                 for j, rec_loc in enumerate(rec_locs):
                     axes[i][j].plot(interp_t[:], average_vm[input_loc][rec_loc]['trace'] /
                             average_vm[input_loc][rec_loc]['count'], color=colors[index], label=description_list[index])
-                    axes[i][j].set_xlabel('Time (ms)')
-                    axes[i][j].set_ylabel('Spine Location:\n'+input_loc+'\nEPSP (mV)')
-                    axes[i][j].set_title('Recording Loc: '+rec_loc)
+                    axes[i][j].set_xlabel('Time (ms)', fontsize='x-large')
+                axes[i][0].set_ylabel('Spine Location:\n'+input_loc+'\nEPSP (mV)', fontsize='xx-large')
+            for j, rec_loc in enumerate(rec_locs):
+                axes[0][j].set_title('Recording Loc: '+rec_loc)
     if not description_list == [""]:
         axes[0][0].legend(loc='best', scatterpoints=1, frameon=False, framealpha=0.5)
-    plt.subplots_adjust(hspace=0.85, wspace=0.35, left=0.06, right=0.98, top=0.95, bottom=0.05)
+    plt.subplots_adjust(hspace=0.5, wspace=0.3, left=0.05, right=0.95, top=0.95, bottom=0.05)
     if not title is None:
-        fig.set_size_inches(19.2, 12)
+        fig.set_size_inches(20.8, 15.6)  # 19.2, 12)19.2, 12)
         fig.savefig(data_dir+title+' - EPSP average traces.svg', format='svg')
     plt.show()
     plt.close()
@@ -923,14 +924,15 @@ def plot_EPSP_i_attenuation(rec_file_list, description_list="", title=None):
                 for j, rec_loc in enumerate(rec_locs):
                     axes[i][j].scatter(distances[input_loc], amps[input_loc][rec_loc], color=colors[index],
                                         label=description_list[index])
-                    axes[i][j].set_xlabel('Distance from Soma (um)')
-                    axes[i][j].set_ylabel('Input Loc: '+input_loc+'\nEPSP Amp (mV)')
-                    axes[i][j].set_title('Recording Loc: '+rec_loc)
+                    axes[i][j].set_xlabel('Distance from Soma (um)', fontsize='xx-large')
+                axes[i][0].set_ylabel('Input Loc: '+input_loc+'\nEPSP Amp (mV)', fontsize='xx-large')
+            for j, rec_loc in enumerate(rec_locs):
+                axes[0][j].set_title('Recording Loc: '+rec_loc)
     if not description_list == [""]:
         axes[0][0].legend(loc='best', scatterpoints=1, frameon=False, framealpha=0.5)
-    fig.subplots_adjust(hspace=0.5, wspace=0.3, left=0.05, right=0.98, top=0.95, bottom=0.05)
+    fig.subplots_adjust(hspace=0.45, wspace=0.25, left=0.05, right=0.95, top=0.95, bottom=0.05)
     if not title is None:
-        fig.set_size_inches(19.2, 12)
+        fig.set_size_inches(20.8, 15.6)  # 19.2, 12)
         fig.savefig(data_dir+title+' - EPSP_i attenuation.svg', format='svg')
     plt.show()
     plt.close()
@@ -1015,23 +1017,24 @@ def plot_EPSP_i_kinetics(rec_file_list, description_list="", title=None):
                 for j, rec_loc in enumerate(rec_locs):
                     axes1[i][j].scatter(distances[input_loc], rise_taus[input_loc][rec_loc], color=colors[index],
                                         label=description_list[index])
-                    axes1[i][j].set_xlabel('Distance from Soma (um)')
-                    axes1[i][j].set_ylabel('Input Loc: '+input_loc+'\nEPSP Rise Tau (ms)')
-                    axes1[i][j].set_title('Recording Loc: '+rec_loc)
+                    axes1[i][j].set_xlabel('Distance from Soma (um)', fontsize='xx-large')
                     axes2[i][j].scatter(distances[input_loc], decay_taus[input_loc][rec_loc], color=colors[index],
                                         label=description_list[index])
-                    axes2[i][j].set_xlabel('Distance from Soma (um)')
-                    axes2[i][j].set_ylabel('Input Loc: '+input_loc+'\nEPSP Decay Tau (ms)')
-                    axes2[i][j].set_title('Recording Loc: '+rec_loc)
+                    axes2[i][j].set_xlabel('Distance from Soma (um)', fontsize='xx-large')
+                axes1[i][0].set_ylabel('Input Loc: '+input_loc+'\nEPSP Rise (ms)', fontsize='xx-large')
+                axes2[i][0].set_ylabel('Input Loc: '+input_loc+'\nEPSP Decay (ms)', fontsize='xx-large')
+            for j, rec_loc in enumerate(rec_locs):
+                axes1[0][j].set_title('Recording Loc: '+rec_loc)
+                axes2[0][j].set_title('Recording Loc: '+rec_loc)
     if not description_list == [""]:
         axes1[0][0].legend(loc='best', scatterpoints=1, frameon=False, framealpha=0.5)
         axes2[0][0].legend(loc='best', scatterpoints=1, frameon=False, framealpha=0.5)
-    fig1.subplots_adjust(hspace=0.5, wspace=0.3, left=0.05, right=0.98, top=0.95, bottom=0.05)
-    fig2.subplots_adjust(hspace=0.5, wspace=0.3, left=0.05, right=0.98, top=0.95, bottom=0.05)
+    fig1.subplots_adjust(hspace=0.45, wspace=0.25, left=0.05, right=0.95, top=0.95, bottom=0.05)
+    fig2.subplots_adjust(hspace=0.45, wspace=0.25, left=0.05, right=0.95, top=0.95, bottom=0.05)
     if not title is None:
-        fig1.set_size_inches(19.2, 12)
+        fig1.set_size_inches(20.8, 15.6)  # 19.2, 12)
         fig1.savefig(data_dir+title+' - EPSP_i attenuation - rise.svg', format='svg')
-        fig2.set_size_inches(19.2, 12)
+        fig2.set_size_inches(20.8, 15.6)  # 19.2, 12)
         fig2.savefig(data_dir+title+' - EPSP_i attenuation - decay.svg', format='svg')
     plt.show()
     plt.close()
