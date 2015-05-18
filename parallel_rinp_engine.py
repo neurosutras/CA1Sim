@@ -1,6 +1,7 @@
 __author__ = 'milsteina'
 from specify_cells import *
 import os
+from mpi4py import MPI
 
 """
 Builds a cell locally so each engine is ready to receive jobs one at a time, specified by an index corresponding to
@@ -21,7 +22,8 @@ morph_filename = 'EB2-late-bifurcation.swc'
 #mech_filename = '042415 e_g_pas_ih_exp_scale kdr ka_scale - EB2'
 #mech_filename = '042815 pas_sig_scale kdr ka_scale - EB2'
 #mech_filename = '042915 pas_sig_scale kdr ka_scale - EB2'
-mech_filename = '043015 pas_exp_scale kdr ka_scale ih_exp_scale - EB2'
+#mech_filename = '043015 pas_exp_scale kdr ka_scale ih_exp_scale - EB2'
+mech_filename = '050715 pas_exp_scale kdr ka_scale ih_sig_scale ampar_exp_scale nmda - EB2'
 
 rec_filename = 'output'+datetime.datetime.today().strftime('%m%d%Y%H%M')+'-pid'+str(os.getpid())
 
@@ -43,9 +45,9 @@ def test_single_section(sec_index):
     return rec_filename
 
 
-equilibrate = 200.  # time to steady-state
-stim_dur = 500.
-duration = equilibrate + stim_dur
+equilibrate = 250.  # time to steady-state
+stim_dur = 400.
+duration = equilibrate + stim_dur + 100.
 amp = -0.15
 v_init = -67.  # -80.
 

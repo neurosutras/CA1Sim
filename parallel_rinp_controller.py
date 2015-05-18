@@ -10,8 +10,9 @@ Parallel version: Iterates through every section, injecting hyperpolarizing curr
 Assumes a controller is already running in another process with:
 ipcluster start -n num_cores
 """
-filename_suffix = ' - Rinp'
-new_rec_filename = parallel_rinp_engine.mech_filename+filename_suffix
+#filename_suffix = ' - Rinp'
+#new_rec_filename = parallel_rinp_engine.mech_filename+filename_suffix
+new_rec_filename = '051815 test MPI with 3 nodes on cluster - Rinp'
 
 c = Client()
 num_secs = len(parallel_rinp_engine.nodes)
