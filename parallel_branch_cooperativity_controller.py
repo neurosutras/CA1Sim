@@ -17,7 +17,7 @@ filename_suffix = ' - actual EPSP - basal only'
 new_rec_filename = '051915 test bash script - branch cooperativity'
 
 num_paths = len(parallel_branch_cooperativity_engine.path_list)
-c = Client()
+c = Client(profile='mpi')
 dv = c[:]
 dv.clear()
 dv.block = True
@@ -25,7 +25,7 @@ start_time = time.time()
 dv.execute('from parallel_branch_cooperativity_engine import *')
 v = c.load_balanced_view()
 instructions = []
-for path_index in range(2):  # num_paths):
+for path_index in range(1):  # num_paths):
     #for num_syns in range(1, len(parallel_branch_cooperativity_engine.path_list[path_index]['spines'])):
     for num_syns in range(1, min(len(parallel_branch_cooperativity_engine.path_list[path_index]['spines'])+1,
                                  len(c)+1)):
