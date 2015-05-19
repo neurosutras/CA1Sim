@@ -1,6 +1,4 @@
 __author__ = 'milsteina'
-import os
-from mpi4py import MPI
 from testMPI_engine import *
 from IPython.parallel import Client
 import h5py
@@ -8,9 +6,10 @@ import h5py
 This file is executed on the controller. The method 'testMPI' returns a dictionary from each engine, which is combined
 and recorded to an output .hdf5 file.
 """
-rec_filename = '051815 testMPI output'
+rec_filename = '052015 testMPI output'
 data_dir = 'data/'
 
+#c = Client(profile='mpi')
 c = Client()
 dv = c[:]
 dv.block = True
