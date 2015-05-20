@@ -12,12 +12,13 @@ Expected and Actual EPSPs.
 Assumes a controller is already running in another process with:
 ipcluster start -n num_cores
 """
-filename_suffix = ' - actual EPSP - basal only'
-#new_rec_filename = parallel_branch_cooperativity_engine.mech_filename+filename_suffix
-new_rec_filename = '051915 test bash script - branch cooperativity'
+filename_suffix = ' - actual EPSP - clustered basal sample'
+new_rec_filename = parallel_branch_cooperativity_engine.mech_filename+filename_suffix
+#new_rec_filename = '051915 test bash script - branch cooperativity'
 
 num_paths = len(parallel_branch_cooperativity_engine.path_list)
-c = Client(profile='mpi')
+#c = Client(profile='mpi')
+c = Client()
 dv = c[:]
 dv.clear()
 dv.block = True
