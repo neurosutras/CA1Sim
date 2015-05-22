@@ -91,7 +91,7 @@ target_val = {'peak_supralinearity': 44.}
 target_range = {'peak_supralinearity': 6.}
 
 #the initial guess
-x0 = [3e-4]
+x0 = [3e-3]
 
 c = Client()
 dv = c[:]
