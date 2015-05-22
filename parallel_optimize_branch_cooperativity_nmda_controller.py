@@ -16,7 +16,7 @@ Parallel version dynamically submits jobs to available cores.
 Assumes a controller is already running in another process with:
 ipcluster start -n num_cores
 """
-new_rec_filename = '052115 apical oblique cooperativity'
+new_rec_filename = '052215 apical oblique cooperativity'
 
 
 def branch_cooperativity_error(x, plot=0):
@@ -102,4 +102,4 @@ v = c.load_balanced_view()
 
 result = optimize.minimize(branch_cooperativity_error, x0, method='Nelder-Mead', options={'xtol': 1e-5, 'ftol': 1e-3,
                                                                                           'disp': True})
-branch_cooperativity_error(result.x, plot=1)
+#branch_cooperativity_error(result.x, plot=1)

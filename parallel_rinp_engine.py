@@ -1,8 +1,6 @@
 __author__ = 'milsteina'
 from specify_cells import *
 import os
-from mpi4py import MPI
-
 """
 Builds a cell locally so each engine is ready to receive jobs one at a time, specified by an index corresponding to
 which section to simulate (full sampling of sections).
