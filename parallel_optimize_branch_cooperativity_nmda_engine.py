@@ -10,10 +10,13 @@ corresponding to which synapses to stimulate.
 #morph_filename = 'EB1-early-bifurcation.swc'
 morph_filename = 'EB2-late-bifurcation.swc'
 mech_filename = '050715 pas_exp_scale kdr ka_scale ih_sig_scale ampar_exp_scale nmda - EB2'
+#mech_filename = '052615 pas_exp_scale ampar_exp_scale nmda - EB2'
 rec_filename = 'output'+datetime.datetime.today().strftime('%m%d%Y%H%M')+'-pid'+str(os.getpid())
 
-NMDA_type = 'NMDA_KIN'
+NMDA_type = 'NMDA_KIN2'
 gmax = 0.0003  # placeholder for optimization parameter, must be pushed to each engine on each iteration
+Kd = 3.57
+gamma = 0.08
 interp_dt = 0.01
 
 @interactive
@@ -29,6 +32,8 @@ def stim_actual(spine_indexes):
         spine = spine_list[index]
         syn = spine.synapses[0]
         syn.target(NMDA_type).gmax = gmax
+        syn.target(NMDA_type).Kd = Kd
+        syn.target(NMDA_type).gamma = gamma
         spike_times = h.Vector([equilibrate + 0.3 * i])
         syn.source.play(spike_times)
         sim.parameters['syn_indexes'].append(spine.index)
@@ -84,11 +89,11 @@ for branch in cell.trunk:
 # get the first terminal apical oblique terminal branch that has > 25 spines within 30 um
 spine_list = []
 for branch in (apical for apical in cell.apical if cell.get_distance_to_node(cell.tree.root,
-            cell.get_dendrite_origin(apical)) >= 150. and cell.is_terminal(apical)):
-    length = cell.get_distance_to_node(cell.get_dendrite_origin(branch), branch, loc=1.)
-    spine_list = [spine for spine in branch.spines if length -
-                  cell.get_distance_to_node(cell.get_dendrite_origin(branch), spine, loc=0.) < 30.]
-    if len(spine_list) > 25.:
+            cell.get_dendrite_origin(apical)) >= 100. and cell.is_terminal(apical)):
+    length = cell.get_distance_to_node(cell.get_dendrite_origin(branch), branch, loc=0.)
+    spine_list = [spine for spine in branch.spines if
+                  cell.get_distance_to_node(cell.get_dendrite_origin(branch), spine, loc=0.) - length < 30.]
+    if len(spine_list) > 25:
         #print 'branch', branch.name, 'has', len(spine_list), 'spines within 30 um'
         for spine in spine_list:
             syn = Synapse(cell, spine, syn_types, stochastic=0)
@@ -107,3 +112,6 @@ sim.parameters['path_type'] = branch.type
 sim.parameters['path_index'] = branch.index
 
 sim.append_rec(cell, cell.get_dendrite_origin(branch), description='trunk', loc=1.)
+sim.append_rec(cell, branch, description='branch')
+spine = spine_list[0]
+sim.append_rec(cell, spine, object=spine.synapses[0].target(NMDA_type), param='_ref_g', description='NMDA_g')

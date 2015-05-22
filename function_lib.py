@@ -655,5 +655,3 @@ def get_expected_vs_actual(expected_sim_file, actual_sim_file, sorted_sim_keys, 
             expected[location].append(np.max(summed_traces[location]))
     return expected, actual
 
-
-
