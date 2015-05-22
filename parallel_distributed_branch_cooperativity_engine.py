@@ -19,7 +19,8 @@ rec_filename = 'output'+datetime.datetime.today().strftime('%m%d%Y%H%M')+'-pid'+
 
 def stimulate_synapse_group((path_index, num_syns)):
     """
-    :param syn_index: int
+    :param path_index: int
+    :param num_syns: int
     :return: str
     """
     start_time = time.time()
@@ -45,8 +46,8 @@ def stimulate_synapse_group((path_index, num_syns)):
                                         # the VecStim source object in existence so it can be activated again
     print 'Process:', os.getpid(), 'completed Iteration:', path_index, 'Spines:', num_syns, 'Terminal Branch:', \
         path['branch'].name, 'in %.3f s' % (time.time() - start_time)
-    #return rec_filename
-    return {'pid': os.getpid(), 'rank': MPI.COMM_WORLD.Get_rank(), 'path':path_index, 'num_syns': num_syns}
+    return rec_filename
+    #return {'pid': os.getpid(), 'rank': MPI.COMM_WORLD.Get_rank(), 'path':path_index, 'num_syns': num_syns}
 
 
 equilibrate = 250.  # time to steady-state

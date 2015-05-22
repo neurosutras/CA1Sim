@@ -2,7 +2,7 @@ __author__ = 'milsteina'
 from specify_cells import *
 import random
 import os
-from mpi4py import MPI
+#from mpi4py import MPI
 """
 Builds a cell locally so each engine is ready to receive jobs one at a time, specified by an index corresponding to
 which branch path to stimulate, and a number of synapses to stimulate. Results will be collected to produce an input-
@@ -19,7 +19,8 @@ rec_filename = 'output'+datetime.datetime.today().strftime('%m%d%Y%H%M')+'-pid'+
 
 def stimulate_synapse_group((path_index, num_syns)):
     """
-    :param syn_index: int
+    :param path_index: int
+    :param num_syns: int
     :return: str
     """
     start_time = time.time()
@@ -56,7 +57,7 @@ def stimulate_synapse_group((path_index, num_syns)):
 equilibrate = 250.  # time to steady-state
 duration = 450.
 v_init = -67.
-syn_types = ['AMPA_KIN', 'NMDA_KIN']
+syn_types = ['AMPA_KIN']  # , 'NMDA_KIN']
 
 cell = CA1_Pyr(morph_filename, mech_filename, full_spines=True)
 

@@ -27,13 +27,14 @@ def release_dynamics_error(x, plot=0):
     dv['x'] = x
     #map_result = v.map_async(parallel_optimize_pr_engine.sim_stim_train, [300, 100])
     map_result = v.map_async(parallel_optimize_pr_engine.sim_stim_train, ISI_list)
-    if map_result.ready():
+    while not map_result.ready():
         clear_output()
         for stdout in [stdout for stdout in map_result.stdout if stdout][-len(c):]:
             lines = stdout.split('\n')
             if lines[-2]:
                 print lines[-2]
         sys.stdout.flush()
+        time.sleep(15)
     dv.execute('restore_random_sequence_locations()')
     #v.map_sync(parallel_optimize_pr_engine.restore_random_sequence_locations, range(len(c)))
     results = {}

@@ -12,7 +12,7 @@ Expected and Actual EPSPs.
 Assumes a controller is already running in another process with:
 ipcluster start -n num_cores
 """
-filename_suffix = ' - actual EPSP - clustered basal sample'
+filename_suffix = ' - actual EPSP - clustered basal sample - no nmda'
 new_rec_filename = parallel_clustered_branch_cooperativity_engine.mech_filename+filename_suffix
 #new_rec_filename = '051915 test bash script - branch cooperativity'
 
@@ -27,10 +27,10 @@ dv.execute('from parallel_clustered_branch_cooperativity_engine import *')
 v = c.load_balanced_view()
 instructions = []
 for path_index in range(5):  # num_paths):
-    for num_syns in range(1, min(101,
-                            len(parallel_clustered_branch_cooperativity_engine.spiny_branches[path_index].spines)+1)):
-    #for num_syns in range(1, min(len(parallel_clustered_branch_cooperativity_engine.path_list[path_index]['spines'])+1,
-    #                             len(c)+1)):
+    for num_syns in range(1, min(100,
+                            len(parallel_clustered_branch_cooperativity_engine.spiny_branches[path_index].spines))+1):
+    #for num_syns in range(1, min(len(parallel_clustered_branch_cooperativity_engine.spiny_branches[path_index].spines),
+    #                             len(c))+1):
         instructions.append((path_index, num_syns))
 result = v.map_async(parallel_clustered_branch_cooperativity_engine.stimulate_synapse_group, instructions)
 while not result.ready():
@@ -42,7 +42,7 @@ while not result.ready():
     sys.stdout.flush()
     time.sleep(60)
 print 'Parallel execution took: %.3f s' % (time.time()-start_time)
-print result.get()
+#print result.get()
 rec_file_list = dv['rec_filename']
 combine_output_files(rec_file_list, new_rec_filename)
 plot_superimpose_conditions(new_rec_filename)
