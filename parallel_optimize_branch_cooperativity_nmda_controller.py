@@ -27,7 +27,7 @@ def branch_cooperativity_error(x, plot=0):
     """
     start_time = time.time()
     dv['gmax'] = x[0]
-    num_spines = min(50, len(parallel_optimize_branch_cooperativity_nmda_engine.spine_list))
+    num_spines = min(25, len(parallel_optimize_branch_cooperativity_nmda_engine.spine_list))
     result = v.map_async(parallel_optimize_branch_cooperativity_nmda_engine.stim_expected, range(num_spines))
     #result = v.map_async(parallel_optimize_branch_cooperativity_nmda_engine.stim_expected, range(len(c)))
     while not result.ready():
@@ -68,12 +68,14 @@ def branch_cooperativity_error(x, plot=0):
     expected = np.array(expected_dict['trunk'])
     actual = np.array(actual_dict['trunk'])
     supralinearity = (actual - expected) / expected * 100.
-    result = {'peak_supralinearity': np.max(supralinearity)}
+    peak_supralinearity = np.max(supralinearity)
+    if peak_supralinearity < 1.:  # there is no gradient if integration is always sublinear
+        peak_supralinearity = np.min(supralinearity)  # exaggerate error for sublinear integration
+    result = {'peak_supralinearity': peak_supralinearity}
     Err = 0.
     for target in result:
         Err += ((target_val[target] - result[target])/target_range[target])**2.
-    print 'Parallel simulation took:', time.time()-start_time, 's, Error:', Err
-    print ('gmax: %.3E' % (x[0]))
+    print 'Parallel simulation with gmax: %.3E took %i s with Error: %.4E' % (x[0], time.time()-start_time, Err)
     if plot:
         plt.plot(expected, actual, label='actual')
         plt.show()

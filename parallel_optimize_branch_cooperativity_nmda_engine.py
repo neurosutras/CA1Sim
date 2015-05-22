@@ -40,7 +40,8 @@ def stim_actual(spine_indexes):
         spine = spine_list[index]
         syn = spine.synapses[0]
         syn.source.play(h.Vector())
-    print 'Process:', os.getpid(), 'stimulated', len(spine_indexes), 'synapses in', time.time() - start_time, 's'
+    print 'Process: %i stimulated %i synapses in %i s with gmax: %.3E' % (os.getpid(), len(spine_indexes),
+                                                                          time.time() - start_time, gmax)
     return rec_filename
 
 
@@ -63,7 +64,8 @@ def stim_expected(spine_index):
     with h5py.File(data_dir+rec_filename+'.hdf5', 'a') as f:
         sim.export_to_file(f, spine_index)
     syn.source.play(h.Vector())
-    print 'Process:', os.getpid(), 'stimulated spine:', spine.index, 'in', time.time() - start_time, 's'
+    print 'Process: %i stimulated spine: %i in %i s with gmax: %.3E' % (os.getpid(), spine.index,
+                                                                        time.time() - start_time, gmax)
     return rec_filename
 
 
@@ -79,14 +81,14 @@ for branch in cell.trunk:
     for spine in branch.spines:
         syn = Synapse(cell, spine, syn_types, stochastic=0)
 
-# get the first terminal apical oblique terminal branch that has > 20 spines within 30 um
+# get the first terminal apical oblique terminal branch that has > 25 spines within 30 um
 spine_list = []
 for branch in (apical for apical in cell.apical if cell.get_distance_to_node(cell.tree.root,
             cell.get_dendrite_origin(apical)) >= 150. and cell.is_terminal(apical)):
     length = cell.get_distance_to_node(cell.get_dendrite_origin(branch), branch, loc=1.)
     spine_list = [spine for spine in branch.spines if length -
                   cell.get_distance_to_node(cell.get_dendrite_origin(branch), spine, loc=0.) < 30.]
-    if len(spine_list) > 20.:
+    if len(spine_list) > 25.:
         #print 'branch', branch.name, 'has', len(spine_list), 'spines within 30 um'
         for spine in spine_list:
             syn = Synapse(cell, spine, syn_types, stochastic=0)
