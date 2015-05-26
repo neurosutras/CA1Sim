@@ -19,7 +19,6 @@ UNITS {
 }
 
 PARAMETER {
-    v				(mV)
     temp    =   24			(degC)
 
     gkabar  			(mho/cm2)
@@ -51,7 +50,8 @@ STATE {
 }
 
 ASSIGNED {
-	ik          (mA/cm2)
+	v		    (mV)
+    ik          (mA/cm2)
     ninf
     linf
     taul        (ms)

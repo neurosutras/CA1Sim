@@ -21,7 +21,6 @@ NEURON {
 }
 
 PARAMETER {
-        v                       (mV)
         temp    = 24            (degC)
         gkdrbar = 0.003         (mho/cm2)
         vhalfn  = 13            (mV)
@@ -37,6 +36,7 @@ STATE {
 }
 
 ASSIGNED {
+        v                       (mV)
         ik                      (mA/cm2)
         ninf
         gkdr                    (mho/cm2)

@@ -13,7 +13,6 @@ UNITS {
 }
 
 PARAMETER {
-	v 		        (mV)
     eh=-30.		    (mV)
 	ghbar=.0001 	(mho/cm2)
     vhalfl=-90   	(mV)
@@ -31,11 +30,12 @@ STATE {
 }
 
 ASSIGNED {
-	i (mA/cm2)
+	v 	    (mV)
+    i       (mA/cm2)
     linf
     taul
     g
-    celsius 	    (degC)
+    celsius (degC)
 }
 
 INITIAL {

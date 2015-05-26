@@ -63,18 +63,21 @@ def branch_cooperativity_error(x, plot=0):
     combine_output_files(rec_file_list, new_rec_filename+'_actual')
     for filename in glob.glob(data_dir+'out*'):
         os.remove(filename)
-    unit_with_nmda = get_expected_EPSP(h5py.File(data_dir+new_rec_filename+'_expected.hdf5', 'r'),
-                                     parallel_optimize_branch_cooperativity_nmda_engine.spine.index,
-                                     parallel_optimize_branch_cooperativity_nmda_engine.equilibrate,
-                                     parallel_optimize_branch_cooperativity_nmda_engine.duration)
+    with h5py.File(data_dir+new_rec_filename+'_expected.hdf5', 'r') as expected_file:
+        unit_with_nmda = get_expected_EPSP(expected_file,
+                                            parallel_optimize_branch_cooperativity_nmda_engine.spine.index,
+                                            parallel_optimize_branch_cooperativity_nmda_engine.equilibrate,
+                                            parallel_optimize_branch_cooperativity_nmda_engine.duration)
     dv['gmax'] = 0.
     result = v.map_sync(parallel_optimize_branch_cooperativity_nmda_engine.stim_expected, [0])
-    unit_no_nmda_file = result[0]
-    unit_no_nmda = get_expected_EPSP(h5py.File(data_dir+unit_no_nmda_file+'.hdf5', 'r'),
-                                     parallel_optimize_branch_cooperativity_nmda_engine.spine.index,
-                                     parallel_optimize_branch_cooperativity_nmda_engine.equilibrate,
-                                     parallel_optimize_branch_cooperativity_nmda_engine.duration)
-    os.remove(data_dir+unit_no_nmda_file+'.hdf5')
+    with h5py.File(data_dir+result[0]+'.hdf5', 'r') as unit_no_nmda_file:
+        unit_no_nmda = get_expected_EPSP(unit_no_nmda_file,
+                                            parallel_optimize_branch_cooperativity_nmda_engine.spine.index,
+                                            parallel_optimize_branch_cooperativity_nmda_engine.equilibrate,
+                                            parallel_optimize_branch_cooperativity_nmda_engine.duration)
+    os.remove(data_dir+result[0]+'.hdf5')
+    result = {'unitary_nmda_contribution': (np.max(unit_with_nmda['trunk']) - np.max(unit_no_nmda['trunk'])) /
+                                           np.max(unit_no_nmda['trunk'])}
     with h5py.File(data_dir+new_rec_filename+'_expected.hdf5', 'r') as expected_file:
         with h5py.File(data_dir+new_rec_filename+'_actual.hdf5', 'r') as actual_file:
             sorted_sim_keys = actual_file.keys()
@@ -86,9 +89,7 @@ def branch_cooperativity_error(x, plot=0):
     peak_supralinearity = np.max(supralinearity)
     if peak_supralinearity < 0.:  # there is no gradient if integration is always sublinear
         peak_supralinearity = np.min(supralinearity)  # exaggerate error for sublinear integration
-    result = {'peak_supralinearity': peak_supralinearity,
-              'unitary_nmda_contribution': (np.max(unit_with_nmda['trunk']) - np.max(unit_no_nmda['trunk'])) /
-                                           np.max(unit_no_nmda['trunk'])}
+    result['peak_supralinearity'] = peak_supralinearity
     Err = 0.
     for target in result:
         Err += ((target_val[target] - result[target])/target_range[target])**2.
