@@ -127,7 +127,7 @@ target_range = {'peak_supralinearity': 6., 'unitary_nmda_contribution': 0.1}
 x0 = [1e-3, 3.57, 0.08]
 xmin = [5e-4, 1.6, 0.06]
 xmax = [5e-3, 10., 0.1]
-x1 = [4.30e-3]
+x1 = [3.11e-3, 7.18, 0.097]
 x2 = [0.]
 
 blocksize = 0.5  # defines the fraction of the xrange that will be explored at each step
