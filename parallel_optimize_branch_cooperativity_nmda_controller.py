@@ -92,7 +92,7 @@ def branch_cooperativity_error(x, plot=0):
     Err = 0.
     for target in result:
         Err += ((target_val[target] - result[target])/target_range[target])**2.
-    print 'gmax: %.3E, Kd: %.2f, gamma: %.3f, Error: ' % (x[0], x[1], x[2], Err)
+    print 'gmax: %.3E, Kd: %.2f, gamma: %.3f, Error: %.4E' % (x[0], x[1], x[2], Err)
     print 'Parallel simulation took %i s' % (time.time()-start_time)
     if plot:
         print result['peak_supralinearity']
