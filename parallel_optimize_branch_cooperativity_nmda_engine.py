@@ -61,6 +61,8 @@ def stim_expected(spine_index):
     spine = spine_list[spine_index]
     syn = spine.synapses[0]
     syn.target(NMDA_type).gmax = gmax
+    syn.target(NMDA_type).Kd = Kd
+    syn.target(NMDA_type).gamma = gamma
     spike_times = h.Vector([equilibrate])
     syn.source.play(spike_times)
     sim.parameters['spine_index'] = spine.index

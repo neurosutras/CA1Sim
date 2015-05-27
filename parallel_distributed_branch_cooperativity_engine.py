@@ -2,7 +2,7 @@ __author__ = 'milsteina'
 from specify_cells import *
 import random
 import os
-from mpi4py import MPI
+#from mpi4py import MPI
 """
 Builds a cell locally so each engine is ready to receive jobs one at a time, specified by an index corresponding to
 which branch path to stimulate, and a number of synapses to stimulate. Results will be collected to produce an input-

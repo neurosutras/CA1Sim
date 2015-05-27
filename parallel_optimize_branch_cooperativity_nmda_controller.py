@@ -17,7 +17,7 @@ Assumes a controller is already running in another process with:
 ipcluster start -n num_cores
 """
 #new_rec_filename = '052215 apical oblique cooperativity'
-new_rec_filename = '052615 apical oblique cooperativity - proximal - optimize_mg'
+new_rec_filename = '052815 apical oblique cooperativity - proximal - new_mg'
 
 
 def branch_cooperativity_error(x, plot=0):
@@ -27,21 +27,22 @@ def branch_cooperativity_error(x, plot=0):
     :return: float
     """
     start_time = time.time()
+    print 'gmax: %.3E, Kd: %.2f, gamma: %.3f' % (x[0], x[1], x[2])
     dv['gmax'] = x[0]
     dv['Kd'] = x[1]
     dv['gamma'] = x[2]
-    num_spines = min(25, len(parallel_optimize_branch_cooperativity_nmda_engine.spine_list))
+    num_spines = min(50, len(parallel_optimize_branch_cooperativity_nmda_engine.spine_list))
     result = v.map_async(parallel_optimize_branch_cooperativity_nmda_engine.stim_expected, range(num_spines))
     #result = v.map_async(parallel_optimize_branch_cooperativity_nmda_engine.stim_expected, range(len(c)))
     while not result.ready():
-        if time.time() % 60 < 1.:
-            clear_output()
-            for stdout in [stdout for stdout in result.stdout if stdout][-len(c):]:
-                lines = stdout.split('\n')
-                if lines[-2]:
-                    print lines[-2]
-            sys.stdout.flush()
-            time.sleep(1)
+        #if time.time() % 60 < 1.:
+        time.sleep(30)
+        clear_output()
+        for stdout in [stdout for stdout in result.stdout if stdout][-len(c):]:
+            lines = stdout.split('\n')
+            if lines[-2]:
+                print lines[-2]
+        sys.stdout.flush()
     rec_file_list = dv['rec_filename']
     combine_output_files(rec_file_list, new_rec_filename+'_expected')
     for filename in glob.glob(data_dir+'out*'):
@@ -52,14 +53,14 @@ def branch_cooperativity_error(x, plot=0):
     result = v.map_async(parallel_optimize_branch_cooperativity_nmda_engine.stim_actual, instructions)
     #result = v.map_async(parallel_optimize_branch_cooperativity_nmda_engine.stim_actual, instructions[:len(c)])
     while not result.ready():
-        if time.time() % 60 < 1.:
-            clear_output()
-            for stdout in [stdout for stdout in result.stdout if stdout][-len(c):]:
-                lines = stdout.split('\n')
-                if lines[-2]:
-                    print lines[-2]
-            sys.stdout.flush()
-            time.sleep(1)
+        #if time.time() % 60 < 1.:
+        time.sleep(30)
+        clear_output()
+        for stdout in [stdout for stdout in result.stdout if stdout][-len(c):]:
+            lines = stdout.split('\n')
+            if lines[-2]:
+                print lines[-2]
+        sys.stdout.flush()
     combine_output_files(rec_file_list, new_rec_filename+'_actual')
     for filename in glob.glob(data_dir+'out*'):
         os.remove(filename)
@@ -89,12 +90,16 @@ def branch_cooperativity_error(x, plot=0):
     peak_supralinearity = np.max(supralinearity)
     if peak_supralinearity < 0.:  # there is no gradient if integration is always sublinear
         peak_supralinearity = np.min(supralinearity)  # exaggerate error for sublinear integration
+        min_supralinearity = np.min(supralinearity)
+    else:
+        peak_index = np.where(supralinearity==peak_supralinearity)[0][0]
+        min_supralinearity = np.min(supralinearity[:peak_index])
     result['peak_supralinearity'] = peak_supralinearity
+    result['min_supralinearity'] = min_supralinearity
     Err = 0.
     for target in result:
         Err += ((target_val[target] - result[target])/target_range[target])**2.
-    print 'gmax: %.3E, Kd: %.2f, gamma: %.3f, Error: %.4E' % (x[0], x[1], x[2], Err)
-    print 'Parallel simulation took %i s' % (time.time()-start_time)
+    print 'Parallel simulation took %i s, Error: %.4E' % (time.time()-start_time, Err)
     if plot:
         print result['peak_supralinearity']
         plt.plot(expected, actual)
@@ -115,12 +120,14 @@ def branch_cooperativity_error(x, plot=0):
         plt.ylabel('EPSP Amplitude (mV)')
         plt.legend(loc='best')
         plt.title('NMDAR Contribution to Unitary EPSP')
+        plt.show()
+        plt.close()
     else:
         return Err
 
 #the target values and acceptable ranges
-target_val = {'peak_supralinearity': 44., 'unitary_nmda_contribution': 0.}
-target_range = {'peak_supralinearity': 6., 'unitary_nmda_contribution': 0.1}
+target_val = {'peak_supralinearity': 44., 'min_supralinearity': 0., 'unitary_nmda_contribution': 0.}
+target_range = {'peak_supralinearity': 6., 'min_supralinearity': 0.1,'unitary_nmda_contribution': 0.1}
 
 #the initial guess
 # x = ['gmax', 'Kd', 'gamma']
@@ -128,7 +135,8 @@ x0 = [1e-3, 3.57, 0.08]
 xmin = [5e-4, 1.6, 0.06]
 xmax = [5e-3, 10., 0.1]
 x1 = [3.11e-3, 7.18, 0.097]
-x2 = [0.]
+#x1 = [3.59e-3, 8.44, 0.12]
+x2 = [0., 8.44, 0.12]
 
 blocksize = 0.5  # defines the fraction of the xrange that will be explored at each step
                  #  basinhopping starts with this value and reduces it by 10% every 'interval' iterations
@@ -144,16 +152,16 @@ dv.block = True
 global_start_time = time.time()
 dv.execute('from parallel_optimize_branch_cooperativity_nmda_engine import *')
 v = c.load_balanced_view()
-
+"""
 result = optimize.basinhopping(branch_cooperativity_error, x0, niter= 720, niter_success=100, disp=True, interval=20,
                                                             minimizer_kwargs=minimizer_kwargs, take_step=mytakestep)
 branch_cooperativity_error(result.x, plot=1)
 
-"""
+
 #branch_cooperativity_error(x0, plot=1)
 
-result = optimize.minimize(branch_cooperativity_error, x0, method='Nelder-Mead', options={'xtol': 1e-5, 'ftol': 1e-3,
+result = optimize.minimize(branch_cooperativity_error, x1, method='Nelder-Mead', options={'xtol': 1e-5, 'ftol': 1e-3,
                                                                                           'disp': True})
-#branch_cooperativity_error(result.x, plot=1)
+branch_cooperativity_error(result.x, plot=1)
 """
-#branch_cooperativity_error(x1, 1)
+branch_cooperativity_error(x1, 1)
