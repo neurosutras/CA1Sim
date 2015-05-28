@@ -53,7 +53,7 @@ def stim_actual(spine_indexes):
 @interactive
 def stim_expected(spine_index):
     """
-    Called by controller, mapped to each engine. Activates a single spine specified by an indexes and saves the
+    Called by controller, mapped to each engine. Activates a single spine specified by an index and saves the
     resulting output to a file.
     :param spine_index: int
     :return: str

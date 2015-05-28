@@ -81,10 +81,10 @@ PARAMETER {
     Beta	= 4.78      (/ms)	    : channel opening rate
     Alpha   = 0.19      (/ms)       : open channel closing rate
 	Erev	= 0.        (mV)		: reversal potential
-	Kd      = 3.57      (mM)        : modulate Mg concentration dependence
-    gamma   = 0.062     (/mV)       : modulate slope of Mg sensitivity
+	Kd      = 9.82      (mM)        : modulate Mg concentration dependence
+    gamma   = 0.089     (/mV)       : modulate slope of Mg sensitivity
     mg      = 1.0       (mM)        : extracellular Mg concentration
-    gmax	= 0.001     (umho)	    : maximum conductance
+    gmax	= 0.00272   (umho)	    : maximum conductance
 }
 
 

@@ -17,7 +17,7 @@ Assumes a controller is already running in another process with:
 ipcluster start -n num_cores
 """
 #new_rec_filename = '052215 apical oblique cooperativity'
-new_rec_filename = '052815 apical oblique cooperativity - proximal - new_mg'
+new_rec_filename = '052815 apical oblique cooperativity - proximal - new_mg - no nmda'
 
 
 def branch_cooperativity_error(x, plot=0):
@@ -93,7 +93,10 @@ def branch_cooperativity_error(x, plot=0):
         min_supralinearity = np.min(supralinearity)
     else:
         peak_index = np.where(supralinearity==peak_supralinearity)[0][0]
-        min_supralinearity = np.min(supralinearity[:peak_index])
+        if peak_index == 0:
+            min_supralinearity = supralinearity[0]
+        else:
+            min_supralinearity = np.min(supralinearity[:peak_index])
     result['peak_supralinearity'] = peak_supralinearity
     result['min_supralinearity'] = min_supralinearity
     Err = 0.
@@ -134,9 +137,10 @@ target_range = {'peak_supralinearity': 6., 'min_supralinearity': 0.1,'unitary_nm
 x0 = [1e-3, 3.57, 0.08]
 xmin = [5e-4, 1.6, 0.06]
 xmax = [5e-3, 10., 0.1]
-x1 = [3.11e-3, 7.18, 0.097]
+#x1 = [3.11e-3, 7.18, 0.097]
 #x1 = [3.59e-3, 8.44, 0.12]
-x2 = [0., 8.44, 0.12]
+x1 = [2.72e-3, 9.82, 0.089]  # Err: 4.18
+x2 = [0., 9.82, 0.089]
 
 blocksize = 0.5  # defines the fraction of the xrange that will be explored at each step
                  #  basinhopping starts with this value and reduces it by 10% every 'interval' iterations
@@ -164,4 +168,4 @@ result = optimize.minimize(branch_cooperativity_error, x1, method='Nelder-Mead',
                                                                                           'disp': True})
 branch_cooperativity_error(result.x, plot=1)
 """
-branch_cooperativity_error(x1, 1)
+branch_cooperativity_error(x2, 1)
