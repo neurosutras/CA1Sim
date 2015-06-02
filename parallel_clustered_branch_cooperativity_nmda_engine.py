@@ -9,7 +9,7 @@ corresponding to which synapses to stimulate. Remember to categorize output by d
 """
 
 morph_filename = 'EB2-late-bifurcation.swc'
-mech_filename = '050715 pas_exp_scale kdr ka_scale ih_sig_scale ampar_exp_scale nmda - EB2'
+mech_filename = '052915 pas_exp_scale kdr ka_scale ih_sig_scale ampar_exp_scale nmda - EB2'
 rec_filename = 'output'+datetime.datetime.today().strftime('%m%d%Y%H%M')+'-pid'+str(os.getpid())
 master_output_filename = 'temp'  # push controller filename here
 
@@ -104,12 +104,15 @@ def stim_actual_group(group_index):
             with h5py.File(data_dir+rec_filename+'.hdf5', 'r') as actual_file:
                 expected_dict, actual_dict = get_expected_vs_actual(expected_file, actual_file, actual_file.keys())
         expected = np.array(expected_dict['origin'])
-        actual = np.array(actual_dict['origin'])
-        supralinearity = (actual - expected) / expected * 100.
-        peak_supralinearity = np.max(supralinearity)
-        if peak_supralinearity > 0.:  # stop simulations once group has reached max cooperativity
-            peak_index = np.where(supralinearity==peak_supralinearity)[0][0]
-            if 0 < peak_index < len(expected) - 1:
+        if np.max(expected) > 10.:  # After 10 mV expected, stop stimulating when max cooperativity is reached
+            actual = np.array(actual_dict['origin'])
+            supralinearity = (actual - expected) / expected * 100.
+            peak_supralinearity = np.max(supralinearity)
+            if peak_supralinearity > 0.:
+                peak_index = np.where(supralinearity==peak_supralinearity)[0][0]
+                if 0 < peak_index < len(expected) - 1:
+                    break
+            elif peak_supralinearity <= 0. and np.max(expected) > 20.:
                 break
     for spine in spine_group['spines']:
         syn = spine.synapses[0]
@@ -145,7 +148,7 @@ def stim_single_expected((group_index, spine_index)):
     start_time = time.time()
     sim.run(v_init)
     with h5py.File(data_dir+rec_filename+'.hdf5', 'a') as f:
-        sim.export_to_file(f, spine_index)
+        sim.export_to_file(f, int(group_index*1e6+spine_index))
     syn.source.play(h.Vector())
     print 'Process: %i stimulated spine: %i in %i s' % (os.getpid(), spine.index, time.time() - start_time)
     return rec_filename
@@ -232,10 +235,12 @@ for trunk_path in trunk_paths:
     #else:
     #    print 'Branch start did not meet criterion'
 
+
+groups_to_stim = []
+"""
+groups_to_stim.extend(grouped_spines['trunk'])
 local_random = random.Random()
 local_random.seed(0)
-groups_to_stim = []
-groups_to_stim.extend(grouped_spines['trunk'])
 max_num_branches = 2
 for sec_type in ['basal', 'tuft']:
     terminal_groups = [spine_group for spine_group in grouped_spines[sec_type] if spine_group['path_category'] ==
@@ -258,6 +263,9 @@ for criteria in [lambda x: x <= 100., lambda x: x >= 175.]:
                                                                         min(max_num_branches, len(terminal_groups)))])
     groups_to_stim.extend([proximal_groups[i] for i in local_random.sample(range(len(proximal_groups)),
                                                                         min(max_num_branches, len(proximal_groups)))])
+"""
+for sec_type in ['basal', 'trunk', 'apical', 'tuft']:
+    groups_to_stim.extend(grouped_spines[sec_type])
 
 trunk_bifurcation = [trunk for trunk in cell.trunk if cell.is_bifurcation(trunk, 'trunk')]
 if trunk_bifurcation:
@@ -270,7 +278,6 @@ else:
     trunk_bifurcation = [node for node in cell.trunk if 'tuft' in (child.type for child in node.children)]
     trunk = trunk_bifurcation[0]
 
-spine_list = []
 for spine_group in groups_to_stim:
     for spine in spine_group['spines']:
         syn = Synapse(cell, spine, syn_types, stochastic=0)

@@ -14,7 +14,7 @@ Assumes a controller is already running in another process with:
 ipcluster start -n num_cores
 """
 #new_rec_filename = '052215 apical oblique cooperativity'
-new_rec_filename = '060215 clustered nmda cooperativity - small sample - new_mg'
+new_rec_filename = '060415 clustered nmda cooperativity'
 
 
 c = Client()

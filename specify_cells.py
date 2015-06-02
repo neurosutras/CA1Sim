@@ -1209,7 +1209,8 @@ class Synapse(object):
     To make model specification and simulation implementation straightforward, synapses are not meant to be moved once
     they are initialized.
     """
-    def __init__(self, cell, node, type_list=None, stochastic=1, loc=0.5, delay=0, source=None):
+    def __init__(self, cell, node, type_list=None, stochastic=1, loc=0.5, delay=0., source=None, source_node=None,
+                 source_param='_ref_v', source_loc=0.5):
         """
         Design goals: A source (like a spike detector in a presynaptic neuron) can be specified. If not, a VecStim
         object is used a source, which can be played events at specified times using its .play method. If stochastic,
@@ -1222,7 +1223,10 @@ class Synapse(object):
         :param stochastic: int in [0, 1]
         :param loc: int or float
         :param delay: int or float
-        :param source: :class:'h.VecStim' or other source of spike events
+        :param source: hoc artificial cell or otherwise hoc object not associated with a section
+        :param source_node: :class:'SHocNode' specifies the section containing a range variable to be used as a source
+        :param source_param: str
+        :param source_loc: str
         """
         self._cell = cell
         self._node = node
@@ -1232,22 +1236,25 @@ class Synapse(object):
         self._syn = {}
         self.randObj = None
         if not source is None:
-            self.source = source
+            self._source = {'object': source}
+        elif not source_node is None:
+            self._source = {'object': getattr(source_node.sec(source_loc), source_param), 'node': source_node}
         else:
-            self.source = h.VecStim()
+            self._source = {'object': h.VecStim()}
         if type_list is None:
             type_list = ['AMPA_KIN']
         if self.stochastic:
             self._init_stochastic()
-        for type in type_list:
-            syn = getattr(h, type)(self.node.sec(self.loc))
-            self._syn[type] = {'target': syn}
+        for target in type_list:
+            syn = getattr(h, target)(self.node.sec(self.loc))
+            self._syn[target] = {'target': syn}
             if self.stochastic:
-                self._syn[type]['netcon'] = h.NetCon(self.target('Pr'), syn)
+                self._syn[target]['netcon'] = h.NetCon(self.target('Pr'), syn)
+                self.netcon(target).weight[0] = 1.
+                self.netcon(target).delay = self.delay
             else:
-                self._syn[type]['netcon'] = h.NetCon(self.source, syn)
-            self.netcon(type).delay = self.delay
-            self.netcon(type).weight[0] = 1
+                self._init_netcon(target)
+
         self._node.synapses.append(self)
 
     def _init_stochastic(self):
@@ -1264,30 +1271,84 @@ class Synapse(object):
             self.randObj.seq(1)
         syn = getattr(h, 'Pr')(self.node.sec(self.loc))
         self._syn['Pr'] = {'target': syn}
-        self._syn['Pr']['netcon'] = h.NetCon(self.source, syn)
-        self.netcon('Pr').delay = 0
-        self.netcon('Pr').weight[0] = 1
+        self._init_netcon('Pr')
+        self.netcon('Pr').delay = 0.
         self.target('Pr').setRandObjRef(self.randObj)
 
-    def target(self, type):
+    def target(self, target):
         """
         Returns the hoc object for the synaptic mechanism of the specified type
-        :param type: str
+        :param target: str
         :return: :class:'h.HocObject'
         """
-        if type in self._syn:
-            return self._syn[type]['target']
+        if target in self._syn:
+            return self._syn[target]['target']
         else:
-            print 'Synapse type: {} not found at a synapse in {}'.format(type, self._node.name)
+            print 'Synapse type: {} not found at a synapse in {}'.format(target, self._node.name)
             raise KeyError
 
-    def netcon(self, type):
+    def _init_netcon(self, target):
+        """
+        Appropriately initializes new netcon object, depending on whether the current source dictionary specifies a
+        hocObject without a section, or a reference variable contained within a section.
+        :param target: str
+        """
+        if target in self._syn:
+            source = self._source['object']
+            syn = self._syn[target]
+            if 'netcon' in syn:
+                weight = syn['netcon'].weight[0]
+                threshold = syn['netcon'].threshold
+                del syn['netcon']
+            else:
+                weight = 1.
+                threshold = -30.
+            if 'node' in self._source:
+                node = self._source['node']
+                syn['netcon'] = h.NetCon(source, syn['target'], sec=node.sec)
+            else:
+                syn['netcon'] = h.NetCon(source, syn['target'])
+            syn['netcon'].delay = self._delay
+            syn['netcon'].weight[0] = weight
+            syn['netcon'].threshold = threshold
+        else:
+            print 'Synapse type: {} not found at a synapse in {}'.format(target, self._node.name)
+            raise KeyError
+
+    def netcon(self, target):
         """
         Returns the hoc network connection linking the synaptic mechanism of the specified type to a source of spikes.
-        :param type: str
+        :param target: str
         :return: :class:'h.NetCon'
         """
-        return self._syn[type]['netcon']
+        if target in self._syn:
+            return self._syn[target]['netcon']
+        else:
+            print 'Synapse type: {} not found at a synapse in {}'.format(target, self._node.name)
+            raise KeyError
+
+    def change_source(self, source=None, node=None, param='_ref_v', loc=0.5):
+        """
+        In order to change the source of a synapse from the default VecStim object to a membrane potential or artificial
+        cell, all the netcon objects must be deleted and replaced with new ones.
+        :param source: hoc artificial cell or otherwise hoc object not associated with a section
+        :param node: :class:'SHocNode'
+        :param param: str corresponding to range variable in section
+        :param loc: float
+        """
+        if source is None:
+            if node is None:
+                raise Exception('A source or reference node must be provided to establish a new synaptic connection.')
+            else:
+                self._source = {'object': getattr(node.sec(loc), param), 'node': node}
+        else:
+            self._source = {'object': source}
+        if self._stochastic:
+            self._init_netcon('Pr')
+            self.netcon('Pr').delay = 0.
+        else:
+            for target in (target for target in self._syn if not target == 'Pr'):
+                self._init_netcon(target)
 
     def get_stochastic(self):
         """
@@ -1305,17 +1366,14 @@ class Synapse(object):
             self._stochastic = value
             if value:
                 self._init_stochastic()
-                for type in (type for type in self._syn if not type == 'Pr'):
-                    del self._syn[type]['netcon']
-                    self._syn[type]['netcon'] = h.NetCon(self.target('Pr'), self.target(type))
-                    self.netcon(type).delay = self._delay
-                    self.netcon(type).weight[0] = 1
+                for target in (target for target in self._syn if not target == 'Pr'):
+                    del self._syn[target]['netcon']
+                    self._syn[target]['netcon'] = h.NetCon(self.target('Pr'), self.target(target))
+                    self.netcon(target).delay = self._delay
+                    self.netcon(target).weight[0] = 1.
             else:
-                for type in (type for type in self._syn if not type == 'Pr'):
-                    del self._syn[type]['netcon']
-                    self._syn[type]['netcon'] = h.NetCon(self.source, self.target(type))
-                    self.netcon(type).delay = self._delay
-                    self.netcon(type).weight[0] = 1
+                for target in (target for target in self._syn if not target == 'Pr'):
+                    self._init_netcon(target)
                 del self._syn['Pr']
 
     stochastic = property(get_stochastic, set_stochastic)
@@ -1333,10 +1391,18 @@ class Synapse(object):
         :param value: int or float
         """
         self._delay = value
-        for type in (type for type in self._syn if not type == 'Pr'):
-            self.netcon(type).delay = value
+        for target in (target for target in self._syn if not target == 'Pr'):
+            self.netcon(target).delay = value
 
     delay = property(get_delay, set_delay)
+
+    @property
+    def source(self):
+        """
+        Returns the hocObject currently being used as a source.
+        :return: :class:'hocObject'
+        """
+        return self._source['object']
 
     @property
     def cell(self):

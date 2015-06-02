@@ -359,13 +359,12 @@ class QuickSim(object):
                 rec_dict['ylabel'] = ylabel
             if not units is None:
                 rec_dict['units'] = units
+        if not node is None:
+            rec_dict['node'] = node
+        if not loc is None:
+            rec_dict['loc'] = loc
         if object is None:
-            if not node is None:
-                rec_dict['node'] = node
-                rec_dict['vec'].record(getattr(node.sec(rec_dict['loc']), param))
-            if not loc is None:
-                rec_dict['loc'] = loc
-                rec_dict['vec'].record(getattr(rec_dict['node'].sec(loc), param))
+            rec_dict['vec'].record(getattr(rec_dict['node'].sec(rec_dict['loc']), param))
         else:
             rec_dict['vec'].record(getattr(object, param))
         if not description is None:
