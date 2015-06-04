@@ -51,8 +51,8 @@ def release_dynamics_error(x, plot=0):
     for ISI in results:
         Err += round(((target_val[ISI] - np.max(results[ISI]))/target_range[ISI])**2., 10)
     print 'Parallel simulation took:', time.time()-start_time, 's, Error:', Err
-    print ('Num synapses: %i, P0: %.3f, f: %.3f, tau_F: %.3f, D: %.3f, tau_D: %.3f' % (int(x[0]*1000), x[1], x[2], x[3], x[4],
-                                                                                       x[5]))
+    print ('Num synapses: %i, P0: %.3f, f: %.3f, tau_F: %.3f, D: %.3f, tau_D: %.3f' % (int(x[0]*1000), x[1], x[2], x[3],
+                                                                                       x[4], x[5]))
     interp_t = {}
     if plot:
         interp_dt = parallel_optimize_pr_engine.interp_dt
@@ -78,17 +78,17 @@ param_names = ['n', 'P0', 'f', 'tau_F', 'd1', 'tau_D1']
 
 #the initial guess
 #x0 = [0.1, 0.1, 0.2, 100.0, 0.9, 1000.0]  # n will be filtered by f(n) = int(n * 1000)
-x0 = [0.10, 0.19, 1.61, 161.6, 0.92, 3.8]
+#x0 = [0.10, 0.19, 1.61, 161.6, 0.92, 3.8]
+x0 = [0.09, 0.17, 1.31, 180.7, 0.80, 0.6]
 
 # the bounds
 #xmin = [0.01, 0.1, 0.01, 1., 0.01, 1.]  # n will be filtered by f(n) = int(n * 1000)
 #xmax = [0.3, 0.9, 50., 1e4, 1.0, 1e5]
 xmin = [0.05, 0.1, 0.1, 100., 0.5, .1]  # n will be filtered by f(n) = int(n * 1000)
-xmax = [0.2, 0.3, 5., 300., 1.0, 1e3]
+xmax = [0.2, 0.4, 5., 300., 1.0, 100.]
 
 #x1 = [0.101, 0.19, 1.61, 162.3, 0.93, 4.0]  # first pass basinhopping
 x1 = [0.09, 0.17, 1.31, 180.7, 0.80, 0.6]  # second pass basinhopping
-
 
 c = Client()
 dv = c[:]
@@ -97,8 +97,6 @@ dv.block = True
 global_start_time = time.time()
 dv.execute('from parallel_optimize_pr_engine import *')
 v = c.load_balanced_view()
-#results = release_dynamics_error(x0)
-#print results
 
 blocksize = 0.5  # defines the fraction of the xrange that will be explored at each step
                  #  basinhopping starts with this value and reduces it by 10% every 'interval' iterations
@@ -109,7 +107,8 @@ minimizer_kwargs = dict(method=null_minimizer)
 
 result = optimize.basinhopping(release_dynamics_error, x0, niter= 720, niter_success=100, disp=True, interval=20,
                                                             minimizer_kwargs=minimizer_kwargs, take_step=mytakestep)
-release_dynamics_error(result.x, plot=1)
+#release_dynamics_error(result.x, plot=1)
+print result
 """
 polished_result = optimize.minimize(release_dynamics_error, result.x, method='Nelder-Mead', options={'ftol': 1e-3, 'disp': True})
 release_dynamics_error(polished_result.x, plot=1)
