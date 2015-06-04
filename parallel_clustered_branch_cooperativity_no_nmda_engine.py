@@ -236,10 +236,10 @@ for trunk_path in trunk_paths:
     #    print 'Branch start did not meet criterion'
 
 
-local_random = random.Random()
 groups_to_stim = []
 """
 groups_to_stim.extend(grouped_spines['trunk'])
+local_random = random.Random()
 local_random.seed(0)
 max_num_branches = 2
 for sec_type in ['basal', 'tuft']:
