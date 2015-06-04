@@ -3,7 +3,7 @@ from IPython.parallel import Client
 from IPython.display import clear_output
 from plot_results import *
 import sys
-import parallel_clustered_branch_cooperativity_nmda_engine
+import parallel_clustered_branch_cooperativity_no_nmda_engine
 import os, glob
 """
 This simulation steps through a list of grouped_spines, and saves output from stimulating each spine (expected) and
@@ -14,38 +14,25 @@ Assumes a controller is already running in another process with:
 ipcluster start -n num_cores
 """
 #new_rec_filename = '052215 apical oblique cooperativity'
+with_nmda_filename = '060415 clustered nmda cooperativity_actual'
+#with_nmda_filename = '060215 clustered nmda cooperativity - small sample - new_mg_actual'
 new_rec_filename = '060415 clustered nmda cooperativity - no nmda'
-
+#new_rec_filename = '060215 clustered nmda cooperativity - small sample - new_mg - no nmda'
 
 c = Client()
 dv = c[:]
 dv.clear()
 dv.block = True
 global_start_time = time.time()
-dv.execute('from parallel_clustered_branch_cooperativity_nmda_engine import *')
+dv.execute('from parallel_clustered_branch_cooperativity_no_nmda_engine import *')
 v = c.load_balanced_view()
 
 start_time = time.time()
-dv['master_output_filename'] = new_rec_filename
 instructions = []
-for i in range(len(parallel_clustered_branch_cooperativity_nmda_engine.groups_to_stim)):
-    for j in range(len(parallel_clustered_branch_cooperativity_nmda_engine.groups_to_stim[i]['spines'])):
-        instructions.append((i, j))
-result = v.map_async(parallel_clustered_branch_cooperativity_nmda_engine.stim_single_expected, instructions)
-while not result.ready():
-    time.sleep(30)
-    clear_output()
-    for stdout in [stdout for stdout in result.stdout if stdout][-len(c):]:
-        lines = stdout.split('\n')
-        if lines[-2]:
-            print lines[-2]
-    sys.stdout.flush()
-rec_file_list = [filename for filename in dv['rec_filename'] if os.path.isfile(data_dir+filename+'.hdf5')]
-combine_output_files(rec_file_list, new_rec_filename+'_expected')
-for filename in glob.glob(data_dir+'out*'):
-    os.remove(filename)
-result = v.map_async(parallel_clustered_branch_cooperativity_nmda_engine.stim_actual_group,
-                     range(len(parallel_clustered_branch_cooperativity_nmda_engine.groups_to_stim)))
+with h5py.File(data_dir+with_nmda_filename+'.hdf5', 'r') as f:
+    for sim in f.itervalues():
+        instructions.append((sim.attrs['path_index'], len(sim.attrs['syn_indexes'])))
+result = v.map_async(parallel_clustered_branch_cooperativity_no_nmda_engine.stim_actual_group, instructions)
 while not result.ready():
     time.sleep(30)
     clear_output()
@@ -59,4 +46,4 @@ combine_output_files(rec_file_list, new_rec_filename+'_actual')
 for filename in glob.glob(data_dir+'out*'):
     os.remove(filename)
 print 'Parallel simulation took %i s to stimulate %i groups of spines' % (time.time() - start_time,
-                                                len(parallel_clustered_branch_cooperativity_nmda_engine.groups_to_stim))
+                                            len(parallel_clustered_branch_cooperativity_no_nmda_engine.groups_to_stim))
