@@ -88,7 +88,8 @@ xmin = [0.05, 0.1, 0.1, 100., 0.5, .1]  # n will be filtered by f(n) = int(n * 1
 xmax = [0.2, 0.4, 5., 300., 1.0, 100.]
 
 #x1 = [0.101, 0.19, 1.61, 162.3, 0.93, 4.0]  # first pass basinhopping
-x1 = [0.09, 0.17, 1.31, 180.7, 0.80, 0.6]  # second pass basinhopping
+#x1 = [0.09, 0.17, 1.31, 180.7, 0.80, 0.6]  # second pass basinhopping
+x1 = [0.067, 0.18, 0.92, 105.5, 0.64, 2.7]
 
 c = Client()
 dv = c[:]
@@ -104,13 +105,13 @@ blocksize = 0.5  # defines the fraction of the xrange that will be explored at e
 mytakestep = MyTakeStep(blocksize, xmin, xmax)
 
 minimizer_kwargs = dict(method=null_minimizer)
-
+"""
 result = optimize.basinhopping(release_dynamics_error, x0, niter= 720, niter_success=100, disp=True, interval=20,
                                                             minimizer_kwargs=minimizer_kwargs, take_step=mytakestep)
 #release_dynamics_error(result.x, plot=1)
 print result
-"""
+
 polished_result = optimize.minimize(release_dynamics_error, result.x, method='Nelder-Mead', options={'ftol': 1e-3, 'disp': True})
 release_dynamics_error(polished_result.x, plot=1)
-release_dynamics_error(x1, plot=1)
 """
+release_dynamics_error(x1, plot=1)

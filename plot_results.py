@@ -1369,7 +1369,7 @@ def plot_nmdar_contribution(expected_filename, actual_file_list, description_lis
     Superimposes results from multiple branches in one color.
     Superimposes results from multiple files in list using different colors.
     :param expected_filename: str
-    :param rec_file_list: list of str
+    :param actual_file_list: list of tuples of str
     :param description_list: list of str
     :param location_list: list of str
     :param title: str
