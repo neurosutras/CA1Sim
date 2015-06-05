@@ -2,16 +2,13 @@ __author__ = 'milsteina'
 from specify_cells import *
 import random
 import os
-from IPython.parallel.util import interactive
 """
 Builds a cell locally so each engine is ready to receive jobs one at a time, specified by a list of indexes
 corresponding to which synapses to stimulate. Remember to categorize output by distance from dendrite origin to soma.
 """
-
 morph_filename = 'EB2-late-bifurcation.swc'
 mech_filename = '052915 pas_exp_scale kdr ka_scale ih_sig_scale ampar_exp_scale nmda - EB2'
 rec_filename = 'output'+datetime.datetime.today().strftime('%m%d%Y%H%M')+'-pid'+str(os.getpid())
-master_output_filename = 'temp'  # push controller filename here
 
 NMDA_type = 'NMDA_KIN2'
 ISI = 0.3
@@ -64,23 +61,21 @@ def get_clustered_spines(cell, branch_origin, spine_list, min_num, length, direc
         return []
 
 
-@interactive
-def stim_actual_group(group_index):
+def stim_actual_group((group_index, num_spines)):
     """
     Called by controller, mapped to each engine. Activates random spines of increasing number until max cooperativity
     is reached.
     :param group_index: int
+    :param num_spines: int
     :return: str
     """
     spine_group = groups_to_stim[group_index]
-    path_index = spine_group['spines'][0].index
-    path_type = spine_group['spines'][0].parent.parent.type
+    path_type = spine_group['path_type']
+    path_index = spine_group['path_index']
     sim.parameters['path_index'] = path_index
     sim.parameters['path_type'] = path_type
     sim.parameters['path_category'] = spine_group['path_category']
-    local_random.seed(path_index)
-    spine_indexes = local_random.sample(range(len(spine_group['spines'])), len(spine_group['spines']))
-    spine = spine_group['spines'][spine_indexes[0]]
+    spine = spine_group['spines'][0]
     sim.modify_rec(2, node=spine.parent.parent)
     if path_type == 'trunk':
         sim.modify_rec(3, node=spine.parent.parent)
@@ -88,33 +83,18 @@ def stim_actual_group(group_index):
         sim.modify_rec(3, node=cell.get_dendrite_origin(spine))
     sim.modify_rec(4, node=spine, object=spine.synapses[0].target(NMDA_type), param='_ref_g')
     sim.parameters['syn_indexes'] = []
-    for num_spines in range(1, len(spine_group['spines'])+1):
-        spine = spine_group['spines'][spine_indexes[num_spines-1]]
+    for i, spine in enumerate(spine_group['spines'][:num_spines]):
         sim.parameters['syn_indexes'].append(spine.index)
         syn = spine.synapses[0]
-        spike_times = h.Vector([equilibrate + ISI * (num_spines-1)])
+        spike_times = h.Vector([equilibrate + ISI * i])
         syn.source.play(spike_times)
-        start_time = time.time()
-        sim.run(v_init)
-        with h5py.File(data_dir+rec_filename+'.hdf5', 'a') as f:
-            sim.export_to_file(f, int(path_index*1e6+num_spines))
-        print 'Process: %i took %i s to stimulate %i synapses in path %i' % (os.getpid(), time.time() - start_time,
-                                                                             num_spines, path_index)
-        with h5py.File(data_dir+master_output_filename+'_expected.hdf5', 'r') as expected_file:
-            with h5py.File(data_dir+rec_filename+'.hdf5', 'r') as actual_file:
-                expected_dict, actual_dict = get_expected_vs_actual(expected_file, actual_file, actual_file.keys())
-        expected = np.array(expected_dict['origin'])
-        if np.max(expected) > 10.:  # After 10 mV expected, stop stimulating when max cooperativity is reached
-            actual = np.array(actual_dict['origin'])
-            supralinearity = (actual - expected) / expected * 100.
-            peak_supralinearity = np.max(supralinearity)
-            if peak_supralinearity > 0.:
-                peak_index = np.where(supralinearity==peak_supralinearity)[0][0]
-                if 0 < peak_index < len(expected) - 1:
-                    break
-            elif peak_supralinearity <= 0. and np.max(expected) > 20.:
-                break
-    for spine in spine_group['spines']:
+    start_time = time.time()
+    sim.run(v_init)
+    with h5py.File(data_dir+rec_filename+'.hdf5', 'a') as f:
+        sim.export_to_file(f, int(group_index*1e6+num_spines))
+    print 'Process: %i took %i s to stimulate %i synapses in path %i' % (os.getpid(), time.time() - start_time,
+                                                                         num_spines, path_index)
+    for spine in spine_group['spines'][:num_spines]:
         syn = spine.synapses[0]
         syn.source.play(h.Vector())
     return rec_filename
@@ -129,14 +109,13 @@ def stim_single_expected((group_index, spine_index)):
     :return: str
     """
     spine_group = groups_to_stim[group_index]
-    path_index = spine_group['spines'][0].index
-    path_type = spine_group['spines'][0].parent.parent.type
+    path_type = spine_group['path_type']
     spine = spine_group['spines'][spine_index]
     syn = spine.synapses[0]
     spike_times = h.Vector([equilibrate])
     syn.source.play(spike_times)
     sim.parameters['spine_index'] = spine.index
-    sim.parameters['path_index'] = path_index
+    sim.parameters['path_index'] = spine_group['path_index']
     sim.parameters['path_type'] = path_type
     sim.parameters['path_category'] = spine_group['path_category']
     sim.modify_rec(2, node=spine.parent.parent)
@@ -176,7 +155,7 @@ for sec_type in ['basal', 'apical', 'tuft']:
                 loc2 = cell.get_distance_to_node(branch_origin, spine_list[-1].parent)
                 #print 'filtered spines (terminal): ', len(spine_list), ', start: ', loc1, ', end: ', loc2
                 grouped_spines[sec_type].append({'path_category': 'terminal', 'spines': spine_list,
-                                         'path_index': spine_list[0].index})
+                                    'path_index': spine_list[0].index, 'path_type': spine_list[0].parent.parent.type})
             #else:
             #    print 'Branch end did not meet criterion'
         spine_list = get_clustered_spines(cell, branch_origin, branch.spines, min_num_spines, max_length, 0)
@@ -185,7 +164,7 @@ for sec_type in ['basal', 'apical', 'tuft']:
             loc2 = cell.get_distance_to_node(branch_origin, spine_list[-1].parent)
             #print 'filtered spines (proximal): ', len(spine_list), ', start: ', loc1, ', end: ', loc2
             grouped_spines[sec_type].append({'path_category': 'proximal', 'spines': spine_list,
-                                         'path_index': spine_list[0].index})
+                                    'path_index': spine_list[0].index, 'path_type': spine_list[0].parent.parent.type})
         #else:
         #    print 'Branch start did not meet criterion'
 trunk_paths = []
@@ -222,7 +201,7 @@ for trunk_path in trunk_paths:
         loc2 = cell.get_distance_to_node(branch_origin, spine_list[-1].parent)
         #print 'filtered spines (distal): ', len(spine_list), ', start: ', loc1, ', end: ', loc2
         grouped_spines[sec_type].append({'path_category': 'distal', 'spines': spine_list,
-                                         'path_index': spine_list[0].index})
+                                    'path_index': spine_list[0].index, 'path_type': spine_list[0].parent.parent.type})
     #else:
     #    print 'Branch end did not meet criterion'
     spine_list = get_clustered_spines(cell, branch_origin, spines_in_path, min_num_spines, max_length, 0)
@@ -231,7 +210,7 @@ for trunk_path in trunk_paths:
         loc2 = cell.get_distance_to_node(branch_origin, spine_list[-1].parent)
         #print 'filtered spines (proximal): ', len(spine_list), ', start: ', loc1, ', end: ', loc2
         grouped_spines[sec_type].append({'path_category': 'proximal', 'spines': spine_list,
-                                         'path_index': spine_list[0].index})
+                                    'path_index': spine_list[0].index, 'path_type': spine_list[0].parent.parent.type})
     #else:
     #    print 'Branch start did not meet criterion'
 
@@ -279,6 +258,8 @@ else:
     trunk = trunk_bifurcation[0]
 
 for spine_group in groups_to_stim:
+    local_random.seed(spine_group['path_index'])
+    local_random.shuffle(spine_group['spines'])
     for spine in spine_group['spines']:
         syn = Synapse(cell, spine, syn_types, stochastic=0)
 cell.init_synaptic_mechanisms()

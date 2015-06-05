@@ -13,11 +13,7 @@ Each engine sweeps the entire range of spines until max cooperativity is reached
 Assumes a controller is already running in another process with:
 ipcluster start -n num_cores
 """
-#new_rec_filename = '052215 apical oblique cooperativity'
-with_nmda_filename = '060415 clustered nmda cooperativity_actual'
-#with_nmda_filename = '060215 clustered nmda cooperativity - small sample - new_mg_actual'
-new_rec_filename = '060415 clustered nmda cooperativity - no nmda'
-#new_rec_filename = '060215 clustered nmda cooperativity - small sample - new_mg - no nmda'
+new_rec_filename = '060515 clustered nmda cooperativity - no_nmda'
 
 c = Client()
 dv = c[:]
@@ -28,10 +24,11 @@ dv.execute('from parallel_clustered_branch_cooperativity_no_nmda_engine import *
 v = c.load_balanced_view()
 
 start_time = time.time()
+
 instructions = []
-with h5py.File(data_dir+with_nmda_filename+'.hdf5', 'r') as f:
-    for sim in f.itervalues():
-        instructions.append((sim.attrs['path_index'], len(sim.attrs['syn_indexes'])))
+for i in range(len(parallel_clustered_branch_cooperativity_no_nmda_engine.groups_to_stim)):
+    for j in range(1, len(parallel_clustered_branch_cooperativity_no_nmda_engine.groups_to_stim[i]['spines'])+1):
+        instructions.append((i, j))
 result = v.map_async(parallel_clustered_branch_cooperativity_no_nmda_engine.stim_actual_group, instructions)
 while not result.ready():
     time.sleep(30)

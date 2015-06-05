@@ -13,9 +13,7 @@ Each engine sweeps the entire range of spines until max cooperativity is reached
 Assumes a controller is already running in another process with:
 ipcluster start -n num_cores
 """
-#new_rec_filename = '052215 apical oblique cooperativity'
-new_rec_filename = '060415 clustered nmda cooperativity'
-
+new_rec_filename = '060515 clustered nmda cooperativity'
 
 c = Client()
 dv = c[:]
@@ -26,7 +24,7 @@ dv.execute('from parallel_clustered_branch_cooperativity_nmda_engine import *')
 v = c.load_balanced_view()
 
 start_time = time.time()
-dv['master_output_filename'] = new_rec_filename
+"""
 instructions = []
 for i in range(len(parallel_clustered_branch_cooperativity_nmda_engine.groups_to_stim)):
     for j in range(len(parallel_clustered_branch_cooperativity_nmda_engine.groups_to_stim[i]['spines'])):
@@ -44,8 +42,12 @@ rec_file_list = [filename for filename in dv['rec_filename'] if os.path.isfile(d
 combine_output_files(rec_file_list, new_rec_filename+'_expected')
 for filename in glob.glob(data_dir+'out*'):
     os.remove(filename)
-result = v.map_async(parallel_clustered_branch_cooperativity_nmda_engine.stim_actual_group,
-                     range(len(parallel_clustered_branch_cooperativity_nmda_engine.groups_to_stim)))
+"""
+instructions = []
+for i in range(len(parallel_clustered_branch_cooperativity_nmda_engine.groups_to_stim)):
+    for j in range(1, len(parallel_clustered_branch_cooperativity_nmda_engine.groups_to_stim[i]['spines'])+1):
+        instructions.append((i, j))
+result = v.map_async(parallel_clustered_branch_cooperativity_nmda_engine.stim_actual_group, instructions)
 while not result.ready():
     time.sleep(30)
     clear_output()
