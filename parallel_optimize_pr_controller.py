@@ -28,7 +28,7 @@ def release_dynamics_error(x, plot=0):
         for i in range(repeat):
             instructions.append(ISI)
     dv['x'] = x
-    map_result = v.map_async(parallel_optimize_pr_engine.sim_stim_train, ISI_list)
+    map_result = v.map_async(parallel_optimize_pr_engine.sim_stim_train, instructions)
     while not map_result.ready():
         time.sleep(30)
         clear_output()
