@@ -4,7 +4,7 @@ from IPython.display import clear_output
 from plot_results import *
 import sys
 import parallel_clustered_branch_cooperativity_nmda_engine
-import os, glob
+import os
 """
 This simulation steps through a list of grouped_spines, and saves output from stimulating each spine (expected) and
 many spines (actual) to generate an input-output plot. Parallel version dynamically submits jobs to available cores.
@@ -40,8 +40,8 @@ while not result.ready():
     sys.stdout.flush()
 rec_file_list = [filename for filename in dv['rec_filename'] if os.path.isfile(data_dir+filename+'.hdf5')]
 combine_output_files(rec_file_list, new_rec_filename+'_expected')
-for filename in glob.glob(data_dir+'out*'):
-    os.remove(filename)
+for filename in rec_file_list:
+    os.remove(data_dir+filename+'.hdf5')
 """
 instructions = []
 for i in range(len(parallel_clustered_branch_cooperativity_nmda_engine.groups_to_stim)):
@@ -58,7 +58,7 @@ while not result.ready():
     sys.stdout.flush()
 rec_file_list = [filename for filename in dv['rec_filename'] if os.path.isfile(data_dir+filename+'.hdf5')]
 combine_output_files(rec_file_list, new_rec_filename+'_actual')
-for filename in glob.glob(data_dir+'out*'):
-    os.remove(filename)
+for filename in rec_file_list:
+    os.remove(data_dir+filename+'.hdf5')
 print 'Parallel simulation took %i s to stimulate %i groups of spines' % (time.time() - start_time,
                                                 len(parallel_clustered_branch_cooperativity_nmda_engine.groups_to_stim))

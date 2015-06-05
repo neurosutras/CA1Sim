@@ -1325,9 +1325,10 @@ def plot_expected_vs_actual(expected_filename, actual_file_list, description_lis
     fig, axes = plt.subplots(max(2, len(input_locs)), max(2, len(rec_locs)))
     label_handles = []
     colors = ['k', 'r', 'c', 'y', 'm', 'g', 'b']
-    with h5py.File(data_dir+expected_filename+'.hdf5', 'r') as expected_file:
+    with h5py.File(data_dir+expected_filename+'.hdf5', 'r', driver='core') as expected_file:
+        expected_index_map = get_expected_spine_index_map(expected_file)
         for index, rec_filename in enumerate(actual_file_list):
-            with h5py.File(data_dir+rec_filename+'.hdf5', 'r') as actual_file:
+            with h5py.File(data_dir+rec_filename+'.hdf5', 'r', driver='core') as actual_file:
                 path_indexes = {input_loc: [] for input_loc in input_locs}
                 for sim in actual_file.itervalues():
                     path_index = sim.attrs['path_index']
@@ -1339,7 +1340,8 @@ def plot_expected_vs_actual(expected_filename, actual_file_list, description_lis
                         sorted_sim_keys = [key for key in actual_file if actual_file[key].attrs['path_index'] ==
                                                                                                         path_index]
                         sorted_sim_keys.sort(key=lambda x: len(actual_file[x].attrs['syn_indexes']))
-                        expected_dict, actual_dict = get_expected_vs_actual(expected_file, actual_file, sorted_sim_keys)
+                        expected_dict, actual_dict = get_expected_vs_actual(expected_file, actual_file,
+                                                                            expected_index_map, sorted_sim_keys)
                         for j, location in enumerate(rec_locs):
                             axes[i][j].plot(expected_dict[location], actual_dict[location], color=colors[index])
             label_handles.append(mlines.Line2D([], [], color=colors[index], label=description_list[index]))
@@ -1403,6 +1405,7 @@ def plot_nmdar_contribution(expected_filename, actual_file_list, description_lis
     label_handles = []
     colors = ['k', 'r', 'c', 'y', 'm', 'g', 'b']
     with h5py.File(data_dir+expected_filename+'.hdf5', 'r') as expected_file:
+        expected_index_map = get_expected_spine_index_map(expected_file)
         for index, (with_nmda_filename, without_nmda_filename) in enumerate(actual_file_list):
             with h5py.File(data_dir+with_nmda_filename+'.hdf5', 'r') as with_nmda_file:
                 path_indexes = {input_loc: [] for input_loc in input_locs}
@@ -1417,7 +1420,7 @@ def plot_nmdar_contribution(expected_filename, actual_file_list, description_lis
                                                                                                         path_index]
                         sorted_sim_keys.sort(key=lambda x: len(with_nmda_file[x].attrs['syn_indexes']))
                         expected_dict, with_nmda_dict = get_expected_vs_actual(expected_file, with_nmda_file,
-                                                                            sorted_sim_keys)
+                                                                               expected_index_map, sorted_sim_keys)
             with h5py.File(data_dir+without_nmda_filename+'.hdf5', 'r') as without_nmda_file:
                 path_indexes = {input_loc: [] for input_loc in input_locs}
                 for sim in without_nmda_file.itervalues():
@@ -1431,7 +1434,7 @@ def plot_nmdar_contribution(expected_filename, actual_file_list, description_lis
                                            without_nmda_file[key].attrs['path_index'] == path_index]
                         sorted_sim_keys.sort(key=lambda x: len(without_nmda_file[x].attrs['syn_indexes']))
                         expected_dict, without_nmda_dict = get_expected_vs_actual(expected_file, without_nmda_file,
-                                                                            sorted_sim_keys)
+                                                                                  expected_index_map, sorted_sim_keys)
                         for j, location in enumerate(rec_locs):
                             nmda_contribution = (np.array(with_nmda_dict[location]) -
                                 np.array(without_nmda_dict[location])) / np.array(without_nmda_dict[location]) * 100.
@@ -1498,6 +1501,7 @@ def plot_nmdar_supralinearity(expected_filename, actual_file_list, description_l
     label_handles = []
     colors = ['k', 'r', 'c', 'y', 'm', 'g', 'b']
     with h5py.File(data_dir+expected_filename+'.hdf5', 'r') as expected_file:
+        expected_index_map = get_expected_spine_index_map(expected_file)
         for index, rec_filename in enumerate(actual_file_list):
             with h5py.File(data_dir+rec_filename+'.hdf5', 'r') as actual_file:
                 path_indexes = {input_loc: [] for input_loc in input_locs}
@@ -1511,7 +1515,8 @@ def plot_nmdar_supralinearity(expected_filename, actual_file_list, description_l
                         sorted_sim_keys = [key for key in actual_file if actual_file[key].attrs['path_index'] ==
                                                                                                         path_index]
                         sorted_sim_keys.sort(key=lambda x: len(actual_file[x].attrs['syn_indexes']))
-                        expected_dict, actual_dict = get_expected_vs_actual(expected_file, actual_file, sorted_sim_keys)
+                        expected_dict, actual_dict = get_expected_vs_actual(expected_file, actual_file,
+                                                                            expected_index_map, sorted_sim_keys)
                         for j, location in enumerate(rec_locs):
                             expected = np.array(expected_dict[location])
                             actual = np.array(actual_dict[location])

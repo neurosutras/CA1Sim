@@ -4,7 +4,7 @@ from IPython.display import clear_output
 from plot_results import *
 import parallel_rinp_engine
 import sys
-import os, glob
+import os
 """
 Parallel version: Iterates through every section, injecting hyperpolarizing current and measuring input resistance.
 
@@ -35,8 +35,8 @@ while not result.ready():
         sys.stdout.flush()
         time.sleep(1)
 print 'Parallel execution took: ', time.time()-start_time, ' s'
-rec_file_list = dv['rec_filename']
+rec_file_list = [filename for filename in dv['rec_filename'] if os.path.isfile(data_dir+filename+'.hdf5')]
 combine_output_files(rec_file_list, new_rec_filename)
-for filename in glob.glob(data_dir+'out*'):
-    os.remove(filename)
+for filename in rec_file_list:
+    os.remove(data_dir+filename+'.hdf5')
 #plot_Rinp(new_rec_filename)

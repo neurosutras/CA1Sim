@@ -4,7 +4,7 @@ from IPython.display import clear_output
 from plot_results import *
 import sys
 import parallel_optimize_branch_cooperativity_nmda_engine
-import os, glob
+import os
 """
 This simulation uses scipy.optimize.minimize to fit gmax_NMDA_KIN to branch cooperativity data from
 Harnett et al., 2012 (performed in TTX). One apical oblique ~150 um from the soma is chosen, up to 50 spines within a
@@ -43,10 +43,10 @@ def branch_cooperativity_error(x, plot=0):
             if lines[-2]:
                 print lines[-2]
         sys.stdout.flush()
-    rec_file_list = dv['rec_filename']
+    rec_file_list = [filename for filename in dv['rec_filename'] if os.path.isfile(data_dir+filename+'.hdf5')]
     combine_output_files(rec_file_list, new_rec_filename+'_expected')
-    for filename in glob.glob(data_dir+'out*'):
-        os.remove(filename)
+    for filename in rec_file_list:
+        os.remove(data_dir+filename+'.hdf5')
     instructions = []
     for group in range(1, num_spines+1):
         instructions.append(range(group))
@@ -61,9 +61,10 @@ def branch_cooperativity_error(x, plot=0):
             if lines[-2]:
                 print lines[-2]
         sys.stdout.flush()
+    rec_file_list = [filename for filename in dv['rec_filename'] if os.path.isfile(data_dir+filename+'.hdf5')]
     combine_output_files(rec_file_list, new_rec_filename+'_actual')
-    for filename in glob.glob(data_dir+'out*'):
-        os.remove(filename)
+    for filename in rec_file_list:
+        os.remove(data_dir+filename+'.hdf5')
     with h5py.File(data_dir+new_rec_filename+'_expected.hdf5', 'r') as expected_file:
         unit_with_nmda = get_expected_EPSP(expected_file,
                                             parallel_optimize_branch_cooperativity_nmda_engine.spine.index,
@@ -80,10 +81,12 @@ def branch_cooperativity_error(x, plot=0):
     result = {'unitary_nmda_contribution': (np.max(unit_with_nmda['trunk']) - np.max(unit_no_nmda['trunk'])) /
                                            np.max(unit_no_nmda['trunk'])}
     with h5py.File(data_dir+new_rec_filename+'_expected.hdf5', 'r') as expected_file:
+        expected_index_map = get_expected_spine_index_map(expected_file)
         with h5py.File(data_dir+new_rec_filename+'_actual.hdf5', 'r') as actual_file:
             sorted_sim_keys = actual_file.keys()
             sorted_sim_keys.sort(key=lambda x: len(actual_file[x].attrs['syn_indexes']))
-            expected_dict, actual_dict = get_expected_vs_actual(expected_file, actual_file, sorted_sim_keys)
+            expected_dict, actual_dict = get_expected_vs_actual(expected_file, actual_file, expected_index_map,
+                                                                sorted_sim_keys)
     expected = np.array(expected_dict['trunk'])
     actual = np.array(actual_dict['trunk'])
     supralinearity = (actual - expected) / expected * 100.

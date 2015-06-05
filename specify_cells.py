@@ -1209,8 +1209,8 @@ class Synapse(object):
     To make model specification and simulation implementation straightforward, synapses are not meant to be moved once
     they are initialized.
     """
-    def __init__(self, cell, node, type_list=None, stochastic=1, loc=0.5, delay=0., source=None, source_node=None,
-                 source_param='_ref_v', source_loc=0.5):
+    def __init__(self, cell, node, type_list=None, stochastic=1, loc=0.5, delay=0., weight=1., threshold=-30.,
+                 source=None, source_node=None, source_param='_ref_v', source_loc=0.5):
         """
         Design goals: A source (like a spike detector in a presynaptic neuron) can be specified. If not, a VecStim
         object is used a source, which can be played events at specified times using its .play method. If stochastic,
@@ -1221,8 +1221,10 @@ class Synapse(object):
         :param node: :class:'SHoCNode'
         :param type_list: list of str
         :param stochastic: int in [0, 1]
-        :param loc: int or float
-        :param delay: int or float
+        :param loc: float
+        :param delay: float
+        :param weight: float
+        :param threshold: float
         :param source: hoc artificial cell or otherwise hoc object not associated with a section
         :param source_node: :class:'SHocNode' specifies the section containing a range variable to be used as a source
         :param source_param: str
@@ -1233,6 +1235,8 @@ class Synapse(object):
         self._stochastic = stochastic
         self._loc = loc
         self._delay = delay
+        self._weight = weight
+        self._threshold = threshold
         self._syn = {}
         self.randObj = None
         if not source is None:
@@ -1243,6 +1247,8 @@ class Synapse(object):
             self._source = {'object': h.VecStim()}
         if type_list is None:
             type_list = ['AMPA_KIN']
+        elif type(type_list) is not list:
+            type_list = [type_list]
         if self.stochastic:
             self._init_stochastic()
         for target in type_list:
@@ -1250,11 +1256,11 @@ class Synapse(object):
             self._syn[target] = {'target': syn}
             if self.stochastic:
                 self._syn[target]['netcon'] = h.NetCon(self.target('Pr'), syn)
-                self.netcon(target).weight[0] = 1.
-                self.netcon(target).delay = self.delay
+                self.netcon(target).delay = delay
+                self.netcon(target).weight[0] = weight
+                self.netcon(target).threshold = threshold
             else:
                 self._init_netcon(target)
-
         self._node.synapses.append(self)
 
     def _init_stochastic(self):
@@ -1264,15 +1270,15 @@ class Synapse(object):
         """
         if self.randObj is None:  # if this synapse has never been stochastic, it needs a new random number generator
             self.randObj = h.Random()
-            self.randObj.MCellRan4(1, self.cell.gid*1e10+self.node.index*1e4+len(self.node.synapses)+1)
-            # a unique seed for up to 10,000 synapses per node and 1,000,000 sections per cell
-            self.randObj.uniform(0,1)
+            self.randObj.MCellRan4(self.cell.gid*1e4+1, self.node.index*1e4+len(self.node.synapses)+1)
+            # a unique sequence for up to ~10,000 spikes per synapse; ~10,000 synapses per node;
+            # ~4,290,000 nodes per cell; ~4,290,000 cell in a network
+            self.randObj.uniform(0, 1)
         else:  # if this synapse has already been stochastic before, this restarts its random number generator
             self.randObj.seq(1)
         syn = getattr(h, 'Pr')(self.node.sec(self.loc))
         self._syn['Pr'] = {'target': syn}
-        self._init_netcon('Pr')
-        self.netcon('Pr').delay = 0.
+        self._init_netcon('Pr', delay=0.)
         self.target('Pr').setRandObjRef(self.randObj)
 
     def target(self, target):
@@ -1284,36 +1290,36 @@ class Synapse(object):
         if target in self._syn:
             return self._syn[target]['target']
         else:
-            print 'Synapse type: {} not found at a synapse in {}'.format(target, self._node.name)
-            raise KeyError
+            raise KeyError('Synapse type: {} not found at a synapse in {}'.format(target, self._node.name))
 
-    def _init_netcon(self, target):
+    def _init_netcon(self, target, delay=None, weight=None, threshold=None):
         """
         Appropriately initializes new netcon object, depending on whether the current source dictionary specifies a
         hocObject without a section, or a reference variable contained within a section.
         :param target: str
+        :param delay = float
+        :param weight = float
+        :param threshold = float
         """
         if target in self._syn:
             source = self._source['object']
             syn = self._syn[target]
-            if 'netcon' in syn:
-                weight = syn['netcon'].weight[0]
-                threshold = syn['netcon'].threshold
-                del syn['netcon']
-            else:
-                weight = 1.
-                threshold = -30.
+            if weight is None:
+                weight = self.weight
+            if threshold is None:
+                threshold = self.threshold
+            if delay is None:
+                delay = self.delay
             if 'node' in self._source:
                 node = self._source['node']
                 syn['netcon'] = h.NetCon(source, syn['target'], sec=node.sec)
             else:
                 syn['netcon'] = h.NetCon(source, syn['target'])
-            syn['netcon'].delay = self._delay
+            syn['netcon'].delay = delay
             syn['netcon'].weight[0] = weight
             syn['netcon'].threshold = threshold
         else:
-            print 'Synapse type: {} not found at a synapse in {}'.format(target, self._node.name)
-            raise KeyError
+            raise KeyError('Synapse type: {} not found at a synapse in {}'.format(target, self._node.name))
 
     def netcon(self, target):
         """
@@ -1324,31 +1330,46 @@ class Synapse(object):
         if target in self._syn:
             return self._syn[target]['netcon']
         else:
-            print 'Synapse type: {} not found at a synapse in {}'.format(target, self._node.name)
-            raise KeyError
+            raise KeyError('Synapse type: {} not found at a synapse in {}'.format(target, self._node.name))
 
     def change_source(self, source=None, node=None, param='_ref_v', loc=0.5):
         """
         In order to change the source of a synapse from the default VecStim object to a membrane potential or artificial
-        cell, all the netcon objects must be deleted and replaced with new ones.
+        cell, all the netcon objects must be deleted and replaced with new ones. Preserves previously set values for
+        delay, weight, and threshold for all synaptic mechanisms associated with this synapse.
         :param source: hoc artificial cell or otherwise hoc object not associated with a section
         :param node: :class:'SHocNode'
         :param param: str corresponding to range variable in section
         :param loc: float
         """
+        netcon_dict = {}
+        for target in self._syn:
+            netcon_dict[target] = {}
+            netcon_dict[target]['delay'] = self.netcon(target).delay
+            netcon_dict[target]['weight'] = self.netcon(target).weight[0]
+            netcon_dict[target]['threshold'] = self.netcon(target).threshold
         if source is None:
             if node is None:
                 raise Exception('A source or reference node must be provided to establish a new synaptic connection.')
             else:
+                del self._source
                 self._source = {'object': getattr(node.sec(loc), param), 'node': node}
         else:
+            del self._source
             self._source = {'object': source}
         if self._stochastic:
-            self._init_netcon('Pr')
-            self.netcon('Pr').delay = 0.
+            del self._syn['Pr']['netcon']
+            delay = netcon_dict['Pr']['delay']
+            weight = netcon_dict['Pr']['weight']
+            threshold = netcon_dict['Pr']['threshold']
+            self._init_netcon('Pr', delay=delay, weight=weight, threshold=threshold)
         else:
             for target in (target for target in self._syn if not target == 'Pr'):
-                self._init_netcon(target)
+                del self._syn[target]['netcon']
+                delay = netcon_dict[target]['delay']
+                weight = netcon_dict[target]['weight']
+                threshold = netcon_dict[target]['threshold']
+                self._init_netcon(target, delay=delay, weight=weight, threshold=threshold)
 
     def get_stochastic(self):
         """
@@ -1359,7 +1380,8 @@ class Synapse(object):
 
     def set_stochastic(self, value):
         """
-        Turns on or off stochastic filtering of spikes.
+        Turns on or off stochastic filtering of spikes, preserving delay, weight, and threshold for all synaptic
+        mechanisms associated with this synapse.
         :param value: int in [0, 1]
         """
         if not (value == self._stochastic):
@@ -1367,27 +1389,36 @@ class Synapse(object):
             if value:
                 self._init_stochastic()
                 for target in (target for target in self._syn if not target == 'Pr'):
+                    delay = self.netcon(target).delay
+                    weight = self.netcon(target).weight[0]
+                    threshold = self.netcon(target).threshold
                     del self._syn[target]['netcon']
                     self._syn[target]['netcon'] = h.NetCon(self.target('Pr'), self.target(target))
-                    self.netcon(target).delay = self._delay
-                    self.netcon(target).weight[0] = 1.
+                    self.netcon(target).delay = delay
+                    self.netcon(target).weight[0] = weight
+                    self.netcon(target).threshold = threshold
             else:
                 for target in (target for target in self._syn if not target == 'Pr'):
-                    self._init_netcon(target)
+                    delay = self.netcon(target).delay
+                    weight = self.netcon(target).weight[0]
+                    threshold = self.netcon(target).threshold
+                    del self._syn[target]['netcon']
+                    self._init_netcon(target, delay=delay, weight=weight, threshold=threshold)
                 del self._syn['Pr']
 
     stochastic = property(get_stochastic, set_stochastic)
 
     def get_delay(self):
         """
-        Returns the value of the time delay (ms) between spike and activation for the specified synaptic mechanisms.
+        Returns the default value of the time delay (ms) between spike and activation for this synapse.
         :return: int or float
         """
         return self._delay
 
     def set_delay(self, value):
         """
-        Changes the value of the time delay (ms) between spike and activation for the specified synaptic mechanisms.
+        Changes the value of the time delay (ms) between spike and activation for all synaptic mechanisms associated
+        with this synapse, except 'Pr', which retains its current value until set manually.
         :param value: int or float
         """
         self._delay = value
@@ -1395,6 +1426,42 @@ class Synapse(object):
             self.netcon(target).delay = value
 
     delay = property(get_delay, set_delay)
+
+    def get_weight(self):
+        """
+        Returns the default value of the activation weight for this synapse.
+        :return: float
+        """
+        return self._weight
+
+    def set_weight(self, value):
+        """
+        Changes the value of the activation weight for all synaptic mechanisms associated with this synapse.
+        :param value: float
+        """
+        self._weight = value
+        for target in (target for target in self._syn):
+            self.netcon(target).weight[0] = value
+
+    weight = property(get_weight, set_weight)
+
+    def get_threshold(self):
+        """
+        Returns the value of the activation threshold for this synapse.
+        :return: float
+        """
+        return self._threshold
+
+    def set_threshold(self, value):
+        """
+        Changes the value of the activation threshold for this synapse.
+        :param value: float
+        """
+        self._threshold = value
+        for target in (target for target in self._syn):
+            self.netcon(target).threshold = value
+
+    threshold = property(get_threshold, set_threshold)
 
     @property
     def source(self):
