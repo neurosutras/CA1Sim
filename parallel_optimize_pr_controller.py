@@ -21,11 +21,13 @@ def release_dynamics_error(x, plot=0):
     :return: float
     """
     start_time = time.time()
-    ISI_list = [300, 300, 300, 100, 100, 100, 50, 50, 50, 25, 25, 25, 10, 10, 10]
-    #x[0] = int(1000 * x[0])
-    #print dv.block, len(v)
+    repeat = 10
+    ISI_list = [300, 100, 50, 25, 10]
+    instructions = []
+    for ISI in ISI_list:
+        for i in range(repeat):
+            instructions.append(ISI)
     dv['x'] = x
-    #map_result = v.map_async(parallel_optimize_pr_engine.sim_stim_train, [300, 100])
     map_result = v.map_async(parallel_optimize_pr_engine.sim_stim_train, ISI_list)
     while not map_result.ready():
         time.sleep(30)
@@ -36,7 +38,6 @@ def release_dynamics_error(x, plot=0):
                 print lines[-2]
         sys.stdout.flush()
     dv.execute('restore_random_sequence_locations()')
-    #v.map_sync(parallel_optimize_pr_engine.restore_random_sequence_locations, range(len(c)))
     results = {}
     for result in map_result.get():
         for ISI in result:
@@ -45,7 +46,7 @@ def release_dynamics_error(x, plot=0):
             else:
                 results[ISI] += result[ISI]
     for ISI in results:
-        results[ISI] /= 3.
+        results[ISI] /= float(repeat)
     #return results
     Err = 0.
     for ISI in results:
@@ -89,7 +90,7 @@ xmax = [0.2, 0.4, 5., 300., 1.0, 100.]
 
 #x1 = [0.101, 0.19, 1.61, 162.3, 0.93, 4.0]  # first pass basinhopping
 #x1 = [0.09, 0.17, 1.31, 180.7, 0.80, 0.6]  # second pass basinhopping
-x1 = [0.067, 0.18, 0.92, 105.5, 0.64, 2.7]
+x1 = [0.067, 0.18, 0.92, 105.5, 0.64, 2.7]  # first pass basinhopping after calibrating NMDA_KIN2.gmax for cooperativity
 
 c = Client()
 dv = c[:]
@@ -110,8 +111,11 @@ result = optimize.basinhopping(release_dynamics_error, x0, niter= 720, niter_suc
                                                             minimizer_kwargs=minimizer_kwargs, take_step=mytakestep)
 #release_dynamics_error(result.x, plot=1)
 print result
-
-polished_result = optimize.minimize(release_dynamics_error, result.x, method='Nelder-Mead', options={'ftol': 1e-3, 'disp': True})
-release_dynamics_error(polished_result.x, plot=1)
 """
+polished_result = optimize.minimize(release_dynamics_error, x1, method='Nelder-Mead',
+                                    options={'xtol': 1e-3, 'ftol': 1e-3, 'maxiter': 200, 'disp': True})
+print polished_result
+"""
+release_dynamics_error(polished_result.x, plot=1)
 release_dynamics_error(x1, plot=1)
+"""
