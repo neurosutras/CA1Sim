@@ -54,17 +54,8 @@ def sim_stim_train(ISI):
     vm -= baseline
     rec = np.interp(interp_t, t, vm)
     print 'Process:', os.getpid(), 'ISI:', ISI, 'synapses:', param_dict['n'], 'took', time.time() - start_time, 's'
-    if ISI == 300:
-        left, right = time2index(interp_t, equilibrate-2.0, equilibrate+100)
-        unit_vm = rec[left:right]
-        for i in range(1, num_stims):
-            left, right = time2index(interp_t, equilibrate-2.0+ISI*i, equilibrate+100+ISI*i)
-            unit_vm += rec[left:right]
-        unit_vm /= float(num_stims)
-        return {ISI: unit_vm}
-    else:
-        left, right = time2index(interp_t, equilibrate-2.0, duration)
-        return {ISI: rec[left:right]}
+    left, right = time2index(interp_t, equilibrate-2.0, duration)
+    return {ISI: rec[left:right]}
 
 
 def restore_random_sequence_locations():

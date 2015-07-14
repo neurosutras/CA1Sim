@@ -65,16 +65,16 @@ cell.modify_mech_param('tuft', 'pas', 'g', origin='trunk')
 cell.modify_mech_param('trunk', 'pas', 'g', origin='soma', slope=1e-7, tau=100.)
 
 # look for a trunk bifurcation
-trunk_bifurcation = [trunk for trunk in cell.trunk if len(trunk.children) > 1 and trunk.children[0].type == 'trunk' and
-                     trunk.children[1].type == 'trunk']
-
-# get where the thickest trunk branch gives rise to the tuft
-if trunk_bifurcation:  # follow the thicker trunk
-    trunk = max(trunk_bifurcation[0].children[:2], key=lambda node: node.sec(0.).diam)
-    trunk = (node for node in cell.trunk if cell.node_in_subtree(trunk, node) and 'tuft' in (child.type for child in
-                                                                                             node.children)).next()
+trunk_bifurcation = [trunk for trunk in cell.trunk if cell.is_bifurcation(trunk, 'trunk')]
+if trunk_bifurcation:
+    trunk_branches = [branch for branch in trunk_bifurcation[0].children if branch.type == 'trunk']
+    # get where the thickest trunk branch gives rise to the tuft
+    trunk = max(trunk_branches, key=lambda node: node.sec(0.).diam)
+    trunk = (node for node in cell.trunk if cell.node_in_subtree(trunk, node) and 'tuft' in (child.type
+                                                                            for child in node.children)).next()
 else:
-    trunk = (node for node in cell.trunk if 'tuft' in (child.type for child in node.children)).next()
+    trunk_bifurcation = [node for node in cell.trunk if 'tuft' in (child.type for child in node.children)]
+    trunk = trunk_bifurcation[0]
 
 sim = QuickSim(duration, verbose=False)
 sim.parameters['description'] = 'RInp'

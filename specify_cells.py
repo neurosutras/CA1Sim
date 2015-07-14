@@ -2,12 +2,13 @@ __author__ = 'Aaron D. Milstein'
 # Includes modification of an early version of SWC_neuron.py by Daniele Linaro.
 # Includes an extension of BtMorph, created by Ben Torben-Nielsen and modified by Daniele Linaro.
 from function_lib import *
+from neuron import h  # must be found in system $PYTHONPATH
 import pprint
 import btmorph  # must be found in system $PYTHONPATH
 
 # SWC files must use this nonstandard convention to exploit trunk and tuft categorization
 swc_types = [soma_type, axon_type, basal_type, apical_type, trunk_type, tuft_type] = [1, 2, 3, 4, 5, 6]
-sec_types = ['soma', 'axon', 'ais', 'basal', 'apical', 'trunk', 'tuft', 'spine_neck', 'spine_head']
+sec_types = ['soma', 'axon_hill', 'ais', 'axon', 'basal', 'trunk', 'apical', 'tuft', 'spine_neck', 'spine_head']
 
 verbose = 0  # Turn on for text reporting during model initialization and simulation
 gid_max = 0  # Every new HocCell will receive a global identifier for network simulation, and increment this counter
@@ -34,6 +35,9 @@ class HocCell(object):
             self.load_morphology_from_swc(morph_filename)
             self.reinit_mechanisms()  # Membrane mechanisms must be reinitialized whenever cable properties (Ra, cm) or
                                       # spatial resolution (nseg) changes.
+        self.spike_detector = None
+        if self.axon:
+            self.init_spike_detector()
 
     def load_morphology_from_swc(self, morph_filename):
         """
@@ -60,10 +64,11 @@ class HocCell(object):
         self.soma[1].connect(self.soma[0], 0, 0)
         for index in range(3):
             self.make_section('axon')
-        self.axon[0].sec.L = 20
+        self.axon[0].type = 'axon_hill'
+        self.axon[0].sec.L = 10
         self.axon[0].set_diam_bounds(3, 2)  # stores the diameter boundaries for a tapered cylindrical section
         self.axon[1].type = 'ais'
-        self.axon[1].sec.L = 25
+        self.axon[1].sec.L = 15
         self.axon[1].set_diam_bounds(2, 1)
         self.axon[2].sec.L = 500
         self.axon[2].sec.diam = 1
@@ -193,10 +198,8 @@ class HocCell(object):
         :param sec_type: str
         :return: list of :class:'SHocNode'
         """
-        if sec_type == 'ais':
+        if sec_type in ['axon_hill', 'ais', 'axon']:
             return [node for node in self.axon if node.type == sec_type]
-        elif sec_type == 'axon':
-            return [node for node in self.axon if not node.type == 'ais']
         elif sec_type in ['spine_head', 'spine_neck']:
             return [node for node in self.spine if node.type == sec_type]
         else:
@@ -245,7 +248,7 @@ class HocCell(object):
         again. However, they can be manually reinitialized with the reset_cable flag.
         :param reset_cable: boolean
         """
-        for sec_type in ['soma', 'axon', 'ais', 'basal', 'trunk', 'apical', 'tuft', 'spine_neck', 'spine_head']:
+        for sec_type in sec_types:
             if sec_type in self.mech_dict:
                 nodes = self.get_nodes_of_subtype(sec_type)
                 self._reinit_mech(nodes, reset_cable)
@@ -444,10 +447,13 @@ class HocCell(object):
                                     seg_loc -= min_distance
                                     if 'tau' in rules:
                                         if 'xhalf' in rules:  # sigmoidal gradient
-                                            value = baseline + rules['slope'] / (1. +
+                                            offset = baseline + rules['slope'] / (1. +
+                                                                    np.exp(rules['xhalf'] / rules['tau']))
+                                            value = offset + rules['slope'] / (1. +
                                                                     np.exp((rules['xhalf'] - seg_loc) / rules['tau']))
                                         else:  # exponential gradient
-                                            value = baseline + rules['slope'] * np.exp(seg_loc / rules['tau'])
+                                            offset = baseline - rules['slope']
+                                            value = offset + rules['slope'] * np.exp(seg_loc / rules['tau'])
                                     else:  # linear gradient
                                         value = baseline + rules['slope'] * seg_loc
                                     if 'min' in rules and value < rules['min']:
@@ -513,10 +519,13 @@ class HocCell(object):
                             distance -= min_distance
                             if 'tau' in rules:  # exponential gradient
                                 if 'xhalf' in rules:  # sigmoidal gradient
-                                    value = baseline + rules['slope'] / (1. +
+                                    offset = baseline + rules['slope'] / (1. +
+                                                                    np.exp(rules['xhalf'] / rules['tau']))
+                                    value = offset + rules['slope'] / (1. +
                                                             np.exp((rules['xhalf'] - distance) / rules['tau']))
                                 else:
-                                    value = baseline + rules['slope'] * np.exp(distance / rules['tau'])
+                                    offset = baseline - rules['slope']
+                                    value = offset + rules['slope'] * np.exp(distance / rules['tau'])
                             else:  # linear gradient
                                 value = baseline + rules['slope'] * distance
                             if 'min' in rules and value < rules['min']:
@@ -529,6 +538,43 @@ class HocCell(object):
                             value = baseline
                         setattr(target, param_name, value)
 
+    def init_spike_detector(self, node=None, loc=1., param='_ref_v', delay=None, weight=None, threshold=None,
+                            target=None):
+        """
+        Converts analog voltage in the specified section to digital spike output. By default, initializes an h.NetCon
+        object with voltage as a reference parameter and no target. Can later be connected by h.ParallelContext, or
+        re-initialized with a target on a cell contained within the local processing environment.
+        :param node: :class:'SHocNode'
+        :param loc: float
+        :param param: str
+        :param delay: float
+        :param weight: float
+        :param threshold: float
+        :return: :class:'h.NetCon'
+        """
+        if node is None:
+            if self.axon:
+                node = self.axon[-1]
+            else:
+                raise Exception('No source node specified for spike detector.')
+        if self.spike_detector is not None:
+            if delay is None:
+                delay = self.spike_detector.delay
+            if weight is None:
+                weight = self.spike_detector.weight[0]
+            if threshold is None:
+                threshold = self.spike_detector.threshold
+        else:
+            if delay is None:
+                delay = 0.
+            if weight is None:
+                weight = 1.
+            if threshold is None:
+                threshold = -30.
+        self.spike_detector = h.NetCon(getattr(node.sec(loc), param), target, sec=node.sec)
+        self.spike_detector.delay = delay
+        self.spike_detector.weight[0] = weight
+        self.spike_detector.threshold = threshold
 
     def get_dendrite_origin(self, node):
         """
@@ -541,7 +587,7 @@ class HocCell(object):
         sec_type = node.type
         if sec_type in ['spine_head', 'spine_neck']:
             return self.get_dendrite_origin(node.parent)
-        elif sec_type in ['basal', 'trunk', 'axon', 'ais']:
+        elif sec_type in ['basal', 'trunk', 'axon_hill', 'ais', 'axon']:
             return self._get_node_along_path_to_root(node, 'soma')
         elif sec_type in ['apical', 'tuft']:
             return self._get_node_along_path_to_root(node, 'trunk')
@@ -584,7 +630,10 @@ class HocCell(object):
         if not syn_list:
             if downstream:
                 for child in [child for child in node.children if child.type == node.type]:
-                    return self._get_closest_synapse(child, 0., syn_type)
+                    target_syn = self._get_closest_synapse(child, 0., syn_type)
+                    if target_syn is not None:
+                        return target_syn
+                return None
             elif node.parent.type == node.type:
                 return self._get_closest_synapse(node.parent, 1., syn_type, downstream=False)
         else:
@@ -873,7 +922,7 @@ class HocCell(object):
         :param node: :class:'SHocNode'
         :return: int
         """
-        if node.type in ['soma', 'axon']:
+        if node.type in ['soma', 'axon_hill', 'ais', 'axon']:
             return 0
         elif node.type == 'trunk':
             children = [child for child in node.parent.children if not child.type == 'spine_neck']
@@ -900,7 +949,7 @@ class HocCell(object):
         :param node: :class:'SHocNode'
         :return: bool
         """
-        if node.type in ['soma', 'axon']:
+        if node.type in ['soma', 'axon_hill', 'ais', 'axon']:
             return False
         else:
             return not bool([child for child in node.children if not child.type == 'spine_neck'])
