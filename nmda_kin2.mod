@@ -74,11 +74,11 @@ PARAMETER {
 
 	Cmax    = 1.        (mM)        : transmitter concentration during release event
 	Cdur	= 0.3       (ms)		: transmitter duration (rising phase)
-	kon     = 965.05    (/ms/mM)    : unbound receptor ligand-binding rate
-    koff    = 0.12      (/ms)       : bound receptor ligand-unbinding rate
-    CC      = 1.52      (/ms)       : bound receptor cleft closing rate
-    CO      = 12.85     (/ms)       : bound receptor cleft opening rate
-    Beta	= 4.78      (/ms)	    : channel opening rate
+	kon     = 1099.70   (/ms/mM)    : unbound receptor ligand-binding rate
+    koff    = 0.07      (/ms)       : bound receptor ligand-unbinding rate
+    CC      = 1.70      (/ms)       : bound receptor cleft closing rate
+    CO      = 14.12     (/ms)       : bound receptor cleft opening rate
+    Beta	= 4.64      (/ms)	    : channel opening rate
     Alpha   = 0.19      (/ms)       : open channel closing rate
 	Erev	= 0.        (mV)		: reversal potential
 	Kd      = 9.82      (mM)        : modulate Mg concentration dependence

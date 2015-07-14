@@ -9,7 +9,8 @@ which synapse to optimize (coarse sampling of the full set of spines).
 #morph_filename = 'EB1-early-bifurcation.swc'
 morph_filename = 'EB2-late-bifurcation.swc'
 
-mech_filename = '043015 pas_exp_scale kdr ka_scale ih_sig_scale - EB2'
+#mech_filename = '043015 pas_exp_scale kdr ka_scale ih_sig_scale - EB2'
+mech_filename = '072515 optimized basal ka_scale dend_sh_ar_nas - EB2'
 
 
 def epsp_amp_error(x, syn):
@@ -57,7 +58,7 @@ def optimize_single_synapse(syn_index):
     #                           bounds=xbounds)
     # options={'maxfun': 25}
     result = optimize.minimize(epsp_amp_error, x0, method='Nelder-Mead', args=(syn,), options={'xtol': 1e-7,
-                                                                                               'ftol': 1e-3})
+                                                                                    'ftol': 1e-3, 'maxiter': 10})
     syn.source.play(h.Vector())  # playing an empty vector turns this synapse off for future runs while keeping the
                                  # VecStim source object in existence so it can be activated again
     print 'Process:', os.getpid(), 'optimized Spine:', syn.node.index, 'on Node:', syn.node.parent.parent.name, ' in ' \
@@ -68,17 +69,30 @@ def optimize_single_synapse(syn_index):
     return {'distance': distance, 'result': param_vals, 'sec_type': syn.node.parent.parent.type}
 
 
-equilibrate = 200.  # time to steady-state
-duration = 250.
+def zero_na():
+    """
+
+    """
+    for sec_type in ['axon_hill', 'ais']:
+        cell.modify_mech_param(sec_type, 'nax', 'gbar', 0.)
+    cell.reinitialize_subset_mechanisms('axon', 'nax')
+    cell.modify_mech_param('soma', 'nas', 'gbar', 0.)
+    for sec_type in ['basal', 'trunk', 'apical', 'tuft']:
+        cell.reinitialize_subset_mechanisms(sec_type, 'nas')
+
+
+equilibrate = 250.  # time to steady-state
+duration = 300.
 v_init = -67.
-syn_type = 'AMPA_coop'
+syn_type = 'AMPA_KIN'
 param_names = ['gmax']
 param_ylabels = ['Peak Conductance (uS)']
 
 syn_list = []
 cell = CA1_Pyr(morph_filename, mech_filename, full_spines=True)
+zero_na()
 random.seed(0)
-for branch in cell.trunk:  # cell.basal+cell.trunk+cell.apical+cell.tuft:
+for branch in cell.basal:  # cell.basal+cell.trunk+cell.apical+cell.tuft:
     if len(branch.spines) > 1:
         if branch.sec.L <= 10.:
             node = branch.spines[random.sample(range(0, len(branch.spines)), 1)[0]]

@@ -38,6 +38,7 @@ class HocCell(object):
         self.spike_detector = None
         if self.axon:
             self.init_spike_detector()
+        self.random = np.random.RandomState()
 
     def load_morphology_from_swc(self, morph_filename):
         """
@@ -1173,7 +1174,7 @@ class CA1_Pyr(HocCell):
         density dictionary from a file, similar to the implementation of the membrane mechanism dictionary.
         :param sec_type_list: list of str
         """
-        np.random.seed(self.gid)  # This cell will always have the same spine locations
+        self.random.seed(self.gid)  # This cell will always have the same spine locations
         densities = {'trunk': {'min': 0.2418, 'max': 3.8,
                                'start': min([self.get_distance_to_node(self.tree.root, branch) for branch in
                                                                                                 self.apical]),
@@ -1224,11 +1225,11 @@ class CA1_Pyr(HocCell):
         :param density: float: mean density in /um
         """
         L = node.sec.L
-        lam = 1./density
-        interval = np.random.poisson(10000.*lam)/10000.  # random intervals with correct significant digits
+        beta = 1./density
+        interval = self.random.exponential(beta)
         while interval < L:
             self.insert_spine(node, interval/L)
-            interval += np.random.poisson(10000.*lam)/10000.
+            interval += self.random.exponential(beta)
 
     def insert_spine(self, node, parent_loc, child_loc=0):
         """

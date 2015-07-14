@@ -60,7 +60,7 @@ def release_dynamics_error(x, plot=0):
 
     # calculate slope across multiple stims at 300 ms ISI:
     xi = np.arange(0, num_stims)
-    A = np.array([x1, np.ones(num_stims)])
+    A = np.array([xi, np.ones(num_stims)])
     unit_slopes = []
     for these_unit_amps in unit_amps:
         this_slope = np.linalg.lstsq(A.T, these_unit_amps)[0][0]

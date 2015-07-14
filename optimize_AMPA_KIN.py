@@ -9,7 +9,8 @@ This simulation uses scipy.optimize to iterate through AMPA_KIN mechanism parame
 #morph_filename = 'EB1-early-bifurcation.swc'
 morph_filename = 'EB2-late-bifurcation.swc'
 
-mech_filename = '043015 pas_exp_scale kdr ka_scale ih_sig_scale - EB2'
+#mech_filename = '043015 pas_exp_scale kdr ka_scale ih_sig_scale - EB2'
+mech_filename = '072515 optimized basal ka_scale dend_sh_ar_nas - EB2'
 
 
 def synaptic_kinetics_error(x, plot=0):
@@ -96,7 +97,7 @@ spike_times = h.Vector([equilibrate])
 
 cell = CA1_Pyr(morph_filename, mech_filename, full_spines=True)
 
-syn_type = 'AMPA_KIN2'
+syn_type = 'AMPA_KIN'
 
 sim = QuickSim(duration)
 
@@ -155,13 +156,13 @@ blocksize = 0.5  # defines the fraction of the xrange that will be explored at e
 mytakestep = MyTakeStep(blocksize, xmin, xmax)
 
 minimizer_kwargs = dict(method=null_minimizer)
-
+"""
 result = optimize.basinhopping(synaptic_kinetics_error, x0, niter= 720, niter_success=100, disp=True, interval=20,
                                                             minimizer_kwargs=minimizer_kwargs, take_step=mytakestep)
 #synaptic_kinetics_error(result.x, plot=1)
-
-polished_result = optimize.minimize(synaptic_kinetics_error, result.x, method='Nelder-Mead', options={'ftol': 1e-3,
-                                                                                                      'disp': True})
+"""
+polished_result = optimize.minimize(synaptic_kinetics_error, x1, method='Nelder-Mead', options={'ftol': 1e-3,
+                                                                                        'xtol': 1e-3, 'disp': True})
 synaptic_kinetics_error(polished_result.x, plot=1)
 
 #synaptic_kinetics_error(x1, plot=1)

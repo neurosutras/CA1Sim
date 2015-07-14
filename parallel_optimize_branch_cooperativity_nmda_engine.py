@@ -9,8 +9,9 @@ corresponding to which synapses to stimulate.
 """
 #morph_filename = 'EB1-early-bifurcation.swc'
 morph_filename = 'EB2-late-bifurcation.swc'
-mech_filename = '050715 pas_exp_scale kdr ka_scale ih_sig_scale ampar_exp_scale nmda - EB2'
+#mech_filename = '050715 pas_exp_scale kdr ka_scale ih_sig_scale ampar_exp_scale nmda - EB2'
 #mech_filename = '052615 pas_exp_scale ampar_exp_scale nmda - EB2'
+mech_filename = '072815 optimized basal ka_scale dend_sh_ar_nas - ampa_scale - EB2'
 rec_filename = 'output'+datetime.datetime.today().strftime('%m%d%Y%H%M')+'-pid'+str(os.getpid())
 
 NMDA_type = 'NMDA_KIN2'

@@ -3,6 +3,7 @@ from function_lib import *
 import matplotlib.lines as mlines
 import matplotlib as mpl
 import numpy as np
+import scipy.signal as signal
 
 mpl.rcParams['svg.fonttype'] = 'none'
 mpl.rcParams['font.size'] = 14.  # 18.
@@ -2025,5 +2026,128 @@ def plot_nmdar_conductance_from_processed(actual_file_list, description_list=Non
     if not title is None:
         fig.set_size_inches(20.8, 15.6)  # 19.2, 12)19.2, 12)
         fig.savefig(data_dir+title+' - NMDAR conductance.svg', format='svg')
+    plt.show()
+    plt.close()
+
+
+def process_patterned_input_simulation(rec_filename, title, dt=0.02):
+    """
+
+    :param rec_file_name: str
+    :param title: str
+    """
+    with h5py.File(data_dir+rec_filename+'.hdf5', 'r') as f:
+        equilibrate = f['0'].attrs['equilibrate']
+        track_equilibrate = f['0'].attrs['track_equilibrate']
+        track_length = f['0'].attrs['track_length']
+        input_field_duration = f['0'].attrs['input_field_duration']
+        duration = f['0'].attrs['duration']
+        stim_dt = f['0'].attrs['stim_dt']
+        bins = int((1.5 + track_length) * input_field_duration / 20)
+        track_duration = duration - equilibrate - track_equilibrate
+        stim_t = np.arange(-track_equilibrate, track_duration, stim_dt)
+        intervals = []
+        for sim in f.values():
+            for train in sim['train'].values():
+                if len(train) > 0:
+                    for i in range(len(train) - 1):
+                        intervals.append(train[i+1] - train[i])
+        mean_input = np.mean([get_smoothed_firing_rate(sim['train'].values(), stim_t) for sim in f.values()], axis=0)
+        if 'successes' in f['0']:
+            mean_successes = np.mean([get_smoothed_firing_rate(sim['successes'].values(), stim_t) for sim in
+                                      f.values()], axis=0)
+        mean_output = get_smoothed_firing_rate([sim['output'][:] for sim in f.values()], stim_t)
+        start = int(track_equilibrate/stim_dt)
+        plt.plot(stim_t[start:], mean_input[start:], label='Mean Population Input Spike Rate')
+        if 'successes' in f['0']:
+            plt.plot(stim_t[start:], mean_successes[start:], label='Mean Population Input Success Rate')
+        plt.plot(stim_t[start:], mean_output[start:], label='Mean Single Cell Output Spike Rate')
+        plt.legend(loc='best', frameon=False, framealpha=0.5)
+        plt.xlabel('Time (ms)')
+        plt.ylabel('Event Rate (Hz)')
+        plt.title(title)
+        plt.show()
+        plt.close()
+        plt.hist(intervals, bins=int(max(intervals)/3.), normed=True)
+        plt.xlim(0., 200.)
+        plt.ylabel('Probability')
+        plt.xlabel('Inter-Spike Interval (ms)')
+        plt.title('Distribution of Input Inter-Spike Intervals - '+title)
+        plt.show()
+        plt.close()
+        peak_locs = [sim.attrs['peak_loc'] for sim in f['0']['train'].values()]
+        plt.hist(peak_locs, bins=bins)
+        plt.xlabel('Time (ms)')
+        plt.ylabel('Count (20 ms Bins)')
+        plt.title('Distribution of Input Peak Locations - '+title)
+        plt.xlim((np.min(peak_locs), np.max(peak_locs)))
+        plt.show()
+        plt.close()
+        for sim in f.values():
+            t = np.arange(0., duration, dt)
+            vm = np.interp(t, sim['time'], sim['rec']['0'])
+            start = int((equilibrate + track_equilibrate)/dt)
+            plt.plot(np.subtract(t[start:], equilibrate + track_equilibrate), vm[start:])
+            plt.xlabel('Time (ms)')
+            plt.ylabel('Voltage (mV)')
+            plt.title('Somatic Vm - '+title)
+            plt.ylim((-70., -50.))
+        plt.show()
+        plt.close()
+    rec_t = np.arange(0., track_duration, dt)
+    spikes_removed = get_removed_spikes(rec_filename)
+    # down_sample traces to 2 kHz after clipping spikes for theta and ramp filtering
+    down_dt = 0.5
+    down_t = np.arange(0., track_duration, down_dt)
+    # 2000 ms Hamming window, ~3 Hz low-pass for ramp, ~5 - 10 Hz bandpass for theta
+    window_len = int(2000./down_dt)
+    theta_filter = signal.firwin(window_len, [5., 10.], nyq=1000./2./down_dt, pass_zero=False)
+    ramp_filter = signal.firwin(window_len, 3., nyq=1000./2./down_dt)
+    theta_traces = []
+    theta_removed = []
+    ramp_traces = []
+    ramp_removed = []
+    for trace in spikes_removed:
+        counts, vals = np.histogram(trace, bins=(np.max(trace)-np.min(trace))/0.2)
+        offset = vals[np.where(counts == np.max(counts))[0][0]]
+        subtracted = trace - offset
+        down_sampled = np.interp(down_t, rec_t, subtracted)
+        filtered = signal.filtfilt(theta_filter, [1.], down_sampled, padtype='even', padlen=window_len)
+        up_sampled = np.interp(rec_t, down_t, filtered)
+        theta_traces.append(up_sampled)
+        theta_filtered = subtracted - up_sampled
+        theta_removed.append(theta_filtered)
+        down_sampled = np.interp(down_t, rec_t, theta_filtered)
+        filtered = signal.filtfilt(ramp_filter, [1.], down_sampled, padtype='even', padlen=window_len)
+        up_sampled = np.interp(rec_t, down_t, filtered)
+        ramp_traces.append(up_sampled)
+        ramp_filtered = theta_filtered - up_sampled
+        ramp_removed.append(ramp_filtered)
+    mean_across_trials = np.mean(theta_removed, axis=0)
+    variance_across_trials = np.var(ramp_removed, axis=0)
+    binned_mean = []
+    binned_variance = []
+    bin_duration = 500.
+    interval = int(bin_duration/dt)
+    for i, residual in enumerate(ramp_removed):
+        for j in range(0, int(track_duration/bin_duration) - 1):
+            binned_variance.append(np.var(residual[j*interval:(j+1)*interval]))
+            binned_mean.append(np.var(theta_removed[i][j*interval:(j+1)*interval]))
+    plt.plot(rec_t, mean_across_trials)
+    plt.xlabel('Time (ms)')
+    plt.ylabel('Voltage (mV)')
+    plt.title('Somatic Vm Mean - Across Trials - ' + title)
+    plt.show()
+    plt.close()
+    plt.plot(rec_t, variance_across_trials)
+    plt.xlabel('Time (ms)')
+    plt.ylabel('Variance (mV'+r'$^2$'+')')
+    plt.title('Somatic Vm Variance - Across Trials - ' + title)
+    plt.show()
+    plt.close()
+    plt.scatter(binned_mean, binned_variance)
+    plt.xlabel('Mean (mV)')
+    plt.ylabel('Variance (mV'+r'$^2$'+')')
+    plt.title('Mean - Variance Analysis - ' + title)
     plt.show()
     plt.close()

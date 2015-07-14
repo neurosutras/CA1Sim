@@ -17,7 +17,8 @@ Assumes a controller is already running in another process with:
 ipcluster start -n num_cores
 """
 #new_rec_filename = '052215 apical oblique cooperativity'
-new_rec_filename = '052815 apical oblique cooperativity - proximal - new_mg - no nmda'
+#new_rec_filename = '052815 apical oblique cooperativity - proximal - new_mg - no nmda'
+new_rec_filename = '072815 apical oblique cooperativity - proximal'
 
 
 def branch_cooperativity_error(x, plot=0):
@@ -28,6 +29,8 @@ def branch_cooperativity_error(x, plot=0):
     """
     start_time = time.time()
     print 'gmax: %.3E, Kd: %.2f, gamma: %.3f' % (x[0], x[1], x[2])
+    if x[1] > 10. or x[2] < 0.06:
+        return 1e9
     dv['gmax'] = x[0]
     dv['Kd'] = x[1]
     dv['gamma'] = x[2]
@@ -66,15 +69,13 @@ def branch_cooperativity_error(x, plot=0):
     for filename in rec_file_list:
         os.remove(data_dir+filename+'.hdf5')
     with h5py.File(data_dir+new_rec_filename+'_expected.hdf5', 'r') as expected_file:
-        unit_with_nmda = get_expected_EPSP(expected_file,
-                                            parallel_optimize_branch_cooperativity_nmda_engine.spine.index,
+        unit_with_nmda = get_expected_EPSP(expected_file, '0',
                                             parallel_optimize_branch_cooperativity_nmda_engine.equilibrate,
                                             parallel_optimize_branch_cooperativity_nmda_engine.duration)
     dv['gmax'] = 0.
     result = v.map_sync(parallel_optimize_branch_cooperativity_nmda_engine.stim_expected, [0])
     with h5py.File(data_dir+result[0]+'.hdf5', 'r') as unit_no_nmda_file:
-        unit_no_nmda = get_expected_EPSP(unit_no_nmda_file,
-                                            parallel_optimize_branch_cooperativity_nmda_engine.spine.index,
+        unit_no_nmda = get_expected_EPSP(unit_no_nmda_file, '0',
                                             parallel_optimize_branch_cooperativity_nmda_engine.equilibrate,
                                             parallel_optimize_branch_cooperativity_nmda_engine.duration)
     os.remove(data_dir+result[0]+'.hdf5')
@@ -166,9 +167,9 @@ branch_cooperativity_error(result.x, plot=1)
 
 
 #branch_cooperativity_error(x0, plot=1)
-
+"""
 result = optimize.minimize(branch_cooperativity_error, x1, method='Nelder-Mead', options={'xtol': 1e-5, 'ftol': 1e-3,
                                                                                           'disp': True})
 branch_cooperativity_error(result.x, plot=1)
-"""
-branch_cooperativity_error(x2, 1)
+
+#branch_cooperativity_error(x2, 1)

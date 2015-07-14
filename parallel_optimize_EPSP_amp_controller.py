@@ -24,19 +24,14 @@ v = c.load_balanced_view()
 map_result = v.map_async(parallel_optimize_EPSP_amp_engine.optimize_single_synapse,
                          range(len(parallel_optimize_EPSP_amp_engine.syn_list)))
 while not map_result.ready():
-    clear_output()
+    time.sleep(30)
     for stdout in [stdout for stdout in map_result.stdout if stdout][-len(c):]:
         lines = stdout.split('\n')
         if lines[-2]:
             print lines[-2]
     sys.stdout.flush()
-    time.sleep(60)
+    clear_output()
 results = map_result.get()
-for stdout in map_result.stdout:
-    if stdout:
-        lines = stdout.split('\n')
-        if lines[-2]:
-            print lines[-2]
 print 'Parallel execution took:', time.time()-start_time, 's'
 distances = {}
 param_vals = {}

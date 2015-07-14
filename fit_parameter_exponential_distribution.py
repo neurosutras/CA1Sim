@@ -5,12 +5,14 @@ import numpy as np
 import scipy.optimize as optimize
 import scipy.interpolate as interpolate
 import matplotlib.pyplot as plt
+import scipy.stats as stats
 
 #rec_filename = '032415 kap_kad_ih_scale kd pas no_na - EB1 - AMPAR_scaling'
 #rec_filename = '032615 kap_kad_ih_scale kd pas no_na - EB2 - AMPAR_scaling'
-rec_filename = '043015 pas_exp_scale kdr ka_scale ih_sig_scale - EB2 - AMPAR_scaling'
+#rec_filename = '043015 pas_exp_scale kdr ka_scale ih_sig_scale - EB2 - AMPAR_scaling'
+rec_filename = '072515 optimized basal ka_scale dend_sh_ar_nas - EB2 - AMPAR_scaling'
 
-def fit_exp_linear(t, y, A0=0):
+def fit_exp_linear(t, y, y0=0):
     """
     Removes the specified offset and fits the exponential as a line in log space.
     :param t:
@@ -18,7 +20,7 @@ def fit_exp_linear(t, y, A0=0):
     :param A0:
     :return:
     """
-    y = np.log(y[1:]-A0)
+    y = np.log(y[1:] - y0)
     tau, logA = np.polyfit(t[1:], y, 1)
     return np.exp(logA), 1/tau
 
@@ -40,15 +42,15 @@ def fit_synaptic_parameter_distribution(rec_filename, sec_type, syn_type, param_
             sorted_distances = np.array(map(distances.__getitem__, indexes))
             sorted_dataset = np.array(map(dataset.__getitem__, indexes))
             interp_distances = np.arange(0, sorted_distances[-1], 1.)
-            A0 = sorted_dataset[0]
-            A, tau = fit_exp_linear(sorted_distances, sorted_dataset, A0)
-            A1 = min(A0, sorted_dataset[0]-A)
-            A, tau = fit_exp_linear(sorted_distances, sorted_dataset, A1)
-            fit = model_scaled_exp(interp_distances, A, tau, A1)
+
+            y0 = sorted_dataset[0]
+            A, tau = fit_exp_linear(sorted_distances, sorted_dataset, y0)
+            y1 = y0-A
+            A, tau = fit_exp_linear(sorted_distances, sorted_dataset, y1)
+            fit = (y0 - A) + A * np.exp(interp_distances/tau)
+
             plt.scatter(sorted_distances, sorted_dataset, label=syn_type+': '+param_name)
             plt.plot(interp_distances, fit, label='fit')
-            #gfit = model_scaled_exp(interp_distances, x_av[0], x_av[1], x_av[2])
-            #plt.plot(interp_distances, gfit, label='global fit')
             plt.xlabel('Distance from Soma (um)')
             plt.ylabel('Peak Conductance (uS)')
             plt.title('Mechanism Parameter Distribution')
@@ -56,7 +58,7 @@ def fit_synaptic_parameter_distribution(rec_filename, sec_type, syn_type, param_
             plt.show()
         else:
             raise Exception('rec_filename is not formatted correctly or does not contain the specified data.')
-    return [A, tau, A1]
+    return [y0, A, tau]
     #return sorted_distances, sorted_dataset, interp_distances
 
 """
@@ -72,6 +74,7 @@ basal_av = np.mean([basal_EB1, basal_EB2], axis=0)
 # basal_av = [  5.92782025e-04,   6.16048735e+01,   6.17113368e-04]
 x_av = basal_av
 """
-result = [x, y, fit] = fit_synaptic_parameter_distribution(rec_filename, 'trunk', 'AMPA_KIN', 'gmax')
+
+result = [y0, A, tau] = fit_synaptic_parameter_distribution(rec_filename, 'basal', 'AMPA_KIN', 'gmax')
 #x = fit_synaptic_parameter_distribution(rec_filename, 'basal', 'AMPA_KIN', 'gmax')
 print result

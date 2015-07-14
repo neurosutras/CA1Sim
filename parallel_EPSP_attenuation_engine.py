@@ -10,7 +10,8 @@ which synapse to stimulate (coarse sampling of the full set of spines).
 morph_filename = 'EB2-late-bifurcation.swc'
 
 # exponential ampar conductance gradient applied to trunk; inheritance applied to apical and tuft; constant basal
-mech_filename = '043015 pas_exp_scale kdr ka_scale ih_sig_scale ampar_exp_scale - EB2'
+#mech_filename = '043015 pas_exp_scale kdr ka_scale ih_sig_scale ampar_exp_scale - EB2'
+mech_filename = '071715 rebalanced na_kap_kdr_pas_h - EB2 - spines'
 
 rec_filename = 'output'+datetime.datetime.today().strftime('%m%d%Y%H%M')+'-pid'+str(os.getpid())
 

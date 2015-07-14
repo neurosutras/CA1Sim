@@ -283,7 +283,7 @@ class QuickSim(object):
         if cvode:
             self.cvode = h.CVode()
             self.cvode.active(1)
-            self.cvode.atol(0.0001)
+            self.cvode.atol(0.001)  # 0.0001
         else:
             self.cvode = None
         if dt is None:
@@ -598,7 +598,7 @@ def get_expected_EPSP(sim_file, group_index, equilibrate, duration):
     :param duration: float
     :return: dict of :class:'numpy.array'
     """
-    sim = sim_file[group_index]
+    sim = sim_file[str(group_index)]
     t = sim['time'][:]
     interp_t = np.arange(0, duration, 0.01)
     left, right = time2index(interp_t, equilibrate-3., equilibrate-1.)
@@ -727,3 +727,109 @@ def export_nmdar_cooperativity(expected_filename, actual_filename, description="
                                                            data=expected_dict[location])
                         rec_group.create_dataset('actual', compression='gzip', compression_opts=9,
                                                            data=actual_dict[location])
+
+
+def get_smoothed_firing_rate(spike_times, t, bin_dur=20., dt=0.1):
+    """
+
+    :param spike_times: list of lists
+    :param t: array
+    :param bin_dur: float (ms)
+    :param dt: float (ms)
+    :return: array (Hz)
+    """
+    count = np.zeros(len(t))
+    rate = np.zeros(len(t))
+    for train in spike_times:
+        for i in train:
+            count[int(i/dt)]+=1
+    for i in range(len(count)):
+        bin_size = int(bin_dur/dt)
+        if i < int(bin_size/2):
+            left = 0
+            right = i + int(bin_size/2)
+        elif i + int(bin_size/2) > len(count):
+            left = i - int(bin_size/2)
+            right = len(count)
+        else:
+            left = i - int(bin_size/2)
+            right = i + int(bin_size/2)
+        rate[i] = np.sum(count[left:right])/(right-left)/dt*1000.
+    return rate
+
+
+def get_removed_spikes(rec_filename, before=0.3, after=6., dt=0.02, th=20.):
+    """
+
+    :param rec_filename: str
+    :param before: float : time to remove before spike
+    :param after: float : time to remove after spike in case where trough or voltage recovery cannot be used
+    :param dt: float : temporal resolution for interpolation and dvdt
+    :param th: float : slope threshold
+    :return: list of :class:'numpy.array'
+    """
+    removed = []
+    with h5py.File(data_dir+rec_filename+'.hdf5', 'r') as f:
+        equilibrate = f['0'].attrs['equilibrate']
+        duration = f['0'].attrs['duration']
+        track_equilibrate = f['0'].attrs['track_equilibrate']
+        for rec in f.values():
+            t = np.arange(0., duration, dt)
+            vm = np.interp(t, rec['time'], rec['rec']['0'])
+            start = int((equilibrate + track_equilibrate) / dt)
+            t = np.subtract(t[start:], equilibrate + track_equilibrate)
+            vm = vm[start:]
+            dvdt = np.gradient(vm, [dt])
+            crossings = np.where(dvdt >= th)[0]
+            if not np.any(crossings):
+                removed.append(vm)
+            else:
+                spike_t = 0.
+                i = 0
+                while i < len(crossings) and int(spike_t/dt) < len(vm):
+                    start = t[crossings[i]]
+                    if spike_t < start:
+                        spike_t += dt
+                    else:
+                        left = max(0, crossings[i] - int(before/dt))
+                        recovers = np.where(vm[crossings[i]:] < vm[left])[0]
+                        if np.any(recovers):
+                            recovers = crossings[i] + recovers[0]
+                        falling = np.where(dvdt[crossings[i]:] < 0.)[0]
+                        if np.any(falling):
+                            falling = crossings[i] + falling[0]
+                            rising = np.where(dvdt[falling:] >= 0.)[0]
+                            if np.any(rising):
+                                rising = falling + rising[0]
+                        else:
+                            rising = []
+                        if np.any(recovers):
+                            if np.any(rising):
+                                right = min(recovers, rising)
+                            else:
+                                right = recovers
+                        elif np.any(rising):
+                            right = rising
+                        else:
+                            right = min(crossings[i] + int(after/dt), len(vm))
+                        for j in range(left, right):
+                            vm[j] = np.nan
+                        spike_t = t[right]
+                        last = i
+                        i += 1
+                        while i < len(crossings) and crossings[i] - crossings[last] == 1:
+                            last = i
+                            i += 1
+                not_blank = np.where(~np.isnan(vm))[0]
+                vm = np.interp(t, t[not_blank], vm[not_blank])
+                removed.append(vm)
+            temp_t = np.arange(0., duration, dt)
+            temp_vm = np.interp(temp_t, rec['time'], rec['rec']['0'])
+            start = int((equilibrate + track_equilibrate) / dt)
+            temp_t = np.subtract(temp_t[start:], equilibrate + track_equilibrate)
+            temp_vm = temp_vm[start:]
+            plt.plot(temp_t, temp_vm)
+            plt.plot(t, vm)
+            plt.show()
+            plt.close()
+    return removed
