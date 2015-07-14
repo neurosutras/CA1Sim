@@ -56,15 +56,15 @@ DERIVATIVE states {
 }
 
 FUNCTION alpl(v(mV)) {
-  alpl = exp(1.e-3*zetal*(v-vhalfl)*9.648e4/(8.315*(273.16+celsius))) 
+  alpl = exp(1e-3*zetal*(v-vhalfl)*9.648e4/(8.315*(273.16+celsius)))
 }
 
 FUNCTION alpt(v(mV)) {
-  alpt = exp(1.e-3*zetat*(v-vhalft)*9.648e4/(8.315*(273.16+celsius))) 
+  alpt = exp(1e-3*zetat*(v-vhalft)*9.648e4/(8.315*(273.16+celsius)))
 }
 
 FUNCTION bett(v(mV)) {
-  bett = exp(1.e-3*zetat*gmt*(v-vhalft)*9.648e4/(8.315*(273.16+celsius))) 
+  bett = exp(1e-3*zetat*gmt*(v-vhalft)*9.648e4/(8.315*(273.16+celsius)))
 }
 
 PROCEDURE rate(v (mV)) { :callable from hoc

@@ -27,7 +27,7 @@ PARAMETER {
         a0n     = 0.02          (/ms)
         zetan   = -3            (1)
         gmn     = 0.7           (1)
-        nmin    = 1             (ms)
+        nmin    = 2             (ms)
         nscale  = 1
 }
 

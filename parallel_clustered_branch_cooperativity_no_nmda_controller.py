@@ -15,7 +15,11 @@ ipcluster start -n num_cores
 """
 new_rec_filename = '060915 clustered nmda cooperativity - no_nmda'
 
-c = Client()
+if len(sys.argv) > 1:
+    cluster_id = sys.argv[1]
+    c = Client(cluster_id=cluster_id)
+else:
+    c = Client()
 dv = c[:]
 dv.clear()
 dv.block = True

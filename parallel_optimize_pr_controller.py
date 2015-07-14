@@ -39,21 +39,44 @@ def release_dynamics_error(x, plot=0):
         sys.stdout.flush()
     dv.execute('restore_random_sequence_locations()')
     results = {}
+    unit_amps = []
+    interp_dt = parallel_optimize_pr_engine.interp_dt
+    num_stims = parallel_optimize_pr_engine.num_stims
     for result in map_result.get():
         for ISI in result:
+            if ISI == 300:
+                interp_t = np.arange(0., interp_dt*len(result[ISI]), interp_dt)
+                these_unit_amps = []
+                for i in range(num_stims):
+                    left, right = time2index(interp_t, 2.0+ISI*i, 102.0+ISI*i)
+                    these_unit_amps.append(np.max(result[ISI][left:right]))
+                unit_amps.append(these_unit_amps)
             if not ISI in results:
                 results[ISI] = result[ISI]
             else:
                 results[ISI] += result[ISI]
     for ISI in results:
         results[ISI] /= float(repeat)
-    #return results
+
+    # calculate slope across multiple stims at 300 ms ISI:
+    xi = np.arange(0, num_stims)
+    A = np.array([x1, np.ones(num_stims)])
+    unit_slopes = []
+    for these_unit_amps in unit_amps:
+        this_slope = np.linalg.lstsq(A.T, these_unit_amps)[0][0]
+        unit_slopes.append(this_slope)
+    mean_unit_slope = np.mean(unit_slopes)
+    mean_unit_amp = np.mean(unit_amps)
     Err = 0.
     for ISI in results:
-        Err += round(((target_val[ISI] - np.max(results[ISI]))/target_range[ISI])**2., 10)
+        if ISI == 300:
+            Err += round(((target_val[ISI] - mean_unit_amp)/target_range[ISI])**2., 10)
+            Err += round(((target_val['unit_slope'] - mean_unit_slope)/target_range['unit_slope'])**2., 10)
+        else:
+            Err += round(((target_val[ISI] - np.max(results[ISI]))/target_range[ISI])**2., 10)
     print 'Parallel simulation took:', time.time()-start_time, 's, Error:', Err
-    print ('Num synapses: %i, P0: %.3f, f: %.3f, tau_F: %.3f, D: %.3f, tau_D: %.3f' % (int(x[0]*1000), x[1], x[2], x[3],
-                                                                                       x[4], x[5]))
+    print ('Num synapses: %i, P0: %.3f, f: %.3f, tau_F: %.3f, D: %.3f, tau_D: %.3f, unit amp: %.3f, unit slope: %.2E' %
+           (int(x[0]*1000), x[1], x[2], x[3], x[4], x[5], mean_unit_amp, mean_unit_slope))
     interp_t = {}
     if plot:
         interp_dt = parallel_optimize_pr_engine.interp_dt
@@ -72,8 +95,8 @@ def release_dynamics_error(x, plot=0):
         return Err
 
 #the target values and acceptable ranges
-target_val = {300: 3.8, 100: 7.1, 50: 9.0, 25: 11.6, 10: 15.1}
-target_range = {300: 0.6, 100: 1.0, 50: 1.4, 25: 1.7, 10: 1.8}
+target_val = {300: 3.8, 100: 7.1, 50: 9.0, 25: 11.6, 10: 15.1, 'unit_slope': 0.}
+target_range = {300: 0.6, 100: 1.0, 50: 1.4, 25: 1.7, 10: 1.8, 'unit_slope': .01}
 
 param_names = ['n', 'P0', 'f', 'tau_F', 'd1', 'tau_D1']
 
@@ -111,11 +134,10 @@ result = optimize.basinhopping(release_dynamics_error, x0, niter= 720, niter_suc
                                                             minimizer_kwargs=minimizer_kwargs, take_step=mytakestep)
 #release_dynamics_error(result.x, plot=1)
 print result
-"""
+
 polished_result = optimize.minimize(release_dynamics_error, x1, method='Nelder-Mead',
                                     options={'xtol': 1e-3, 'ftol': 1e-3, 'maxiter': 200, 'disp': True})
 print polished_result
 """
-release_dynamics_error(polished_result.x, plot=1)
+#release_dynamics_error(polished_result.x, plot=1)
 release_dynamics_error(x1, plot=1)
-"""
