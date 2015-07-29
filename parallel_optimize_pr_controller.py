@@ -21,7 +21,7 @@ def release_dynamics_error(x, plot=0):
     :return: float
     """
     start_time = time.time()
-    repeat = 10
+    repeat = 5
     ISI_list = [300, 100, 50, 25, 10]
     instructions = []
     for ISI in ISI_list:
@@ -134,10 +134,11 @@ result = optimize.basinhopping(release_dynamics_error, x0, niter= 720, niter_suc
                                                             minimizer_kwargs=minimizer_kwargs, take_step=mytakestep)
 #release_dynamics_error(result.x, plot=1)
 print result
-
+"""
 polished_result = optimize.minimize(release_dynamics_error, x1, method='Nelder-Mead',
-                                    options={'xtol': 1e-3, 'ftol': 1e-3, 'maxiter': 200, 'disp': True})
+                                    options={'xtol': 1e-3, 'ftol': 1e-3, 'maxiter': 100, 'disp': True})
 print polished_result
 """
 #release_dynamics_error(polished_result.x, plot=1)
 release_dynamics_error(x1, plot=1)
+"""

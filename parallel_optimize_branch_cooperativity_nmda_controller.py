@@ -28,7 +28,6 @@ def branch_cooperativity_error(x, plot=0):
     :return: float
     """
     start_time = time.time()
-    print 'gmax: %.3E, Kd: %.2f, gamma: %.3f' % (x[0], x[1], x[2])
     if x[1] > 10. or x[2] < 0.06:
         return 1e9
     dv['gmax'] = x[0]
@@ -106,6 +105,9 @@ def branch_cooperativity_error(x, plot=0):
     Err = 0.
     for target in result:
         Err += ((target_val[target] - result[target])/target_range[target])**2.
+    print 'gmax: %.3E, Kd: %.2f, gamma: %.3f' % (x[0], x[1], x[2])
+    print 'Peak Supralinearity:', result['peak_supralinearity'], ', Min Supralinearity:', \
+        result['min_supralinearity'], ', Unitary % NMDA:', result['unitary_nmda_contribution']
     print 'Parallel simulation took %i s, Error: %.4E' % (time.time()-start_time, Err)
     if plot:
         print result['peak_supralinearity']
@@ -168,8 +170,8 @@ branch_cooperativity_error(result.x, plot=1)
 
 #branch_cooperativity_error(x0, plot=1)
 """
-result = optimize.minimize(branch_cooperativity_error, x1, method='Nelder-Mead', options={'xtol': 1e-5, 'ftol': 1e-3,
-                                                                                          'disp': True})
+result = optimize.minimize(branch_cooperativity_error, x1, method='Nelder-Mead', options={'xtol': 1e-3, 'ftol': 1e-3,
+                                                                                    'disp': True, 'maxiter': 100})
 branch_cooperativity_error(result.x, plot=1)
 
 #branch_cooperativity_error(x2, 1)

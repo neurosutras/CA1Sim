@@ -9,7 +9,8 @@ which synapse to optimize (coarse sampling of the full set of spines).
 """
 #morph_filename = 'EB1-early-bifurcation.swc'
 morph_filename = 'EB2-late-bifurcation.swc'
-mech_filename = '052915 pas_exp_scale kdr ka_scale ih_sig_scale ampar_exp_scale nmda - EB2'
+#mech_filename = '052915 pas_exp_scale kdr ka_scale ih_sig_scale ampar_exp_scale nmda - EB2'
+mech_filename = '072815 optimized basal ka_scale dend_sh_ar_nas - ampa_scale - EB2'
 
 param_names = ['n', 'P0', 'f', 'tau_F', 'd1', 'tau_D1']
 x = []  # placeholder for optimization parameters, must be pushed to each engine at each basinhopping step
@@ -67,6 +68,18 @@ def restore_random_sequence_locations():
         syn.randObj.seq(rand_seq_locs[i])
 
 
+def zero_na():
+    """
+
+    """
+    for sec_type in ['axon_hill', 'ais']:
+        cell.modify_mech_param(sec_type, 'nax', 'gbar', 0.)
+    cell.reinitialize_subset_mechanisms('axon', 'nax')
+    cell.modify_mech_param('soma', 'nas', 'gbar', 0.)
+    for sec_type in ['basal', 'trunk', 'apical', 'tuft']:
+        cell.reinitialize_subset_mechanisms(sec_type, 'nas')
+
+
 equilibrate = 250.  # time to steady-state
 duration = 550.
 v_init = -67.
@@ -75,6 +88,7 @@ syn_types = ['AMPA_KIN', 'NMDA_KIN2']
 syn_list = []
 rand_seq_locs = []
 cell = CA1_Pyr(morph_filename, mech_filename, full_spines=True)
+zero_na()
 
 local_random = random.Random()
 for branch in cell.trunk+cell.apical:
