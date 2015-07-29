@@ -13,6 +13,63 @@ Assumes a controller is already running in another process with:
 ipcluster start -n num_cores
 """
 
+class Normalized_Step(object):
+    """
+    For use with scipy.optimize packages like basinhopping that allow a customized step-taking method.
+    Converts basinhopping absolute stepsize into different stepsizes for each parameter such that the stepsizes are
+    some fraction of the ranges specified by xmin and xmax. Also enforces bounds for x, and explores the range in
+    log10 space when the range is greater than 2 orders of magnitude.
+    xmin and xmax are delivered as raw, not relative values. Can handle negative values and ranges that cross zero. If
+    xmin and xmax are not provided, or contain None as values, the default is 0.1 and 10. * x0.
+    """
+    def __init__(self, x0, xmin=None, xmax=None, stepsize=0.5):
+        self.stepsize = stepsize
+        if xmin is None:
+            xmin = [None for i in range(len(x0))]
+        for i in range(len(xmin)):
+            if xmin[i] is None:
+                if x0[i] > 0.:
+                    xmin[i] = 0.1 * x0[i]
+                else:
+                    xmin[i] = 10. * x0[i]
+        if xmax is None:
+            xmax = [None for i in range(len(x0))]
+        for i in range(len(xmax)):
+            if xmax[i] is None:
+                if x0[i] > 0.:
+                    xmax[i] = 10. * x0[i]
+                else:
+                    xmax[i] = 0.1 * x0[i]
+        self.x0 = x0
+        self.x_range = np.subtract(xmax, xmin)
+        self.order_mag = np.abs(np.log10(np.abs(np.divide(xmax, xmin))))
+        self.log10_range = np.log10(np.add(1., self.x_range))
+        self.x_offset = np.subtract(1., xmin)
+
+    def __call__(self, current_x):
+        x = np.add(current_x, self.x_offset)
+        x = np.maximum(x, 1.)
+        x = np.minimum(x, np.add(1., self.x_range))
+        for i in range(len(x)):
+            if self.order_mag[i] >= 2.:
+                x[i] = self.log10_step(i, x[i])
+            else:
+                x[i] = self.linear_step(i, x[i])
+        new_x = np.subtract(x, self.x_offset)
+        return new_x
+
+    def linear_step(self, i, xi):
+        step = self.stepsize * self.x_range[i] / 2.
+        new_xi = np.random.uniform(max(1., xi-step), min(xi+step, 1.+self.x_range[i]))
+        return new_xi
+
+    def log10_step(self, i, xi):
+        step = self.stepsize * self.log10_range[i] / 2.
+        xi = np.log10(xi)
+        new_xi = np.random.uniform(max(0., xi-step), min(xi+step, self.log10_range[i]))
+        new_xi = np.power(10., new_xi)
+        return new_xi
+
 
 def release_dynamics_error(x, plot=0):
     """
@@ -108,12 +165,13 @@ x0 = [0.09, 0.17, 1.31, 180.7, 0.80, 0.6]
 # the bounds
 #xmin = [0.01, 0.1, 0.01, 1., 0.01, 1.]  # n will be filtered by f(n) = int(n * 1000)
 #xmax = [0.3, 0.9, 50., 1e4, 1.0, 1e5]
-xmin = [0.05, 0.1, 0.1, 100., 0.5, .1]  # n will be filtered by f(n) = int(n * 1000)
-xmax = [0.2, 0.4, 5., 300., 1.0, 100.]
+xmin = [0.05, 0.1, 0.5, 50., 0.5, 10.]  # n will be filtered by f(n) = int(n * 1000)
+xmax = [0.1, 0.3, 2., 300., 1.0, 300.]
 
 #x1 = [0.101, 0.19, 1.61, 162.3, 0.93, 4.0]  # first pass basinhopping
 #x1 = [0.09, 0.17, 1.31, 180.7, 0.80, 0.6]  # second pass basinhopping
-x1 = [0.067, 0.18, 0.92, 105.5, 0.64, 2.7]  # first pass basinhopping after calibrating NMDA_KIN2.gmax for cooperativity
+#x1 = [0.067, 0.18, 0.92, 105.5, 0.64, 2.7]  # first pass basinhopping after calibrating NMDA_KIN2.gmax for cooperativity
+x1 = [0.067, 0.18, 0.92, 105.5, 0.64, 10.]  # first pass basinhopping after calibrating NMDA_KIN2.gmax for cooperativity
 
 c = Client()
 dv = c[:]
@@ -126,19 +184,19 @@ v = c.load_balanced_view()
 blocksize = 0.5  # defines the fraction of the xrange that will be explored at each step
                  #  basinhopping starts with this value and reduces it by 10% every 'interval' iterations
 
-mytakestep = MyTakeStep(blocksize, xmin, xmax)
+mytakestep = Normalized_Step(x1, xmin, xmax)
 
 minimizer_kwargs = dict(method=null_minimizer)
-"""
-result = optimize.basinhopping(release_dynamics_error, x0, niter= 720, niter_success=100, disp=True, interval=20,
+
+result = optimize.basinhopping(release_dynamics_error, x1, niter= 400, niter_success=100, disp=True, interval=20,
                                                             minimizer_kwargs=minimizer_kwargs, take_step=mytakestep)
-#release_dynamics_error(result.x, plot=1)
+release_dynamics_error(result.x, plot=1)
 print result
 """
 polished_result = optimize.minimize(release_dynamics_error, x1, method='Nelder-Mead',
                                     options={'xtol': 1e-3, 'ftol': 1e-3, 'maxiter': 100, 'disp': True})
 print polished_result
-"""
+
 #release_dynamics_error(polished_result.x, plot=1)
 release_dynamics_error(x1, plot=1)
 """

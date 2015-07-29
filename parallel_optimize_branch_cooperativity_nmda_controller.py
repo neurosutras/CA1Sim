@@ -136,7 +136,7 @@ def branch_cooperativity_error(x, plot=0):
 
 #the target values and acceptable ranges
 target_val = {'peak_supralinearity': 44., 'min_supralinearity': 0., 'unitary_nmda_contribution': 0.}
-target_range = {'peak_supralinearity': 6., 'min_supralinearity': 0.1,'unitary_nmda_contribution': 0.1}
+target_range = {'peak_supralinearity': 3., 'min_supralinearity': 0.01,'unitary_nmda_contribution': 0.01}
 
 #the initial guess
 # x = ['gmax', 'Kd', 'gamma']
@@ -145,7 +145,8 @@ xmin = [5e-4, 1.6, 0.06]
 xmax = [5e-3, 10., 0.1]
 #x1 = [3.11e-3, 7.18, 0.097]
 #x1 = [3.59e-3, 8.44, 0.12]
-x1 = [2.72e-3, 9.82, 0.089]  # Err: 4.18
+#x1 = [2.72e-3, 9.82, 0.089]  # Err: 4.18
+x1 = [2.898E-03, 9.78, 0.086]
 x2 = [0., 9.82, 0.089]
 
 blocksize = 0.5  # defines the fraction of the xrange that will be explored at each step
@@ -169,9 +170,9 @@ branch_cooperativity_error(result.x, plot=1)
 
 
 #branch_cooperativity_error(x0, plot=1)
-"""
+
 result = optimize.minimize(branch_cooperativity_error, x1, method='Nelder-Mead', options={'xtol': 1e-3, 'ftol': 1e-3,
                                                                                     'disp': True, 'maxiter': 100})
 branch_cooperativity_error(result.x, plot=1)
-
-#branch_cooperativity_error(x2, 1)
+"""
+branch_cooperativity_error(x1, 1)

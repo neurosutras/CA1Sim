@@ -26,11 +26,11 @@ NEURON {
 
 PARAMETER {
     : the (1) is needed for the range limits to be effective
-	P0 = 0.19       (1)     < 0, 1 >        : basal release probability
-    f = 1.61        (1)     < 0, 1e9 >      : additive facilitation per spike
-    tau_F = 161.6   (ms)    < 1e-9, 1e9 >   : rate of decay back to baseline following facilitation
-    d1 = 0.92       (1)     < 0, 1 >        : multiplicative fast depression per spike
-    tau_D1 = 3.8    (ms)    < 1e-9, 1e9 >   : rate of decay back to baseline following fast depression
+	P0 = 0.18       (1)     < 0, 1 >        : basal release probability
+    f = 0.92        (1)     < 0, 1e9 >      : additive facilitation per spike
+    tau_F = 105.5   (ms)    < 1e-9, 1e9 >   : rate of decay back to baseline following facilitation
+    d1 = 0.64       (1)     < 0, 1 >        : multiplicative fast depression per spike
+    tau_D1 = 2.7    (ms)    < 1e-9, 1e9 >   : rate of decay back to baseline following fast depression
     d2 = 0.975      (1)     < 0, 1 >        : multiplicative slow depression per spike
     tau_D2 = 9200   (ms)    < 1e-9, 1e9 >   : rate of decay back to baseline following slow depression
 }

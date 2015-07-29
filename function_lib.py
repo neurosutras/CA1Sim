@@ -741,8 +741,10 @@ def get_smoothed_firing_rate(spike_times, t, bin_dur=20., dt=0.1):
     count = np.zeros(len(t))
     rate = np.zeros(len(t))
     for train in spike_times:
-        for i in train:
-            count[int(i/dt)]+=1
+        for spike_time in train:
+            if spike_time >= t[0] and spike_time <= t[-1]:
+                i = np.where(t >= spike_time)[0][0]
+                count[i] += 1
     for i in range(len(count)):
         bin_size = int(bin_dur/dt)
         if i < int(bin_size/2):
