@@ -85,6 +85,7 @@ def release_dynamics_error(x, plot=0):
         for i in range(repeat):
             instructions.append(ISI)
     dv['x'] = x
+    dv['max_simiter'] = len(instructions)
     map_result = v.map_async(parallel_optimize_pr_engine.sim_stim_train, instructions)
     while not map_result.ready():
         time.sleep(30)
@@ -129,6 +130,25 @@ def release_dynamics_error(x, plot=0):
         if ISI == 300:
             Err += round(((target_val[ISI] - mean_unit_amp)/target_range[ISI])**2., 10)
             Err += round(((target_val['unit_slope'] - mean_unit_slope)/target_range['unit_slope'])**2., 10)
+        elif ISI == 10:
+            # 3rd pulse in burst of 5
+            left = 0
+            right = int((2.+ISI*3)/interp_dt)
+            amp = np.max(results[ISI][left:right])
+            #print '3rd pulse amp:', amp
+            Err += round(((target_val[ISI] - amp)/target_range[ISI])**2., 10)
+            # 5th pulse in burst of 5
+            left = right
+            right += int(ISI*2/interp_dt)
+            amp = np.max(results[ISI][left:right])
+            #print '5th pulse amp:', amp
+            Err += round(((target_val['5th pulse'] - amp)/target_range['5th pulse'])**2., 10)
+            # 6th pulse after recovery
+            left = right + int(100./interp_dt)
+            right = left + int(ISI/interp_dt)
+            amp = np.max(results[ISI][left:right])
+            #print 'recovery pulse amp:', amp
+            Err += round(((target_val['recovery'] - amp)/target_range['recovery'])**2., 10)
         else:
             Err += round(((target_val[ISI] - np.max(results[ISI]))/target_range[ISI])**2., 10)
     print 'Parallel simulation took:', time.time()-start_time, 's, Error:', Err
@@ -152,8 +172,10 @@ def release_dynamics_error(x, plot=0):
         return Err
 
 #the target values and acceptable ranges
-target_val = {300: 3.8, 100: 7.1, 50: 9.0, 25: 11.6, 10: 15.1, 'unit_slope': 0.}
-target_range = {300: 0.6, 100: 1.0, 50: 1.4, 25: 1.7, 10: 1.8, 'unit_slope': .01}
+target_val = {300: 3.8, 100: 7.1, 50: 9.0, 25: 11.6, 10: 15.1, '5th pulse': 21.7, 'recovery': 5.8, 'unit_slope': 0.}
+target_range = {300: 0.6, 100: 1.0, 50: 1.4, 25: 1.7, 10: 1.8, '5th pulse': 2., 'recovery': 0.5, 'unit_slope': .01}
+#target_val = {300: 3.8, 100: 7.1, 50: 9.0, 25: 11.6, 10: 15.1, 'unit_slope': 0.}
+#target_range = {300: 0.6, 100: 1.0, 50: 1.4, 25: 1.7, 10: 1.8, 'unit_slope': .01}
 
 param_names = ['n', 'P0', 'f', 'tau_F', 'd1', 'tau_D1']
 
@@ -166,12 +188,13 @@ x0 = [0.09, 0.17, 1.31, 180.7, 0.80, 0.6]
 #xmin = [0.01, 0.1, 0.01, 1., 0.01, 1.]  # n will be filtered by f(n) = int(n * 1000)
 #xmax = [0.3, 0.9, 50., 1e4, 1.0, 1e5]
 xmin = [0.05, 0.1, 0.5, 50., 0.5, 10.]  # n will be filtered by f(n) = int(n * 1000)
-xmax = [0.1, 0.3, 2., 300., 1.0, 300.]
+xmax = [0.2, 0.3, 2., 300., 1.0, 300.]
 
 #x1 = [0.101, 0.19, 1.61, 162.3, 0.93, 4.0]  # first pass basinhopping
 #x1 = [0.09, 0.17, 1.31, 180.7, 0.80, 0.6]  # second pass basinhopping
 #x1 = [0.067, 0.18, 0.92, 105.5, 0.64, 2.7]  # first pass basinhopping after calibrating NMDA_KIN2.gmax for cooperativity
-x1 = [0.067, 0.18, 0.92, 105.5, 0.64, 10.]  # first pass basinhopping after calibrating NMDA_KIN2.gmax for cooperativity
+#x1 = [0.067, 0.18, 0.92, 105.5, 0.64, 10.]  # first pass basinhopping after calibrating NMDA_KIN2.gmax for cooperativity
+x1 = [0.055, 0.279, 1.731, 143.048, 0.843, 165.690]
 
 c = Client()
 dv = c[:]
@@ -191,8 +214,8 @@ minimizer_kwargs = dict(method=null_minimizer)
 result = optimize.basinhopping(release_dynamics_error, x1, niter= 400, niter_success=100, disp=True, interval=20,
                                                             minimizer_kwargs=minimizer_kwargs, take_step=mytakestep)
 release_dynamics_error(result.x, plot=1)
-print result
 """
+
 polished_result = optimize.minimize(release_dynamics_error, x1, method='Nelder-Mead',
                                     options={'xtol': 1e-3, 'ftol': 1e-3, 'maxiter': 100, 'disp': True})
 print polished_result

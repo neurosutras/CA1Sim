@@ -10,10 +10,12 @@ which synapse to optimize (coarse sampling of the full set of spines).
 #morph_filename = 'EB1-early-bifurcation.swc'
 morph_filename = 'EB2-late-bifurcation.swc'
 #mech_filename = '052915 pas_exp_scale kdr ka_scale ih_sig_scale ampar_exp_scale nmda - EB2'
-mech_filename = '072815 optimized basal ka_scale dend_sh_ar_nas - ampa_scale - EB2'
+mech_filename = '073015 rebalanced na_ka ampa nmda - EB2'
+rec_filename = 'output'+datetime.datetime.today().strftime('%m%d%Y%H%M')+'-pid'+str(os.getpid())
 
 param_names = ['n', 'P0', 'f', 'tau_F', 'd1', 'tau_D1']
-x = []  # placeholder for optimization parameters, must be pushed to each engine at each basinhopping step
+x = []  # placeholder for optimization parameters, must be pushed to each engine at each iteration
+max_simiter = 0  # placeholder for total number of stimuli per iteration, must be pushed to each engine at each iteration
 num_stims = 3
 interp_dt = 0.05
 
@@ -26,18 +28,21 @@ def sim_stim_train(ISI):
     :param ISI: int
     :return: np.array
     """
-    #x = x['x']
-    #x[0] = int(1000 * x[0])
     param_dict = {}
     for i in range(len(x)):
         param_dict[param_names[i]] = x[i]
     param_dict['n'] = int(param_dict['n'] * 1000)
-    #return param_dict
     local_random.seed(0)
-    duration = equilibrate + ISI * (num_stims - 1) + 101
-    interp_t = np.arange(0, duration, interp_dt)
+    if ISI == 10:
+        duration = equilibrate + ISI * (num_stims - 1) + 110. + 101.
+        spike_times = [equilibrate + ISI * i for i in range(num_stims + 2)]
+        spike_times.append(spike_times[-1] + 110.)
+        spike_times = h.Vector(spike_times)
+    else:
+        duration = equilibrate + ISI * (num_stims - 1) + 101.
+        spike_times = h.Vector([equilibrate + ISI * i for i in range(num_stims)])
+    interp_t = np.arange(0., duration, interp_dt)
     sim.tstop = duration
-    spike_times = h.Vector([equilibrate + ISI * i for i in range(num_stims)])
     stim_syn_list = [syn_list[i] for i in local_random.sample(range(len(syn_list)), param_dict['n'])]
     for syn in stim_syn_list:
         syn.source.play(spike_times)
@@ -48,6 +53,8 @@ def sim_stim_train(ISI):
     sim.run(v_init)
     for syn in stim_syn_list:
         syn.source.play(h.Vector())
+        seq = syn.randObj.seq()
+        syn.randObj.seq(seq+int(num_stims*max_simiter))
     t = np.array(sim.tvec)
     left, right = time2index(t, equilibrate-2.0, equilibrate)
     vm = np.array(sim.rec_list[0]['vec'])
@@ -95,7 +102,10 @@ for branch in cell.trunk+cell.apical:
     for node in branch.spines:
         syn = Synapse(cell, node, syn_types, stochastic=1)
         syn_list.append(syn)
-        rand_seq_locs.append(syn.randObj.seq())
+        # each synapse has its own unique random number generator, but those can be the same across nodes, so this at
+        # least starts those streams at different points across nodes
+        seq = syn.randObj.seq()
+        rand_seq_locs.append(syn.randObj.seq(int(seq+os.getpid())))
 cell.init_synaptic_mechanisms()
 sim = QuickSim(duration, verbose=0)
 
