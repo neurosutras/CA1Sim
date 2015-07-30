@@ -1289,6 +1289,7 @@ class Synapse(object):
         self._threshold = threshold
         self._syn = {}
         self.randObj = None
+        self._node.synapses.append(self)
         if not source is None:
             self._source = {'object': source}
         elif not source_node is None:
@@ -1311,7 +1312,6 @@ class Synapse(object):
                 self.netcon(target).threshold = threshold
             else:
                 self._init_netcon(target)
-        self._node.synapses.append(self)
 
     def _init_stochastic(self):
         """
@@ -1320,12 +1320,12 @@ class Synapse(object):
         """
         if self.randObj is None:  # if this synapse has never been stochastic, it needs a new random number generator
             self.randObj = h.Random()
-            self.randObj.MCellRan4(self.cell.gid*1e4+1, self.node.index*1e4+len(self.node.synapses)+1)
+            self.randObj.MCellRan4(self.cell.gid*1e4+1, self.node.index*1e4+self.node.synapses.index(self)+1)
             # a unique sequence for up to ~10,000 spikes per synapse; ~10,000 synapses per node;
             # ~4,290,000 nodes per cell; ~4,290,000 cell in a network
             self.randObj.uniform(0, 1)
         else:  # if this synapse has already been stochastic before, this restarts its random number generator
-            self.randObj.seq(1)
+            self.randObj.seq(self.cell.gid*1e4+1)
         syn = getattr(h, 'Pr')(self.node.sec(self.loc))
         self._syn['Pr'] = {'target': syn}
         self._init_netcon('Pr', delay=0.)
