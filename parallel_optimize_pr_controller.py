@@ -152,8 +152,9 @@ def release_dynamics_error(x, plot=0):
         else:
             Err += round(((target_val[ISI] - np.max(results[ISI]))/target_range[ISI])**2., 10)
     print 'Parallel simulation took:', time.time()-start_time, 's, Error:', Err
-    print ('Num synapses: %i, P0: %.3f, f: %.3f, tau_F: %.3f, D: %.3f, tau_D: %.3f, unit amp: %.3f, unit slope: %.2E' %
-           (int(x[0]*1000), x[1], x[2], x[3], x[4], x[5], mean_unit_amp, mean_unit_slope))
+    print ('Num synapses: %i, P0: %.3f, f: %.3f, tau_F: %.3f, D: %.3f, tau_D: %.3f, unit amp: %.3f, unit slope: %.2E, '
+           'recovery unit amp: %.3f' %
+           (int(x[0]*1000), x[1], x[2], x[3], x[4], x[5], mean_unit_amp, mean_unit_slope, amp))
     interp_t = {}
     if plot:
         interp_dt = parallel_optimize_pr_engine.interp_dt
@@ -198,7 +199,12 @@ xmax = [0.15, 0.3, 1.8, 150., 0.9, 300.]
 #x1 = [0.055, 0.279, 1.731, 143.048, 0.843, 165.690]
 x1 = [0.087, 0.221, 1.566, 49.532, 0.845, 198.041]
 
-c = Client()
+if len(sys.argv) > 1:
+    cluster_id = sys.argv[1]
+    c = Client(cluster_id=cluster_id)
+else:
+    c = Client()
+
 dv = c[:]
 dv.clear()
 dv.block = True
@@ -212,7 +218,7 @@ blocksize = 0.5  # defines the fraction of the xrange that will be explored at e
 mytakestep = Normalized_Step(x1, xmin, xmax)
 
 minimizer_kwargs = dict(method=null_minimizer)
-
+"""
 result = optimize.basinhopping(release_dynamics_error, x1, niter=400, niter_success=100, disp=True, interval=30,
                                                             minimizer_kwargs=minimizer_kwargs, take_step=mytakestep)
 print result
@@ -222,5 +228,4 @@ polished_result = optimize.minimize(release_dynamics_error, result.x, method='Ne
 print polished_result
 """
 #release_dynamics_error(polished_result.x, plot=1)
-release_dynamics_error(x1, plot=1)
-"""
+release_dynamics_error(x1)  # , plot=1)
