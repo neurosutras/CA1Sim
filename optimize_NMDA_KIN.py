@@ -9,7 +9,8 @@ This simulation uses scipy.optimize to iterate through NMDA_KIN mechanism parame
 #morph_filename = 'EB1-early-bifurcation.swc'
 morph_filename = 'EB2-late-bifurcation.swc'
 
-mech_filename = '043015 pas_exp_scale kdr ka_scale ih_sig_scale - EB2'
+#mech_filename = '043015 pas_exp_scale kdr ka_scale ih_sig_scale - EB2'
+mech_filename = '072515 optimized basal ka_scale dend_sh_ar_nas - EB2'
 
 
 def synaptic_kinetics_error(x, plot=0):
@@ -88,6 +89,18 @@ def synaptic_kinetics_error(x, plot=0):
         return Err
 
 
+def zero_na():
+    """
+
+    """
+    for sec_type in ['axon_hill', 'ais']:
+        cell.modify_mech_param(sec_type, 'nax', 'gbar', 0.)
+    cell.reinitialize_subset_mechanisms('axon', 'nax')
+    cell.modify_mech_param('soma', 'nas', 'gbar', 0.)
+    for sec_type in ['basal', 'trunk', 'apical', 'tuft']:
+        cell.reinitialize_subset_mechanisms(sec_type, 'nas')
+
+
 equilibrate = 250.  # time to steady-state
 duration = 1250.
 v_init = -67.
@@ -95,8 +108,9 @@ num_syns = 1
 spike_times = h.Vector([equilibrate])
 
 cell = CA1_Pyr(morph_filename, mech_filename, full_spines=True)
+zero_na()
 
-syn_type = 'NMDA_KIN'
+syn_type = 'NMDA_KIN2'
 
 sim = QuickSim(duration)
 
@@ -145,7 +159,8 @@ xmin = [1., .0005, .1, .1, .1, .1]
 xmax = [1000., 10., 200., 50., 200., 200.]
 #x1 = [719.4, 0.047, 6.36, 25.09, 4.46, 1.23]  # first pass basinhopping and simplex generated outward current
 #x1 = [745.01, 9.58e-02, 1.67, 24.82, 7.03, 0.17]  # produces 1.35 cooperativity in g during 5 pulses at 100 Hz
-x1 = [965.05, 0.12, 1.52, 12.85, 4.78, 0.19]  # produces 1.35 cooperativity in g during 5 pulses at 100 Hz
+#x1 = [965.05, 0.12, 1.52, 12.85, 4.78, 0.19]  # produces 1.35 cooperativity in g during 5 pulses at 100 Hz
+x1 = [1099.70, 0.07, 1.70, 14.12, 4.64, 0.19]
 
 # rewrite the bounds in the way required by optimize.minimize
 xbounds = [(low, high) for low, high in zip(xmin, xmax)]
@@ -163,9 +178,9 @@ result = optimize.basinhopping(synaptic_kinetics_error, x0, niter= 720, niter_su
 
 polished_result = optimize.minimize(synaptic_kinetics_error, result.x, method='Nelder-Mead', options={'ftol': 1e-3,
                                                                                                       'disp': True})
-"""
+
 polished_result = optimize.minimize(synaptic_kinetics_error, x1, method='Nelder-Mead', options={'ftol': 1e-3,
                                                                                                       'disp': True})
 synaptic_kinetics_error(polished_result.x, plot=1)
-
-#synaptic_kinetics_error(x0, plot=1)
+"""
+synaptic_kinetics_error(x1, plot=1)

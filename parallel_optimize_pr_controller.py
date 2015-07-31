@@ -173,7 +173,8 @@ def release_dynamics_error(x, plot=0):
 
 #the target values and acceptable ranges
 target_val = {300: 3.8, 100: 7.1, 50: 9.0, 25: 11.6, 10: 15.1, '5th pulse': 21.7, 'recovery': 5.8, 'unit_slope': 0.}
-target_range = {300: 0.6, 100: 1.0, 50: 1.4, 25: 1.7, 10: 1.8, '5th pulse': 2., 'recovery': 0.5, 'unit_slope': .01}
+#target_range = {300: 0.6, 100: 1.0, 50: 1.4, 25: 1.7, 10: 1.8, '5th pulse': 2., 'recovery': 0.5, 'unit_slope': .01}
+target_range = {300: 0.1, 100: 0.1, 50: 0.1, 25: 0.1, 10: 0.1, '5th pulse': 0.1, 'recovery': 0.1, 'unit_slope': .01}
 #target_val = {300: 3.8, 100: 7.1, 50: 9.0, 25: 11.6, 10: 15.1, 'unit_slope': 0.}
 #target_range = {300: 0.6, 100: 1.0, 50: 1.4, 25: 1.7, 10: 1.8, 'unit_slope': .01}
 
@@ -187,14 +188,15 @@ x0 = [0.09, 0.17, 1.31, 180.7, 0.80, 0.6]
 # the bounds
 #xmin = [0.01, 0.1, 0.01, 1., 0.01, 1.]  # n will be filtered by f(n) = int(n * 1000)
 #xmax = [0.3, 0.9, 50., 1e4, 1.0, 1e5]
-xmin = [0.05, 0.1, 0.5, 50., 0.5, 10.]  # n will be filtered by f(n) = int(n * 1000)
-xmax = [0.2, 0.3, 2., 300., 1.0, 300.]
+xmin = [0.06, 0.15, 0.8, 25., 0.5, 50.]  # n will be filtered by f(n) = int(n * 1000)
+xmax = [0.15, 0.3, 1.8, 150., 0.9, 300.]
 
 #x1 = [0.101, 0.19, 1.61, 162.3, 0.93, 4.0]  # first pass basinhopping
 #x1 = [0.09, 0.17, 1.31, 180.7, 0.80, 0.6]  # second pass basinhopping
 #x1 = [0.067, 0.18, 0.92, 105.5, 0.64, 2.7]  # first pass basinhopping after calibrating NMDA_KIN2.gmax for cooperativity
 #x1 = [0.067, 0.18, 0.92, 105.5, 0.64, 10.]  # first pass basinhopping after calibrating NMDA_KIN2.gmax for cooperativity
-x1 = [0.055, 0.279, 1.731, 143.048, 0.843, 165.690]
+#x1 = [0.055, 0.279, 1.731, 143.048, 0.843, 165.690]
+x1 = [0.087, 0.221, 1.566, 49.532, 0.845, 198.041]
 
 c = Client()
 dv = c[:]
@@ -211,15 +213,14 @@ mytakestep = Normalized_Step(x1, xmin, xmax)
 
 minimizer_kwargs = dict(method=null_minimizer)
 
-result = optimize.basinhopping(release_dynamics_error, x1, niter= 400, niter_success=100, disp=True, interval=20,
+result = optimize.basinhopping(release_dynamics_error, x1, niter=400, niter_success=100, disp=True, interval=30,
                                                             minimizer_kwargs=minimizer_kwargs, take_step=mytakestep)
-release_dynamics_error(result.x, plot=1)
-"""
-
-polished_result = optimize.minimize(release_dynamics_error, x1, method='Nelder-Mead',
-                                    options={'xtol': 1e-3, 'ftol': 1e-3, 'maxiter': 100, 'disp': True})
+print result
+#release_dynamics_error(result.x, plot=1)
+polished_result = optimize.minimize(release_dynamics_error, result.x, method='Nelder-Mead',
+                                    options={'xtol': 1e-3, 'ftol': 1e-3, 'maxiter': 200, 'disp': True})
 print polished_result
-
+"""
 #release_dynamics_error(polished_result.x, plot=1)
 release_dynamics_error(x1, plot=1)
 """

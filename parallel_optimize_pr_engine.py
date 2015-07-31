@@ -11,7 +11,7 @@ which synapse to optimize (coarse sampling of the full set of spines).
 morph_filename = 'EB2-late-bifurcation.swc'
 #mech_filename = '052915 pas_exp_scale kdr ka_scale ih_sig_scale ampar_exp_scale nmda - EB2'
 mech_filename = '073015 rebalanced na_ka ampa nmda - EB2'
-rec_filename = 'output'+datetime.datetime.today().strftime('%m%d%Y%H%M')+'-pid'+str(os.getpid())
+#rec_filename = 'output'+datetime.datetime.today().strftime('%m%d%Y%H%M')+'-pid'+str(os.getpid())
 
 param_names = ['n', 'P0', 'f', 'tau_F', 'd1', 'tau_D1']
 x = []  # placeholder for optimization parameters, must be pushed to each engine at each iteration
@@ -53,8 +53,6 @@ def sim_stim_train(ISI):
     sim.run(v_init)
     for syn in stim_syn_list:
         syn.source.play(h.Vector())
-        seq = syn.randObj.seq()
-        syn.randObj.seq(seq+int(num_stims*max_simiter))
     t = np.array(sim.tvec)
     left, right = time2index(t, equilibrate-2.0, equilibrate)
     vm = np.array(sim.rec_list[0]['vec'])
@@ -105,7 +103,7 @@ for branch in cell.trunk+cell.apical:
         # each synapse has its own unique random number generator, but those can be the same across nodes, so this at
         # least starts those streams at different points across nodes
         seq = syn.randObj.seq()
-        rand_seq_locs.append(syn.randObj.seq(int(seq+os.getpid())))
+        rand_seq_locs.append(syn.randObj.seq(int(seq+os.getpid()*1e3)))
 cell.init_synaptic_mechanisms()
 sim = QuickSim(duration, verbose=0)
 
