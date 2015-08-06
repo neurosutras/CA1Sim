@@ -10,7 +10,7 @@ which synapse to optimize (coarse sampling of the full set of spines).
 #morph_filename = 'EB1-early-bifurcation.swc'
 morph_filename = 'EB2-late-bifurcation.swc'
 #mech_filename = '052915 pas_exp_scale kdr ka_scale ih_sig_scale ampar_exp_scale nmda - EB2'
-mech_filename = '073015 rebalanced na_ka ampa nmda - EB2'
+mech_filename = '080615 rebalanced na_ka ampa nmda - EB2'
 #rec_filename = 'output'+datetime.datetime.today().strftime('%m%d%Y%H%M')+'-pid'+str(os.getpid())
 
 param_names = ['n', 'P0', 'f', 'tau_F', 'd1', 'tau_D1']
@@ -64,6 +64,7 @@ def sim_stim_train(ISI):
     return {ISI: rec[left:right]}
 
 
+@interactive
 def restore_random_sequence_locations():
     """
     Restores the random object for each synapse to the initial position of its sequence. Should be done in between
