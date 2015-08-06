@@ -2052,7 +2052,16 @@ def process_patterned_input_simulation(rec_filename, title, dt=0.02):
                 if len(train) > 0:
                     for i in range(len(train) - 1):
                         intervals.append(train[i+1] - train[i])
-        mean_input = np.mean([get_smoothed_firing_rate(sim['train'].values(), stim_t) for sim in f.values()], axis=0)
+        pop_input = [get_smoothed_firing_rate(sim['train'].values(), stim_t) for sim in f.values()]
+        pop_psd = []
+        for this_pop_input in pop_input:
+            pop_freq, this_pop_psd = signal.periodogram(this_pop_input, 1000./stim_dt)
+            pop_psd.append(this_pop_psd)
+        pop_psd = np.mean(pop_psd, axis=0)
+        left = np.where(pop_freq >= 4.)[0][0]
+        right = np.where(pop_freq >= 11.)[0][0]
+        pop_psd /= np.max(pop_psd[left:right])
+        mean_input = np.mean(pop_input, axis=0)
         if 'successes' in f['0']:
             mean_successes = np.mean([get_smoothed_firing_rate(sim['successes'].values(), stim_t) for sim in
                                       f.values()], axis=0)
@@ -2096,6 +2105,14 @@ def process_patterned_input_simulation(rec_filename, title, dt=0.02):
         plt.close()
     rec_t = np.arange(0., track_duration, dt)
     spikes_removed = get_removed_spikes(rec_filename)
+    intra_psd = []
+    for rec in spikes_removed:
+        intra_freq, this_intra_psd = signal.periodogram(rec, 1000./dt)
+        intra_psd.append(this_intra_psd)
+    intra_psd = np.mean(intra_psd, axis=0)
+    left = np.where(intra_freq >= 4.)[0][0]
+    right = np.where(intra_freq >= 11.)[0][0]
+    intra_psd /= np.max(intra_psd[left:right])
     # down_sample traces to 2 kHz after clipping spikes for theta and ramp filtering
     down_dt = 0.5
     down_t = np.arange(0., track_duration, down_dt)

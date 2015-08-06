@@ -14,11 +14,16 @@ morph_filename = 'EB2-late-bifurcation.swc'
 mech_filename = '080615 rebalanced na_ka ampa nmda - EB2'
 
 if len(sys.argv) > 1:
-    seed = sys.argv[1]
+    seed = int(sys.argv[1])
 else:
     seed = 1
+if len(sys.argv) > 2:
+    num_syns = int(sys.argv[2])
+else:
+    num_syns = 1200
 
-rec_filename = 'output'+datetime.datetime.today().strftime('%m%d%Y%H%M')+'-pid'+str(os.getpid())+'-seed'+str(seed)
+rec_filename = 'output'+datetime.datetime.today().strftime('%m%d%Y%H%M')+'-pid'+str(os.getpid())+'-seed'+str(seed)+\
+               '-inputs'+str(num_syns)
 
 
 def get_instantaneous_spike_probability(rate, dt=0.1, generator=None):
@@ -132,7 +137,7 @@ stim_dt = 0.1
 dt = 0.02
 v_init = -67.
 
-num_syns = 2000  # evenly distributed across sec_types
+#num_syns = 2000  # evenly distributed across sec_types
 syn_types = ['AMPA_KIN', NMDA_type]
 
 local_random = random.Random()
@@ -205,8 +210,8 @@ for syn in stim_syns:
 
 stim_iterations = []
 trials = 0
-print 'Getting started with', num_syns, 'inputs, seed:', seed
-run_n_trials(10)
+print 'Getting started with seed:', seed, ';', num_syns, 'inputs'
+run_n_trials(2)
 
 """
 stim_forces = []
