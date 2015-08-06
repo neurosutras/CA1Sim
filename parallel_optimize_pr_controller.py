@@ -78,7 +78,7 @@ def release_dynamics_error(x, plot=0):
     :return: float
     """
     start_time = time.time()
-    repeat = 5
+    repeat = 10
     ISI_list = [300, 100, 50, 25, 10]
     instructions = []
     for ISI in ISI_list:
@@ -197,7 +197,8 @@ xmax = [0.15, 0.3, 1.8, 150., 0.9, 300.]
 #x1 = [0.067, 0.18, 0.92, 105.5, 0.64, 2.7]  # first pass basinhopping after calibrating NMDA_KIN2.gmax for cooperativity
 #x1 = [0.067, 0.18, 0.92, 105.5, 0.64, 10.]  # first pass basinhopping after calibrating NMDA_KIN2.gmax for cooperativity
 #x1 = [0.055, 0.279, 1.731, 143.048, 0.843, 165.690]
-x1 = [0.087, 0.221, 1.566, 49.532, 0.845, 198.041]
+#x1 = [0.087, 0.221, 1.566, 49.532, 0.845, 198.041]
+x1 = [0.080, 0.241, 1.581, 45.000, 0.850, 131.719]
 
 if len(sys.argv) > 1:
     cluster_id = sys.argv[1]
@@ -228,4 +229,4 @@ polished_result = optimize.minimize(release_dynamics_error, result.x, method='Ne
 print polished_result
 """
 #release_dynamics_error(polished_result.x, plot=1)
-release_dynamics_error(x1)  # , plot=1)
+release_dynamics_error(x1, plot=1)

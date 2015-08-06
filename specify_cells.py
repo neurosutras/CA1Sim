@@ -520,10 +520,9 @@ class HocCell(object):
                             distance -= min_distance
                             if 'tau' in rules:  # exponential gradient
                                 if 'xhalf' in rules:  # sigmoidal gradient
-                                    offset = baseline + rules['slope'] / (1. +
-                                                                    np.exp(rules['xhalf'] / rules['tau']))
-                                    value = offset + rules['slope'] / (1. +
-                                                            np.exp((rules['xhalf'] - distance) / rules['tau']))
+                                    offset = baseline - rules['slope'] / (1. + np.exp(rules['xhalf'] / rules['tau']))
+                                    value = offset + rules['slope'] / (1. + np.exp((rules['xhalf'] - distance) /
+                                                                                   rules['tau']))
                                 else:
                                     offset = baseline - rules['slope']
                                     value = offset + rules['slope'] * np.exp(distance / rules['tau'])
