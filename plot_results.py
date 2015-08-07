@@ -2063,14 +2063,14 @@ def process_patterned_input_simulation(rec_filename, title, dt=0.02):
         pop_psd /= np.max(pop_psd[left:right])
         mean_input = np.mean(pop_input, axis=0)
         if 'successes' in f['0']:
-            mean_successes = np.mean([get_smoothed_firing_rate(sim['successes'].values(), stim_t) for sim in
-                                      f.values()], axis=0)
+            successes = [get_smoothed_firing_rate(sim['successes'].values(), stim_t) for sim in f.values()]
+            mean_successes = np.mean(successes, axis=0)
         mean_output = get_smoothed_firing_rate([sim['output'][:] for sim in f.values()], stim_t)
         start = int(track_equilibrate/stim_dt)
-        plt.plot(stim_t[start:], mean_input[start:], label='Mean Population Input Spike Rate')
+        plt.plot(stim_t[start:], mean_input[start:], label='Total Population Input Spike Rate')
         if 'successes' in f['0']:
-            plt.plot(stim_t[start:], mean_successes[start:], label='Mean Population Input Success Rate')
-        plt.plot(stim_t[start:], mean_output[start:], label='Mean Single Cell Output Spike Rate')
+            plt.plot(stim_t[start:], mean_successes[start:], label='Total Population Input Success Rate')
+        plt.plot(stim_t[start:], mean_output[start:], label='Single Cell Output Spike Rate')
         plt.legend(loc='best', frameon=False, framealpha=0.5)
         plt.xlabel('Time (ms)')
         plt.ylabel('Event Rate (Hz)')
@@ -2105,14 +2105,6 @@ def process_patterned_input_simulation(rec_filename, title, dt=0.02):
         plt.close()
     rec_t = np.arange(0., track_duration, dt)
     spikes_removed = get_removed_spikes(rec_filename)
-    intra_psd = []
-    for rec in spikes_removed:
-        intra_freq, this_intra_psd = signal.periodogram(rec, 1000./dt)
-        intra_psd.append(this_intra_psd)
-    intra_psd = np.mean(intra_psd, axis=0)
-    left = np.where(intra_freq >= 4.)[0][0]
-    right = np.where(intra_freq >= 11.)[0][0]
-    intra_psd /= np.max(intra_psd[left:right])
     # down_sample traces to 2 kHz after clipping spikes for theta and ramp filtering
     down_dt = 0.5
     down_t = np.arange(0., track_duration, down_dt)
@@ -2124,7 +2116,10 @@ def process_patterned_input_simulation(rec_filename, title, dt=0.02):
     theta_removed = []
     ramp_traces = []
     ramp_removed = []
+    intra_psd = []
     for trace in spikes_removed:
+        intra_freq, this_intra_psd = signal.periodogram(trace, 1000./dt)
+        intra_psd.append(this_intra_psd)
         counts, vals = np.histogram(trace, bins=(np.max(trace)-np.min(trace))/0.2)
         offset = vals[np.where(counts == np.max(counts))[0][0]]
         subtracted = trace - offset
@@ -2140,6 +2135,10 @@ def process_patterned_input_simulation(rec_filename, title, dt=0.02):
         ramp_traces.append(up_sampled)
         ramp_filtered = theta_filtered - up_sampled
         ramp_removed.append(ramp_filtered)
+    intra_psd = np.mean(intra_psd, axis=0)
+    left = np.where(intra_freq >= 4.)[0][0]
+    right = np.where(intra_freq >= 11.)[0][0]
+    intra_psd /= np.max(intra_psd[left:right])
     mean_across_trials = np.mean(theta_removed, axis=0)
     variance_across_trials = np.var(ramp_removed, axis=0)
     binned_mean = []
@@ -2166,5 +2165,14 @@ def process_patterned_input_simulation(rec_filename, title, dt=0.02):
     plt.xlabel('Mean (mV)')
     plt.ylabel('Variance (mV'+r'$^2$'+')')
     plt.title('Mean - Variance Analysis - ' + title)
+    plt.show()
+    plt.close()
+    plt.plot(pop_freq, pop_psd, label='Total Population Input Spikes')
+    plt.plot(intra_freq, intra_psd, label='Single Cell Intracellular Vm')
+    plt.xlim(4., 11.)
+    plt.xlabel('Frequency (Hz)')
+    plt.ylabel('Normalized Power Density')
+    plt.title('Power Spectral Density')
+    plt.legend(loc='best')
     plt.show()
     plt.close()

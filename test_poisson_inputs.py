@@ -14,16 +14,23 @@ morph_filename = 'EB2-late-bifurcation.swc'
 mech_filename = '080615 rebalanced na_ka ampa nmda - EB2'
 
 if len(sys.argv) > 1:
-    seed = int(sys.argv[1])
+    synapses_seed = int(sys.argv[1])
 else:
-    seed = 1
+    synapses_seed = 1
 if len(sys.argv) > 2:
     num_syns = int(sys.argv[2])
 else:
     num_syns = 1200
 
-rec_filename = 'output'+datetime.datetime.today().strftime('%m%d%Y%H%M')+'-pid'+str(os.getpid())+'-seed'+str(seed)+\
-               '-inputs'+str(num_syns)
+# allows parallel computation of multiple trials for the same spines with the same peak_locs, but with different
+# input spike trains and stochastic synapses for each trial
+if len(sys.argv) > 3:
+    trial_seed = int(sys.argv[3])
+else:
+    trial_seed = None
+
+rec_filename = 'output'+datetime.datetime.today().strftime('%m%d%Y%H%M')+'-pid'+str(os.getpid())+'-seed'+\
+               str(synapses_seed)+'-inputs'+str(num_syns)+'-trial'+str(trial_seed)
 
 
 def get_instantaneous_spike_probability(rate, dt=0.1, generator=None):
@@ -75,8 +82,11 @@ def run_n_trials(n):
     global trials
     for simiter in range(trials, trials + n):
         stim_trains = []
+        local_random.seed(simiter)
         global_phase_offset = local_random.uniform(0., global_theta_cycle_duration)
         for i, syn in enumerate(stim_syns):
+            # the stochastic sequence used for each synapse is unique for each trial, up to 1000 input spikes per spine
+            syn.randObj.seq(rand_seq_locs[i]+int(simiter*1e3))
             if syn.node.parent.parent.type == 'tuft':
                 theta_force = 1. + np.sin(2. * np.pi / global_theta_cycle_duration * (stim_t - global_phase_offset +
                                                                                       tuft_phase_offset))
@@ -144,7 +154,7 @@ local_random = random.Random()
 
 # choose a subset of synapses to stimulate with inhomogeneous poisson rates
 # cell1 and cell2
-local_random.seed(seed)
+local_random.seed(synapses_seed)
 
 cell = CA1_Pyr(morph_filename, mech_filename, full_spines=True)
 trunk_bifurcation = [trunk for trunk in cell.trunk if cell.is_bifurcation(trunk, 'trunk')]
@@ -199,19 +209,25 @@ stim_t = np.arange(-track_equilibrate, track_duration, dt)
 gauss_sigma = global_theta_cycle_duration * input_field_width / 6.  # contains 99.7% gaussian area
 gauss_force = gaussian_modulation_strength * signal.gaussian(int((2 * (track_length + 1.5) *
                                                     input_field_duration) / dt), gauss_sigma / dt)
+rand_seq_locs = []
 for syn in stim_syns:
     peak_loc = local_random.uniform(-0.75 * input_field_duration, (0.75 + track_length) * input_field_duration)
     peak_locs.append(peak_loc)
     success_vec = h.Vector()
     stim_successes.append(success_vec)
     syn.netcon('AMPA_KIN').record(success_vec)
+    rand_seq_locs.append(syn.randObj.seq())
     if syn.node.parent.parent not in [rec['node'] for rec in sim.rec_list]:
         sim.append_rec(cell, syn.node.parent.parent)
 
 stim_iterations = []
-trials = 0
-print 'Getting started with seed:', seed, ';', num_syns, 'inputs'
-run_n_trials(2)
+print 'Getting started with seed:', synapses_seed, ';', num_syns, 'inputs'
+if trial_seed is None:
+    trials = 0
+    run_n_trials(10)
+else:
+    trials = trial_seed
+    run_n_trials(1)
 
 """
 stim_forces = []
