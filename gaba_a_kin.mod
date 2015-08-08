@@ -70,7 +70,7 @@ UNITS {
 PARAMETER {
 
 	Cmax    = 1.        (mM)    	    : transmitter concentration during release event
-	Cdur	= 0.3       (ms)		    : transmitter duration (rising phase)
+	Cdur	= 0.5       (ms)		    : transmitter duration (rising phase)
 	kon     = 12.88     (/ms/mM)        : unbound receptor ligand-binding rate
     koff    = 6.47      (/ms)           : bound receptor ligand-unbinding rate
     CC      = 69.97     (/ms)           : bound receptor cleft closing rate

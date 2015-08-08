@@ -207,20 +207,21 @@ target_range = {'rise_tau': 0.01, 'decay_tau': 0.1, 'Rc_max': 0.01}
 #x = [kon, koff, CC, CO, Beta, Alpha)
 #x0 = [10., .05, 25., 31., 2.5, 1.5]
 #x0 = [60., 10., 60., 5., 100., 60.]
-x0 = [12.88, 6.47, 69.97, 6.16, 100.63, 173.04]
-xmin = [1., .1, 1., 1., 1., 1.]
-xmax = [300., 300., 300., 300., 300., 300.]
+#x0 = [12.88, 6.47, 69.97, 6.16, 100.63, 173.04]
+x0 = [5.655, 1.276, 126.608, 15.053, 105.914, 234.470] # Error: 9.1212E+02, Rise: 0.230, Decay: 22.990, Rc_max: 0.808
+xmin = [.1, .1, 10., 1., 10., 10.]
+xmax = [100., 100., 500., 300., 500., 500.]
 
 take_step = Normalized_Step(x0, xmin, xmax)
 
 minimizer_kwargs = dict(method=null_minimizer)
 
-result = optimize.basinhopping(synaptic_kinetics_error, x0, niter=1200, niter_success=200, disp=True, interval=30,
-                                                            minimizer_kwargs=minimizer_kwargs, take_step=take_step)
+#result = optimize.basinhopping(synaptic_kinetics_error, x0, niter=1200, niter_success=600, disp=True, interval=30,
+#                                                            minimizer_kwargs=minimizer_kwargs, take_step=take_step)
 #synaptic_kinetics_error(result.x, plot=1)
 """
 polished_result = optimize.minimize(synaptic_kinetics_error, x1, method='Nelder-Mead', options={'ftol': 1e-3,
                                                                                         'xtol': 1e-3, 'disp': True})
 synaptic_kinetics_error(polished_result.x, plot=1)
 """
-#synaptic_kinetics_error(x0, plot=1)
+synaptic_kinetics_error(x0, plot=1)
