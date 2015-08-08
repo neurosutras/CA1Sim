@@ -221,7 +221,6 @@ for syn in stim_syns:
         sim.append_rec(cell, syn.node.parent.parent)
 
 stim_iterations = []
-print 'Getting started with seed:', synapses_seed, ';', num_syns, 'inputs'
 if trial_seed is None:
     trials = 0
     run_n_trials(10)
