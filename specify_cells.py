@@ -1159,6 +1159,8 @@ class SHocNode(btmorph.btstructs2.SNode2):
 class CA1_Pyr(HocCell):
     def __init__(self, morph_filename=None, mech_filename=None, full_spines=True):
         HocCell.__init__(self, morph_filename, mech_filename)
+        self.random.seed(self.gid)  # This cell will always have the same spine and GABA_A synapse locations as long as
+                                    # they are inserted in the same order
         if full_spines:
             self.insert_spines_in_subset(['basal', 'trunk', 'apical', 'tuft'])
 
@@ -1173,7 +1175,6 @@ class CA1_Pyr(HocCell):
         density dictionary from a file, similar to the implementation of the membrane mechanism dictionary.
         :param sec_type_list: list of str
         """
-        self.random.seed(self.gid)  # This cell will always have the same spine locations
         densities = {'trunk': {'min': 0.2418, 'max': 3.8,
                                'start': min([self.get_distance_to_node(self.tree.root, branch) for branch in
                                                                                                 self.apical]),
@@ -1248,6 +1249,74 @@ class CA1_Pyr(HocCell):
         head.sec.L = 0.408  # matches surface area of sphere with diam = 0.5
         head.sec.diam = 0.408
         self._init_cable(head)
+
+    def insert_inhibitory_synapses_in_subset(self, sec_type_list=['soma', 'basal', 'trunk', 'apical', 'tuft']):
+        """
+
+        :param sec_type_list: str
+        """
+        densities = {'soma': 2.857,
+                     'trunk': {'min': 0.3022, 'max': 0.0627,
+                               'start': 0.,
+                               'end': max([self.get_distance_to_node(self.tree.root, branch) for branch in
+                                                                                                self.trunk])},
+                     'basal': {'primary': 0.3129, 'intermediate': 0.1728, 'terminal': 0.06543},
+                     'apical': {'min': 0.3022, 'max': 0.0627,
+                                'start': min([self.get_distance_to_node(self.tree.root, branch) for branch in
+                                                                                                self.apical]),
+                                'end': max([self.get_distance_to_node(self.tree.root, branch)
+                                            for branch in self.apical if self.get_branch_order(branch) == 1])},
+                     'tuft': {'parent': 0.2104, 'terminal': 0.1619}
+                    }
+        if 'soma' in sec_type_list:
+            for node in self.soma:
+                self.insert_inhibitory_synapse_every(node, densities['soma'])
+        if 'basal' in sec_type_list:
+            for node in self.basal:
+                if self.is_terminal(node):
+                    self.insert_inhibitory_synapse_every(node, densities['basal']['terminal'])
+                else:
+                    order = self.get_branch_order(node)
+                    if order == 1:
+                        self.insert_inhibitory_synapse_every(node, densities['basal']['primary'])
+                    else:
+                        self.insert_inhibitory_synapse_every(node, densities['basal']['intermediate'])
+        if 'trunk' in sec_type_list:
+            for node in self.trunk:
+                distance = self.get_distance_to_node(self.tree.root, node)
+                if distance >= densities['trunk']['start']:
+                    slope = (densities['trunk']['max'] - densities['trunk']['min']) / \
+                            (densities['trunk']['end'] - densities['trunk']['start'])
+                    density = densities['trunk']['min'] + slope * (distance - densities['trunk']['start'])
+                    self.insert_inhibitory_synapse_every(node, density)
+        if 'apical' in sec_type_list:
+            for node in self.apical:
+                distance = self.get_distance_to_node(self.tree.root, self.get_dendrite_origin(node), loc=1.)
+                slope = (densities['apical']['max'] - densities['apical']['min']) / \
+                        (densities['apical']['end'] - densities['apical']['start'])
+                density = densities['apical']['min'] + slope * (distance - densities['apical']['start'])
+                self.insert_inhibitory_synapse_every(node, density)
+        if 'tuft' in sec_type_list:
+            for node in self.tuft:
+                if self.is_terminal(node):
+                    self.insert_inhibitory_synapse_every(node, densities['tuft']['terminal'])
+                else:
+                    self.insert_inhibitory_synapse_every(node, densities['tuft']['parent'])
+
+    def insert_inhibitory_synapse_every(self, node, density, syn_types=['GABA_A_KIN'], stochastic=0):
+        """
+
+        :param node: :class:'SHocNode'
+        :param density: float: mean density in /um
+        :param syn_types: list of str
+        :param stochastic: int
+        """
+        L = node.sec.L
+        beta = 1./density
+        interval = self.random.exponential(beta)
+        while interval < L:
+            syn = Synapse(self, node, type_list=syn_types, stochastic=stochastic, loc=interval/L)
+            interval += self.random.exponential(beta)
 
 
 class Synapse(object):

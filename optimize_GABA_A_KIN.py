@@ -215,13 +215,13 @@ xmax = [100., 100., 500., 300., 500., 500.]
 take_step = Normalized_Step(x0, xmin, xmax)
 
 minimizer_kwargs = dict(method=null_minimizer)
-
+"""
 result = optimize.basinhopping(synaptic_kinetics_error, x0, niter=1200, niter_success=600, disp=True, interval=30,
                                                             minimizer_kwargs=minimizer_kwargs, take_step=take_step)
 print result.x
 
 #synaptic_kinetics_error(result.x, plot=1)
-"""
+
 polished_result = optimize.minimize(synaptic_kinetics_error, x1, method='Nelder-Mead', options={'ftol': 1e-3,
                                                                                         'xtol': 1e-3, 'disp': True})
 synaptic_kinetics_error(polished_result.x, plot=1)
