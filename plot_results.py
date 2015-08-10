@@ -2035,6 +2035,7 @@ def process_patterned_input_simulation(rec_filename, title, dt=0.02):
 
     :param rec_file_name: str
     :param title: str
+    # remember .attrs['phase_offset'] could be inside ['train'] for old files
     """
     with h5py.File(data_dir+rec_filename+'.hdf5', 'r') as f:
         equilibrate = f['0'].attrs['equilibrate']

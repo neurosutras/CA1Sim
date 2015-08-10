@@ -84,9 +84,9 @@ def run_n_trials(n):
         stim_trains = []
         local_random.seed(simiter)
         global_phase_offset = local_random.uniform(0., global_theta_cycle_duration)
-        for i, syn in enumerate(stim_syns):
+        for i, syn in enumerate(stim_exc_syns):
             # the stochastic sequence used for each synapse is unique for each trial, up to 1000 input spikes per spine
-            syn.randObj.seq(rand_seq_locs[i]+int(simiter*1e3))
+            syn.randObj.seq(rand_exc_seq_locs[i]+int(simiter*1e3))
             if syn.node.parent.parent.type == 'tuft':
                 theta_force = 1. + np.sin(2. * np.pi / global_theta_cycle_duration * (stim_t - global_phase_offset +
                                                                                       tuft_phase_offset))
@@ -100,24 +100,37 @@ def run_n_trials(n):
             end = start + len(stim_t)
             stim_force = gauss_force[start:end]
             stim_force = np.multiply(stim_force, theta_force)
-            if simiter == 1:
-                stim_forces.append(stim_force)
             train = get_inhom_poisson_spike_times(stim_force, stim_t, generator=local_random)
             stim_trains.append(train)
+            syn.source.play(h.Vector(np.add(train, equilibrate + track_equilibrate)))
+        for i, syn in enumerate(stim_inh_syns):
+            inhibitory_theta_offset = inhibitory_peak_rate['perisomatic'] * \
+                                      (inhibitory_theta_modulation_depth['perisomatic'] + 1.) / 2.
+            inhibitory_theta_amp = inhibitory_peak_rate['perisomatic'] - inhibitory_theta_offset
+            inhibitory_theta_force = inhibitory_theta_offset + inhibitory_theta_amp * np.sin(2. * np.pi /
+                                                        global_theta_cycle_duration * (stim_t - global_phase_offset))
+            train = get_inhom_poisson_spike_times(inhibitory_theta_force, stim_t, generator=local_random)
+            stim_inh_trains.append(train)
             syn.source.play(h.Vector(np.add(train, equilibrate + track_equilibrate)))
         stim_iterations.append(stim_trains)
         sim.run(v_init)
         with h5py.File(data_dir+rec_filename+'.hdf5', 'a') as f:
             sim.export_to_file(f, simiter)
             f[str(simiter)].create_group('train')
+            f[str(simiter)].create_group('inh_train')
             f[str(simiter)].create_group('successes')
-            f[str(simiter)]['train'].attrs['phase_offset'] = global_phase_offset
+            f[str(simiter)].attrs['phase_offset'] = global_phase_offset
             for index, train in enumerate(stim_trains):
                 f[str(simiter)]['train'].create_dataset(str(index), compression='gzip', compression_opts=9, data=train)
-                f[str(simiter)]['train'][str(index)].attrs['index'] = stim_syns[index].node.index
-                f[str(simiter)]['train'][str(index)].attrs['type'] = stim_syns[index].node.parent.parent.type
+                f[str(simiter)]['train'][str(index)].attrs['index'] = stim_exc_syns[index].node.index
+                f[str(simiter)]['train'][str(index)].attrs['type'] = stim_exc_syns[index].node.parent.parent.type
+                f[str(simiter)]['inh_train'].create_dataset(str(index), compression='gzip', compression_opts=9,
+                                                            data=stim_inh_trains[index])
+                f[str(simiter)]['inh_train'][str(index)].attrs['index'] = stim_inh_syns[index].node.index
+                f[str(simiter)]['inh_train'][str(index)].attrs['loc'] = stim_inh_syns[index].loc
+                f[str(simiter)]['inh_train'][str(index)].attrs['type'] = stim_inh_syns[index].node.type
                 f[str(simiter)]['successes'].create_dataset(str(index), compression='gzip', compression_opts=9,
-                        data=np.subtract(stim_syns[index].netcon('AMPA_KIN').get_recordvec().to_python(),
+                        data=np.subtract(stim_exc_syns[index].netcon('AMPA_KIN').get_recordvec().to_python(),
                                          equilibrate + track_equilibrate))
                 f[str(simiter)]['train'][str(index)].attrs['peak_loc'] = peak_locs[index]
             # save the spike output of the cell, removing the equilibration offset
@@ -131,7 +144,7 @@ NMDA_type = 'NMDA_KIN2'
 
 equilibrate = 250.  # time to steady-state
 global_theta_cycle_duration = 150.  # (ms)
-input_field_width = 10  # (theta cycles per 7 standard deviations)
+input_field_width = 10  # (theta cycles per 6 standard deviations)
 # Geissler...Buzsaki, PNAS 2010
 unit_theta_cycle_duration = global_theta_cycle_duration * input_field_width / (input_field_width + 1.)
 input_field_duration = input_field_width * global_theta_cycle_duration
@@ -142,6 +155,10 @@ duration = equilibrate + track_equilibrate + track_duration
 gaussian_modulation_strength = 25.
 theta_compression_factor = unit_theta_cycle_duration / input_field_duration
 tuft_phase_offset = 45. /360. * global_theta_cycle_duration
+inhibitory_peak_rate = {}
+inhibitory_theta_modulation_depth = {}
+inhibitory_peak_rate['perisomatic'] = 40.
+inhibitory_theta_modulation_depth['perisomatic'] = 0.5
 
 stim_dt = 0.1
 dt = 0.02
@@ -157,6 +174,8 @@ local_random = random.Random()
 local_random.seed(synapses_seed)
 
 cell = CA1_Pyr(morph_filename, mech_filename, full_spines=True)
+cell.insert_inhibitory_synapses_in_subset()
+
 trunk_bifurcation = [trunk for trunk in cell.trunk if cell.is_bifurcation(trunk, 'trunk')]
 if trunk_bifurcation:
     trunk_branches = [branch for branch in trunk_bifurcation[0].children if branch.type == 'trunk']
@@ -169,8 +188,8 @@ else:
     trunk = trunk_bifurcation[0]
 
 all_syns = {sec_type: [] for sec_type in ['basal', 'trunk', 'apical', 'tuft']}
-stim_syns = []
-stim_forces = []
+stim_exc_syns = []
+stim_inh_syns = []
 stim_successes = []
 peak_locs = []
 
@@ -202,31 +221,42 @@ fraction_syns = {sec_type: float(total_syns[sec_type]) / float(np.sum(total_syns
 for sec_type in all_syns:
     for i in local_random.sample(range(len(all_syns[sec_type])), int(num_syns*fraction_syns[sec_type])):
         syn = all_syns[sec_type][i]
-        stim_syns.append(syn)
+        stim_exc_syns.append(syn)
 
 stim_t = np.arange(-track_equilibrate, track_duration, dt)
 
 gauss_sigma = global_theta_cycle_duration * input_field_width / 6.  # contains 99.7% gaussian area
 gauss_force = gaussian_modulation_strength * signal.gaussian(int((2 * (track_length + 1.5) *
                                                     input_field_duration) / dt), gauss_sigma / dt)
-rand_seq_locs = []
-for syn in stim_syns:
+rand_exc_seq_locs = []
+for syn in stim_exc_syns:
     peak_loc = local_random.uniform(-0.75 * input_field_duration, (0.75 + track_length) * input_field_duration)
     peak_locs.append(peak_loc)
     success_vec = h.Vector()
     stim_successes.append(success_vec)
     syn.netcon('AMPA_KIN').record(success_vec)
-    rand_seq_locs.append(syn.randObj.seq())
+    rand_exc_seq_locs.append(syn.randObj.seq())
     if syn.node.parent.parent not in [rec['node'] for rec in sim.rec_list]:
         sim.append_rec(cell, syn.node.parent.parent)
 
+# rand_inh_seq_locs = [] will need this when inhibitory synapses become stochastic
+# stim_inh_successes = [] will need this when inhibitory synapses become stochastic
+for sec_type in ['soma', 'basal', 'trunk', 'apical', 'tuft']:
+    for node in cell._node_dict[sec_type]:
+        for syn in node.synapses:
+            if 'GABA_A_KIN' in syn._syn:
+                stim_inh_syns.append(syn)
+
 stim_iterations = []
+stim_inh_trains = []
+
 if trial_seed is None:
     trials = 0
     run_n_trials(10)
 else:
     trials = trial_seed
     run_n_trials(1)
+
 
 """
 stim_forces = []
@@ -250,7 +280,7 @@ for i in range(500):
     plt.plot(stim_t, stim_force)
 
 
-for i, syn in enumerate(stim_syns):
+for i, syn in enumerate(stim_exc_syns):
     if syn.node.parent.parent.type == 'tuft':
         theta_force = 1. + np.sin(2. * np.pi / global_theta_cycle_duration * (stim_t - global_phase_offset +
                                                                               tuft_phase_offset))
