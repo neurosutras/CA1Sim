@@ -18,19 +18,23 @@ if len(sys.argv) > 1:
 else:
     synapses_seed = 1
 if len(sys.argv) > 2:
-    num_syns = int(sys.argv[2])
+    num_exc_syns = int(sys.argv[2])
 else:
-    num_syns = 1200
+    num_exc_syns = 1200
+if len(sys.argv) > 3:
+    num_inh_syns = int(sys.argv[3])
+else:
+    num_inh_syns = 200
 
 # allows parallel computation of multiple trials for the same spines with the same peak_locs, but with different
 # input spike trains and stochastic synapses for each trial
-if len(sys.argv) > 3:
-    trial_seed = int(sys.argv[3])
+if len(sys.argv) > 4:
+    trial_seed = int(sys.argv[4])
 else:
     trial_seed = None
 
 rec_filename = 'output'+datetime.datetime.today().strftime('%m%d%Y%H%M')+'-pid'+str(os.getpid())+'-seed'+\
-               str(synapses_seed)+'-inputs'+str(num_syns)+'-trial'+str(trial_seed)
+               str(synapses_seed)+'-e'+str(num_exc_syns)+'-i'+str(num_inh_syns)+'-trial'+str(trial_seed)
 
 
 def get_instantaneous_spike_probability(rate, dt=0.1, generator=None):
@@ -155,7 +159,7 @@ track_equilibrate = 2. * global_theta_cycle_duration
 duration = equilibrate + track_equilibrate + track_duration
 gaussian_modulation_strength = 25.
 theta_compression_factor = unit_theta_cycle_duration / input_field_duration
-tuft_phase_offset = 45. /360. * global_theta_cycle_duration
+tuft_phase_offset = 45. / 360. * global_theta_cycle_duration
 inhibitory_peak_rate = {}
 inhibitory_theta_modulation_depth = {}
 inhibitory_peak_rate['perisomatic'] = 40.
@@ -165,7 +169,6 @@ stim_dt = 0.1
 dt = 0.02
 v_init = -67.
 
-#num_syns = 2000  # evenly distributed across sec_types
 syn_types = ['AMPA_KIN', NMDA_type]
 
 local_random = random.Random()
@@ -188,19 +191,27 @@ else:
     trunk_bifurcation = [node for node in cell.trunk if 'tuft' in (child.type for child in node.children)]
     trunk = trunk_bifurcation[0]
 
-all_syns = {sec_type: [] for sec_type in ['basal', 'trunk', 'apical', 'tuft']}
+all_exc_syns = {sec_type: [] for sec_type in ['basal', 'trunk', 'apical', 'tuft']}
+all_inh_syns = {sec_type: [] for sec_type in ['soma', 'basal', 'trunk', 'apical', 'tuft']}
 stim_exc_syns = []
 stim_inh_syns = []
 stim_successes = []
 peak_locs = []
 
 # place synapses in every spine
-for sec_type in all_syns:
+for sec_type in all_exc_syns:
     for node in cell.get_nodes_of_subtype(sec_type):
         for spine in node.spines:
             syn = Synapse(cell, spine, syn_types, stochastic=1)
-            all_syns[sec_type].append(syn)
+            all_exc_syns[sec_type].append(syn)
 cell.init_synaptic_mechanisms()
+
+# collate inhibitory synapses
+for sec_type in all_inh_syns:
+    for node in cell.get_nodes_of_subtype(sec_type):
+        for syn in node.synapses:
+            if 'GABA_A_KIN' in syn._syn:
+                all_inh_syns[sec_type].append(syn)
 
 sim = QuickSim(duration)
 sim.parameters['equilibrate'] = equilibrate
@@ -214,15 +225,25 @@ sim.append_rec(cell, trunk, description='trunk', loc=0.)
 spike_output_vec = h.Vector()
 cell.spike_detector.record(spike_output_vec)
 
-# get the fraction of total spines contained in each dendritic type
-total_syns = {sec_type: len(all_syns[sec_type]) for sec_type in ['basal', 'trunk', 'apical', 'tuft']}
-fraction_syns = {sec_type: float(total_syns[sec_type]) / float(np.sum(total_syns.values())) for sec_type in
+# get the fraction of total spines contained in each sec_type
+total_exc_syns = {sec_type: len(all_exc_syns[sec_type]) for sec_type in ['basal', 'trunk', 'apical', 'tuft']}
+fraction_exc_syns = {sec_type: float(total_exc_syns[sec_type]) / float(np.sum(total_exc_syns.values())) for sec_type in
                  ['basal', 'trunk', 'apical', 'tuft']}
 
-for sec_type in all_syns:
-    for i in local_random.sample(range(len(all_syns[sec_type])), int(num_syns*fraction_syns[sec_type])):
-        syn = all_syns[sec_type][i]
+for sec_type in all_exc_syns:
+    for i in local_random.sample(range(len(all_exc_syns[sec_type])), int(num_exc_syns*fraction_exc_syns[sec_type])):
+        syn = all_exc_syns[sec_type][i]
         stim_exc_syns.append(syn)
+
+# get the fraction of inhibitory synapses contained in each sec_type
+total_inh_syns = {sec_type: len(all_inh_syns[sec_type]) for sec_type in ['soma', 'basal', 'trunk', 'apical', 'tuft']}
+fraction_inh_syns = {sec_type: float(total_inh_syns[sec_type]) / float(np.sum(total_inh_syns.values())) for sec_type in
+                 ['soma', 'basal', 'trunk', 'apical', 'tuft']}
+
+for sec_type in all_inh_syns:
+    for i in local_random.sample(range(len(all_inh_syns[sec_type])), int(num_inh_syns*fraction_inh_syns[sec_type])):
+        syn = all_inh_syns[sec_type][i]
+        stim_inh_syns.append(syn)
 
 stim_t = np.arange(-track_equilibrate, track_duration, dt)
 
@@ -242,11 +263,6 @@ for syn in stim_exc_syns:
 
 # rand_inh_seq_locs = [] will need this when inhibitory synapses become stochastic
 # stim_inh_successes = [] will need this when inhibitory synapses become stochastic
-for sec_type in ['soma', 'basal', 'trunk', 'apical', 'tuft']:
-    for node in cell._node_dict[sec_type]:
-        for syn in node.synapses:
-            if 'GABA_A_KIN' in syn._syn:
-                stim_inh_syns.append(syn)
 
 if trial_seed is None:
     trials = 0
@@ -254,7 +270,6 @@ if trial_seed is None:
 else:
     trials = trial_seed
     run_n_trials(1)
-
 
 """
 stim_forces = []
@@ -276,7 +291,6 @@ for i in range(500):
     stim_force = np.multiply(stim_force, theta_force)
     stim_forces.append(stim_force)
     plt.plot(stim_t, stim_force)
-
 
 for i, syn in enumerate(stim_exc_syns):
     if syn.node.parent.parent.type == 'tuft':
