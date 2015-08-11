@@ -2121,9 +2121,9 @@ def process_patterned_input_simulation(rec_filename, title, dt=0.02):
     for trace in spikes_removed:
         intra_freq, this_intra_psd = signal.periodogram(trace, 1000./dt)
         intra_psd.append(this_intra_psd)
-        counts, vals = np.histogram(trace, bins=(np.max(trace)-np.min(trace))/0.2)
-        offset = vals[np.where(counts == np.max(counts))[0][0]]
-        subtracted = trace - offset
+        #counts, vals = np.histogram(trace, bins=(np.max(trace)-np.min(trace))/0.2)
+        #offset = vals[np.where(counts == np.max(counts))[0][0]]
+        subtracted = trace # - offset
         down_sampled = np.interp(down_t, rec_t, subtracted)
         filtered = signal.filtfilt(theta_filter, [1.], down_sampled, padtype='even', padlen=window_len)
         up_sampled = np.interp(rec_t, down_t, filtered)
@@ -2141,7 +2141,7 @@ def process_patterned_input_simulation(rec_filename, title, dt=0.02):
     right = np.where(intra_freq >= 11.)[0][0]
     intra_psd /= np.max(intra_psd[left:right])
     mean_across_trials = np.mean(theta_removed, axis=0)
-    variance_across_trials = np.var(ramp_removed, axis=0)
+    variance_across_trials = np.var(theta_removed, axis=0)
     binned_mean = []
     binned_variance = []
     bin_duration = 500.
@@ -2149,7 +2149,7 @@ def process_patterned_input_simulation(rec_filename, title, dt=0.02):
     for i, residual in enumerate(ramp_removed):
         for j in range(0, int(track_duration/bin_duration) - 1):
             binned_variance.append(np.var(residual[j*interval:(j+1)*interval]))
-            binned_mean.append(np.var(theta_removed[i][j*interval:(j+1)*interval]))
+            binned_mean.append(np.mean(theta_removed[i][j*interval:(j+1)*interval]))
     plt.plot(rec_t, mean_across_trials)
     plt.xlabel('Time (ms)')
     plt.ylabel('Voltage (mV)')
@@ -2177,3 +2177,4 @@ def process_patterned_input_simulation(rec_filename, title, dt=0.02):
     plt.legend(loc='best')
     plt.show()
     plt.close()
+    return binned_mean, binned_variance

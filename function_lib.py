@@ -9,6 +9,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 import h5py
 import scipy.optimize as optimize
+import scipy.signal as signal
 from neuron import h  # must be found in system $PYTHONPATH
 
 
@@ -729,6 +730,26 @@ def export_nmdar_cooperativity(expected_filename, actual_filename, description="
                                                            data=actual_dict[location])
 
 
+def get_binned_firing_rate(spike_times, t, bin_dur=10.):
+    """
+
+    :param spike_times: list of lists
+    :param t: array
+    :param bin_dur: float (ms)
+    :return: array (Hz)
+    """
+    bin_centers = np.arange(t[0]+bin_dur/2., t[-1], bin_dur)
+    count = np.zeros(len(bin_centers))
+    for train in spike_times:
+        for spike_time in train:
+            if spike_time >= t[0] and spike_time <= t[-1]:
+                i = np.where(bin_centers + bin_dur / 2. >= spike_time)[0][0]
+                count[i] += 1
+    rate = count / bin_dur * 1000.
+    rate = np.interp(t, bin_centers, rate)
+    return rate
+
+
 def get_smoothed_firing_rate(spike_times, t, bin_dur=20., dt=0.1):
     """
 
@@ -760,7 +781,7 @@ def get_smoothed_firing_rate(spike_times, t, bin_dur=20., dt=0.1):
     return rate
 
 
-def get_removed_spikes(rec_filename, before=0.3, after=6., dt=0.02, th=20.):
+def get_removed_spikes(rec_filename, before=0.3, after=6., dt=0.02, th=20., plot=1):
     """
 
     :param rec_filename: str
@@ -768,6 +789,7 @@ def get_removed_spikes(rec_filename, before=0.3, after=6., dt=0.02, th=20.):
     :param after: float : time to remove after spike in case where trough or voltage recovery cannot be used
     :param dt: float : temporal resolution for interpolation and dvdt
     :param th: float : slope threshold
+    :param plot: int
     :return: list of :class:'numpy.array'
     """
     removed = []
@@ -830,8 +852,58 @@ def get_removed_spikes(rec_filename, before=0.3, after=6., dt=0.02, th=20.):
             start = int((equilibrate + track_equilibrate) / dt)
             temp_t = np.subtract(temp_t[start:], equilibrate + track_equilibrate)
             temp_vm = temp_vm[start:]
-            plt.plot(temp_t, temp_vm)
-            plt.plot(t, vm)
-            plt.show()
-            plt.close()
+            if plot:
+                plt.plot(temp_t, temp_vm)
+                plt.plot(t, vm)
+                plt.show()
+                plt.close()
     return removed
+
+
+def get_theta_filtered_traces(rec_filename, dt=0.02):
+    """
+
+    :param rec_file_name: str
+    # remember .attrs['phase_offset'] could be inside ['train'] for old files
+    """
+    with h5py.File(data_dir+rec_filename+'.hdf5', 'r') as f:
+        equilibrate = f['0'].attrs['equilibrate']
+        track_equilibrate = f['0'].attrs['track_equilibrate']
+        track_length = f['0'].attrs['track_length']
+        input_field_duration = f['0'].attrs['input_field_duration']
+        duration = f['0'].attrs['duration']
+        stim_dt = f['0'].attrs['stim_dt']
+        track_duration = duration - equilibrate - track_equilibrate
+        stim_t = np.arange(-track_equilibrate, track_duration, stim_dt)
+        pop_input = [get_smoothed_firing_rate(sim['train'].values(), stim_t) for sim in f.values()]
+        if 'successes' in f['0']:
+            successes = [get_smoothed_firing_rate(sim['successes'].values(), stim_t) for sim in f.values()]
+            mean_successes = np.mean(successes, axis=0)
+        phase_offsets = []
+        for sim in f.values():
+            if 'phase_offset' in sim.attrs:
+                phase_offsets.append(sim.attrs['phase_offset'])
+            elif 'phase_offset' in sim['train'].attrs:
+                phase_offsets.append(sim['train'].attrs['phase_offset'])
+    rec_t = np.arange(0., track_duration, dt)
+    spikes_removed = get_removed_spikes(rec_filename, plot=0)
+    # down_sample traces to 2 kHz after clipping spikes for theta and ramp filtering
+    down_dt = 0.5
+    down_stim_t = np.arange(-track_equilibrate, track_duration, down_dt)
+    down_rec_t = np.arange(0., track_duration, down_dt)
+    # 2000 ms Hamming window, ~3 Hz low-pass for ramp, ~5 - 10 Hz bandpass for theta
+    window_len = int(2000./down_dt)
+    theta_filter = signal.firwin(window_len, [5., 10.], nyq=1000./2./down_dt, pass_zero=False)
+    pop_theta = []
+    intra_theta = []
+    for pop in pop_input:
+        down_sampled = np.interp(down_stim_t, stim_t, pop)
+        filtered = signal.filtfilt(theta_filter, [1.], down_sampled, padtype='even', padlen=window_len)
+        up_sampled = np.interp(stim_t, down_stim_t, filtered)
+        pop_theta.append(up_sampled)
+    for trace in spikes_removed:
+        down_sampled = np.interp(down_rec_t, rec_t, trace)
+        filtered = signal.filtfilt(theta_filter, [1.], down_sampled, padtype='even', padlen=window_len)
+        up_sampled = np.interp(rec_t, down_rec_t, filtered)
+        intra_theta.append(up_sampled)
+    return stim_t, pop_theta, rec_t, intra_theta, phase_offsets

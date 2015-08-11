@@ -1261,7 +1261,7 @@ class CA1_Pyr(HocCell):
                                'end': max([self.get_distance_to_node(self.tree.root, branch) for branch in
                                                                                                 self.trunk])},
                      'basal': {'primary': 0.3129, 'intermediate': 0.1728, 'terminal': 0.06543},
-                     'apical': {'min': 0.3022, 'max': 0.0627,
+                     'apical': {'min': 0.03885, 'max': 0.04512,
                                 'start': min([self.get_distance_to_node(self.tree.root, branch) for branch in
                                                                                                 self.apical]),
                                 'end': max([self.get_distance_to_node(self.tree.root, branch)
