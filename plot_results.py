@@ -2044,7 +2044,7 @@ def process_patterned_input_simulation(rec_filename, title, dt=0.02):
         input_field_duration = f['0'].attrs['input_field_duration']
         duration = f['0'].attrs['duration']
         stim_dt = f['0'].attrs['stim_dt']
-        bins = int((1.5 + track_length) * input_field_duration / 20)
+        bins = int((1.5 + track_length) * input_field_duration / 20.)
         track_duration = duration - equilibrate - track_equilibrate
         stim_t = np.arange(-track_equilibrate, track_duration, stim_dt)
         intervals = []
@@ -2053,7 +2053,7 @@ def process_patterned_input_simulation(rec_filename, title, dt=0.02):
                 if len(train) > 0:
                     for i in range(len(train) - 1):
                         intervals.append(train[i+1] - train[i])
-        pop_input = [get_smoothed_firing_rate(sim['train'].values(), stim_t) for sim in f.values()]
+        pop_input = [get_binned_firing_rate(sim['train'].values(), stim_t) for sim in f.values()]
         pop_psd = []
         for this_pop_input in pop_input:
             pop_freq, this_pop_psd = signal.periodogram(this_pop_input, 1000./stim_dt)
@@ -2064,7 +2064,7 @@ def process_patterned_input_simulation(rec_filename, title, dt=0.02):
         pop_psd /= np.max(pop_psd[left:right])
         mean_input = np.mean(pop_input, axis=0)
         if 'successes' in f['0']:
-            successes = [get_smoothed_firing_rate(sim['successes'].values(), stim_t) for sim in f.values()]
+            successes = [get_binned_firing_rate(sim['successes'].values(), stim_t) for sim in f.values()]
             mean_successes = np.mean(successes, axis=0)
         mean_output = get_smoothed_firing_rate([sim['output'][:] for sim in f.values()], stim_t)
         start = int(track_equilibrate/stim_dt)
@@ -2105,7 +2105,7 @@ def process_patterned_input_simulation(rec_filename, title, dt=0.02):
         plt.show()
         plt.close()
     rec_t = np.arange(0., track_duration, dt)
-    spikes_removed = get_removed_spikes(rec_filename)
+    spikes_removed = get_removed_spikes(rec_filename, plot=0)
     # down_sample traces to 2 kHz after clipping spikes for theta and ramp filtering
     down_dt = 0.5
     down_t = np.arange(0., track_duration, down_dt)
@@ -2158,13 +2158,13 @@ def process_patterned_input_simulation(rec_filename, title, dt=0.02):
     plt.close()
     plt.plot(rec_t, variance_across_trials)
     plt.xlabel('Time (ms)')
-    plt.ylabel('Variance (mV'+r'$^2$'+')')
+    plt.ylabel('Vm Variance (mV'+r'$^2$'+')')
     plt.title('Somatic Vm Variance - Across Trials - ' + title)
     plt.show()
     plt.close()
     plt.scatter(binned_mean, binned_variance)
-    plt.xlabel('Mean (mV)')
-    plt.ylabel('Variance (mV'+r'$^2$'+')')
+    plt.xlabel('Mean Vm (mV)')
+    plt.ylabel('Vm Variance (mV'+r'$^2$'+')')
     plt.title('Mean - Variance Analysis - ' + title)
     plt.show()
     plt.close()
@@ -2173,7 +2173,7 @@ def process_patterned_input_simulation(rec_filename, title, dt=0.02):
     plt.xlim(4., 11.)
     plt.xlabel('Frequency (Hz)')
     plt.ylabel('Normalized Power Density')
-    plt.title('Power Spectral Density')
+    plt.title('Power Spectral Density' + title)
     plt.legend(loc='best')
     plt.show()
     plt.close()

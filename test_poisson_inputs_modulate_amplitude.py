@@ -34,7 +34,7 @@ else:
     trial_seed = None
 
 rec_filename = 'output'+datetime.datetime.today().strftime('%m%d%Y%H%M')+'-pid'+str(os.getpid())+'-seed'+\
-               str(synapses_seed)+'-e'+str(num_exc_syns)+'-i'+str(num_inh_syns)+'-trial'+str(trial_seed)
+               str(synapses_seed)+'-e'+str(num_exc_syns)+'-i'+str(num_inh_syns)+'-modamp'+str(trial_seed)
 
 
 def get_instantaneous_spike_probability(rate, dt=0.1, generator=None):
@@ -253,6 +253,7 @@ gauss_force = gaussian_modulation_strength * signal.gaussian(int((2 * (track_len
 
 special_start_loc = 2000.
 special_end_loc = 3000.
+special_factor = 3.
 
 rand_exc_seq_locs = []
 for syn in stim_exc_syns:
@@ -260,7 +261,7 @@ for syn in stim_exc_syns:
     peak_locs.append(peak_loc)
     # double the synaptic strength of all inputs with peak locations within the modulated window
     if peak_loc >= special_start_loc and peak_loc < special_end_loc:
-        syn.netcon('AMPA_KIN').weight[0] = 2.
+        syn.netcon('AMPA_KIN').weight[0] = special_factor
     success_vec = h.Vector()
     stim_successes.append(success_vec)
     syn.netcon('AMPA_KIN').record(success_vec)

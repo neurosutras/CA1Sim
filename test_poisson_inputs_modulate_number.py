@@ -34,7 +34,7 @@ else:
     trial_seed = None
 
 rec_filename = 'output'+datetime.datetime.today().strftime('%m%d%Y%H%M')+'-pid'+str(os.getpid())+'-seed'+\
-               str(synapses_seed)+'-e'+str(num_exc_syns)+'-i'+str(num_inh_syns)+'-trial'+str(trial_seed)
+               str(synapses_seed)+'-e'+str(num_exc_syns)+'-i'+str(num_inh_syns)+'-modnum'+str(trial_seed)
 
 
 def get_instantaneous_spike_probability(rate, dt=0.1, generator=None):
@@ -269,9 +269,10 @@ for syn in stim_exc_syns:
 
 special_start_loc = 2000.
 special_end_loc = 3000.
-# this will double the number of inputs that have peak_locs along this stretch of the track
+special_factor = 1.5
+# this will increase the number of inputs that have peak_locs along this stretch of the track
 special_exc_syn_num = int((special_end_loc - special_start_loc) / ((1.5 + track_length) * input_field_duration) *
-                          num_exc_syns)
+                          num_exc_syns * (special_factor - 1.))
 
 special_start_index = len(stim_exc_syns)
 for sec_type in all_exc_syns:
