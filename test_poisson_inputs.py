@@ -93,12 +93,12 @@ def run_n_trials(n):
             # the stochastic sequence used for each synapse is unique for each trial, up to 1000 input spikes per spine
             syn.randObj.seq(rand_exc_seq_locs[i]+int(simiter*1e3))
             if syn.node.parent.parent.type == 'tuft':
-                theta_force = 1. + np.sin(2. * np.pi / global_theta_cycle_duration * (stim_t - global_phase_offset +
-                                                                                      tuft_phase_offset))
+                theta_force = excitatory_theta_offset + excitatory_theta_amp * np.sin(2. * np.pi /
+                                    global_theta_cycle_duration * (stim_t - global_phase_offset + tuft_phase_offset))
             else:
                 unit_phase_offset = peak_locs[i] * theta_compression_factor
-                theta_force = 1. + np.sin(2. * np.pi / unit_theta_cycle_duration * (stim_t - global_phase_offset -
-                                                                              unit_phase_offset))
+                theta_force = excitatory_theta_offset + excitatory_theta_amp * np.sin(2. * np.pi /
+                                        unit_theta_cycle_duration * (stim_t - global_phase_offset - unit_phase_offset))
             start = int(((0.75 + track_length) * input_field_duration - peak_locs[i]) / dt)
             buffer = int((0.75 * input_field_duration - track_equilibrate) / dt)
             start += buffer
@@ -109,9 +109,6 @@ def run_n_trials(n):
             stim_trains.append(train)
             syn.source.play(h.Vector(np.add(train, equilibrate + track_equilibrate)))
         for i, syn in enumerate(stim_inh_syns):
-            inhibitory_theta_offset = inhibitory_peak_rate['perisomatic'] * \
-                                      (inhibitory_theta_modulation_depth['perisomatic'] + 1.) / 2.
-            inhibitory_theta_amp = inhibitory_peak_rate['perisomatic'] - inhibitory_theta_offset
             inhibitory_theta_force = inhibitory_theta_offset + inhibitory_theta_amp * np.sin(2. * np.pi /
                                                         global_theta_cycle_duration * (stim_t - global_phase_offset))
             train = get_inhom_poisson_spike_times(inhibitory_theta_force, stim_t, generator=local_random)
@@ -157,7 +154,8 @@ track_length = 3  # field widths
 track_duration = track_length * input_field_duration
 track_equilibrate = 2. * global_theta_cycle_duration
 duration = equilibrate + track_equilibrate + track_duration
-gaussian_modulation_strength = 25.
+excitatory_peak_rate = 50.
+excitatory_theta_modulation_depth = 0.8
 theta_compression_factor = unit_theta_cycle_duration / input_field_duration
 tuft_phase_offset = 45. / 360. * global_theta_cycle_duration
 inhibitory_peak_rate = {}
@@ -213,7 +211,7 @@ for sec_type in all_inh_syns:
             if 'GABA_A_KIN' in syn._syn:
                 all_inh_syns[sec_type].append(syn)
 
-sim = QuickSim(duration)
+sim = QuickSim(350.)  #duration)
 sim.parameters['equilibrate'] = equilibrate
 sim.parameters['track_equilibrate'] = track_equilibrate
 sim.parameters['input_field_duration'] = input_field_duration
@@ -247,9 +245,16 @@ for sec_type in all_inh_syns:
 
 stim_t = np.arange(-track_equilibrate, track_duration, dt)
 
+excitatory_theta_amp = excitatory_theta_modulation_depth / 2.
+excitatory_theta_offset = 1. - excitatory_theta_amp
+
+inhibitory_theta_amp = inhibitory_peak_rate['perisomatic'] * inhibitory_theta_modulation_depth['perisomatic'] / 2.
+inhibitory_theta_offset = inhibitory_peak_rate['perisomatic'] - inhibitory_theta_amp
+
 gauss_sigma = global_theta_cycle_duration * input_field_width / 6.  # contains 99.7% gaussian area
-gauss_force = gaussian_modulation_strength * signal.gaussian(int((2 * (track_length + 1.5) *
-                                                    input_field_duration) / dt), gauss_sigma / dt)
+gauss_force = excitatory_peak_rate * signal.gaussian(int((2 * (track_length + 1.5) * input_field_duration) / dt),
+                                                     gauss_sigma / dt)
+
 rand_exc_seq_locs = []
 for syn in stim_exc_syns:
     peak_loc = local_random.uniform(-0.75 * input_field_duration, (0.75 + track_length) * input_field_duration)
@@ -258,6 +263,8 @@ for syn in stim_exc_syns:
     stim_successes.append(success_vec)
     syn.netcon('AMPA_KIN').record(success_vec)
     rand_exc_seq_locs.append(syn.randObj.seq())
+    sim.append_rec(cell, syn.node, object=syn.target('AMPA_KIN'), param='_ref_i', description='i_AMPA')
+    sim.append_rec(cell, syn.node, object=syn.target(NMDA_type), param='_ref_i', description='i_NMDA')
     if syn.node.parent.parent not in [rec['node'] for rec in sim.rec_list]:
         sim.append_rec(cell, syn.node.parent.parent)
 
@@ -272,40 +279,34 @@ else:
     run_n_trials(1)
 
 """
-stim_forces = []
-theta_forces = []
-peak_locs = []
-global_phase_offset = 0.  # local_random.uniform(0., global_theta_cycle_duration)
-for i in range(500):
-    peak_loc = local_random.uniform(-0.75 * input_field_duration, (0.75 + track_length) * input_field_duration)
-    peak_locs.append(peak_loc)
-    unit_phase_offset = peak_locs[i] * theta_compression_factor
-    theta_force = 1. + np.sin(2. * np.pi / unit_theta_cycle_duration * (stim_t - global_phase_offset -
-                                                                  unit_phase_offset))
-    theta_forces.append(theta_force)
-    start = int(((0.75 + track_length) * input_field_duration - peak_locs[i])/dt)
+exc_forces = []
+inh_forces = []
+local_random.seed(0)
+global_phase_offset = 0.
+simiter = 0
+for i, syn in enumerate(stim_exc_syns):
+    # the stochastic sequence used for each synapse is unique for each trial, up to 1000 input spikes per spine
+    syn.randObj.seq(rand_exc_seq_locs[i]+int(simiter*1e3))
+    if syn.node.parent.parent.type == 'tuft':
+        theta_force = excitatory_theta_offset + excitatory_theta_amp * np.sin(2. * np.pi /
+                            global_theta_cycle_duration * (stim_t - global_phase_offset + tuft_phase_offset))
+    else:
+        unit_phase_offset = peak_locs[i] * theta_compression_factor
+        theta_force = excitatory_theta_offset + excitatory_theta_amp * np.sin(2. * np.pi /
+                                unit_theta_cycle_duration * (stim_t - global_phase_offset - unit_phase_offset))
+    start = int(((0.75 + track_length) * input_field_duration - peak_locs[i]) / dt)
     buffer = int((0.75 * input_field_duration - track_equilibrate) / dt)
     start += buffer
     end = start + len(stim_t)
     stim_force = gauss_force[start:end]
     stim_force = np.multiply(stim_force, theta_force)
-    stim_forces.append(stim_force)
-    plt.plot(stim_t, stim_force)
-
-for i, syn in enumerate(stim_exc_syns):
-    if syn.node.parent.parent.type == 'tuft':
-        theta_force = 1. + np.sin(2. * np.pi / global_theta_cycle_duration * (stim_t - global_phase_offset +
-                                                                              tuft_phase_offset))
-    else:
-        unit_phase_offset = peak_locs[i] * theta_compression_factor
-        theta_force = 1. + np.sin(2. * np.pi / unit_theta_cycle_duration * (stim_t - global_phase_offset -
-                                                                      unit_phase_offset))
-    start = int(((0.5 + track_length) * input_field_duration - peak_locs[i])/dt)
-    end = start + len(stim_t)
-    stim_force = gauss_force[start:end]
-    stim_force = np.multiply(stim_force, theta_force)
-    if syn.node.parent.parent.type == 'tuft':
-        tuft_forces.append(stim_force)
-    else:
-        stim_forces.append(stim_force)
+    exc_forces.append(stim_force)
+for i, syn in enumerate(stim_inh_syns):
+    inhibitory_theta_force = inhibitory_theta_offset + inhibitory_theta_amp * np.sin(2. * np.pi /
+                                                global_theta_cycle_duration * (stim_t - global_phase_offset))
+    inh_forces.append(inhibitory_theta_force)
+for force in exc_forces[:300]:
+    plt.plot(stim_t, force)
+plt.xlim(0., 1000.)
+plt.show()
 """

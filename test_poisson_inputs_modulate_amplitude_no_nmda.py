@@ -34,7 +34,7 @@ else:
     trial_seed = None
 
 rec_filename = 'output'+datetime.datetime.today().strftime('%m%d%Y%H%M')+'-pid'+str(os.getpid())+'-seed'+\
-               str(synapses_seed)+'-e'+str(num_exc_syns)+'-i'+str(num_inh_syns)+'-modnum'+str(trial_seed)
+               str(synapses_seed)+'-e'+str(num_exc_syns)+'-i'+str(num_inh_syns)+'-modamp_no_nmda'+str(trial_seed)
 
 
 def get_instantaneous_spike_probability(rate, dt=0.1, generator=None):
@@ -105,7 +105,6 @@ def run_n_trials(n):
             end = start + len(stim_t)
             stim_force = gauss_force[start:end]
             stim_force = np.multiply(stim_force, theta_force)
-            #stim_forces.append(stim_force)
             train = get_inhom_poisson_spike_times(stim_force, stim_t, generator=local_random)
             stim_trains.append(train)
             syn.source.play(h.Vector(np.add(train, equilibrate + track_equilibrate)))
@@ -253,54 +252,31 @@ inhibitory_theta_amp = inhibitory_peak_rate['perisomatic'] * inhibitory_theta_mo
 inhibitory_theta_offset = inhibitory_peak_rate['perisomatic'] - inhibitory_theta_amp
 
 gauss_sigma = global_theta_cycle_duration * input_field_width / 6.  # contains 99.7% gaussian area
-gauss_force = excitatory_peak_rate * signal.gaussian(int((2 * (track_length + 1.5) * input_field_duration) / dt),
-                                                     gauss_sigma / dt)
+gauss_force = excitatory_peak_rate * signal.gaussian(int((2 * (track_length + 1.5) *
+                                                    input_field_duration) / dt), gauss_sigma / dt)
+
+special_start_loc = 2000.
+special_end_loc = 3000.
+special_factor = 3.
 
 rand_exc_seq_locs = []
 for syn in stim_exc_syns:
     peak_loc = local_random.uniform(-0.75 * input_field_duration, (0.75 + track_length) * input_field_duration)
     peak_locs.append(peak_loc)
+    # double the synaptic strength of all inputs with peak locations within the modulated window
+    if peak_loc >= special_start_loc and peak_loc < special_end_loc:
+        syn.netcon('AMPA_KIN').weight[0] = special_factor
     success_vec = h.Vector()
     stim_successes.append(success_vec)
     syn.netcon('AMPA_KIN').record(success_vec)
     rand_exc_seq_locs.append(syn.randObj.seq())
     sim.append_rec(cell, syn.node, object=syn.target('AMPA_KIN'), param='_ref_i', description='i_AMPA')
-    sim.append_rec(cell, syn.node, object=syn.target(NMDA_type), param='_ref_i', description='i_NMDA')
+    syn.target(NMDA_type).gmax = 0.
     if syn.node.parent.parent not in [rec['node'] for rec in sim.rec_list]:
         sim.append_rec(cell, syn.node.parent.parent)
-    # remove this synapse from the pool, so that additional "modulated" inputs can be selected from those that remain
-    all_exc_syns[syn.node.parent.parent.type].remove(syn)
 
 # rand_inh_seq_locs = [] will need this when inhibitory synapses become stochastic
 # stim_inh_successes = [] will need this when inhibitory synapses become stochastic
-
-special_start_loc = 2000.
-special_end_loc = 3000.
-special_factor = 1.5
-# this will increase the number of inputs that have peak_locs along this stretch of the track
-special_exc_syn_num = int((special_end_loc - special_start_loc) / ((1.5 + track_length) * input_field_duration) *
-                          num_exc_syns * (special_factor - 1.))
-
-special_start_index = len(stim_exc_syns)
-for sec_type in all_exc_syns:
-    for i in local_random.sample(range(len(all_exc_syns[sec_type])), min(len(all_exc_syns[sec_type]),
-                                                            int(special_exc_syn_num * fraction_exc_syns[sec_type]))):
-        syn = all_exc_syns[sec_type][i]
-        stim_exc_syns.append(syn)
-
-for syn in stim_exc_syns[special_start_index:]:
-    peak_loc = local_random.uniform(special_start_loc, special_end_loc)
-    peak_locs.append(peak_loc)
-    success_vec = h.Vector()
-    stim_successes.append(success_vec)
-    syn.netcon('AMPA_KIN').record(success_vec)
-    rand_exc_seq_locs.append(syn.randObj.seq())
-    sim.append_rec(cell, syn.node, object=syn.target('AMPA_KIN'), param='_ref_i', description='i_AMPA')
-    sim.append_rec(cell, syn.node, object=syn.target(NMDA_type), param='_ref_i', description='i_NMDA')
-    if syn.node.parent.parent not in [rec['node'] for rec in sim.rec_list]:
-        sim.append_rec(cell, syn.node.parent.parent)
-    # remove this synapse from the pool, so that additional "modulated" inputs can be selected from those that remain
-    all_exc_syns[syn.node.parent.parent.type].remove(syn)
 
 if trial_seed is None:
     trials = 0

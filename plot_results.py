@@ -2066,16 +2066,24 @@ def process_patterned_input_simulation(rec_filename, title, dt=0.02):
         if 'successes' in f['0']:
             successes = [get_binned_firing_rate(sim['successes'].values(), stim_t) for sim in f.values()]
             mean_successes = np.mean(successes, axis=0)
-        mean_output = get_smoothed_firing_rate([sim['output'][:] for sim in f.values()], stim_t)
+        if 'inh_train' in f['0']:
+            inh_input = [get_binned_firing_rate(sim['inh_train'].values(), stim_t) for sim in f.values()]
+            mean_inh_input = np.mean(inh_input, axis=0)
+        output = [get_smoothed_firing_rate([sim['output']], stim_t) for sim in f.values()]
+        mean_output = np.mean(output, axis=0)
         start = int(track_equilibrate/stim_dt)
-        plt.plot(stim_t[start:], mean_input[start:], label='Total Population Input Spike Rate')
+        fig, axes = plt.subplots(3, 1)
+        axes[0].plot(stim_t[start:], mean_input[start:], label='Total Excitatory Input Spike Rate', c='b')
         if 'successes' in f['0']:
-            plt.plot(stim_t[start:], mean_successes[start:], label='Total Population Input Success Rate')
-        plt.plot(stim_t[start:], mean_output[start:], label='Single Cell Output Spike Rate')
-        plt.legend(loc='best', frameon=False, framealpha=0.5)
-        plt.xlabel('Time (ms)')
-        plt.ylabel('Event Rate (Hz)')
-        plt.title(title)
+            axes[0].plot(stim_t[start:], mean_successes[start:], label='Total Excitatory Input Success Rate', c='g')
+        if 'inh_train' in f['0']:
+            axes[1].plot(stim_t[start:], mean_inh_input[start:], label='Total Inhibitory Input Spike Rate', c='k')
+        axes[2].plot(stim_t[start:], mean_output[start:], label='Single Cell Output Spike Rate', c='r')
+        for ax in axes:
+            ax.legend(loc='upper left', frameon=False, framealpha=0.5)
+        axes[2].set_xlabel('Time (ms)')
+        axes[1].set_ylabel('Event Rate (Hz)')
+        axes[0].set_title(title)
         plt.show()
         plt.close()
         plt.hist(intervals, bins=int(max(intervals)/3.), normed=True)
@@ -2144,7 +2152,7 @@ def process_patterned_input_simulation(rec_filename, title, dt=0.02):
     variance_across_trials = np.var(theta_removed, axis=0)
     binned_mean = []
     binned_variance = []
-    bin_duration = 500.
+    bin_duration = 250.
     interval = int(bin_duration/dt)
     for i, residual in enumerate(ramp_removed):
         for j in range(0, int(track_duration/bin_duration) - 1):
@@ -2173,7 +2181,165 @@ def process_patterned_input_simulation(rec_filename, title, dt=0.02):
     plt.xlim(4., 11.)
     plt.xlabel('Frequency (Hz)')
     plt.ylabel('Normalized Power Density')
-    plt.title('Power Spectral Density' + title)
+    plt.title('Power Spectral Density - ' + title)
+    plt.legend(loc='best')
+    plt.show()
+    plt.close()
+    return binned_mean, binned_variance
+
+
+def plot_spike_phase_precession(rec_filename, title):
+    """
+
+    :param rec_file_name: str
+    :param title: str
+    # remember .attrs['phase_offset'] could be inside ['train'] for old files
+    """
+    with h5py.File(data_dir+rec_filename+'.hdf5', 'r') as f:
+        equilibrate = f['0'].attrs['equilibrate']
+        track_equilibrate = f['0'].attrs['track_equilibrate']
+        track_length = f['0'].attrs['track_length']
+        input_field_duration = f['0'].attrs['input_field_duration']
+        duration = f['0'].attrs['duration']
+        stim_dt = f['0'].attrs['stim_dt']
+        bins = int((1.5 + track_length) * input_field_duration / 20.)
+        track_duration = duration - equilibrate - track_equilibrate
+        stim_t = np.arange(-track_equilibrate, track_duration, stim_dt)
+        intervals = []
+        for sim in f.values():
+            for train in sim['train'].values():
+                if len(train) > 0:
+                    for i in range(len(train) - 1):
+                        intervals.append(train[i+1] - train[i])
+        pop_input = [get_binned_firing_rate(sim['train'].values(), stim_t) for sim in f.values()]
+        pop_psd = []
+        for this_pop_input in pop_input:
+            pop_freq, this_pop_psd = signal.periodogram(this_pop_input, 1000./stim_dt)
+            pop_psd.append(this_pop_psd)
+        pop_psd = np.mean(pop_psd, axis=0)
+        left = np.where(pop_freq >= 4.)[0][0]
+        right = np.where(pop_freq >= 11.)[0][0]
+        pop_psd /= np.max(pop_psd[left:right])
+        mean_input = np.mean(pop_input, axis=0)
+        if 'successes' in f['0']:
+            successes = [get_binned_firing_rate(sim['successes'].values(), stim_t) for sim in f.values()]
+            mean_successes = np.mean(successes, axis=0)
+        if 'inh_train' in f['0']:
+            inh_input = [get_binned_firing_rate(sim['inh_train'].values(), stim_t) for sim in f.values()]
+            mean_inh_input = np.mean(inh_input, axis=0)
+        output = [get_smoothed_firing_rate([sim['output']], stim_t) for sim in f.values()]
+        mean_output = np.mean(output, axis=0)
+        start = int(track_equilibrate/stim_dt)
+        fig, axes = plt.subplots(3, 1)
+        axes[0].plot(stim_t[start:], mean_input[start:], label='Total Excitatory Input Spike Rate', c='b')
+        if 'successes' in f['0']:
+            axes[0].plot(stim_t[start:], mean_successes[start:], label='Total Excitatory Input Success Rate', c='g')
+        if 'inh_train' in f['0']:
+            axes[1].plot(stim_t[start:], mean_inh_input[start:], label='Total Inhibitory Input Spike Rate', c='k')
+        axes[2].plot(stim_t[start:], mean_output[start:], label='Single Cell Output Spike Rate', c='r')
+        for ax in axes:
+            ax.legend(loc='upper left', frameon=False, framealpha=0.5)
+        axes[2].set_xlabel('Time (ms)')
+        axes[1].set_ylabel('Event Rate (Hz)')
+        axes[0].set_title(title)
+        plt.show()
+        plt.close()
+        plt.hist(intervals, bins=int(max(intervals)/3.), normed=True)
+        plt.xlim(0., 200.)
+        plt.ylabel('Probability')
+        plt.xlabel('Inter-Spike Interval (ms)')
+        plt.title('Distribution of Input Inter-Spike Intervals - '+title)
+        plt.show()
+        plt.close()
+        peak_locs = [sim.attrs['peak_loc'] for sim in f['0']['train'].values()]
+        plt.hist(peak_locs, bins=bins)
+        plt.xlabel('Time (ms)')
+        plt.ylabel('Count (20 ms Bins)')
+        plt.title('Distribution of Input Peak Locations - '+title)
+        plt.xlim((np.min(peak_locs), np.max(peak_locs)))
+        plt.show()
+        plt.close()
+        for sim in f.values():
+            t = np.arange(0., duration, dt)
+            vm = np.interp(t, sim['time'], sim['rec']['0'])
+            start = int((equilibrate + track_equilibrate)/dt)
+            plt.plot(np.subtract(t[start:], equilibrate + track_equilibrate), vm[start:])
+            plt.xlabel('Time (ms)')
+            plt.ylabel('Voltage (mV)')
+            plt.title('Somatic Vm - '+title)
+            plt.ylim((-70., -50.))
+        plt.show()
+        plt.close()
+    rec_t = np.arange(0., track_duration, dt)
+    spikes_removed = get_removed_spikes(rec_filename, plot=0)
+    # down_sample traces to 2 kHz after clipping spikes for theta and ramp filtering
+    down_dt = 0.5
+    down_t = np.arange(0., track_duration, down_dt)
+    # 2000 ms Hamming window, ~3 Hz low-pass for ramp, ~5 - 10 Hz bandpass for theta
+    window_len = int(2000./down_dt)
+    theta_filter = signal.firwin(window_len, [5., 10.], nyq=1000./2./down_dt, pass_zero=False)
+    ramp_filter = signal.firwin(window_len, 3., nyq=1000./2./down_dt)
+    theta_traces = []
+    theta_removed = []
+    ramp_traces = []
+    ramp_removed = []
+    intra_psd = []
+    for trace in spikes_removed:
+        intra_freq, this_intra_psd = signal.periodogram(trace, 1000./dt)
+        intra_psd.append(this_intra_psd)
+        #counts, vals = np.histogram(trace, bins=(np.max(trace)-np.min(trace))/0.2)
+        #offset = vals[np.where(counts == np.max(counts))[0][0]]
+        subtracted = trace # - offset
+        down_sampled = np.interp(down_t, rec_t, subtracted)
+        filtered = signal.filtfilt(theta_filter, [1.], down_sampled, padtype='even', padlen=window_len)
+        up_sampled = np.interp(rec_t, down_t, filtered)
+        theta_traces.append(up_sampled)
+        theta_filtered = subtracted - up_sampled
+        theta_removed.append(theta_filtered)
+        down_sampled = np.interp(down_t, rec_t, theta_filtered)
+        filtered = signal.filtfilt(ramp_filter, [1.], down_sampled, padtype='even', padlen=window_len)
+        up_sampled = np.interp(rec_t, down_t, filtered)
+        ramp_traces.append(up_sampled)
+        ramp_filtered = theta_filtered - up_sampled
+        ramp_removed.append(ramp_filtered)
+    intra_psd = np.mean(intra_psd, axis=0)
+    left = np.where(intra_freq >= 4.)[0][0]
+    right = np.where(intra_freq >= 11.)[0][0]
+    intra_psd /= np.max(intra_psd[left:right])
+    mean_across_trials = np.mean(theta_removed, axis=0)
+    variance_across_trials = np.var(theta_removed, axis=0)
+    binned_mean = []
+    binned_variance = []
+    bin_duration = 250.
+    interval = int(bin_duration/dt)
+    for i, residual in enumerate(ramp_removed):
+        for j in range(0, int(track_duration/bin_duration) - 1):
+            binned_variance.append(np.var(residual[j*interval:(j+1)*interval]))
+            binned_mean.append(np.mean(theta_removed[i][j*interval:(j+1)*interval]))
+    plt.plot(rec_t, mean_across_trials)
+    plt.xlabel('Time (ms)')
+    plt.ylabel('Voltage (mV)')
+    plt.title('Somatic Vm Mean - Across Trials - ' + title)
+    plt.show()
+    plt.close()
+    plt.plot(rec_t, variance_across_trials)
+    plt.xlabel('Time (ms)')
+    plt.ylabel('Vm Variance (mV'+r'$^2$'+')')
+    plt.title('Somatic Vm Variance - Across Trials - ' + title)
+    plt.show()
+    plt.close()
+    plt.scatter(binned_mean, binned_variance)
+    plt.xlabel('Mean Vm (mV)')
+    plt.ylabel('Vm Variance (mV'+r'$^2$'+')')
+    plt.title('Mean - Variance Analysis - ' + title)
+    plt.show()
+    plt.close()
+    plt.plot(pop_freq, pop_psd, label='Total Population Input Spikes')
+    plt.plot(intra_freq, intra_psd, label='Single Cell Intracellular Vm')
+    plt.xlim(4., 11.)
+    plt.xlabel('Frequency (Hz)')
+    plt.ylabel('Normalized Power Density')
+    plt.title('Power Spectral Density - ' + title)
     plt.legend(loc='best')
     plt.show()
     plt.close()

@@ -34,7 +34,7 @@ else:
     trial_seed = None
 
 rec_filename = 'output'+datetime.datetime.today().strftime('%m%d%Y%H%M')+'-pid'+str(os.getpid())+'-seed'+\
-               str(synapses_seed)+'-e'+str(num_exc_syns)+'-i'+str(num_inh_syns)+'-modnum'+str(trial_seed)
+               str(synapses_seed)+'-e'+str(num_exc_syns)+'-i'+str(num_inh_syns)+'-modnum_no_nmda'+str(trial_seed)
 
 
 def get_instantaneous_spike_probability(rate, dt=0.1, generator=None):
@@ -265,7 +265,7 @@ for syn in stim_exc_syns:
     syn.netcon('AMPA_KIN').record(success_vec)
     rand_exc_seq_locs.append(syn.randObj.seq())
     sim.append_rec(cell, syn.node, object=syn.target('AMPA_KIN'), param='_ref_i', description='i_AMPA')
-    sim.append_rec(cell, syn.node, object=syn.target(NMDA_type), param='_ref_i', description='i_NMDA')
+    syn.target(NMDA_type).gmax = 0.
     if syn.node.parent.parent not in [rec['node'] for rec in sim.rec_list]:
         sim.append_rec(cell, syn.node.parent.parent)
     # remove this synapse from the pool, so that additional "modulated" inputs can be selected from those that remain
@@ -296,7 +296,7 @@ for syn in stim_exc_syns[special_start_index:]:
     syn.netcon('AMPA_KIN').record(success_vec)
     rand_exc_seq_locs.append(syn.randObj.seq())
     sim.append_rec(cell, syn.node, object=syn.target('AMPA_KIN'), param='_ref_i', description='i_AMPA')
-    sim.append_rec(cell, syn.node, object=syn.target(NMDA_type), param='_ref_i', description='i_NMDA')
+    syn.target(NMDA_type).gmax = 0.
     if syn.node.parent.parent not in [rec['node'] for rec in sim.rec_list]:
         sim.append_rec(cell, syn.node.parent.parent)
     # remove this synapse from the pool, so that additional "modulated" inputs can be selected from those that remain

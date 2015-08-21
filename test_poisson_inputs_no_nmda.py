@@ -34,7 +34,7 @@ else:
     trial_seed = None
 
 rec_filename = 'output'+datetime.datetime.today().strftime('%m%d%Y%H%M')+'-pid'+str(os.getpid())+'-seed'+\
-               str(synapses_seed)+'-e'+str(num_exc_syns)+'-i'+str(num_inh_syns)+'-modnum'+str(trial_seed)
+               str(synapses_seed)+'-e'+str(num_exc_syns)+'-i'+str(num_inh_syns)+'-no_nmda'+str(trial_seed)
 
 
 def get_instantaneous_spike_probability(rate, dt=0.1, generator=None):
@@ -105,7 +105,6 @@ def run_n_trials(n):
             end = start + len(stim_t)
             stim_force = gauss_force[start:end]
             stim_force = np.multiply(stim_force, theta_force)
-            #stim_forces.append(stim_force)
             train = get_inhom_poisson_spike_times(stim_force, stim_t, generator=local_random)
             stim_trains.append(train)
             syn.source.play(h.Vector(np.add(train, equilibrate + track_equilibrate)))
@@ -212,7 +211,7 @@ for sec_type in all_inh_syns:
             if 'GABA_A_KIN' in syn._syn:
                 all_inh_syns[sec_type].append(syn)
 
-sim = QuickSim(duration)
+sim = QuickSim(350.)  #duration)
 sim.parameters['equilibrate'] = equilibrate
 sim.parameters['track_equilibrate'] = track_equilibrate
 sim.parameters['input_field_duration'] = input_field_duration
@@ -265,42 +264,12 @@ for syn in stim_exc_syns:
     syn.netcon('AMPA_KIN').record(success_vec)
     rand_exc_seq_locs.append(syn.randObj.seq())
     sim.append_rec(cell, syn.node, object=syn.target('AMPA_KIN'), param='_ref_i', description='i_AMPA')
-    sim.append_rec(cell, syn.node, object=syn.target(NMDA_type), param='_ref_i', description='i_NMDA')
+    syn.target(NMDA_type).gmax = 0.
     if syn.node.parent.parent not in [rec['node'] for rec in sim.rec_list]:
         sim.append_rec(cell, syn.node.parent.parent)
-    # remove this synapse from the pool, so that additional "modulated" inputs can be selected from those that remain
-    all_exc_syns[syn.node.parent.parent.type].remove(syn)
 
 # rand_inh_seq_locs = [] will need this when inhibitory synapses become stochastic
 # stim_inh_successes = [] will need this when inhibitory synapses become stochastic
-
-special_start_loc = 2000.
-special_end_loc = 3000.
-special_factor = 1.5
-# this will increase the number of inputs that have peak_locs along this stretch of the track
-special_exc_syn_num = int((special_end_loc - special_start_loc) / ((1.5 + track_length) * input_field_duration) *
-                          num_exc_syns * (special_factor - 1.))
-
-special_start_index = len(stim_exc_syns)
-for sec_type in all_exc_syns:
-    for i in local_random.sample(range(len(all_exc_syns[sec_type])), min(len(all_exc_syns[sec_type]),
-                                                            int(special_exc_syn_num * fraction_exc_syns[sec_type]))):
-        syn = all_exc_syns[sec_type][i]
-        stim_exc_syns.append(syn)
-
-for syn in stim_exc_syns[special_start_index:]:
-    peak_loc = local_random.uniform(special_start_loc, special_end_loc)
-    peak_locs.append(peak_loc)
-    success_vec = h.Vector()
-    stim_successes.append(success_vec)
-    syn.netcon('AMPA_KIN').record(success_vec)
-    rand_exc_seq_locs.append(syn.randObj.seq())
-    sim.append_rec(cell, syn.node, object=syn.target('AMPA_KIN'), param='_ref_i', description='i_AMPA')
-    sim.append_rec(cell, syn.node, object=syn.target(NMDA_type), param='_ref_i', description='i_NMDA')
-    if syn.node.parent.parent not in [rec['node'] for rec in sim.rec_list]:
-        sim.append_rec(cell, syn.node.parent.parent)
-    # remove this synapse from the pool, so that additional "modulated" inputs can be selected from those that remain
-    all_exc_syns[syn.node.parent.parent.type].remove(syn)
 
 if trial_seed is None:
     trials = 0
@@ -308,3 +277,36 @@ if trial_seed is None:
 else:
     trials = trial_seed
     run_n_trials(1)
+
+"""
+exc_forces = []
+inh_forces = []
+local_random.seed(0)
+global_phase_offset = 0.
+simiter = 0
+for i, syn in enumerate(stim_exc_syns):
+    # the stochastic sequence used for each synapse is unique for each trial, up to 1000 input spikes per spine
+    syn.randObj.seq(rand_exc_seq_locs[i]+int(simiter*1e3))
+    if syn.node.parent.parent.type == 'tuft':
+        theta_force = excitatory_theta_offset + excitatory_theta_amp * np.sin(2. * np.pi /
+                            global_theta_cycle_duration * (stim_t - global_phase_offset + tuft_phase_offset))
+    else:
+        unit_phase_offset = peak_locs[i] * theta_compression_factor
+        theta_force = excitatory_theta_offset + excitatory_theta_amp * np.sin(2. * np.pi /
+                                unit_theta_cycle_duration * (stim_t - global_phase_offset - unit_phase_offset))
+    start = int(((0.75 + track_length) * input_field_duration - peak_locs[i]) / dt)
+    buffer = int((0.75 * input_field_duration - track_equilibrate) / dt)
+    start += buffer
+    end = start + len(stim_t)
+    stim_force = gauss_force[start:end]
+    stim_force = np.multiply(stim_force, theta_force)
+    exc_forces.append(stim_force)
+for i, syn in enumerate(stim_inh_syns):
+    inhibitory_theta_force = inhibitory_theta_offset + inhibitory_theta_amp * np.sin(2. * np.pi /
+                                                global_theta_cycle_duration * (stim_t - global_phase_offset))
+    inh_forces.append(inhibitory_theta_force)
+for force in exc_forces[:300]:
+    plt.plot(stim_t, force)
+plt.xlim(0., 1000.)
+plt.show()
+"""

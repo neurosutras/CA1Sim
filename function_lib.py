@@ -319,7 +319,7 @@ class QuickSim(object):
         else:
             if loc is None:
                 try:
-                    loc = object.get_loc()
+                    loc = object.get_segment().x  # this should not push the section to the hoc stack or risk overflow
                 except:
                     loc = 0.5  # if the object doesn't have a .get_loc() method, default to 0.5
             if param is None:
@@ -750,7 +750,7 @@ def get_binned_firing_rate(spike_times, t, bin_dur=10.):
     return rate
 
 
-def get_smoothed_firing_rate(spike_times, t, bin_dur=20., dt=0.1):
+def get_smoothed_firing_rate(spike_times, t, bin_dur=50., bin_step=10., dt=0.1):
     """
 
     :param spike_times: list of lists
@@ -760,24 +760,21 @@ def get_smoothed_firing_rate(spike_times, t, bin_dur=20., dt=0.1):
     :return: array (Hz)
     """
     count = np.zeros(len(t))
-    rate = np.zeros(len(t))
+    bin_centers = np.arange(t[0]+bin_dur/2., t[-1]-bin_dur/2., bin_step)
+    rate = np.zeros(len(bin_centers))
     for train in spike_times:
         for spike_time in train:
             if spike_time >= t[0] and spike_time <= t[-1]:
                 i = np.where(t >= spike_time)[0][0]
                 count[i] += 1
-    for i in range(len(count)):
-        bin_size = int(bin_dur/dt)
-        if i < int(bin_size/2):
-            left = 0
-            right = i + int(bin_size/2)
-        elif i + int(bin_size/2) > len(count):
-            left = i - int(bin_size/2)
-            right = len(count)
-        else:
-            left = i - int(bin_size/2)
-            right = i + int(bin_size/2)
-        rate[i] = np.sum(count[left:right])/(right-left)/dt*1000.
+    left = 0
+    right = int(bin_dur / dt)
+    interval = int(bin_step / dt)
+    for i, bin_t in enumerate(bin_centers):
+        rate[i] = np.sum(count[left:right]) / bin_dur * 1000.
+        left += interval
+        right += interval
+    rate = np.interp(t, bin_centers, rate)
     return rate
 
 
@@ -835,7 +832,7 @@ def get_removed_spikes(rec_filename, before=0.3, after=6., dt=0.02, th=20., plot
                         elif np.any(rising):
                             right = rising
                         else:
-                            right = min(crossings[i] + int(after/dt), len(vm))
+                            right = min(crossings[i] + int(after/dt), len(vm)-1)
                         for j in range(left, right):
                             vm[j] = np.nan
                         spike_t = t[right]
