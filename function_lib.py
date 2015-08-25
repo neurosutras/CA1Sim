@@ -904,3 +904,25 @@ def get_theta_filtered_traces(rec_filename, dt=0.02):
         up_sampled = np.interp(rec_t, down_rec_t, filtered)
         intra_theta.append(up_sampled)
     return stim_t, pop_theta, rec_t, intra_theta, phase_offsets
+
+
+def get_subset_downsampled_recordings(rec_filename, description, dt=0.1):
+    """
+
+    :param rec_file_name: str
+    # remember .attrs['phase_offset'] could be inside ['train'] for old files
+    """
+    with h5py.File(data_dir+rec_filename+'.hdf5', 'r') as f:
+        equilibrate = f['0'].attrs['equilibrate']
+        track_equilibrate = f['0'].attrs['track_equilibrate']
+        duration = f['0'].attrs['duration']
+        rec_t = np.arange(0., duration, dt)
+        sim_list = []
+        for sim in f.values():
+            rec_list = []
+            for rec in [rec for rec in sim['rec'].values() if 'description' in rec.attrs and rec.attrs['description']
+                                                                                                        == description]:
+                down_sampled = np.interp(rec_t, sim['time'], rec)
+                rec_list.append(down_sampled[int((equilibrate + track_equilibrate) / dt):])
+            sim_list.append(rec_list)
+    return sim_list

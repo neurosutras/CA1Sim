@@ -24,7 +24,7 @@ else:
 if len(sys.argv) > 3:
     num_inh_syns = int(sys.argv[3])
 else:
-    num_inh_syns = 200
+    num_inh_syns = 400
 
 # allows parallel computation of multiple trials for the same spines with the same peak_locs, but with different
 # input spike trains and stochastic synapses for each trial
@@ -147,17 +147,19 @@ NMDA_type = 'NMDA_KIN2'
 equilibrate = 250.  # time to steady-state
 global_theta_cycle_duration = 150.  # (ms)
 input_field_width = 10  # (theta cycles per 6 standard deviations)
+excitatory_phase_extent = 180.
 # Geissler...Buzsaki, PNAS 2010
-unit_theta_cycle_duration = global_theta_cycle_duration * input_field_width / (input_field_width + 1.)
+unit_theta_cycle_duration = global_theta_cycle_duration * input_field_width / (input_field_width +
+                                                                               (excitatory_phase_extent / 360.))
 input_field_duration = input_field_width * global_theta_cycle_duration
 track_length = 3  # field widths
 track_duration = track_length * input_field_duration
 track_equilibrate = 2. * global_theta_cycle_duration
 duration = equilibrate + track_equilibrate + track_duration
 excitatory_peak_rate = 50.
-excitatory_theta_modulation_depth = 0.8
-theta_compression_factor = unit_theta_cycle_duration / input_field_duration
-tuft_phase_offset = 45. / 360. * global_theta_cycle_duration
+excitatory_theta_modulation_depth = 0.7
+theta_compression_factor = 1. - unit_theta_cycle_duration / global_theta_cycle_duration
+tuft_phase_offset = 90. / 360. * global_theta_cycle_duration
 inhibitory_peak_rate = {}
 inhibitory_theta_modulation_depth = {}
 inhibitory_peak_rate['perisomatic'] = 40.
@@ -270,8 +272,8 @@ for syn in stim_exc_syns:
     stim_successes.append(success_vec)
     syn.netcon('AMPA_KIN').record(success_vec)
     rand_exc_seq_locs.append(syn.randObj.seq())
-    sim.append_rec(cell, syn.node, object=syn.target('AMPA_KIN'), param='_ref_i', description='i_AMPA')
-    sim.append_rec(cell, syn.node, object=syn.target(NMDA_type), param='_ref_i', description='i_NMDA')
+    # sim.append_rec(cell, syn.node, object=syn.target('AMPA_KIN'), param='_ref_i', description='i_AMPA')
+    # sim.append_rec(cell, syn.node, object=syn.target(NMDA_type), param='_ref_i', description='i_NMDA')
     if syn.node.parent.parent not in [rec['node'] for rec in sim.rec_list]:
         sim.append_rec(cell, syn.node.parent.parent)
 

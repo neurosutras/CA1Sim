@@ -149,7 +149,8 @@ global_theta_cycle_duration = 150.  # (ms)
 input_field_width = 10  # (theta cycles per 6 standard deviations)
 excitatory_phase_extent = 180.
 # Geissler...Buzsaki, PNAS 2010
-unit_theta_cycle_duration = global_theta_cycle_duration * input_field_width / (input_field_width + (excitatory_phase_extent / 360.))
+unit_theta_cycle_duration = global_theta_cycle_duration * input_field_width / (input_field_width +
+                                                                               (excitatory_phase_extent / 360.))
 input_field_duration = input_field_width * global_theta_cycle_duration
 track_length = 3  # field widths
 track_duration = track_length * input_field_duration
