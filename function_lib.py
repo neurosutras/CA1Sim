@@ -7,6 +7,7 @@ import copy
 import time
 import numpy as np
 import matplotlib.pyplot as plt
+import matplotlib.mlab as mm
 import h5py
 import scipy.optimize as optimize
 import scipy.signal as signal
@@ -791,9 +792,10 @@ def get_removed_spikes(rec_filename, before=0.3, after=6., dt=0.02, th=20., plot
     """
     removed = []
     with h5py.File(data_dir+rec_filename+'.hdf5', 'r') as f:
-        equilibrate = f['0'].attrs['equilibrate']
-        duration = f['0'].attrs['duration']
-        track_equilibrate = f['0'].attrs['track_equilibrate']
+        sim = f.values()[0]
+        equilibrate = sim.attrs['equilibrate']
+        duration = sim.attrs['duration']
+        track_equilibrate = sim.attrs['track_equilibrate']
         for rec in f.values():
             t = np.arange(0., duration, dt)
             vm = np.interp(t, rec['time'], rec['rec']['0'])
@@ -864,18 +866,17 @@ def get_theta_filtered_traces(rec_filename, dt=0.02):
     # remember .attrs['phase_offset'] could be inside ['train'] for old files
     """
     with h5py.File(data_dir+rec_filename+'.hdf5', 'r') as f:
-        equilibrate = f['0'].attrs['equilibrate']
-        track_equilibrate = f['0'].attrs['track_equilibrate']
-        track_length = f['0'].attrs['track_length']
-        input_field_duration = f['0'].attrs['input_field_duration']
-        duration = f['0'].attrs['duration']
-        stim_dt = f['0'].attrs['stim_dt']
+        sim = f.values()[0]
+        equilibrate = sim.attrs['equilibrate']
+        track_equilibrate = sim.attrs['track_equilibrate']
+        track_length = sim.attrs['track_length']
+        input_field_duration = sim.attrs['input_field_duration']
+        duration = sim.attrs['duration']
+        stim_dt = sim.attrs['stim_dt']
         track_duration = duration - equilibrate - track_equilibrate
         stim_t = np.arange(-track_equilibrate, track_duration, stim_dt)
-        pop_input = [get_smoothed_firing_rate(sim['train'].values(), stim_t) for sim in f.values()]
-        if 'successes' in f['0']:
-            successes = [get_smoothed_firing_rate(sim['successes'].values(), stim_t) for sim in f.values()]
-            mean_successes = np.mean(successes, axis=0)
+        exc_input = [get_binned_firing_rate(sim['train'].values(), stim_t) for sim in f.values()]
+        inh_input = [get_binned_firing_rate(sim['inh_train'].values(), stim_t) for sim in f.values()]
         phase_offsets = []
         for sim in f.values():
             if 'phase_offset' in sim.attrs:
@@ -891,19 +892,101 @@ def get_theta_filtered_traces(rec_filename, dt=0.02):
     # 2000 ms Hamming window, ~3 Hz low-pass for ramp, ~5 - 10 Hz bandpass for theta
     window_len = int(2000./down_dt)
     theta_filter = signal.firwin(window_len, [5., 10.], nyq=1000./2./down_dt, pass_zero=False)
-    pop_theta = []
+    pop_exc_theta = []
+    pop_inh_theta = []
     intra_theta = []
-    for pop in pop_input:
+    for pop in exc_input:
         down_sampled = np.interp(down_stim_t, stim_t, pop)
         filtered = signal.filtfilt(theta_filter, [1.], down_sampled, padtype='even', padlen=window_len)
         up_sampled = np.interp(stim_t, down_stim_t, filtered)
-        pop_theta.append(up_sampled)
+        pop_exc_theta.append(up_sampled)
+    for pop in inh_input:
+        down_sampled = np.interp(down_stim_t, stim_t, pop)
+        filtered = signal.filtfilt(theta_filter, [1.], down_sampled, padtype='even', padlen=window_len)
+        up_sampled = np.interp(stim_t, down_stim_t, filtered)
+        pop_inh_theta.append(up_sampled)
     for trace in spikes_removed:
         down_sampled = np.interp(down_rec_t, rec_t, trace)
         filtered = signal.filtfilt(theta_filter, [1.], down_sampled, padtype='even', padlen=window_len)
         up_sampled = np.interp(rec_t, down_rec_t, filtered)
         intra_theta.append(up_sampled)
-    return stim_t, pop_theta, rec_t, intra_theta, phase_offsets
+    return stim_t, pop_exc_theta, pop_inh_theta, rec_t, intra_theta, phase_offsets
+
+
+def get_phase_precession(rec_filename, start_loc=None, end_loc=None, dt=0.02):
+    """
+
+    :param rec_file_name: str
+    # remember .attrs['phase_offset'] could be inside ['train'] for old files
+    """
+    with h5py.File(data_dir+rec_filename+'.hdf5', 'r') as f:
+        sim = f.values()[0]
+        equilibrate = sim.attrs['equilibrate']
+        track_equilibrate = sim.attrs['track_equilibrate']
+        track_length = sim.attrs['track_length']
+        input_field_duration = sim.attrs['input_field_duration']
+        duration = sim.attrs['duration']
+        stim_dt = sim.attrs['stim_dt']
+        track_duration = duration - equilibrate - track_equilibrate
+        stim_t = np.arange(-track_equilibrate, track_duration, stim_dt)
+        if 'global_theta_cycle_duration' in sim.attrs:
+            theta_duration = sim.attrs['global_theta_cycle_duration']
+        else:
+            theta_duration = 150.
+        if start_loc is None:
+            start_loc = 0.
+        if end_loc is None:
+            end_loc = track_duration
+        phase_offsets = []
+        for sim in f.values():
+            if 'phase_offset' in sim.attrs:
+                phase_offsets.append(sim.attrs['phase_offset'])
+            elif 'phase_offset' in sim['train'].attrs:
+                phase_offsets.append(sim['train'].attrs['phase_offset'])
+        output_trains = [np.array(sim['output']) for sim in f.values() if 'output' in sim]
+    spike_phase_array = []
+    spike_time_array = []
+    for i, train in enumerate(output_trains):
+        time_offset = phase_offsets[i]
+        on_track = np.where((train >= start_loc) & (train <= end_loc))[0]
+        if not np.any(on_track):
+            spike_phase_array.append([])
+            spike_time_array.append([])
+        else:
+            spike_times = train[on_track]
+            spike_time_array.append(spike_times)
+            spike_times = np.subtract(spike_times, time_offset)
+            spike_phases = np.mod(spike_times, theta_duration)
+            spike_phases /= 150.
+            spike_phases *= 360.
+            spike_phase_array.append(spike_phases)
+    rec_t = np.arange(0., track_duration, dt)
+    spikes_removed = get_removed_spikes(rec_filename, plot=0)
+    # down_sample traces to 2 kHz after clipping spikes for theta and ramp filtering
+    down_dt = 0.5
+    down_rec_t = np.arange(0., track_duration, down_dt)
+    # 2000 ms Hamming window, ~3 Hz low-pass for ramp, ~5 - 10 Hz bandpass for theta
+    window_len = int(2000./down_dt)
+    theta_filter = signal.firwin(window_len, [5., 10.], nyq=1000./2./down_dt, pass_zero=False)
+    intra_theta = []
+    for trace in spikes_removed:
+        down_sampled = np.interp(down_rec_t, rec_t, trace)
+        filtered = signal.filtfilt(theta_filter, [1.], down_sampled, padtype='even', padlen=window_len)
+        up_sampled = np.interp(rec_t, down_rec_t, filtered)
+        intra_theta.append(up_sampled)
+    intra_peak_array = []
+    intra_phase_array = []
+    for i, trial in enumerate(intra_theta):
+        time_offset = phase_offsets[i]
+        peak_locs = signal.argrelmax(trial)[0]
+        peak_times = rec_t[peak_locs]
+        intra_peak_array.append(peak_times)
+        peak_times = np.subtract(peak_times, time_offset)
+        peak_phases = np.mod(peak_times, theta_duration)
+        peak_phases /= 150.
+        peak_phases *= 360.
+        intra_phase_array.append(peak_phases)
+    return spike_time_array, spike_phase_array, intra_peak_array, intra_phase_array
 
 
 def get_subset_downsampled_recordings(rec_filename, description, dt=0.1):
@@ -913,16 +996,20 @@ def get_subset_downsampled_recordings(rec_filename, description, dt=0.1):
     # remember .attrs['phase_offset'] could be inside ['train'] for old files
     """
     with h5py.File(data_dir+rec_filename+'.hdf5', 'r') as f:
-        equilibrate = f['0'].attrs['equilibrate']
-        track_equilibrate = f['0'].attrs['track_equilibrate']
-        duration = f['0'].attrs['duration']
+        sim = f.values()[0]
+        equilibrate = sim.attrs['equilibrate']
+        track_equilibrate = sim.attrs['track_equilibrate']
+        duration = sim.attrs['duration']
         rec_t = np.arange(0., duration, dt)
         sim_list = []
         for sim in f.values():
             rec_list = []
+            index_list = []
             for rec in [rec for rec in sim['rec'].values() if 'description' in rec.attrs and rec.attrs['description']
                                                                                                         == description]:
                 down_sampled = np.interp(rec_t, sim['time'], rec)
                 rec_list.append(down_sampled[int((equilibrate + track_equilibrate) / dt):])
-            sim_list.append(rec_list)
-    return sim_list
+                index_list.append(rec.attrs['index'])
+            sim_list.append({'index_list': index_list, 'rec_list': rec_list})
+    rec_t = np.arange(0., duration - track_equilibrate - equilibrate, dt)
+    return rec_t, sim_list
