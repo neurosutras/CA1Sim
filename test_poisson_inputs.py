@@ -262,7 +262,7 @@ excitatory_theta_amp = excitatory_theta_modulation_depth / 2.
 excitatory_theta_offset = 1. - excitatory_theta_amp
 
 gauss_sigma = global_theta_cycle_duration * input_field_width / 6.  # contains 99.7% gaussian area
-gauss_force = excitatory_peak_rate * signal.gaussian(int((2 * (track_length + 1.5) * input_field_duration) / dt),
+gauss_force = excitatory_peak_rate * signal.gaussian(int((2 * (track_length + 1.5) * input_field_duration) / dt) + 1,
                                                      gauss_sigma / dt)
 
 rand_exc_seq_locs = []

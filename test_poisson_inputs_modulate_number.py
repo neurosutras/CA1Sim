@@ -110,8 +110,13 @@ def run_n_trials(n):
             stim_trains.append(train)
             syn.source.play(h.Vector(np.add(train, equilibrate + track_equilibrate)))
         for i, syn in enumerate(stim_inh_syns):
+            distance = cell.get_distance_to_node(cell.tree.root, syn.node)
+            inh_type = 'perisomatic' if distance <= 75. else 'dendritic'
+            inhibitory_theta_amp = inhibitory_peak_rate[inh_type] * inhibitory_theta_modulation_depth[inh_type] / 2.
+            inhibitory_theta_offset = inhibitory_peak_rate[inh_type] - inhibitory_theta_amp
+            inhibitory_phase_offset = inhibitory_theta_phase_offset[inh_type]
             inhibitory_theta_force = inhibitory_theta_offset + inhibitory_theta_amp * np.sin(2. * np.pi /
-                                                        global_theta_cycle_duration * (stim_t - global_phase_offset))
+                                global_theta_cycle_duration * (stim_t - global_phase_offset - inhibitory_phase_offset))
             train = get_inhom_poisson_spike_times(inhibitory_theta_force, stim_t, generator=local_random)
             stim_inh_trains.append(train)
             syn.source.play(h.Vector(np.add(train, equilibrate + track_equilibrate)))
@@ -157,14 +162,19 @@ track_length = 3  # field widths
 track_duration = track_length * input_field_duration
 track_equilibrate = 2. * global_theta_cycle_duration
 duration = equilibrate + track_equilibrate + track_duration
-excitatory_peak_rate = 50.
+excitatory_peak_rate = 25.
 excitatory_theta_modulation_depth = 0.7
 theta_compression_factor = 1. - unit_theta_cycle_duration / global_theta_cycle_duration
 tuft_phase_offset = 90. / 360. * global_theta_cycle_duration
 inhibitory_peak_rate = {}
 inhibitory_theta_modulation_depth = {}
+inhibitory_theta_phase_offset = {}
 inhibitory_peak_rate['perisomatic'] = 40.
+inhibitory_peak_rate['dendritic'] = 40.
 inhibitory_theta_modulation_depth['perisomatic'] = 0.5
+inhibitory_theta_modulation_depth['dendritic'] = 0.5
+inhibitory_theta_phase_offset['perisomatic'] = 0.
+inhibitory_theta_phase_offset['dendritic'] = 90. / 360. * global_theta_cycle_duration
 
 stim_dt = 0.1
 dt = 0.02
@@ -173,10 +183,11 @@ v_init = -67.
 syn_types = ['AMPA_KIN', NMDA_type]
 
 local_random = random.Random()
+local_np_random = np.random.RandomState()
 
 # choose a subset of synapses to stimulate with inhomogeneous poisson rates
-# cell1 and cell2
 local_random.seed(synapses_seed)
+local_np_random.seed(synapses_seed)
 
 cell = CA1_Pyr(morph_filename, mech_filename, full_spines=True)
 cell.insert_inhibitory_synapses_in_subset()
@@ -217,6 +228,7 @@ for sec_type in all_inh_syns:
 sim = QuickSim(duration)
 sim.parameters['equilibrate'] = equilibrate
 sim.parameters['track_equilibrate'] = track_equilibrate
+sim.parameters['global_theta_cycle_duration'] = global_theta_cycle_duration
 sim.parameters['input_field_duration'] = input_field_duration
 sim.parameters['track_length'] = track_length
 sim.parameters['duration'] = duration
@@ -251,11 +263,8 @@ stim_t = np.arange(-track_equilibrate, track_duration, dt)
 excitatory_theta_amp = excitatory_theta_modulation_depth / 2.
 excitatory_theta_offset = 1. - excitatory_theta_amp
 
-inhibitory_theta_amp = inhibitory_peak_rate['perisomatic'] * inhibitory_theta_modulation_depth['perisomatic'] / 2.
-inhibitory_theta_offset = inhibitory_peak_rate['perisomatic'] - inhibitory_theta_amp
-
 gauss_sigma = global_theta_cycle_duration * input_field_width / 6.  # contains 99.7% gaussian area
-gauss_force = excitatory_peak_rate * signal.gaussian(int((2 * (track_length + 1.5) * input_field_duration) / dt),
+gauss_force = excitatory_peak_rate * signal.gaussian(int((2 * (track_length + 1.5) * input_field_duration) / dt) + 1,
                                                      gauss_sigma / dt)
 
 rand_exc_seq_locs = []
@@ -276,22 +285,24 @@ for syn in stim_exc_syns:
 # rand_inh_seq_locs = [] will need this when inhibitory synapses become stochastic
 # stim_inh_successes = [] will need this when inhibitory synapses become stochastic
 
-special_start_loc = 2000.
-special_end_loc = 3000.
-special_factor = 1.5
-# this will increase the number of inputs that have peak_locs along this stretch of the track
-special_exc_syn_num = int((special_end_loc - special_start_loc) / ((1.5 + track_length) * input_field_duration) *
-                          num_exc_syns * (special_factor - 1.))
+modulated_field_center = 2000.
+modulation_factor = 1.5
+modulation_width_scaling = 1.5
 
-special_start_index = len(stim_exc_syns)
+# increase the number of inputs that have peak_locs along this stretch of the track
+modulated_num_exc_syn = int(input_field_duration * modulation_width_scaling / ((1.5 + track_length) *
+                                                        input_field_duration) * num_exc_syns * (modulation_factor - 1.))
+
+modulated_start_index = len(stim_exc_syns)
+
 for sec_type in all_exc_syns:
     for i in local_random.sample(range(len(all_exc_syns[sec_type])), min(len(all_exc_syns[sec_type]),
-                                                            int(special_exc_syn_num * fraction_exc_syns[sec_type]))):
+                                                            int(modulated_num_exc_syn * fraction_exc_syns[sec_type]))):
         syn = all_exc_syns[sec_type][i]
         stim_exc_syns.append(syn)
 
-for syn in stim_exc_syns[special_start_index:]:
-    peak_loc = local_random.uniform(special_start_loc, special_end_loc)
+for syn in stim_exc_syns[modulated_start_index:]:
+    peak_loc = local_np_random.normal(modulated_field_center, gauss_sigma * modulation_width_scaling)
     peak_locs.append(peak_loc)
     success_vec = h.Vector()
     stim_successes.append(success_vec)
@@ -306,7 +317,7 @@ for syn in stim_exc_syns[special_start_index:]:
 
 if trial_seed is None:
     trials = 0
-    run_n_trials(10)
+    run_n_trials(1)
 else:
     trials = trial_seed
     run_n_trials(1)

@@ -2186,7 +2186,7 @@ def process_patterned_input_simulation(rec_filename, title, dt=0.02):
     plt.legend(loc='best')
     plt.show()
     plt.close()
-    return binned_mean, binned_variance
+    return rec_t, ramp_removed, binned_mean, binned_variance
 
 
 def process_simple_input_simulation(rec_filename, title, dt=0.02):
@@ -2510,12 +2510,13 @@ def plot_phase_precession(t_array, phase_array, title):
     :param phase_array: list of np.array
     :param title: str
     """
+    colors = plt.cm.rainbow(np.linspace(0, 1, len(t_array)))
     for i, t in enumerate(t_array):
         phases = phase_array[i]
         m, b = np.polyfit(t, phases, 1)
-        plt.scatter(t, phases)
+        plt.scatter(t, phases, c=colors[i])
         fit_t = np.arange(np.min(t), np.max(t), 10.)
-        plt.plot(fit_t, m * fit_t + b)
+        plt.plot(fit_t, m * fit_t + b, c=colors[i])
     plt.ylim(0., 360.)
     plt.ylabel('Phase ($^\circ$)')
     plt.xlabel('Time (ms)')
