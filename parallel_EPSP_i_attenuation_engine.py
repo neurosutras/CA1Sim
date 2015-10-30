@@ -1,6 +1,5 @@
 __author__ = 'milsteina'
 from specify_cells import *
-import random
 import os
 """
 Builds a cell locally so each engine is ready to receive jobs one at a time, specified by an index corresponding to
@@ -9,11 +8,33 @@ which synapse to stimulate (coarse sampling of the full set of spines).
 #morph_filename = 'EB1-early-bifurcation.swc'
 morph_filename = 'EB2-late-bifurcation.swc'
 
-#mech_filename = '042015 soma_pas spines - EB2'
-#mech_filename = '042015 soma_pas kdr ka_scale - adjusted - EB2'
-mech_filename = '042015 pas_ka_scale kdr - EB2'
+#mech_filename = '042015 pas_ka_scale kdr - EB2'
+mech_filename = '080615 rebalanced na_ka ampa nmda - EB2'
 
 rec_filename = 'output'+datetime.datetime.today().strftime('%m%d%Y%H%M')+'-pid'+str(os.getpid())
+
+
+def zero_na():
+    """
+
+    """
+    for sec_type in ['axon_hill', 'ais']:
+        cell.modify_mech_param(sec_type, 'nax', 'gbar', 0.)
+    cell.reinitialize_subset_mechanisms('axon', 'nax')
+    cell.modify_mech_param('soma', 'nas', 'gbar', 0.)
+    for sec_type in ['basal', 'trunk', 'apical', 'tuft']:
+        cell.reinitialize_subset_mechanisms(sec_type, 'nas')
+
+
+def zero_h():
+    """
+
+    """
+    cell.modify_mech_param('soma', 'h', 'ghbar', 0.)
+    cell.mech_dict['trunk']['h']['ghbar']['value'] = 0.
+    cell.mech_dict['trunk']['h']['ghbar']['slope'] = 0.
+    for sec_type in ['basal', 'trunk', 'apical', 'tuft']:
+        cell.reinitialize_subset_mechanisms(sec_type, 'h')
 
 
 def stimulate_single_synapse(syn_index):
@@ -37,17 +58,24 @@ def stimulate_single_synapse(syn_index):
     return rec_filename
 
 
-equilibrate = 200.  # time to steady-state
-duration = 300.
-v_init = -80.
+equilibrate = 250.  # time to steady-state
+duration = 350.
+v_init = -67.
 syn_type = 'EPSC'
 
 #cell = CA1_Pyr(morph_filename, mech_filename, full_spines=False)
 cell = CA1_Pyr(morph_filename, mech_filename, full_spines=True)
 
-nodes = cell.soma+cell.basal+cell.trunk+cell.apical+cell.tuft
+#cell.modify_mech_param('soma', 'cable', 'Ra', 200.)
+#cell.reinit_mechanisms(reset_cable=1)
+#cell.modify_mech_param('trunk', 'pas', 'g', origin='soma')
+#cell.reinit_mechanisms()
 
-random.seed(0)
+zero_na()
+#zero_h()
+
+nodes = cell.trunk  # cell.soma+cell.basal+cell.trunk+cell.apical+cell.tuft
+
 for branch in nodes:
     syn = Synapse(cell, branch, [syn_type], stochastic=0)
     syn.target(syn_type).imax = 0.03
@@ -58,16 +86,19 @@ sim.parameters['duration'] = duration
 sim.append_rec(cell, cell.tree.root, description='soma', loc=0.)
 
 # look for a trunk bifurcation
-trunk_bifurcation = [trunk for trunk in cell.trunk if len(trunk.children) > 1 and trunk.children[0].type == 'trunk' and
-                     trunk.children[1].type == 'trunk']
-
-# get where the thickest trunk branch gives rise to the tuft
-if trunk_bifurcation:  # follow the thicker trunk
-    trunk = max(trunk_bifurcation[0].children[:2], key=lambda node: node.sec(0.).diam)
-    trunk = (node for node in cell.trunk if cell.node_in_subtree(trunk, node) and 'tuft' in (child.type for child in
-                                                                                             node.children)).next()
+trunk_bifurcation = [trunk for trunk in cell.trunk if cell.is_bifurcation(trunk, 'trunk')]
+if trunk_bifurcation:
+    trunk_branches = [branch for branch in trunk_bifurcation[0].children if branch.type == 'trunk']
+    # get where the thickest trunk branch gives rise to the tuft
+    trunk = max(trunk_branches, key=lambda node: node.sec(0.).diam)
+    trunk = (node for node in cell.trunk if cell.node_in_subtree(trunk, node) and 'tuft' in (child.type
+                                                                            for child in node.children)).next()
 else:
-    trunk = (node for node in cell.trunk if 'tuft' in (child.type for child in node.children)).next()
+    trunk_bifurcation = [node for node in cell.trunk if 'tuft' in (child.type for child in node.children)]
+    trunk = trunk_bifurcation[0]
+tuft = (child for child in trunk.children if child.type == 'tuft').next()
+#distal_trunk = trunk
+#trunk = trunk_bifurcation[0]
 
 sim.append_rec(cell, trunk, description='trunk', loc=0.)
 sim.append_rec(cell, trunk, description='branch')  # placeholder for branch

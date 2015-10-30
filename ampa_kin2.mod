@@ -1,10 +1,7 @@
 COMMENT
 -----------------------------------------------------------------------------
 
-GluN-R (NMDA-type Glutamate Receptors)
-
-Postsynaptic current is additionally constrained by voltage-dependent channel
-block by extracellular Mg.
+GluA-R (AMPA-type Glutamate Receptors)
 
 -----------------------------------------------------------------------------
 Synaptic mechanism based on a simplified model of transmitter binding to
@@ -37,13 +34,12 @@ C     _____ . . . . . . Cmax
 The receptors then bind transmitter, change conformation, and open their
 channel according to the following kinetic scheme:
 
-       ---[C] * kon-->        -------CC----->        -----Beta----->
-C + Ru <-----koff-----   Rb   <------CO------   Rc   <----Alpha-----   Ro
+       ---[C] * kon-->        -----Beta----->
+C + Ru <-----koff-----   Rb   <----Alpha-----   Ro
 
-where Ru, Rb, Rc, and Ro are respectively the fraction of channels in the
-unbound, closed bound, closed cleft, and open states of the postsynaptic
-receptor. kon and koff are the binding and unbinding rate constants, CC and
-CO are the closing and opening rates of the receptor ligand-binding cleft,
+where Ru, Rb, and Ro are respectively the fraction of channels in the
+unbound, closed bound, and open states of the postsynaptic
+receptor. kon and koff are the binding and unbinding rate constants,
 and Beta and Alpha are the opening and closing rates of the channel.
 
 The maximal conductance of the channel can be set for each instance of the
@@ -59,8 +55,8 @@ i = weight * gmax * Ro * (V-Erev)
 ENDCOMMENT
 
 NEURON {
-	POINT_PROCESS NMDA_KIN2
-	RANGE Cmax, Cdur, kon, koff, CC, CO, Beta, Alpha, Erev, Kd, gamma, mg, gmax, g, B
+	POINT_PROCESS AMPA_KIN2
+	RANGE Cmax, Cdur, kon, koff, Beta, Alpha, Erev, gmax, g
 	NONSPECIFIC_CURRENT i
 }
 UNITS {
@@ -72,19 +68,14 @@ UNITS {
 
 PARAMETER {
 
-	Cmax    = 1.        (mM)        : transmitter concentration during release event
-	Cdur	= 0.3       (ms)		: transmitter duration (rising phase)
-	kon     = 86.89     (/mM/ms)    : unbound receptor ligand-binding rate
-    koff    = 0.69      (/ms)       : bound receptor ligand-unbinding rate
-    CC      = 9.64      (/ms)       : bound receptor cleft closing rate
-    CO      = 2.60      (/ms)       : bound receptor cleft opening rate
-    Beta	= 0.68      (/ms)	    : channel opening rate
-    Alpha   = 0.079     (/ms)       : open channel closing rate
-	Erev	= 0.        (mV)		: reversal potential
-	Kd      = 9.44      (mM)        : modulate Mg concentration dependence
-    gamma   = 0.091     (/mV)       : modulate slope of Mg sensitivity
-    mg      = 1.0       (mM)        : extracellular Mg concentration
-    gmax	= 0.00313   (umho)	    : maximum conductance
+	Cmax    = 1.        (mM)    	    : transmitter concentration during release event
+	Cdur	= 0.3       (ms)		    : transmitter duration (rising phase)
+	kon     = 62.88     (/ms/mM)        : unbound receptor ligand-binding rate
+    koff    = 16.63     (/ms)           : bound receptor ligand-unbinding rate
+    Beta	= 20.53     (/ms)	        : channel opening rate
+    Alpha   = 0.71      (/ms)           : open channel closing rate
+	Erev	= 0.        (mV)		    : reversal potential
+	gmax	= 0.001     (umho)	        : maximum conductance
 }
 
 
@@ -93,14 +84,12 @@ ASSIGNED {
 	i 		(nA)		: current = g * (v - Erev)
 	g 		(umho)		: conductance
 	C                   : unbound transmitter concentration
-    B                   : fraction of channels not blocked by extracellular Mg
     scale               : allow netcon weight to scale conductance
 }
 
 STATE {
     Ru                  : fraction of receptors not bound to transmitter
     Rb                  : fraction of receptors bound to transmitter
-    Rc                  : fraction of receptors in closed cleft state
     Ro                  : fraction of channels in open state
 }
 
@@ -108,23 +97,19 @@ INITIAL {
 	C = 0.
     Ru = 1.
     Rb = 0.
-    Rc = 0.
     Ro = 0.
-    B = 0.
     scale = 1.
 }
 
 BREAKPOINT {
-    B = mgblock(v)
     SOLVE kstates METHOD sparse
-	g = scale * gmax * B * Ro
+	g = scale * gmax * Ro
     i = g * (v - Erev)
 }
 
 KINETIC kstates {
     ~ Ru <-> Rb     (C * kon, koff)
-    ~ Rb <-> Rc     (CC, CO)
-    ~ Rc <-> Ro     (Beta, Alpha)
+    ~ Rb <-> Ro     (Beta, Alpha)
 }
 
 NET_RECEIVE(weight) {
@@ -135,9 +120,4 @@ NET_RECEIVE(weight) {
     } else {    : a self event
         C = 0.
     }
-}
-
-FUNCTION mgblock(v(mV)) {
-	: from Jahr & Stevens
-    mgblock = 1. / (1. + exp(gamma * (-v)) * (mg / Kd))
 }
