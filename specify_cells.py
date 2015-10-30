@@ -54,8 +54,8 @@ class HocCell(object):
         """
         raw_tree = btmorph.STree2()  # import the full tree from an SWC file
         raw_tree.read_SWC_tree_from_file(morph_dir+morph_filename, types=range(10))
-        soma_length = 14
-        soma_diam = 9
+        soma_length = 14.
+        soma_diam = 9.
         for index in range(2):
             node = self.make_section('soma')
             node.sec.L = soma_length/2
@@ -66,13 +66,13 @@ class HocCell(object):
         for index in range(3):
             self.make_section('axon')
         self.axon[0].type = 'axon_hill'
-        self.axon[0].sec.L = 10
-        self.axon[0].set_diam_bounds(3, 2)  # stores the diameter boundaries for a tapered cylindrical section
+        self.axon[0].sec.L = 10.
+        self.axon[0].set_diam_bounds(3., 2.)  # stores the diameter boundaries for a tapered cylindrical section
         self.axon[1].type = 'ais'
-        self.axon[1].sec.L = 15
-        self.axon[1].set_diam_bounds(2, 1)
-        self.axon[2].sec.L = 500
-        self.axon[2].sec.diam = 1
+        self.axon[1].sec.L = 15.
+        self.axon[1].set_diam_bounds(2., 0.5)  # (2., 1.)
+        self.axon[2].sec.L = 500.
+        self.axon[2].sec.diam = 0.5  # 1.
         self.axon[0].connect(self.soma[0], 0, 0)
         self.axon[1].connect(self.axon[0], 1, 0)
         self.axon[2].connect(self.axon[1], 1, 0)
@@ -448,7 +448,7 @@ class HocCell(object):
                                     seg_loc -= min_distance
                                     if 'tau' in rules:
                                         if 'xhalf' in rules:  # sigmoidal gradient
-                                            offset = baseline + rules['slope'] / (1. +
+                                            offset = baseline - rules['slope'] / (1. +
                                                                     np.exp(rules['xhalf'] / rules['tau']))
                                             value = offset + rules['slope'] / (1. +
                                                                     np.exp((rules['xhalf'] - seg_loc) / rules['tau']))
@@ -1246,8 +1246,8 @@ class CA1_Pyr(HocCell):
         head = self.make_section('spine_head')
         head.connect(neck)
         node.spines.append(head)
-        head.sec.L = 0.408  # matches surface area of sphere with diam = 0.5
-        head.sec.diam = 0.408
+        head.sec.L = 0.5  # open cylinder, matches surface area of sphere with diam = 0.5
+        head.sec.diam = 0.5
         self._init_cable(head)
 
     def insert_inhibitory_synapses_in_subset(self, sec_type_list=['soma', 'basal', 'trunk', 'apical', 'tuft']):

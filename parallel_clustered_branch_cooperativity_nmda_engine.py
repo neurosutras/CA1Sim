@@ -7,11 +7,36 @@ Builds a cell locally so each engine is ready to receive jobs one at a time, spe
 corresponding to which synapses to stimulate. Remember to categorize output by distance from dendrite origin to soma.
 """
 morph_filename = 'EB2-late-bifurcation.swc'
-mech_filename = '052915 pas_exp_scale kdr ka_scale ih_sig_scale ampar_exp_scale nmda - EB2'
+#mech_filename = '052915 pas_exp_scale kdr ka_scale ih_sig_scale ampar_exp_scale nmda - EB2'
+mech_filename = '080615 rebalanced na_ka ampa nmda - EB2'
 rec_filename = 'output'+datetime.datetime.today().strftime('%m%d%Y%H%M')+'-pid'+str(os.getpid())
 
-NMDA_type = 'NMDA_KIN2'
+#NMDA_type = 'NMDA_KIN2'
+NMDA_type = 'NMDA_KIN3'
 ISI = 0.3
+
+
+def zero_na():
+    """
+
+    """
+    for sec_type in ['axon_hill', 'ais']:
+        cell.modify_mech_param(sec_type, 'nax', 'gbar', 0.)
+    cell.reinitialize_subset_mechanisms('axon', 'nax')
+    cell.modify_mech_param('soma', 'nas', 'gbar', 0.)
+    for sec_type in ['basal', 'trunk', 'apical', 'tuft']:
+        cell.reinitialize_subset_mechanisms(sec_type, 'nas')
+
+
+def zero_h():
+    """
+
+    """
+    cell.modify_mech_param('soma', 'h', 'ghbar', 0.)
+    cell.mech_dict['trunk']['h']['ghbar']['value'] = 0.
+    cell.mech_dict['trunk']['h']['ghbar']['slope'] = 0.
+    for sec_type in ['basal', 'trunk', 'apical', 'tuft']:
+        cell.reinitialize_subset_mechanisms(sec_type, 'h')
 
 
 def get_clustered_spines(cell, branch_origin, spine_list, min_num, length, direction=1):
@@ -139,6 +164,8 @@ v_init = -67.
 syn_types = ['AMPA_KIN', NMDA_type]
 
 cell = CA1_Pyr(morph_filename, mech_filename, full_spines=True)
+
+zero_na()
 
 min_num_spines = 20
 max_length = 30.

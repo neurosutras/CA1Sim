@@ -10,8 +10,8 @@ which synapse to optimize (coarse sampling of the full set of spines).
 morph_filename = 'EB2-late-bifurcation.swc'
 
 #mech_filename = '043015 pas_exp_scale kdr ka_scale ih_sig_scale - EB2'
-mech_filename = '072515 optimized basal ka_scale dend_sh_ar_nas - EB2'
-
+#mech_filename = '072515 optimized basal ka_scale dend_sh_ar_nas - EB2'
+mech_filename = '102915 interim dendritic excitability'
 
 def epsp_amp_error(x, syn):
     """
@@ -39,7 +39,7 @@ def epsp_amp_error(x, syn):
     for target in result:
         Err += ((target_val[target] - result[target])/target_range[target])**2.
     print 'Process:', os.getpid(), 'Spine:', syn.node.index, 'Node:', syn.node.parent.parent.name, 'Time: %.3f s, x: ' \
-                                                            '%.4E, Amp: %.3f, Error: %.4E' % (time.time() - start_time,
+                                                            '%.2E, Amp: %.3f, Error: %.2E' % (time.time() - start_time,
                                                             x[0], amp, Err)
     return Err
 
@@ -58,12 +58,12 @@ def optimize_single_synapse(syn_index):
     #                           bounds=xbounds)
     # options={'maxfun': 25}
     result = optimize.minimize(epsp_amp_error, x0, method='Nelder-Mead', args=(syn,), options={'xtol': 1e-7,
-                                                                                    'ftol': 1e-3, 'maxiter': 10})
+                                                                                    'ftol': 1e-3, 'maxiter': 20})
     syn.source.play(h.Vector())  # playing an empty vector turns this synapse off for future runs while keeping the
                                  # VecStim source object in existence so it can be activated again
     print 'Process:', os.getpid(), 'optimized Spine:', syn.node.index, 'on Node:', syn.node.parent.parent.name, ' in ' \
-                                                '%.3f s, x: %.4E, after %i iterations' % (time.time() - start_time,
-                                                            result.x[0], result.nfev)
+                                                '%.3f s, x: %.2E, after %i iterations with Err: %.2E' % \
+                                                (time.time() - start_time, result.x[0], result.nfev, result.fun)
     distance = cell.get_distance_to_node(cell.tree.root, syn.node.parent.parent, syn.loc)
     param_vals = [p for p in result.x]
     return {'distance': distance, 'result': param_vals, 'sec_type': syn.node.parent.parent.type}
@@ -87,20 +87,22 @@ v_init = -67.
 syn_type = 'AMPA_KIN'
 param_names = ['gmax']
 param_ylabels = ['Peak Conductance (uS)']
+local_random = random.Random()
 
 syn_list = []
 cell = CA1_Pyr(morph_filename, mech_filename, full_spines=True)
 zero_na()
-random.seed(0)
-for branch in cell.basal:  # cell.basal+cell.trunk+cell.apical+cell.tuft:
+local_random.seed(0)
+
+for branch in cell.trunk:  # cell.basal+cell.trunk+cell.apical+cell.tuft:
     if len(branch.spines) > 1:
         if branch.sec.L <= 10.:
-            node = branch.spines[random.sample(range(0, len(branch.spines)), 1)[0]]
+            node = branch.spines[local_random.sample(range(0, len(branch.spines)), 1)[0]]
             syn = Synapse(cell, node, [syn_type], stochastic=0)
             syn_list.append(syn)
         else:
             num_syns = min(len(branch.spines), int(branch.sec.L//10.))  # a random synapse every 10 um
-            for i in random.sample(range(0, len(branch.spines)), num_syns):
+            for i in local_random.sample(range(0, len(branch.spines)), num_syns):
                 node = branch.spines[i]
                 syn = Synapse(cell, node, [syn_type], stochastic=0)
                 syn_list.append(syn)

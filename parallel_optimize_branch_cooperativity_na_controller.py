@@ -3,7 +3,7 @@ from IPython.parallel import Client
 from IPython.display import clear_output
 from plot_results import *
 import sys
-import parallel_optimize_branch_cooperativity_nmda_engine
+import parallel_optimize_branch_cooperativity_na_engine
 import os
 """
 This simulation uses scipy.optimize.minimize to fit gmax_NMDA_KIN to branch cooperativity data from
@@ -16,10 +16,9 @@ Parallel version dynamically submits jobs to available cores.
 Assumes a controller is already running in another process with:
 ipcluster start -n num_cores
 """
-#new_rec_filename = '052215 apical oblique cooperativity'
-#new_rec_filename = '052815 apical oblique cooperativity - proximal - new_mg - no nmda'
-#new_rec_filename = '072815 apical oblique cooperativity - proximal'
-new_rec_filename = '102215 apical oblique cooperativity - NMDA_KIN3'
+
+new_rec_filename = '072815 apical oblique cooperativity - proximal'
+
 
 def branch_cooperativity_error(x, plot=0):
     """
@@ -28,13 +27,8 @@ def branch_cooperativity_error(x, plot=0):
     :return: float
     """
     start_time = time.time()
-    if x[1] > 10. or x[2] < 0.06:
-        return 1e9
-    dv['gmax'] = x[0]
-    dv['Kd'] = x[1]
-    dv['gamma'] = x[2]
-    num_spines = min(32, len(parallel_optimize_branch_cooperativity_nmda_engine.spine_list))
-    result = v.map_async(parallel_optimize_branch_cooperativity_nmda_engine.stim_expected, range(num_spines))
+    num_spines = 20
+    result = v.map_async(parallel_optimize_branch_cooperativity_na_engine.stim_expected, range(num_spines))
     #result = v.map_async(parallel_optimize_branch_cooperativity_nmda_engine.stim_expected, range(len(c)))
     while not result.ready():
         #if time.time() % 60 < 1.:
@@ -150,9 +144,6 @@ xmax = [5e-3, 10., 0.1]
 x1 = [3.13E-03, 9.44, 0.091]  # following re-optimization after na_ka tuning and ampar_scaling re-tuning
 x2 = [0., 9.82, 0.089]
 
-blocksize = 0.5  # defines the fraction of the xrange that will be explored at each step
-                 #  basinhopping starts with this value and reduces it by 10% every 'interval' iterations
-
 mytakestep = Normalized_Step(x1, xmin, xmax)
 
 minimizer_kwargs = dict(method=null_minimizer)
@@ -176,5 +167,4 @@ result = optimize.minimize(branch_cooperativity_error, x1, method='Nelder-Mead',
                                                                                     'disp': True, 'maxiter': 100})
 branch_cooperativity_error(result.x, plot=1)
 """
-#branch_cooperativity_error(x1, 1)
-branch_cooperativity_error([3.13e-3, 3.57, 0.062], 1)
+branch_cooperativity_error(x1, 1)

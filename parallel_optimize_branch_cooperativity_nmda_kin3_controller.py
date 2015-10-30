@@ -3,7 +3,7 @@ from IPython.parallel import Client
 from IPython.display import clear_output
 from plot_results import *
 import sys
-import parallel_optimize_branch_cooperativity_nmda_engine
+import parallel_optimize_branch_cooperativity_nmda_kin3_engine
 import os
 """
 This simulation uses scipy.optimize.minimize to fit gmax_NMDA_KIN to branch cooperativity data from
@@ -19,7 +19,7 @@ ipcluster start -n num_cores
 #new_rec_filename = '052215 apical oblique cooperativity'
 #new_rec_filename = '052815 apical oblique cooperativity - proximal - new_mg - no nmda'
 #new_rec_filename = '072815 apical oblique cooperativity - proximal'
-new_rec_filename = '102215 apical oblique cooperativity - NMDA_KIN3'
+new_rec_filename = '103015 apical oblique cooperativity - NMDA_KIN3'
 
 def branch_cooperativity_error(x, plot=0):
     """
@@ -28,13 +28,15 @@ def branch_cooperativity_error(x, plot=0):
     :return: float
     """
     start_time = time.time()
-    if x[1] > 10. or x[2] < 0.06:
+    if x[0] < 0. or x[1] < 0.05 or x[1] > 0.1 or x[2] < 3. or x[2] > 10. or x[3] < 1.:
         return 1e9
     dv['gmax'] = x[0]
-    dv['Kd'] = x[1]
-    dv['gamma'] = x[2]
-    num_spines = min(32, len(parallel_optimize_branch_cooperativity_nmda_engine.spine_list))
-    result = v.map_async(parallel_optimize_branch_cooperativity_nmda_engine.stim_expected, range(num_spines))
+    dv['gamma'] = x[1]
+    dv['Kd'] = x[2]
+    dv['kin_scale'] = x[3]
+    #dv['kin_shape'] = x[4]
+    num_spines = min(32, len(parallel_optimize_branch_cooperativity_nmda_kin3_engine.spine_list))
+    result = v.map_async(parallel_optimize_branch_cooperativity_nmda_kin3_engine.stim_expected, range(num_spines))
     #result = v.map_async(parallel_optimize_branch_cooperativity_nmda_engine.stim_expected, range(len(c)))
     while not result.ready():
         #if time.time() % 60 < 1.:
@@ -52,7 +54,7 @@ def branch_cooperativity_error(x, plot=0):
     instructions = []
     for group in range(1, num_spines+1):
         instructions.append(range(group))
-    result = v.map_async(parallel_optimize_branch_cooperativity_nmda_engine.stim_actual, instructions)
+    result = v.map_async(parallel_optimize_branch_cooperativity_nmda_kin3_engine.stim_actual, instructions)
     #result = v.map_async(parallel_optimize_branch_cooperativity_nmda_engine.stim_actual, instructions[:len(c)])
     while not result.ready():
         #if time.time() % 60 < 1.:
@@ -69,14 +71,14 @@ def branch_cooperativity_error(x, plot=0):
         os.remove(data_dir+filename+'.hdf5')
     with h5py.File(data_dir+new_rec_filename+'_expected.hdf5', 'r') as expected_file:
         unit_with_nmda = get_expected_EPSP(expected_file, '0',
-                                            parallel_optimize_branch_cooperativity_nmda_engine.equilibrate,
-                                            parallel_optimize_branch_cooperativity_nmda_engine.duration)
+                                            parallel_optimize_branch_cooperativity_nmda_kin3_engine.equilibrate,
+                                            parallel_optimize_branch_cooperativity_nmda_kin3_engine.duration)
     dv['gmax'] = 0.
-    result = v.map_sync(parallel_optimize_branch_cooperativity_nmda_engine.stim_expected, [0])
+    result = v.map_sync(parallel_optimize_branch_cooperativity_nmda_kin3_engine.stim_expected, [0])
     with h5py.File(data_dir+result[0]+'.hdf5', 'r') as unit_no_nmda_file:
         unit_no_nmda = get_expected_EPSP(unit_no_nmda_file, '0',
-                                            parallel_optimize_branch_cooperativity_nmda_engine.equilibrate,
-                                            parallel_optimize_branch_cooperativity_nmda_engine.duration)
+                                            parallel_optimize_branch_cooperativity_nmda_kin3_engine.equilibrate,
+                                            parallel_optimize_branch_cooperativity_nmda_kin3_engine.duration)
     os.remove(data_dir+result[0]+'.hdf5')
     result = {'unitary_nmda_contribution': (np.max(unit_with_nmda['trunk']) - np.max(unit_no_nmda['trunk'])) /
                                            np.max(unit_no_nmda['trunk'])}
@@ -105,7 +107,7 @@ def branch_cooperativity_error(x, plot=0):
     Err = 0.
     for target in result:
         Err += ((target_val[target] - result[target])/target_range[target])**2.
-    print 'gmax: %.3E, Kd: %.2f, gamma: %.3f' % (x[0], x[1], x[2])
+    print 'gmax: %.3E, gamma: %.3f, Kd: %.2f, kin_scale: %.2f' % (x[0], x[1], x[2], x[3])
     print 'Peak Supralinearity:', result['peak_supralinearity'], ', Min Supralinearity:', \
         result['min_supralinearity'], ', Unitary % NMDA:', result['unitary_nmda_contribution']
     print 'Parallel simulation took %i s, Error: %.4E' % (time.time()-start_time, Err)
@@ -136,24 +138,16 @@ def branch_cooperativity_error(x, plot=0):
 
 #the target values and acceptable ranges
 target_val = {'peak_supralinearity': 44., 'min_supralinearity': 0., 'unitary_nmda_contribution': 0.}
-target_range = {'peak_supralinearity': 1., 'min_supralinearity': 0.1,'unitary_nmda_contribution': 0.05}
+target_range = {'peak_supralinearity': 1., 'min_supralinearity': 1.,'unitary_nmda_contribution': 0.01}
 
 #the initial guess
-# x = ['gmax', 'Kd', 'gamma']
-x0 = [1e-3, 3.57, 0.08]
-xmin = [5e-4, 1.6, 0.06]
-xmax = [5e-3, 10., 0.1]
-#x1 = [3.11e-3, 7.18, 0.097]
-#x1 = [3.59e-3, 8.44, 0.12]
-#x1 = [2.72e-3, 9.82, 0.089]  # Err: 4.18
-#x1 = [2.898E-03, 9.78, 0.086]
-x1 = [3.13E-03, 9.44, 0.091]  # following re-optimization after na_ka tuning and ampar_scaling re-tuning
-x2 = [0., 9.82, 0.089]
+# x = ['gmax', 'gamma', 'Kd', 'kin_scale']  # , 'kin_shape']
+#x0 = [3.13E-03, 0.091, 9.44, 2.]  # , 21.33]
+x0 = [3.992E-03, 0.100, 9.20, 1.29]
+xmin = [1e-4, 0.05, 3., 1.]  # , 5.]
+xmax = [5e-3, 0.1, 10., 4.]  # , 50.]
 
-blocksize = 0.5  # defines the fraction of the xrange that will be explored at each step
-                 #  basinhopping starts with this value and reduces it by 10% every 'interval' iterations
-
-mytakestep = Normalized_Step(x1, xmin, xmax)
+mytakestep = Normalized_Step(x0, xmin, xmax)
 
 minimizer_kwargs = dict(method=null_minimizer)
 
@@ -162,19 +156,18 @@ dv = c[:]
 dv.clear()
 dv.block = True
 global_start_time = time.time()
-dv.execute('from parallel_optimize_branch_cooperativity_nmda_engine import *')
+dv.execute('from parallel_optimize_branch_cooperativity_nmda_kin3_engine import *')
 v = c.load_balanced_view()
+
 """
-result = optimize.basinhopping(branch_cooperativity_error, x1, niter= 400, niter_success=100, disp=True, interval=20,
+result = optimize.basinhopping(branch_cooperativity_error, x0, niter=700, niter_success=200, disp=True, interval=20,
                                                             minimizer_kwargs=minimizer_kwargs, take_step=mytakestep)
 branch_cooperativity_error(result.x, plot=1)
 
-
-#branch_cooperativity_error(x0, plot=1)
-
-result = optimize.minimize(branch_cooperativity_error, x1, method='Nelder-Mead', options={'xtol': 1e-3, 'ftol': 1e-3,
-                                                                                    'disp': True, 'maxiter': 100})
+result = optimize.minimize(branch_cooperativity_error, x0, method='Nelder-Mead', options={'xtol': 1e-3, 'ftol': 1e-3,
+                                                                                    'disp': True, 'maxiter': 200})
 branch_cooperativity_error(result.x, plot=1)
 """
-#branch_cooperativity_error(x1, 1)
-branch_cooperativity_error([3.13e-3, 3.57, 0.062], 1)
+#x1 = [3.992E-03, 0.100, 9.20, 1.29]
+branch_cooperativity_error(x0, 1)
+

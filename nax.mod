@@ -2,17 +2,19 @@ TITLE nax
 : Na current for axon. No slow inact.
 : M.Migliore Jul. 1997
 : added sh to account for higher threshold M.Migliore, Apr.2002
+: Aaron Milstein modified October 2015, added additional sha that applies only to activation threshold
 
 NEURON {
 	THREADSAFE
     SUFFIX nax
 	USEION na READ ena WRITE ina
-	RANGE  gbar, sh, minf, hinf, mtau, htau
+	RANGE  gbar, sh, sha, minf, hinf, mtau, htau
 	GLOBAL thinf, qinf
 }
 
 PARAMETER {
 	sh    = 0	        (mV)
+    sha   = 0           (mV)
 	gbar  = 0.010   	(mho/cm2)
 								
 	tha   =  -30	    (mV)		: act vhalf
@@ -64,7 +66,7 @@ BREAKPOINT {
 } 
 
 INITIAL {
-	trates(v,sh)
+	trates(v,sh,sha)
 	m=minf  
 	h=hinf
     thegna = gbar*m*m*m*h
@@ -72,25 +74,28 @@ INITIAL {
 }
 
 DERIVATIVE states {   
-    trates(v,sh)
+    trates(v,sh,sha)
     m' = (minf-m)/mtau
     h' = (hinf-h)/htau
 }
 
-PROCEDURE trates(vm,sh2) {  
+PROCEDURE trates(vm,sh2,sha2) {
     LOCAL  a, b, qt
     qt=q10^((celsius-24)/10)
-	a = trap0(vm,tha+sh2,Ra,qa)
-	b = trap0(-vm,-tha-sh2,Rb,qa)
+	a = trap0(vm,tha+sh2+sha2,Ra,qa)
+	b = trap0(-vm,-tha-sh2-sha2,Rb,qa)
 	mtau = 1/(a+b)/qt
     if (mtau<mmin) {mtau=mmin}
 	minf = a/(a+b)
 
 	a = trap0(vm,thi1+sh2,Rd,qd)
 	b = trap0(-vm,-thi2-sh2,Rg,qg)
+    :a = trap0(vm,thi1,Rd,qd)
+	:b = trap0(-vm,-thi2,Rg,qg)
 	htau =  1/(a+b)/qt
     if (htau<hmin) {htau=hmin}
 	hinf = 1/(1+exp((vm-thinf-sh2)/qinf))
+    :hinf = 1/(1+exp((vm-thinf)/qinf))
 }
 
 FUNCTION trap0(v,th,a,q) {

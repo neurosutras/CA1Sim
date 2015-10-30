@@ -12,14 +12,17 @@ morph_filename = 'EB2-late-bifurcation.swc'
 #mech_filename = '050715 pas_exp_scale kdr ka_scale ih_sig_scale ampar_exp_scale nmda - EB2'
 #mech_filename = '052615 pas_exp_scale ampar_exp_scale nmda - EB2'
 #mech_filename = '072815 optimized basal ka_scale dend_sh_ar_nas - ampa_scale - EB2'
-mech_filename = '080615 rebalanced na_ka ampa nmda - EB2'
+#mech_filename = '080615 rebalanced na_ka ampa nmda - EB2'
+mech_filename = '103015 interim dendritic excitability ampa'
+
 rec_filename = 'output'+datetime.datetime.today().strftime('%m%d%Y%H%M')+'-pid'+str(os.getpid())
 
 #NMDA_type = 'NMDA_KIN2'
 NMDA_type = 'NMDA_KIN3'
 gmax = 0.00313  # 0.0003  # placeholder for optimization parameter, must be pushed to each engine on each iteration
+gamma = 0.062
 Kd = 3.57
-gamma = 0.062  # 0.08
+kin_scale = 3.
 interp_dt = 0.01
 
 @interactive
@@ -35,8 +38,9 @@ def stim_actual(spine_indexes):
         spine = spine_list[index]
         syn = spine.synapses[0]
         syn.target(NMDA_type).gmax = gmax
-        syn.target(NMDA_type).Kd = Kd
         syn.target(NMDA_type).gamma = gamma
+        syn.target(NMDA_type).Kd = Kd
+        syn.target(NMDA_type).kin_scale = kin_scale
         spike_times = h.Vector([equilibrate + 0.3 * i])
         syn.source.play(spike_times)
         sim.parameters['syn_indexes'].append(spine.index)
@@ -64,8 +68,9 @@ def stim_expected(spine_index):
     spine = spine_list[spine_index]
     syn = spine.synapses[0]
     syn.target(NMDA_type).gmax = gmax
-    syn.target(NMDA_type).Kd = Kd
     syn.target(NMDA_type).gamma = gamma
+    syn.target(NMDA_type).Kd = Kd
+    syn.target(NMDA_type).kin_scale = kin_scale
     spike_times = h.Vector([equilibrate])
     syn.source.play(spike_times)
     sim.parameters['spine_index'] = spine.index
@@ -104,13 +109,13 @@ for branch in cell.trunk:
     for spine in branch.spines:
         syn = Synapse(cell, spine, syn_types, stochastic=0)
 
-# get the first terminal apical oblique terminal branch that has > 25 spines within 30 um
+# choose a distal apical oblique branch that has > 25 spines within 30 um, choose spines near the middle of the branch
 spine_list = []
 for branch in (apical for apical in cell.apical if cell.get_distance_to_node(cell.tree.root,
-            cell.get_dendrite_origin(apical)) >= 100. and cell.is_terminal(apical)):
-    length = cell.get_distance_to_node(cell.get_dendrite_origin(branch), branch, loc=0.)
+            cell.get_dendrite_origin(apical)) >= 100. and
+                cell.get_distance_to_node(cell.get_dendrite_origin(apical), apical, loc=1.) >= 80.):
     spine_list = [spine for spine in branch.spines if
-                  cell.get_distance_to_node(cell.get_dendrite_origin(branch), spine, loc=0.) - length < 30.]
+                  30. <= cell.get_distance_to_node(cell.get_dendrite_origin(branch), spine, loc=0.) <= 60.]
     if len(spine_list) > 25:
         #print 'branch', branch.name, 'has', len(spine_list), 'spines within 30 um'
         for spine in spine_list:

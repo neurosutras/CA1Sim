@@ -737,9 +737,20 @@ def plot_EPSP_kinetics(rec_file_list, description_list="", title=None):
                     t_peak = np.where(interp_vm == amp)[0][0]
                     interp_vm /= amp
                     interp_t -= interp_t[0]
+                    rise_10 = np.where(interp_vm[0:t_peak] >= 0.1)[0][0]
+                    rise_90 = np.where(interp_vm[0:t_peak] >= 0.9)[0][0]
+                    rise_50 = np.where(interp_vm[0:t_peak] >= 0.5)[0][0]
+                    rise_tau = interp_t[rise_90] - interp_t[rise_10]
+                    #decay_90 = np.where(interp_vm[t_peak:] <= 0.9)[0][0]
+                    #decay_10 = np.where(interp_vm[t_peak:] <= 0.1)[0][0]
+                    decay_50 = np.where(interp_vm[t_peak:] <= 0.5)[0][0]
+                    #decay_tau = interp_t[decay_10] - interp_t[decay_90]
+                    decay_tau = interp_t[decay_50] + interp_t[t_peak] - interp_t[rise_50]
+                    """
                     rise_tau = optimize.curve_fit(model_exp_rise, interp_t[1:t_peak], interp_vm[1:t_peak], p0=0.3)[0]
                     decay_tau = optimize.curve_fit(model_exp_decay, interp_t[t_peak+1:]-interp_t[t_peak],
                                                    interp_vm[t_peak+1:], p0=5.)[0]
+                    """
                     rise_taus[input_loc][rec_loc].append(rise_tau)
                     decay_taus[input_loc][rec_loc].append(decay_tau)
             for i, input_loc in enumerate(input_locs):
@@ -1009,9 +1020,20 @@ def plot_EPSP_i_kinetics(rec_file_list, description_list="", title=None):
                     t_peak = np.where(interp_vm == amp)[0][0]
                     interp_vm /= amp
                     interp_t -= interp_t[0]
+                    rise_10 = np.where(interp_vm[0:t_peak] >= 0.1)[0][0]
+                    rise_90 = np.where(interp_vm[0:t_peak] >= 0.9)[0][0]
+                    rise_50 = np.where(interp_vm[0:t_peak] >= 0.5)[0][0]
+                    rise_tau = interp_t[rise_90] - interp_t[rise_10]
+                    decay_90 = np.where(interp_vm[t_peak:] <= 0.9)[0][0]
+                    decay_10 = np.where(interp_vm[t_peak:] <= 0.1)[0][0]
+                    decay_50 = np.where(interp_vm[t_peak:] <= 0.5)[0][0]
+                    #decay_tau = interp_t[decay_10] - interp_t[decay_90]
+                    decay_tau = interp_t[decay_50] + interp_t[t_peak] - interp_t[rise_50]
+                    """
                     rise_tau = optimize.curve_fit(model_exp_rise, interp_t[1:t_peak], interp_vm[1:t_peak], p0=0.3)[0]
                     decay_tau = optimize.curve_fit(model_exp_decay, interp_t[t_peak+1:]-interp_t[t_peak],
                                                    interp_vm[t_peak+1:], p0=5.)[0]
+                    """
                     rise_taus[input_loc][rec_loc].append(rise_tau)
                     decay_taus[input_loc][rec_loc].append(decay_tau)
             for i, input_loc in enumerate(input_locs):
@@ -2525,7 +2547,7 @@ def plot_phase_precession(t_array, phase_array, title):
     plt.close()
 
 
-def process_simple_axon_model_output(rec_filename, stim_list=[-0.05, -0.1, -0.15, -0.2, -0.25, 0.2, 0.4, 0.6, 0.8, 1.]):
+def process_simple_axon_model_output(rec_filename):
     """
 
     :param rec_filename: str
@@ -2551,14 +2573,17 @@ def process_simple_axon_model_output(rec_filename, stim_list=[-0.05, -0.1, -0.15
         right = int((equilibrate-1.) / dt)
         start = int((equilibrate+stim_dur-11.) / dt)
         end = int((equilibrate+stim_dur-1.) / dt)
-        min_voltages = {stim: [] for stim in stim_list}
+        distances = [rec.attrs['soma_distance'] for rec in f.values()[0]['rec'].values()]
+        propagation = {sim.attrs['vm_amp_target']: [] for sim in f.values()}
         for i, sim in enumerate(f.values()):
+            target = sim.attrs['vm_amp_target']
+            soma_plateau = sim.attrs['plateau']
             for rec in sim['rec'].values():
                 vm = np.interp(t, sim['time'], rec)
                 baseline = np.mean(vm[left:right])
-                min_voltage = np.min(vm[start:end]) - baseline
-                min_voltages[stim_list[i]].append(min_voltage)
-    return min_voltages
+                plateau = np.min(vm[start:end]) - baseline
+                propagation[target].append(plateau / soma_plateau)
+    return distances, propagation
 
 
 def get_spike_delay_vs_distance_simple_axon_model(rec_filename):
