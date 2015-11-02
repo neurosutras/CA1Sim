@@ -16,7 +16,6 @@ mech_filename = '103115 interim dendritic excitability ampa nmda_kin3'
 
 param_names = ['n', 'P0', 'f', 'tau_F', 'd1', 'tau_D1']
 x = []  # placeholder for optimization parameters, must be pushed to each engine at each iteration
-max_simiter = 0  # placeholder for total number of stimuli per iteration, must be pushed to each engine at each iteration
 num_stims = 3
 interp_dt = 0.05
 
@@ -24,8 +23,7 @@ interp_dt = 0.05
 def sim_stim_train(ISI):
     """
     Called by controller, mapped to each engine. Simultaneously activates n synapses in the syn_list at the specified
-    ISI and returns the mean peak amplitude. If ISI == 300, this method parses the recorded vector into three units and
-    returns the mean unit size across runs.
+    ISI and returns the resulting EPSP waveform.
     :param ISI: int
     :return: np.array
     """

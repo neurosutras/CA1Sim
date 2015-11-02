@@ -28,7 +28,6 @@ def release_dynamics_error(x, plot=0):
         for i in range(repeat):
             instructions.append(ISI)
     dv['x'] = x
-    dv['max_simiter'] = len(instructions)
     map_result = v.map_async(parallel_optimize_pr_engine.sim_stim_train, instructions)
     while not map_result.ready():
         time.sleep(30)
@@ -128,7 +127,7 @@ param_names = ['n', 'P0', 'f', 'tau_F', 'd1', 'tau_D1']
 #x0 = [0.067, 0.18, 0.92, 105.5, 0.64, 10.]  # first pass after calibrating NMDA_KIN2.gmax for cooperativity
 # with 103115 interim dendritic excitability ampa nmda_kin3.pkl as mech_dict:
 #x0 = [0.082, 0.233, 1.603, 46.732, 0.830, 133.609]  # Err 1.0880E+03
-x0 = [0.094, 0.19, 1.56, 64.5, 0.83, 137.8]
+x0 = [0.094, 0.190, 1.625, 65.775, 0.785, 113.151]
 # unit amp: 4.180, unit slope: -6.69E-02, recovery unit amp: 6.308, Error: 4.8017E+02
 
 # the bounds
