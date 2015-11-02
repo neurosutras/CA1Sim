@@ -11,7 +11,8 @@ morph_filename = 'EB2-late-bifurcation.swc'
 #mech_filename = '071515 rebalanced nax kap kdr pas h - EB2 - spines'
 #mech_filename = '071715 rebalanced na_kap_kdr_pas_h - EB2 - spines'
 #mech_filename = '072515 optimized basal ka_scale dend_sh_ar_nas - EB2'
-mech_filename = '080615 rebalanced na_ka ampa nmda - EB2'
+#mech_filename = '080615 rebalanced na_ka ampa nmda - EB2'
+mech_filename = '103115 interim dendritic excitability ampa nmda_kin3'
 
 if len(sys.argv) > 1:
     synapses_seed = int(sys.argv[1])
@@ -147,7 +148,7 @@ def run_n_trials(n):
     trials += n
 
 
-NMDA_type = 'NMDA_KIN2'
+NMDA_type = 'NMDA_KIN3'
 
 equilibrate = 250.  # time to steady-state
 global_theta_cycle_duration = 150.  # (ms)
@@ -266,7 +267,7 @@ gauss_sigma = global_theta_cycle_duration * input_field_width / 6.  # contains 9
 gauss_force = excitatory_peak_rate * signal.gaussian(int((2 * (track_length + 1.5) * input_field_duration) / dt) + 1,
                                                      gauss_sigma / dt)
 
-modulated_field_center = 2000.
+modulated_field_center = 3000.
 modulation_factor = 3.
 modulation_width_scaling = 1.5
 
@@ -275,10 +276,6 @@ end_mod = modulated_field_center + input_field_duration * modulation_width_scali
 modulated_syns = [syn for i, syn in enumerate(stim_exc_syns) if start_mod <= peak_locs[i] <= end_mod]
 gauss_mod = 1. + (modulation_factor - 1.) * signal.gaussian(int(input_field_duration * modulation_width_scaling / dt) +
                                                             1, gauss_sigma * modulation_width_scaling / dt)
-
-special_start_loc = 2000.
-special_end_loc = 3000.
-special_factor = 3.
 
 rand_exc_seq_locs = []
 for syn in stim_exc_syns:

@@ -11,7 +11,8 @@ morph_filename = 'EB2-late-bifurcation.swc'
 #mech_filename = '071515 rebalanced nax kap kdr pas h - EB2 - spines'
 #mech_filename = '071715 rebalanced na_kap_kdr_pas_h - EB2 - spines'
 #mech_filename = '072515 optimized basal ka_scale dend_sh_ar_nas - EB2'
-mech_filename = '080615 rebalanced na_ka ampa nmda - EB2'
+#mech_filename = '080615 rebalanced na_ka ampa nmda - EB2'
+mech_filename = '103115 interim dendritic excitability ampa nmda_kin3'
 
 if len(sys.argv) > 1:
     synapses_seed = int(sys.argv[1])
@@ -148,7 +149,7 @@ def run_n_trials(n):
     trials += n
 
 
-NMDA_type = 'NMDA_KIN2'
+NMDA_type = 'NMDA_KIN3'
 
 equilibrate = 250.  # time to steady-state
 global_theta_cycle_duration = 150.  # (ms)
@@ -285,7 +286,7 @@ for syn in stim_exc_syns:
 # rand_inh_seq_locs = [] will need this when inhibitory synapses become stochastic
 # stim_inh_successes = [] will need this when inhibitory synapses become stochastic
 
-modulated_field_center = 2000.
+modulated_field_center = 3000.
 modulation_factor = 1.5
 modulation_width_scaling = 1.5
 
