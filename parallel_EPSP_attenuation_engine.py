@@ -14,7 +14,8 @@ morph_filename = 'EB2-late-bifurcation.swc'
 #mech_filename = '071715 rebalanced na_kap_kdr_pas_h - EB2 - spines'
 #mech_filename = '080615 rebalanced na_ka ampa nmda - EB2'
 #mech_filename = '102915 interim dendritic excitability'
-mech_filename = '103015 interim dendritic excitability ampa nmda'
+#mech_filename = '103015 interim dendritic excitability ampa'
+mech_filename = '103115 interim dendritic excitability ampa nmda_kin3'
 
 rec_filename = 'output'+datetime.datetime.today().strftime('%m%d%Y%H%M')+'-pid'+str(os.getpid())
 
@@ -52,22 +53,29 @@ def offset_vm(node, loc, index):
     t = np.arange(0., equilibrate, dt)
     offset = True
     global i_holding
-    count = 0
-    while offset and count < 10:
-        count += 1
+    direction = None
+    while offset:
         sim.modify_stim(0, node=node, loc=loc, amp=i_holding)
         sim.run(v_init)
         rec = sim.rec_list[index]['vec']
         vm = np.interp(t, sim.tvec, rec)
         v_rest = np.mean(vm[int((equilibrate - 3.)/dt):int((equilibrate - 1.)/dt)])
         if v_rest < v_init - 1.:
-            i_holding += 0.01
+            i_holding += 0.005
             if sim.verbose:
                 print 'increasing i_holding to %.3f' % (i_holding)
+            if direction is None:
+                direction = 1
+            elif direction == -1:
+                break
         elif v_rest > v_init + 1.:
-            i_holding -= 0.01
+            i_holding -= 0.005
             if sim.verbose:
                 print 'decreasing i_holding to %.3f' % (i_holding)
+            if direction is None:
+                direction = -1
+            elif direction == 1:
+                break
         else:
             offset = False
     sim.tstop = duration
@@ -111,7 +119,7 @@ syn_list = []
 cell = CA1_Pyr(morph_filename, mech_filename, full_spines=True)
 
 zero_na()
-#zero_h()
+zero_h()
 
 local_random.seed(0)
 for branch in cell.basal+cell.trunk+cell.apical+cell.tuft:

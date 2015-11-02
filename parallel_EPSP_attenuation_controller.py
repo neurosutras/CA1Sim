@@ -12,7 +12,7 @@ Assumes a controller is already running in another process with:
 ipcluster start -n num_cores
 """
 filename_suffix = ' - epsp attenuation'
-condition = ' nmda'  # ' no_ih'
+condition = ' nmda no_ih'
 new_rec_filename = parallel_EPSP_attenuation_engine.mech_filename+condition+filename_suffix
 
 num_syns = len(parallel_EPSP_attenuation_engine.syn_list)

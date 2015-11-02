@@ -19,20 +19,20 @@ ENDCOMMENT
 
 NEURON {
 	POINT_PROCESS Pr
-	RANGE P, P0, random, f, tau_F, d1, tau_D1, d2, tau_D2, F, D1, D2, tlast
+	RANGE P, P0, random, f, tau_F, d1, tau_D1, F, D1, tlast
     THREADSAFE
     POINTER randObjPtr
 }
 
 PARAMETER {
-    : the (1) is needed for the range limits to be effective
-    P0 = 0.241       (1)     < 0, 1 >        : basal release probability
-    f = 1.581        (1)     < 0, 1e9 >      : additive facilitation per spike
-    tau_F = 45.000   (ms)    < 1e-9, 1e9 >   : rate of decay back to baseline following facilitation
-    d1 = 0.850       (1)     < 0, 1 >        : multiplicative fast depression per spike
-    tau_D1 = 131.719 (ms)    < 1e-9, 1e9 >   : rate of decay back to baseline following fast depression
-    d2 = 0.975       (1)     < 0, 1 >        : multiplicative slow depression per spike
-    tau_D2 = 9200    (ms)    < 1e-9, 1e9 >   : rate of decay back to baseline following slow depression
+    : the (1) is needed for the range limits to be effective 0.189, 1.564, 64.462, 0.826, 137.757]
+    P0 = 0.19       (1)     < 0, 1 >        : basal release probability
+    f = 1.56        (1)     < 0, 1e9 >      : additive facilitation per spike
+    tau_F = 64.5    (ms)    < 1e-9, 1e9 >   : rate of decay back to baseline following facilitation
+    d1 = 0.83       (1)     < 0, 1 >        : multiplicative fast depression per spike
+    tau_D1 = 137.8  (ms)    < 1e-9, 1e9 >   : rate of decay back to baseline following fast depression
+    :d2 = 0.975     (1)     < 0, 1 >        : multiplicative slow depression per spike
+    :tau_D2 = 9200  (ms)    < 1e-9, 1e9 >   : rate of decay back to baseline following slow depression
 }
 
 ASSIGNED {
@@ -41,7 +41,7 @@ ASSIGNED {
     random                  : individual instance of random number
     F                       : current level of facilitation
     D1                      : current level of fast depression
-    D2                      : current level of slow depression
+    :D2                      : current level of slow depression
     tlast (ms)              : time of last spike
 }
 
@@ -50,7 +50,7 @@ INITIAL {
     random = 1
     F = 1
     D1 = 1
-    D2 = 1
+    :D2 = 1
 }
 
 NET_RECEIVE(weight) {
