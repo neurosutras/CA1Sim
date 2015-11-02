@@ -10,7 +10,8 @@ which synapse to optimize (coarse sampling of the full set of spines).
 #morph_filename = 'EB1-early-bifurcation.swc'
 morph_filename = 'EB2-late-bifurcation.swc'
 #mech_filename = '052915 pas_exp_scale kdr ka_scale ih_sig_scale ampar_exp_scale nmda - EB2'
-mech_filename = '080615 rebalanced na_ka ampa nmda - EB2'
+#mech_filename = '080615 rebalanced na_ka ampa nmda - EB2'
+mech_filename = '103115 interim dendritic excitability ampa nmda_kin3'
 #rec_filename = 'output'+datetime.datetime.today().strftime('%m%d%Y%H%M')+'-pid'+str(os.getpid())
 
 param_names = ['n', 'P0', 'f', 'tau_F', 'd1', 'tau_D1']
@@ -89,7 +90,7 @@ def zero_na():
 equilibrate = 250.  # time to steady-state
 duration = 550.
 v_init = -67.
-syn_types = ['AMPA_KIN', 'NMDA_KIN2']
+syn_types = ['AMPA_KIN', 'NMDA_KIN3']
 
 syn_list = []
 rand_seq_locs = []

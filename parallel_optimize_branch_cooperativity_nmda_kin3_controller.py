@@ -167,7 +167,8 @@ target_range = {'peak_supralinearity': 1., 'min_supralinearity': 1.,'unitary_nmd
 # x = ['gmax', 'gamma', 'Kd', 'kin_scale']
 #x0 = [3.13E-03, 0.091, 9.44, 2.]
 #x0 = [3.992E-03, 0.100, 9.20, 1.29]
-x0 = [3.607E-03, 0.098, 7.36, 1.92]
+#x0 = [3.607E-03, 0.098, 7.36, 1.92]
+x0 = [3.613E-03, 0.100, 7.51, 1.81]
 xmin = [1e-4, 0.05, 3., 1.]
 xmax = [5e-3, 0.1, 10., 4.]
 
@@ -187,10 +188,9 @@ v = c.load_balanced_view()
 result = optimize.basinhopping(branch_cooperativity_error, x0, niter=700, niter_success=200, disp=True, interval=20,
                                                             minimizer_kwargs=minimizer_kwargs, take_step=mytakestep)
 branch_cooperativity_error(result.x, plot=1)
-"""
+
 result = optimize.minimize(branch_cooperativity_error, x0, method='Nelder-Mead', options={'xtol': 1e-3, 'ftol': 1e-3,
                                                                                     'disp': True, 'maxiter': 200})
 branch_cooperativity_error(result.x, plot=1)
-
-#branch_cooperativity_error(x0, 1)
-#branch_cooperativity_error([3.580E-03, 0.097, 7.56, 2.02], 1)
+"""
+branch_cooperativity_error(x0, 1)

@@ -84,7 +84,7 @@ PARAMETER {
 	Kd      = 9.44      (mM)        : modulate Mg concentration dependence
     gamma   = 0.091     (/mV)       : modulate slope of Mg sensitivity
     mg      = 1.0       (mM)        : extracellular Mg concentration
-    gmax	= 0.00313   (umho)	    : maximum conductance
+    gmax	= 0.00361   (umho)	    : maximum conductance
 }
 
 
