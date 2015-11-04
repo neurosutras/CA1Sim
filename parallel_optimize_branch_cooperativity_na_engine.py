@@ -7,14 +7,14 @@ from IPython.parallel.util import interactive
 Builds a cell locally so each engine is ready to receive jobs one at a time, specified by a list of indexes
 corresponding to which synapses to stimulate.
 """
-
+#morph_filename = 'EB1-early-bifurcation.swc'
 morph_filename = 'EB2-late-bifurcation.swc'
-mech_filename = '100615 calibrating dendritic excitability'
-rec_filename = 'output_na_coop'+datetime.datetime.today().strftime('%m%d%Y%H%M')+'-pid'+str(os.getpid())
+mech_filename = '103115 interim dendritic excitability ampa nmda_kin3'
 
-NMDA_type = 'NMDA_KIN2'
+rec_filename = 'output'+datetime.datetime.today().strftime('%m%d%Y%H%M')+'-pid'+str(os.getpid())
+
+NMDA_type = 'NMDA_KIN3'
 interp_dt = 0.01
-interval = 0.3
 
 @interactive
 def stim_actual(spine_indexes):
@@ -28,7 +28,7 @@ def stim_actual(spine_indexes):
     for i, index in enumerate(spine_indexes):
         spine = spine_list[index]
         syn = spine.synapses[0]
-        spike_times = h.Vector([equilibrate + interval * i])
+        spike_times = h.Vector([equilibrate + 0.3 * i])
         syn.source.play(spike_times)
         sim.parameters['syn_indexes'].append(spine.index)
     start_time = time.time()
@@ -39,7 +39,8 @@ def stim_actual(spine_indexes):
         spine = spine_list[index]
         syn = spine.synapses[0]
         syn.source.play(h.Vector())
-    print 'Process: %i stimulated %i synapses in %i s' % (os.getpid(), len(spine_indexes), time.time() - start_time)
+    print 'Process: %i stimulated %i synapses in %i s' % (os.getpid(), len(spine_indexes),
+                                                                          time.time() - start_time)
     return rec_filename
 
 
@@ -61,7 +62,8 @@ def stim_expected(spine_index):
     with h5py.File(data_dir+rec_filename+'.hdf5', 'a') as f:
         sim.export_to_file(f, spine_index)
     syn.source.play(h.Vector())
-    print 'Process: %i stimulated spine: %i in %i s' % (os.getpid(), spine.index, time.time() - start_time)
+    print 'Process: %i stimulated spine: %i in %i s' % (os.getpid(), spine.index,
+                                                                        time.time() - start_time)
     return rec_filename
 
 
@@ -79,7 +81,7 @@ def zero_na():
 
 equilibrate = 250.  # time to steady-state
 duration = 450.
-v_init = -65.
+v_init = -67.
 syn_types = ['AMPA_KIN', NMDA_type]
 
 cell = CA1_Pyr(morph_filename, mech_filename, full_spines=True)
@@ -90,13 +92,13 @@ for branch in cell.trunk:
     for spine in branch.spines:
         syn = Synapse(cell, spine, syn_types, stochastic=0)
 
-# get the first terminal apical oblique terminal branch that has > 25 spines within 30 um
+# choose a distal apical oblique branch that has > 25 spines within 30 um, choose spines near the middle of the branch
 spine_list = []
-for branch in (apical for apical in cell.apical if 50. <= cell.get_distance_to_node(cell.tree.root,
-            cell.get_dendrite_origin(apical)) <= 75. and cell.is_terminal(apical)):
-    length = cell.get_distance_to_node(cell.get_dendrite_origin(branch), branch, loc=0.)
+for branch in (apical for apical in cell.apical if cell.get_distance_to_node(cell.tree.root,
+            cell.get_dendrite_origin(apical)) >= 100. and
+                cell.get_distance_to_node(cell.get_dendrite_origin(apical), apical, loc=1.) >= 80.):
     spine_list = [spine for spine in branch.spines if
-                  cell.get_distance_to_node(cell.get_dendrite_origin(branch), spine, loc=0.) - length < 30.]
+                  30. <= cell.get_distance_to_node(cell.get_dendrite_origin(branch), spine, loc=0.) <= 60.]
     if len(spine_list) > 25:
         #print 'branch', branch.name, 'has', len(spine_list), 'spines within 30 um'
         for spine in spine_list:
@@ -114,10 +116,10 @@ sim.parameters['equilibrate'] = equilibrate
 sim.parameters['duration'] = duration
 sim.parameters['path_type'] = branch.type
 sim.parameters['path_index'] = branch.index
-sim.parameters['interval'] = interval
 
-sim.append_rec(cell, cell.tree.root, loc=0., description='soma')
+sim.append_rec(cell, cell.tree.root, description='soma')
 sim.append_rec(cell, cell.get_dendrite_origin(branch), description='trunk', loc=1.)
-sim.append_rec(cell, branch, description='branch')
-#spine = spine_list[0]
-#sim.append_rec(cell, spine, object=spine.synapses[0].target(NMDA_type), param='_ref_g', description='NMDA_g')
+loc = np.median([spine.synapses[0].loc for spine in spine_list])
+sim.append_rec(cell, branch, loc=loc, description='branch')
+spine = spine_list[0]
+sim.append_rec(cell, spine, object=spine.synapses[0].target(NMDA_type), param='_ref_g', description='NMDA_g')

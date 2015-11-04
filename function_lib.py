@@ -901,6 +901,9 @@ def get_removed_spikes(rec_filename, before=1.6, after=6., dt=0.02, th=20., plot
                         right = rising
                     else:
                         right = min(crossings[i] + int(after/dt), len(vm)-1)
+                    # added to remove majority of complex spike:
+                    if vm[right] >= -45. and np.any(recovers):
+                        right = recovers
                     for j in range(left, right):
                         vm[j] = np.nan
                     i += 1

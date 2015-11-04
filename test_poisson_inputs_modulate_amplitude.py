@@ -153,7 +153,7 @@ NMDA_type = 'NMDA_KIN3'
 equilibrate = 250.  # time to steady-state
 global_theta_cycle_duration = 150.  # (ms)
 input_field_width = 10  # (theta cycles per 6 standard deviations)
-excitatory_phase_extent = 180.
+excitatory_phase_extent = 360.
 # Geissler...Buzsaki, PNAS 2010
 unit_theta_cycle_duration = global_theta_cycle_duration * input_field_width / (input_field_width +
                                                                                (excitatory_phase_extent / 360.))
@@ -162,8 +162,8 @@ track_length = 3  # field widths
 track_duration = track_length * input_field_duration
 track_equilibrate = 2. * global_theta_cycle_duration
 duration = equilibrate + track_equilibrate + track_duration
-excitatory_peak_rate = 25.
-excitatory_theta_modulation_depth = 0.7
+excitatory_peak_rate = 40.
+excitatory_theta_modulation_depth = 0.5
 theta_compression_factor = 1. - unit_theta_cycle_duration / global_theta_cycle_duration
 tuft_phase_offset = 90. / 360. * global_theta_cycle_duration
 inhibitory_peak_rate = {}
@@ -267,9 +267,9 @@ gauss_sigma = global_theta_cycle_duration * input_field_width / 6.  # contains 9
 gauss_force = excitatory_peak_rate * signal.gaussian(int((2 * (track_length + 1.5) * input_field_duration) / dt) + 1,
                                                      gauss_sigma / dt)
 
-modulated_field_center = 3000.
+modulated_field_center = 2250.
 modulation_factor = 3.
-modulation_width_scaling = 1.5
+modulation_width_scaling = 1.25
 
 start_mod = modulated_field_center - input_field_duration * modulation_width_scaling / 2.
 end_mod = modulated_field_center + input_field_duration * modulation_width_scaling / 2.
