@@ -273,7 +273,6 @@ modulation_width_scaling = 1.5
 
 start_mod = modulated_field_center - input_field_duration * modulation_width_scaling / 2.
 end_mod = modulated_field_center + input_field_duration * modulation_width_scaling / 2.
-modulated_syns = [syn for i, syn in enumerate(stim_exc_syns) if start_mod <= peak_locs[i] <= end_mod]
 gauss_mod = 1. + (modulation_factor - 1.) * signal.gaussian(int(input_field_duration * modulation_width_scaling / dt) +
                                                             1, gauss_sigma * modulation_width_scaling / dt)
 

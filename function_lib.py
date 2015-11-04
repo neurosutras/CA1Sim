@@ -637,14 +637,22 @@ class MyTakeStep(object):
 
 def get_expected_spine_index_map(sim_file):
     """
-    There is a bug with HDF5 when reading from a file too often within a session. By mapping spine_index to group_index,
-    I can reduce the number of calls to the sim_file.
+    There is a bug with HDF5 when reading from a file too often within a session. Instead of constantly reading from the
+    HDF5 file directly and searching for content by spine_index or path_index, the number of calls to the sim_file can
+    be reduced by creating a mapping from spine_index or path_index to HDF5 group key. It is possible for a spine to
+    have more than one entry in an expected_file, with branch recordings in different locations and therefore different
+    expected EPSP waveforms, so it is necessary to also distinguish those entries by path_index.
+
     :param sim_file:
     :return: dict
     """
     index_map = {}
     for key, sim in sim_file.iteritems():
-        index_map[sim.attrs['spine_index']] = key
+        path_index = sim.attrs['path_index']
+        spine_index = sim.attrs['spine_index']
+        if path_index not in index_map:
+            index_map[path_index] = {}
+        index_map[path_index][spine_index] = key
     return index_map
 
 
@@ -756,9 +764,8 @@ def export_nmdar_cooperativity(expected_filename, actual_filename, description="
         for key, sim in actual_file.iteritems():
             path_index = sim.attrs['path_index']
             if path_index not in sim_key_dict:
-                sim_key_dict[path_index] = [key]
-            else:
-                sim_key_dict[path_index].append(key)
+                sim_key_dict[path_index] = []
+            sim_key_dict[path_index].append(key)
         with h5py.File(data_dir+expected_filename+'.hdf5', 'r') as expected_file:
             expected_index_map = get_expected_spine_index_map(expected_file)
             with h5py.File(data_dir+output_filename+'.hdf5', 'w') as output_file:
@@ -778,8 +785,8 @@ def export_nmdar_cooperativity(expected_filename, actual_filename, description="
                     path_group.attrs['soma_distance'] = soma_distance
                     path_group.attrs['branch_distance'] = branch_distance
                     path_group.attrs['origin_distance'] = origin_distance
-                    expected_dict, actual_dict = get_expected_vs_actual(expected_file, actual_file, expected_index_map,
-                                                                        sim_keys)
+                    expected_dict, actual_dict = get_expected_vs_actual(expected_file, actual_file,
+                                                                        expected_index_map[path_index], sim_keys)
                     for rec in sim['rec'].itervalues():
                         location = rec.attrs['description']
                         rec_group = path_group.create_group(location)

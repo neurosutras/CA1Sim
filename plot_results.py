@@ -1365,7 +1365,7 @@ def plot_expected_vs_actual_from_raw(expected_filename, actual_file_list, descri
                                                                                                         path_index]
                         sorted_sim_keys.sort(key=lambda x: len(actual_file[x].attrs['syn_indexes']))
                         expected_dict, actual_dict = get_expected_vs_actual(expected_file, actual_file,
-                                                                            expected_index_map, sorted_sim_keys)
+                                                                        expected_index_map[path_index], sorted_sim_keys)
                         for j, location in enumerate(rec_locs):
                             axes[i][j].plot(expected_dict[location], actual_dict[location], color=colors[index])
             label_handles.append(mlines.Line2D([], [], color=colors[index], label=description_list[index]))
@@ -1527,7 +1527,7 @@ def plot_nmdar_contribution_from_raw(expected_filename, actual_file_list, descri
                                                                                                         path_index]
                         sorted_sim_keys.sort(key=lambda x: len(with_nmda_file[x].attrs['syn_indexes']))
                         expected_dict, with_nmda_dict = get_expected_vs_actual(expected_file, with_nmda_file,
-                                                                               expected_index_map, sorted_sim_keys)
+                                                                        expected_index_map[path_index], sorted_sim_keys)
             with h5py.File(data_dir+without_nmda_filename+'.hdf5', 'r') as without_nmda_file:
                 path_indexes = {input_loc: [] for input_loc in input_locs}
                 for sim in without_nmda_file.itervalues():
@@ -1541,7 +1541,7 @@ def plot_nmdar_contribution_from_raw(expected_filename, actual_file_list, descri
                                            without_nmda_file[key].attrs['path_index'] == path_index]
                         sorted_sim_keys.sort(key=lambda x: len(without_nmda_file[x].attrs['syn_indexes']))
                         expected_dict, without_nmda_dict = get_expected_vs_actual(expected_file, without_nmda_file,
-                                                                                  expected_index_map, sorted_sim_keys)
+                                                                        expected_index_map[path_index], sorted_sim_keys)
                         for j, location in enumerate(rec_locs):
                             nmda_contribution = (np.array(with_nmda_dict[location]) -
                                 np.array(without_nmda_dict[location])) / np.array(without_nmda_dict[location]) * 100.
@@ -1746,7 +1746,7 @@ def plot_nmdar_supralinearity_from_raw(expected_filename, actual_file_list, desc
                                                                                                         path_index]
                         sorted_sim_keys.sort(key=lambda x: len(actual_file[x].attrs['syn_indexes']))
                         expected_dict, actual_dict = get_expected_vs_actual(expected_file, actual_file,
-                                                                            expected_index_map, sorted_sim_keys)
+                                                                        expected_index_map[path_index], sorted_sim_keys)
                         for j, location in enumerate(rec_locs):
                             expected = np.array(expected_dict[location])
                             actual = np.array(actual_dict[location])
@@ -2209,6 +2209,35 @@ def process_patterned_input_simulation(rec_filename, title, dt=0.02):
     plt.show()
     plt.close()
     return rec_t, ramp_removed, binned_mean, binned_variance
+
+
+def plot_patterned_input_soma_vm(rec_filename, title, dt=0.02):
+    """
+
+    :param rec_file_name: str
+    :param title: str
+    # remember .attrs['phase_offset'] could be inside ['train'] for old files
+    """
+    with h5py.File(data_dir+rec_filename+'.hdf5', 'r') as f:
+        sim = f.values()[0]
+        equilibrate = sim.attrs['equilibrate']
+        track_equilibrate = sim.attrs['track_equilibrate']
+        track_length = sim.attrs['track_length']
+        input_field_duration = sim.attrs['input_field_duration']
+        duration = sim.attrs['duration']
+        stim_dt = sim.attrs['stim_dt']
+        track_duration = duration - equilibrate - track_equilibrate
+        for sim in f.values():
+            t = np.arange(0., duration, dt)
+            vm = np.interp(t, sim['time'], sim['rec']['0'])
+            start = int((equilibrate + track_equilibrate)/dt)
+            plt.plot(np.subtract(t[start:], equilibrate + track_equilibrate), vm[start:])
+            plt.xlabel('Time (ms)')
+            plt.ylabel('Voltage (mV)')
+            plt.title('Somatic Vm - '+title)
+            plt.ylim((-70., -50.))
+        plt.show()
+        plt.close()
 
 
 def process_simple_input_simulation(rec_filename, title, dt=0.02):
