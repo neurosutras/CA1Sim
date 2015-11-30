@@ -808,7 +808,7 @@ def get_binned_firing_rate(spike_times, t, bin_dur=10.):
     count = np.zeros(len(bin_centers))
     for train in spike_times:
         for spike_time in train:
-            if spike_time >= t[0] and spike_time <= t[-1]:
+            if t[0] <= spike_time <= bin_centers[-1] + bin_dur / 2.:
                 i = np.where(bin_centers + bin_dur / 2. >= spike_time)[0][0]
                 count[i] += 1
     rate = count / bin_dur * 1000.
@@ -956,7 +956,7 @@ def get_theta_filtered_traces(rec_filename, dt=0.02):
     down_stim_t = np.arange(-track_equilibrate, track_duration, down_dt)
     down_rec_t = np.arange(0., track_duration, down_dt)
     # 2000 ms Hamming window, ~3 Hz low-pass for ramp, ~5 - 10 Hz bandpass for theta
-    window_len = int(2000./down_dt)
+    window_len = min(int(2000./down_dt), len(down_rec_t) - 1)
     theta_filter = signal.firwin(window_len, [5., 10.], nyq=1000./2./down_dt, pass_zero=False)
     pop_exc_theta = []
     pop_inh_theta = []
@@ -1023,7 +1023,7 @@ def get_phase_precession(rec_filename, start_loc=None, end_loc=None, dt=0.02):
             spike_time_array.append(spike_times)
             spike_times = np.subtract(spike_times, time_offset)
             spike_phases = np.mod(spike_times, theta_duration)
-            spike_phases /= 150.
+            spike_phases /= theta_duration
             spike_phases *= 360.
             spike_phase_array.append(spike_phases)
     rec_t = np.arange(0., track_duration, dt)
@@ -1032,7 +1032,7 @@ def get_phase_precession(rec_filename, start_loc=None, end_loc=None, dt=0.02):
     down_dt = 0.5
     down_rec_t = np.arange(0., track_duration, down_dt)
     # 2000 ms Hamming window, ~3 Hz low-pass for ramp, ~5 - 10 Hz bandpass for theta
-    window_len = int(2000./down_dt)
+    window_len = min(len(down_rec_t) - 1, int(2000./down_dt))
     theta_filter = signal.firwin(window_len, [5., 10.], nyq=1000./2./down_dt, pass_zero=False)
     intra_theta = []
     for trace in spikes_removed:
@@ -1049,7 +1049,7 @@ def get_phase_precession(rec_filename, start_loc=None, end_loc=None, dt=0.02):
         intra_peak_array.append(peak_times)
         peak_times = np.subtract(peak_times, time_offset)
         peak_phases = np.mod(peak_times, theta_duration)
-        peak_phases /= 150.
+        peak_phases /= theta_duration
         peak_phases *= 360.
         intra_phase_array.append(peak_phases)
     return spike_time_array, spike_phase_array, intra_peak_array, intra_phase_array

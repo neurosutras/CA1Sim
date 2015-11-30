@@ -93,14 +93,30 @@ for branch in cell.trunk:
         syn = Synapse(cell, spine, syn_types, stochastic=0)
 
 # choose a distal apical oblique branch that has > 25 spines within 30 um, choose spines near the middle of the branch
+min_num_spines = 25
+trunk_loc = 'proximal'  # in ['proximal', 'distal']
+path_category = 'terminal'  # in ['proximal', 'intermediate', 'terminal']
 spine_list = []
-for branch in (apical for apical in cell.apical if cell.get_distance_to_node(cell.tree.root,
-            cell.get_dendrite_origin(apical)) >= 100. and
-                cell.get_distance_to_node(cell.get_dendrite_origin(apical), apical, loc=1.) >= 80.):
-    spine_list = [spine for spine in branch.spines if
+branch_list = (apical for apical in cell.apical if cell.get_distance_to_node(cell.tree.root,
+                                                   cell.get_dendrite_origin(apical)) >= 100.) \
+                if trunk_loc == 'distal' else (apical for apical in cell.apical
+                                               if cell.get_distance_to_node(cell.tree.root,
+                                                  cell.get_dendrite_origin(apical)) <= 75.)
+for branch in branch_list:
+    if (path_category == 'proximal' and cell.get_branch_order(branch) == 1 and branch.sec.L >= 30. and
+                                                                                len(branch.spines) >= min_num_spines):
+        spine_list = [spine for spine in branch.spines if cell.get_distance_to_node(cell.get_dendrite_origin(branch),
+                                                                                    spine, loc=0.) <= 30.]
+    elif (path_category == 'terminal' and cell.is_terminal(branch) and branch.sec.L >= 30. and
+        len(branch.spines) >= min_num_spines):
+        distance = cell.get_distance_to_node(cell.get_dendrite_origin(branch), branch, loc=1.)
+        spine_list = [spine for spine in branch.spines if distance -
+                      cell.get_distance_to_node(cell.get_dendrite_origin(branch), spine, loc=0.) <= 30.]
+    elif (path_category == 'intermediate' and cell.get_distance_to_node(cell.get_dendrite_origin(branch),
+                                                                        branch, loc=1.) >= 80.):
+        spine_list = [spine for spine in branch.spines if
                   30. <= cell.get_distance_to_node(cell.get_dendrite_origin(branch), spine, loc=0.) <= 60.]
-    if len(spine_list) > 25:
-        #print 'branch', branch.name, 'has', len(spine_list), 'spines within 30 um'
+    if len(spine_list) >= min_num_spines:
         for spine in spine_list:
             syn = Synapse(cell, spine, syn_types, stochastic=0)
         break

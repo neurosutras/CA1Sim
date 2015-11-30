@@ -326,6 +326,7 @@ peak_locs = list(peak_locs)
 
 rand_exc_seq_locs = []
 for syn in stim_exc_syns:
+    #peak_loc = 750.
     #peak_loc = local_random.uniform(-0.75 * input_field_duration, (0.75 + track_length) * input_field_duration)
     #peak_locs.append(peak_loc)
     if excitatory_stochastic:
@@ -333,8 +334,8 @@ for syn in stim_exc_syns:
         stim_successes.append(success_vec)
         syn.netcon('AMPA_KIN').record(success_vec)
         rand_exc_seq_locs.append(syn.randObj.seq())
-    if syn.node.parent.parent not in [rec['node'] for rec in sim.rec_list]:
-        sim.append_rec(cell, syn.node.parent.parent)
+    #if syn.node.parent.parent not in [rec['node'] for rec in sim.rec_list]:
+    #    sim.append_rec(cell, syn.node.parent.parent)
     # remove this synapse from the pool, so that additional "modulated" inputs can be selected from those that remain
     all_exc_syns[syn.node.parent.parent.type].remove(syn)
 
@@ -342,20 +343,74 @@ for syn in stim_exc_syns:
 # stim_inh_successes = [] will need this when inhibitory synapses become stochastic
 
 # modulate the weights of inputs that have peak_locs along this stretch of the track
+#modulated_num_exc_syn = 100
 modulated_field_center = track_duration / 2.
-
+#modulated_start_index = len(stim_exc_syns)
 for i, syn in enumerate(stim_exc_syns):
     if (modulated_field_center - input_field_duration * 0.5 <= peak_locs[i] <
-                modulated_field_center - input_field_duration * 0.25) or (modulated_field_center +
-                input_field_duration * 0.25 < peak_locs[i] <= modulated_field_center + input_field_duration * 0.5):
+                modulated_field_center - input_field_duration * 0.2) or (modulated_field_center +
+                input_field_duration * 0.2 < peak_locs[i] <= modulated_field_center + input_field_duration * 0.5):
         syn.netcon('AMPA_KIN').weight[0] = 0.75
-    elif (modulated_field_center - input_field_duration * 0.25 <= peak_locs[i] <= modulated_field_center +
-                input_field_duration * 0.25):
-        syn.netcon('AMPA_KIN').weight[0] = 3.5
+    elif (modulated_field_center - input_field_duration * 0.2 <= peak_locs[i] <= modulated_field_center +
+                input_field_duration * 0.2):
+        syn.netcon('AMPA_KIN').weight[0] = 3.
+"""
+for sec_type in all_exc_syns:
+    for i in local_random.sample(range(len(all_exc_syns[sec_type])), min(len(all_exc_syns[sec_type]),
+                                                            int(modulated_num_exc_syn * fraction_exc_syns[sec_type]))):
+        syn = all_exc_syns[sec_type][i]
+        stim_exc_syns.append(syn)
 
+for syn in stim_exc_syns[modulated_start_index:]:
+    peak_loc = modulated_field_center
+    peak_locs.append(peak_loc)
+    if excitatory_stochastic:
+        success_vec = h.Vector()
+        stim_successes.append(success_vec)
+        syn.netcon('AMPA_KIN').record(success_vec)
+        rand_exc_seq_locs.append(syn.randObj.seq())
+    # sim.append_rec(cell, syn.node, object=syn.target('AMPA_KIN'), param='_ref_i', description='i_AMPA')
+    # sim.append_rec(cell, syn.node, object=syn.target(NMDA_type), param='_ref_i', description='i_NMDA')
+    #if syn.node.parent.parent not in [rec['node'] for rec in sim.rec_list]:
+    #    sim.append_rec(cell, syn.node.parent.parent)
+    # remove this synapse from the pool, so that additional "modulated" inputs can be selected from those that remain
+    all_exc_syns[syn.node.parent.parent.type].remove(syn)
+"""
+"""
 if trial_seed is None:
     trials = 0
     run_n_trials(1)
 else:
     trials = trial_seed
     run_n_trials(1)
+"""
+global_phase_offset = 0.
+stim_forces = []
+for i, syn in enumerate(stim_exc_syns):
+    if (modulated_field_center - input_field_duration * 0.5 <= peak_locs[i] <
+                modulated_field_center - input_field_duration * 0.25) or (modulated_field_center +
+                input_field_duration * 0.25 < peak_locs[i] <= modulated_field_center + input_field_duration * 0.5):
+        gauss_force = excitatory_peak_rate * 0.75 * np.exp(-((stim_t - peak_locs[i]) / gauss_sigma)**2.)
+    elif (modulated_field_center - input_field_duration * 0.25 <= peak_locs[i] <= modulated_field_center +
+                input_field_duration * 0.25):
+        gauss_force = excitatory_peak_rate * 3.5 * np.exp(-((stim_t - peak_locs[i]) / gauss_sigma)**2.)
+    else:
+        gauss_force = excitatory_peak_rate * np.exp(-((stim_t - peak_locs[i]) / gauss_sigma)**2.)
+    unit_phase_offset = peak_locs[i] * theta_compression_factor
+    theta_force = excitatory_theta_offset + excitatory_theta_amp * np.cos(2. * np.pi / unit_theta_cycle_duration *
+                    (stim_t - unit_phase_offset) - global_phase_offset - excitatory_theta_phase_offset['CA3'])
+    stim_force = np.multiply(gauss_force, theta_force)
+    stim_forces.append(stim_force)
+force_sum = np.sum(stim_forces, 0)
+force_sum -= np.mean(force_sum)
+envelope = np.mean(np.abs(signal.hilbert(force_sum)))
+global_cos = envelope * np.cos(2. * np.pi / global_theta_cycle_duration * stim_t)
+fig, axes = plt.subplots(2, 1)
+axes[0].plot(stim_t, force_sum)
+axes[0].plot(stim_t, global_cos)
+peak_times, peak_phases = plot_waveform_phase_vs_time(stim_t, force_sum, time_offset=global_phase_offset / 2. /
+                                                                                np.pi * global_theta_cycle_duration)
+#axes[1].scatter(peak_times, np.add(peak_phases, 90.))
+axes[1].scatter(peak_times, peak_phases)
+plt.show()
+plt.close()

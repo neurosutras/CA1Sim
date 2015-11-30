@@ -4,6 +4,7 @@ import matplotlib.lines as mlines
 import matplotlib as mpl
 import numpy as np
 import scipy.signal as signal
+import scipy.stats as stats
 
 mpl.rcParams['svg.fonttype'] = 'none'
 mpl.rcParams['font.size'] = 14.  # 18.
@@ -2421,7 +2422,7 @@ def process_simple_input_simulation(rec_filename, title, dt=0.02):
     return binned_mean, binned_variance
 
 
-def plot_phase_precession(t_array, phase_array, title):
+def plot_phase_precession(t_array, phase_array, title, fit_start=1500., fit_end=3000.):
     """
 
     :param t_array: list of np.array
@@ -2437,6 +2438,8 @@ def plot_phase_precession(t_array, phase_array, title):
         #plt.plot(fit_t, m * fit_t + b, c=colors[i])
     binned_times = []
     binned_phases = []
+    all_spike_times = []
+    all_spike_phases = []
     for start in np.arange(0., 4500., 150.):
         index_array = [np.where((spike_times >= start) & (spike_times < start+150.))[0] for spike_times in t_array]
         spike_times = []
@@ -2447,15 +2450,23 @@ def plot_phase_precession(t_array, phase_array, title):
                 spike_phases.append(spike_phase)
         if np.any(spike_times):
             binned_times.append(np.mean(spike_times))
-            binned_phases.append(np.mean(spike_phases))
+            binned_phases.append(stats.circmean(spike_phases, high=360., low=0.))
+            all_spike_times.extend(spike_times)
+            all_spike_phases.extend(spike_phases)
+    all_spike_times = np.array(all_spike_times)
+    all_spike_phases = np.array(all_spike_phases)
     binned_times = np.array(binned_times)
     binned_phases = np.array(binned_phases)
-    indexes = np.where((binned_times >= 1800.) & (binned_times <= 4200.))[0]
+    #indexes = np.where((all_spike_times >= fit_start) & (all_spike_times <= fit_end))[0]
+    indexes = np.where((binned_times >= fit_start) & (binned_times <= fit_end))[0]
+    #m, b = np.polyfit(all_spike_times[indexes], all_spike_phases[indexes], 1)
     m, b = np.polyfit(binned_times[indexes], binned_phases[indexes], 1)
-    fit_t = np.arange(np.min(binned_times[indexes]), np.max(binned_times[indexes]), 10.)
+    indexes = np.where((all_spike_times >= fit_start) & (all_spike_times <= fit_end))[0]
+    fit_t = np.arange(np.min(all_spike_times[indexes]), np.max(all_spike_times[indexes]), 10.)
     plt.scatter(binned_times, binned_phases, c='r')
     plt.plot(fit_t, m * fit_t + b, c='r')
     plt.ylim(0., 360.)
+    plt.xlim(0., 4500.)
     plt.ylabel('Phase ($^\circ$)')
     plt.xlabel('Time (ms)')
     plt.title('Phase Precession - '+ title)
