@@ -345,9 +345,9 @@ for syn in stim_exc_syns:
 modulated_field_center = track_duration / 2.
 
 for i, syn in enumerate(stim_exc_syns):
-    if (modulated_field_center - input_field_duration * 0.5 <= peak_locs[i] <
-                modulated_field_center - input_field_duration * 0.25) or (modulated_field_center +
-                input_field_duration * 0.25 < peak_locs[i] <= modulated_field_center + input_field_duration * 0.5):
+    if (modulated_field_center - input_field_duration * 0.75 <= peak_locs[i] <
+                modulated_field_center - input_field_duration * 0.5) or (modulated_field_center +
+                input_field_duration * 0.5 < peak_locs[i] <= modulated_field_center + input_field_duration * 0.75):
         syn.netcon('AMPA_KIN').weight[0] = 0.75
     elif (modulated_field_center - input_field_duration * 0.25 <= peak_locs[i] <= modulated_field_center +
                 input_field_duration * 0.25):

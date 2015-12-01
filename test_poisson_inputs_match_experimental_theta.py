@@ -189,8 +189,8 @@ def plot_waveform_phase_vs_time(t, x, time_offset=0., start_loc=1500., end_loc=3
 NMDA_type = 'NMDA_KIN3'
 
 equilibrate = 250.  # time to steady-state
-global_theta_cycle_duration = 150.  # (ms)
-input_field_width = 10  # (theta cycles per 6 standard deviations)
+global_theta_cycle_duration = 133.  # (ms)
+input_field_width = 15  # (theta cycles per 6 standard deviations)
 excitatory_phase_extent = 360.  # (degrees)
 # Geissler...Buzsaki, PNAS 2010
 unit_theta_cycle_duration = global_theta_cycle_duration * input_field_width / (input_field_width +
@@ -218,7 +218,7 @@ inhibitory_theta_modulation_depth['dendritic'] = 0.5
 inhibitory_theta_phase_offset['perisomatic'] = 135. / 360. * 2. * np.pi
 inhibitory_theta_phase_offset['dendritic'] = inhibitory_theta_phase_offset['perisomatic'] + 90. / 360. * 2. * np.pi
 
-stim_dt = 0.02
+stim_dt = 0.02  # 0.1
 dt = 0.02
 v_init = -67.
 
@@ -347,13 +347,14 @@ for syn in stim_exc_syns:
 modulated_field_center = track_duration / 2.
 #modulated_start_index = len(stim_exc_syns)
 for i, syn in enumerate(stim_exc_syns):
-    if (modulated_field_center - input_field_duration * 0.5 <= peak_locs[i] <
-                modulated_field_center - input_field_duration * 0.2) or (modulated_field_center +
-                input_field_duration * 0.2 < peak_locs[i] <= modulated_field_center + input_field_duration * 0.5):
+    if (modulated_field_center - input_field_duration * 0.75 <= peak_locs[i] <
+                modulated_field_center - input_field_duration * 0.5) or (modulated_field_center +
+                input_field_duration * 0.5 < peak_locs[i] <= modulated_field_center + input_field_duration * 0.75):
         syn.netcon('AMPA_KIN').weight[0] = 0.75
-    elif (modulated_field_center - input_field_duration * 0.2 <= peak_locs[i] <= modulated_field_center +
-                input_field_duration * 0.2):
-        syn.netcon('AMPA_KIN').weight[0] = 3.
+    elif (modulated_field_center - input_field_duration * 0.25 <= peak_locs[i] <= modulated_field_center +
+                input_field_duration * 0.25):
+        syn.netcon('AMPA_KIN').weight[0] = 3.5
+
 """
 for sec_type in all_exc_syns:
     for i in local_random.sample(range(len(all_exc_syns[sec_type])), min(len(all_exc_syns[sec_type]),
@@ -376,7 +377,7 @@ for syn in stim_exc_syns[modulated_start_index:]:
     # remove this synapse from the pool, so that additional "modulated" inputs can be selected from those that remain
     all_exc_syns[syn.node.parent.parent.type].remove(syn)
 """
-"""
+
 if trial_seed is None:
     trials = 0
     run_n_trials(1)
@@ -387,16 +388,10 @@ else:
 global_phase_offset = 0.
 stim_forces = []
 for i, syn in enumerate(stim_exc_syns):
-    """
-    if (modulated_field_center - input_field_duration * 0.6 <= peak_locs[i] <
-                modulated_field_center - input_field_duration * 0.35) or (modulated_field_center +
-                input_field_duration * 0.35 < peak_locs[i] <= modulated_field_center + input_field_duration * 0.6):
+    if (modulated_field_center - input_field_duration * 0.5 <= peak_locs[i] <
+                modulated_field_center - input_field_duration * 0.25) or (modulated_field_center +
+                input_field_duration * 0.25 < peak_locs[i] <= modulated_field_center + input_field_duration * 0.5):
         gauss_force = excitatory_peak_rate * 0.75 * np.exp(-((stim_t - peak_locs[i]) / gauss_sigma)**2.)
-    """
-    if (modulated_field_center - input_field_duration * 0.85 <= peak_locs[i] <
-                modulated_field_center - input_field_duration * 0.6) or (modulated_field_center +
-                input_field_duration * 0.6 < peak_locs[i] <= modulated_field_center + input_field_duration * 0.85):
-        gauss_force = excitatory_peak_rate * 0.7 * np.exp(-((stim_t - peak_locs[i]) / gauss_sigma)**2.)
     elif (modulated_field_center - input_field_duration * 0.25 <= peak_locs[i] <= modulated_field_center +
                 input_field_duration * 0.25):
         gauss_force = excitatory_peak_rate * 3.5 * np.exp(-((stim_t - peak_locs[i]) / gauss_sigma)**2.)
@@ -420,3 +415,4 @@ peak_times, peak_phases = plot_waveform_phase_vs_time(stim_t, force_sum, time_of
 axes[1].scatter(peak_times, peak_phases)
 plt.show()
 plt.close()
+"""

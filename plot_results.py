@@ -2116,7 +2116,7 @@ def process_patterned_input_simulation(rec_filename, title, dt=0.02):
         if 'inh_train' in f.values()[0]:
             inh_input = [get_binned_firing_rate(sim['inh_train'].values(), stim_t) for sim in f.values()]
             mean_inh_input = np.mean(inh_input, axis=0)
-        output = [get_smoothed_firing_rate([sim['output']], stim_t) for sim in f.values()]
+        output = [get_smoothed_firing_rate([sim['output']], stim_t, dt=stim_dt) for sim in f.values()]
         mean_output = np.mean(output, axis=0)
         start = int(track_equilibrate/stim_dt)
         fig, axes = plt.subplots(3, 1)
@@ -2430,6 +2430,8 @@ def plot_phase_precession(t_array, phase_array, title, fit_start=1500., fit_end=
     :param title: str
     """
     #colors = plt.cm.rainbow(np.linspace(0, 1, len(t_array)))
+    t_min = np.min([t[0] for t in t_array])
+    t_max = np.max([t[-1] for t in t_array])
     for i, t in enumerate(t_array):
         phases = phase_array[i]
         #m, b = np.polyfit(t, phases, 1)
@@ -2440,7 +2442,7 @@ def plot_phase_precession(t_array, phase_array, title, fit_start=1500., fit_end=
     binned_phases = []
     all_spike_times = []
     all_spike_phases = []
-    for start in np.arange(0., 4500., 150.):
+    for start in np.arange(t_min, t_max+150., 150.):
         index_array = [np.where((spike_times >= start) & (spike_times < start+150.))[0] for spike_times in t_array]
         spike_times = []
         spike_phases = []
@@ -2466,12 +2468,13 @@ def plot_phase_precession(t_array, phase_array, title, fit_start=1500., fit_end=
     plt.scatter(binned_times, binned_phases, c='r')
     plt.plot(fit_t, m * fit_t + b, c='r')
     plt.ylim(0., 360.)
-    plt.xlim(0., 4500.)
+    plt.xlim(t_min, t_max)
     plt.ylabel('Phase ($^\circ$)')
     plt.xlabel('Time (ms)')
     plt.title('Phase Precession - '+ title)
     plt.show()
     plt.close()
+    return binned_times, binned_phases
 
 
 def process_simple_axon_model_output(rec_filename):
