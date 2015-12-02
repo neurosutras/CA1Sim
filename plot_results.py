@@ -2234,7 +2234,7 @@ def process_patterned_input_simulation(rec_filename, title, dt=0.02):
     plt.legend(loc='best')
     plt.show()
     plt.close()
-    return rec_t, ramp_removed, binned_mean, binned_variance, intra_theta_amp
+    return rec_t, ramp_removed, binned_mean, binned_variance, mean_across_trials, variance_across_trials
 
 
 def plot_patterned_input_soma_vm(rec_filename, title, dt=0.02):
@@ -2442,7 +2442,7 @@ def plot_phase_precession(t_array, phase_array, title, fit_start=1500., fit_end=
     binned_phases = []
     all_spike_times = []
     all_spike_phases = []
-    for start in np.arange(t_min, t_max+150., 150.):
+    for start in np.arange(0., t_max+150., 150.):
         index_array = [np.where((spike_times >= start) & (spike_times < start+150.))[0] for spike_times in t_array]
         spike_times = []
         spike_phases = []
