@@ -1007,8 +1007,10 @@ def get_phase_precession(rec_filename, start_loc=None, end_loc=None, dt=0.02):
         for sim in f.values():
             if 'phase_offset' in sim.attrs:
                 phase_offsets.append(sim.attrs['phase_offset'])
-            elif 'phase_offset' in sim['train'].attrs:
+            elif 'train' in sim and 'phase_offset' in sim['train'].attrs:
                 phase_offsets.append(sim['train'].attrs['phase_offset'])
+            else:
+                phase_offsets.append(0.)
         output_trains = [np.array(sim['output']) for sim in f.values() if 'output' in sim]
     spike_phase_array = []
     spike_time_array = []

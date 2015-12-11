@@ -388,29 +388,37 @@ global_phase_offset = 0.
 stim_forces = []
 for i, syn in enumerate(stim_exc_syns):
     """
-    if (modulated_field_center - input_field_duration * 0.6 <= peak_locs[i] <
-                modulated_field_center - input_field_duration * 0.35) or (modulated_field_center +
-                input_field_duration * 0.35 < peak_locs[i] <= modulated_field_center + input_field_duration * 0.6):
+    if (modulated_field_center - input_field_duration * 0.75 <= peak_locs[i] <
+                modulated_field_center - input_field_duration * 0.5) or (modulated_field_center +
+                input_field_duration * 0.5 < peak_locs[i] <= modulated_field_center + input_field_duration * 0.75):
         gauss_force = excitatory_peak_rate * 0.75 * np.exp(-((stim_t - peak_locs[i]) / gauss_sigma)**2.)
-    """
-    if (modulated_field_center - input_field_duration * 0.85 <= peak_locs[i] <
-                modulated_field_center - input_field_duration * 0.6) or (modulated_field_center +
-                input_field_duration * 0.6 < peak_locs[i] <= modulated_field_center + input_field_duration * 0.85):
-        gauss_force = excitatory_peak_rate * 0.7 * np.exp(-((stim_t - peak_locs[i]) / gauss_sigma)**2.)
     elif (modulated_field_center - input_field_duration * 0.25 <= peak_locs[i] <= modulated_field_center +
                 input_field_duration * 0.25):
         gauss_force = excitatory_peak_rate * 3.5 * np.exp(-((stim_t - peak_locs[i]) / gauss_sigma)**2.)
     else:
         gauss_force = excitatory_peak_rate * np.exp(-((stim_t - peak_locs[i]) / gauss_sigma)**2.)
+    """
+    gauss_force = excitatory_peak_rate * np.exp(-((stim_t - peak_locs[i]) / gauss_sigma)**2.)
+    #gauss_mod_amp = 3.5 * np.exp(-((stim_t-modulated_field_center)/(gauss_sigma))**2.) + 1.
+    #gauss_mod_amp = 8. * np.exp(-((stim_t-modulated_field_center)/(gauss_sigma*1.5))**2.) - \
+    #                6.*np.exp(-((stim_t-modulated_field_center)/(gauss_sigma*1.75))**2.) + 1.
+    gauss_mod_amp = 55.5 * np.exp(-((stim_t-modulated_field_center)/(gauss_sigma*1.56))**2.) - \
+                    53.*np.exp(-((stim_t-modulated_field_center)/(gauss_sigma*1.59))**2.) + 1.
+    if stim_t[0] < peak_locs[i] < stim_t[-1]:
+        index = np.where(stim_t >= peak_locs[i])[0][0]
+        gauss_force *= gauss_mod_amp[index]
     unit_phase_offset = peak_locs[i] * theta_compression_factor
     theta_force = excitatory_theta_offset + excitatory_theta_amp * np.cos(2. * np.pi / unit_theta_cycle_duration *
                     (stim_t - unit_phase_offset) - global_phase_offset - excitatory_theta_phase_offset['CA3'])
     stim_force = np.multiply(gauss_force, theta_force)
     stim_forces.append(stim_force)
 force_sum = np.sum(stim_forces, 0)
-force_sum -= np.mean(force_sum)
-envelope = np.mean(np.abs(signal.hilbert(force_sum)))
-global_cos = envelope * np.cos(2. * np.pi / global_theta_cycle_duration * stim_t)
+end_baseline = np.where(stim_t >= input_field_duration / 2.)[0][0]
+mean_amp = np.mean(force_sum[:end_baseline])
+force_sum -= mean_amp
+envelope = np.mean(np.abs(signal.hilbert(force_sum[:end_baseline])))
+force_sum += mean_amp
+global_cos = envelope * np.cos(2. * np.pi / global_theta_cycle_duration * stim_t) + mean_amp
 fig, axes = plt.subplots(2, 1)
 axes[0].plot(stim_t, force_sum)
 axes[0].plot(stim_t, global_cos)
