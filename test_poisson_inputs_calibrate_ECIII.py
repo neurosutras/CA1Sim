@@ -43,7 +43,7 @@ else:
 
 rec_filename = 'output'+datetime.datetime.today().strftime('%m%d%Y%H%M')+'-pid'+str(os.getpid())+'-seed'+\
                str(synapses_seed)+'-e'+str(num_exc_syns)+'-i'+str(num_inh_syns)+'-mod_inh'+str(mod_inh)+\
-               '-trial'+str(trial_seed)
+               '-cal_ec'+str(trial_seed)
 
 
 def get_instantaneous_spike_probability(rate, dt=0.1, generator=None):
@@ -204,7 +204,7 @@ NMDA_type = 'NMDA_KIN3'
 equilibrate = 250.  # time to steady-state
 global_theta_cycle_duration = 150.  # (ms)
 input_field_width = 10  # (theta cycles per 6 standard deviations)
-excitatory_phase_extent = 360.  # (degrees)
+excitatory_phase_extent = 450.  # (degrees)
 # Geissler...Buzsaki, PNAS 2010
 unit_theta_cycle_duration = global_theta_cycle_duration * input_field_width / (input_field_width +
                                                                                (excitatory_phase_extent / 360.))
@@ -233,7 +233,7 @@ inhibitory_theta_modulation_depth['apical dendritic'] = 0.5
 inhibitory_theta_modulation_depth['tuft feedforward'] = 0.5
 inhibitory_theta_modulation_depth['tuft feedback'] = 0.5
 inhibitory_theta_phase_offset['perisomatic'] = 150. / 360. * 2. * np.pi  # Like PV+ Basket
-inhibitory_theta_phase_offset['apical dendritic'] = 180. / 360. * \
+inhibitory_theta_phase_offset['apical dendritic'] = 195. / 360. * \
                                                         2. * np.pi  # Like Bistratified (Mixed PV+, CCK+, NPY+)
 inhibitory_theta_phase_offset['tuft feedforward'] = 345. / 360. * 2. * np.pi  # Like Neurogliaform
 inhibitory_theta_phase_offset['tuft feedback'] = 180. / 360. * 2. * np.pi  # Like SST+ O-LM
