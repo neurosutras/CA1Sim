@@ -43,7 +43,7 @@ else:
 
 rec_filename = 'output'+datetime.datetime.today().strftime('%m%d%Y%H%M')+'-pid'+str(os.getpid())+'-seed'+\
                str(synapses_seed)+'-e'+str(num_exc_syns)+'-i'+str(num_inh_syns)+'-mod_inh'+str(mod_inh)+\
-               '-cal_ec'+str(trial_seed)
+               '-cal_fb'+str(trial_seed)
 
 
 def get_instantaneous_spike_probability(rate, dt=0.1, generator=None):
@@ -119,7 +119,7 @@ def run_n_trials(n):
                 train = get_inhom_poisson_spike_times(stim_force, stim_t, dt=stim_dt, generator=local_random)
                 stim_exc_trains[group].append(train)
                 syn.source.play(h.Vector(np.add(train, equilibrate + track_equilibrate)))
-        for group in ['perisomatic', 'apical dendritic', 'tuft feedforward']:  # stim_inh_syns.keys():
+        for group in stim_inh_syns.keys():
             stim_inh_trains[group] = []
             for i, syn in enumerate(stim_inh_syns[group]):
                 inhibitory_theta_amp = inhibitory_peak_rate[group] * inhibitory_theta_modulation_depth[group] / 2.
