@@ -442,6 +442,7 @@ if trial_seed is None:
 else:
     trials = trial_seed
     run_n_trials(1)
+
 """
 global_phase_offset = 0.
 end_baseline = np.where(stim_t >= input_field_duration / 2.)[0][0]

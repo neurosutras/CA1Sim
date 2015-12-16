@@ -98,6 +98,11 @@ def run_n_trials(n):
         stim_inh_trains = {}
         local_random.seed(simiter)
         global_phase_offset = local_random.uniform(-np.pi, np.pi)
+        if mod_inh > 0:
+            mod_inh_start = int((track_equilibrate + (float(mod_inh - 1) + 0.3) * input_field_duration) / dt)
+            sim.parameters['mod_inh_start'] = stim_t[mod_inh_start]
+            mod_inh_stop = mod_inh_start + int(1000. / dt)
+            sim.parameters['mod_inh_stop'] = stim_t[mod_inh_stop]
         for group in stim_exc_syns.keys():  # ['CA3']:  #
             stim_exc_trains[group] = []
             for i, syn in enumerate(stim_exc_syns[group]):
@@ -128,16 +133,15 @@ def run_n_trials(n):
                 inhibitory_theta_force = inhibitory_theta_offset + inhibitory_theta_amp * np.cos(2. * np.pi /
                                                         global_theta_cycle_duration * stim_t - global_phase_offset -
                                                         inhibitory_phase_offset)
-                if mod_inh > 0:
-                    start = int((track_equilibrate + float(mod_inh - 1) * input_field_duration) / dt)
-                    stop = start + int(input_field_duration / dt)
-                    inhibitory_theta_amp = inhibitory_manipulation_strength * inhibitory_peak_rate[group] * \
+                if mod_inh > 0 and group in ['perisomatic']:
+                    inhibitory_theta_amp = inhibitory_manipulation_strength[group] * inhibitory_peak_rate[group] * \
                                            inhibitory_theta_modulation_depth[group] / 2.
-                    inhibitory_theta_offset = inhibitory_manipulation_strength * inhibitory_peak_rate[group] - \
+                    inhibitory_theta_offset = inhibitory_manipulation_strength[group] * inhibitory_peak_rate[group] - \
                                               inhibitory_theta_amp
-                    inhibitory_theta_force[start:stop] = inhibitory_theta_offset + inhibitory_theta_amp * \
-                                                            np.cos(2. * np.pi / global_theta_cycle_duration *
-                                                            stim_t[start:stop] - global_phase_offset -
+                    inhibitory_theta_force[mod_inh_start:mod_inh_stop] = inhibitory_theta_offset + \
+                                                            inhibitory_theta_amp * np.cos(2. * np.pi /
+                                                            global_theta_cycle_duration *
+                                                            stim_t[mod_inh_start:mod_inh_stop] - global_phase_offset -
                                                             inhibitory_phase_offset)
                 train = get_inhom_poisson_spike_times(inhibitory_theta_force, stim_t, dt=stim_dt,
                                                       generator=local_random)
@@ -217,13 +221,14 @@ excitatory_peak_rate = 40.
 excitatory_theta_modulation_depth = 0.7
 theta_compression_factor = 1. - unit_theta_cycle_duration / global_theta_cycle_duration
 excitatory_theta_phase_offset = {}
-excitatory_theta_phase_offset['CA3'] = 150. / 360. * 2. * np.pi  # radians
+excitatory_theta_phase_offset['CA3'] = 165. / 360. * 2. * np.pi  # radians
 excitatory_theta_phase_offset['ECIII'] = 345. / 360. * 2. * np.pi  # radians
 excitatory_stochastic = 0
 inhibitory_peak_rate = {}
 inhibitory_theta_modulation_depth = {}
 inhibitory_theta_phase_offset = {}
-inhibitory_manipulation_strength = 0.5
+inhibitory_manipulation_strength = {'perisomatic': 0.2, 'apical dendritic': 1., 'tuft feedforward': 1.,
+                                    'tuft feedback': 1.}
 inhibitory_peak_rate['perisomatic'] = 40.
 inhibitory_peak_rate['apical dendritic'] = 40.
 inhibitory_peak_rate['tuft feedforward'] = 40.
@@ -232,9 +237,9 @@ inhibitory_theta_modulation_depth['perisomatic'] = 0.5
 inhibitory_theta_modulation_depth['apical dendritic'] = 0.5
 inhibitory_theta_modulation_depth['tuft feedforward'] = 0.5
 inhibitory_theta_modulation_depth['tuft feedback'] = 0.5
-inhibitory_theta_phase_offset['perisomatic'] = 150. / 360. * 2. * np.pi  # Like PV+ Basket
-inhibitory_theta_phase_offset['apical dendritic'] = 195. / 360. * \
-                                                        2. * np.pi  # Like Bistratified (Mixed PV+, CCK+, NPY+)
+inhibitory_theta_phase_offset['perisomatic'] = 165. / 360. * 2. * np.pi  # Like PV+ Basket
+inhibitory_theta_phase_offset['apical dendritic'] = 210. / 360. * 2. * np.pi
+                                                                            # Like Bistratified (Mixed PV+, CCK+, NPY+)
 inhibitory_theta_phase_offset['tuft feedforward'] = 345. / 360. * 2. * np.pi  # Like Neurogliaform
 inhibitory_theta_phase_offset['tuft feedback'] = 180. / 360. * 2. * np.pi  # Like SST+ O-LM
 
@@ -399,7 +404,7 @@ modulated_field_center = track_duration / 2.
 gauss_mod_amp = {}
 #modulated_start_index = len(stim_exc_syns)
 for group in stim_exc_syns.keys():
-    gauss_mod_amp[group] = 2. * np.exp(-((np.array(peak_locs[group]) - modulated_field_center) /
+    gauss_mod_amp[group] = 1.5 * np.exp(-((np.array(peak_locs[group]) - modulated_field_center) /
                                           (gauss_sigma * 1.4)) ** 2.) + 1.
     for i, syn in enumerate(stim_exc_syns[group]):
         syn.netcon('AMPA_KIN').weight[0] = gauss_mod_amp[group][i]
