@@ -218,16 +218,16 @@ track_duration = track_length * input_field_duration
 track_equilibrate = 2. * global_theta_cycle_duration
 duration = equilibrate + track_equilibrate + track_duration  # input_field_duration
 excitatory_peak_rate = 40.
-excitatory_theta_modulation_depth = 0.7
+excitatory_theta_modulation_depth = 0.8
 theta_compression_factor = 1. - unit_theta_cycle_duration / global_theta_cycle_duration
 excitatory_theta_phase_offset = {}
 excitatory_theta_phase_offset['CA3'] = 165. / 360. * 2. * np.pi  # radians
-excitatory_theta_phase_offset['ECIII'] = 345. / 360. * 2. * np.pi  # radians
+excitatory_theta_phase_offset['ECIII'] = 330. / 360. * 2. * np.pi  # radians
 excitatory_stochastic = 0
 inhibitory_peak_rate = {}
 inhibitory_theta_modulation_depth = {}
 inhibitory_theta_phase_offset = {}
-inhibitory_manipulation_strength = {'perisomatic': 0.2, 'apical dendritic': 1., 'tuft feedforward': 1.,
+inhibitory_manipulation_strength = {'perisomatic': 0.4, 'apical dendritic': 1., 'tuft feedforward': 1.,
                                     'tuft feedback': 1.}
 inhibitory_peak_rate['perisomatic'] = 40.
 inhibitory_peak_rate['apical dendritic'] = 40.
@@ -237,10 +237,10 @@ inhibitory_theta_modulation_depth['perisomatic'] = 0.5
 inhibitory_theta_modulation_depth['apical dendritic'] = 0.5
 inhibitory_theta_modulation_depth['tuft feedforward'] = 0.5
 inhibitory_theta_modulation_depth['tuft feedback'] = 0.5
-inhibitory_theta_phase_offset['perisomatic'] = 165. / 360. * 2. * np.pi  # Like PV+ Basket
+inhibitory_theta_phase_offset['perisomatic'] = 150. / 360. * 2. * np.pi  # Like PV+ Basket
 inhibitory_theta_phase_offset['apical dendritic'] = 210. / 360. * 2. * np.pi
                                                                             # Like Bistratified (Mixed PV+, CCK+, NPY+)
-inhibitory_theta_phase_offset['tuft feedforward'] = 345. / 360. * 2. * np.pi  # Like Neurogliaform
+inhibitory_theta_phase_offset['tuft feedforward'] = 315. / 360. * 2. * np.pi  # Like Neurogliaform
 inhibitory_theta_phase_offset['tuft feedback'] = 180. / 360. * 2. * np.pi  # Like SST+ O-LM
 
 stim_dt = 0.02

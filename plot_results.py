@@ -2205,8 +2205,8 @@ def process_patterned_input_simulation(rec_filename, title, dt=0.02):
         for j in range(0, int(track_duration/bin_duration) - 1):
             binned_variance.append(np.var(residual[j*interval:(j+1)*interval]))
             binned_mean.append(np.mean(theta_removed[i][j*interval:(j+1)*interval]))
-    intra_theta_amp = np.mean(np.mean(np.abs(signal.hilbert(theta_traces)), 1))
-    print 'Intracellular Theta Amp for %s: %.2f' % (title, intra_theta_amp)
+    intra_theta_amp = np.mean(np.abs(signal.hilbert(theta_traces)), axis=0)
+    print 'Intracellular Theta Amp for %s: %.2f' % (title, np.mean(intra_theta_amp))
     plt.plot(rec_t, mean_across_trials)
     plt.xlabel('Time (ms)')
     plt.ylabel('Voltage (mV)')
@@ -2234,7 +2234,8 @@ def process_patterned_input_simulation(rec_filename, title, dt=0.02):
     plt.legend(loc='best')
     plt.show()
     plt.close()
-    return rec_t, ramp_removed, binned_mean, binned_variance, mean_across_trials, variance_across_trials
+    return rec_t, ramp_removed, intra_theta_amp, binned_mean, binned_variance, mean_across_trials, \
+           variance_across_trials
 
 
 def plot_patterned_input_soma_vm(rec_filename, title, dt=0.02):
