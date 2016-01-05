@@ -35,10 +35,12 @@ if len(sys.argv) > 5:
     trial_seed = int(sys.argv[5])
 else:
     trial_seed = None
+if len(sys.argv) > 6:
+    probe_phase_offset = float(sys.argv[6])
 
 rec_filename = 'output'+datetime.datetime.today().strftime('%m%d%Y%H%M')+'-pid'+str(os.getpid())+'-seed'+\
                str(synapses_seed)+'-e'+str(num_exc_syns)+'-i'+str(num_inh_syns)+'-mod_inh'+str(mod_inh)+\
-               '-cal_fb'+str(trial_seed)
+               '_'+str(trial_seed)+'r_inp'+str(int(probe_phase_offset))
 
 
 def get_instantaneous_spike_probability(rate, dt=0.1, generator=None):
@@ -367,6 +369,29 @@ for sec_type in all_inh_syns:
 
 stim_t = np.arange(-track_equilibrate, track_duration, dt)
 
+# input resistance probe, hyperpolarizing current every three theta cycles
+
+r_inp_probe_amp = -0.15
+r_inp_probe_duration = 120. / 360. * global_theta_cycle_duration
+r_inp_stim = []
+r_inp_stim_t = []
+r_inp_probe_start = probe_phase_offset / 360. * global_theta_cycle_duration
+while r_inp_probe_start + r_inp_probe_duration + dt < track_duration:
+    r_inp_stim.append(0.)
+    r_inp_stim_t.append(r_inp_probe_start)
+    r_inp_stim.append(r_inp_probe_amp)
+    r_inp_stim_t.append(r_inp_probe_start + dt)
+    r_inp_stim.append(r_inp_probe_amp)
+    r_inp_stim_t.append(r_inp_probe_start + r_inp_probe_duration)
+    r_inp_stim.append(0.)
+    r_inp_stim_t.append(r_inp_probe_start + r_inp_probe_duration + dt)
+    r_inp_probe_start += global_theta_cycle_duration
+r_inp_stim_t_vec = h.Vector(r_inp_stim_t)
+r_inp_stim_vector = h.Vector(r_inp_stim)
+sim.append_stim(cell, cell.tree.root, 0., 0., equilibrate + track_equilibrate, duration)
+r_inp_stim_vector.play(sim.stim_list[0]['stim']._ref_amp, r_inp_stim_t_vec, 1)  # makes continuous vector out of list of
+                                                                                # discrete times
+
 excitatory_theta_amp = excitatory_theta_modulation_depth / 2.
 excitatory_theta_offset = 1. - excitatory_theta_amp
 gauss_sigma = global_theta_cycle_duration * input_field_width / 3. / np.sqrt(2.)  # contains 99.7% gaussian area
@@ -440,14 +465,14 @@ for syn in stim_exc_syns[modulated_start_index:]:
     # remove this synapse from the pool, so that additional "modulated" inputs can be selected from those that remain
     all_exc_syns[syn.node.parent.parent.type].remove(syn)
 """
-
+"""
 if trial_seed is None:
     trials = 0
     run_n_trials(1)
 else:
     trials = trial_seed
     run_n_trials(1)
-
+"""
 """
 global_phase_offset = 0.
 end_baseline = np.where(stim_t >= input_field_duration / 2.)[0][0]
