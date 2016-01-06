@@ -35,12 +35,10 @@ if len(sys.argv) > 5:
     trial_seed = int(sys.argv[5])
 else:
     trial_seed = None
-if len(sys.argv) > 6:
-    probe_phase_offset = float(sys.argv[6])
 
 rec_filename = 'output'+datetime.datetime.today().strftime('%m%d%Y%H%M')+'-pid'+str(os.getpid())+'-seed'+\
                str(synapses_seed)+'-e'+str(num_exc_syns)+'-i'+str(num_inh_syns)+'-mod_inh'+str(mod_inh)+\
-               '_'+str(trial_seed)+'r_inp'+str(int(probe_phase_offset))
+               '-r_inp'+str(trial_seed)
 
 
 def get_instantaneous_spike_probability(rate, dt=0.1, generator=None):
@@ -216,7 +214,7 @@ input_field_duration = input_field_width * global_theta_cycle_duration
 track_length = 2.5  # field widths
 track_duration = track_length * input_field_duration
 track_equilibrate = 2. * global_theta_cycle_duration
-duration = equilibrate + track_equilibrate  # + track_duration  # input_field_duration
+duration = equilibrate + track_equilibrate + 2. * input_field_duration  # slightly shorter simulations for r_inp
 excitatory_peak_rate = 40.
 excitatory_theta_modulation_depth = 0.8
 theta_compression_factor = 1. - unit_theta_cycle_duration / global_theta_cycle_duration
@@ -371,11 +369,11 @@ stim_t = np.arange(-track_equilibrate, track_duration, dt)
 
 # input resistance probe, hyperpolarizing current every three theta cycles
 
-r_inp_probe_amp = -0.15
-r_inp_probe_duration = 120. / 360. * global_theta_cycle_duration
+r_inp_probe_amp = -0.15  # nA
+r_inp_probe_duration = 40.  # ms
 r_inp_stim = []
 r_inp_stim_t = []
-r_inp_probe_start = probe_phase_offset / 360. * global_theta_cycle_duration
+r_inp_probe_start = 0.
 while r_inp_probe_start + r_inp_probe_duration + dt < track_duration:
     r_inp_stim.append(0.)
     r_inp_stim_t.append(r_inp_probe_start)
@@ -385,10 +383,12 @@ while r_inp_probe_start + r_inp_probe_duration + dt < track_duration:
     r_inp_stim_t.append(r_inp_probe_start + r_inp_probe_duration)
     r_inp_stim.append(0.)
     r_inp_stim_t.append(r_inp_probe_start + r_inp_probe_duration + dt)
-    r_inp_probe_start += global_theta_cycle_duration
+    r_inp_probe_start += 2 * r_inp_probe_duration
 r_inp_stim_t_vec = h.Vector(r_inp_stim_t)
 r_inp_stim_vector = h.Vector(r_inp_stim)
 sim.append_stim(cell, cell.tree.root, 0., 0., equilibrate + track_equilibrate, duration)
+sim.parameters['r_inp_probe_duration'] = r_inp_probe_duration
+sim.parameters['r_inp_probe_amp'] = r_inp_probe_amp
 r_inp_stim_vector.play(sim.stim_list[0]['stim']._ref_amp, r_inp_stim_t_vec, 1)  # makes continuous vector out of list of
                                                                                 # discrete times
 
@@ -408,16 +408,16 @@ for group in stim_exc_syns.keys():
 
 for group in stim_exc_syns.keys():
     for syn in stim_exc_syns[group]:
-        #peak_loc = local_random.uniform(-0.75 * input_field_duration, (0.75 + track_length) * input_field_duration)
-        #peak_locs.append(peak_loc)
+        # peak_loc = local_random.uniform(-0.75 * input_field_duration, (0.75 + track_length) * input_field_duration)
+        # peak_locs.append(peak_loc)
         if excitatory_stochastic:
             success_vec = h.Vector()
             stim_successes.append(success_vec)
             syn.netcon('AMPA_KIN').record(success_vec)
             rand_exc_seq_locs[group].append(syn.randObj.seq())
-        #if syn.node.parent.parent not in [rec['node'] for rec in sim.rec_list]:
+        # if syn.node.parent.parent not in [rec['node'] for rec in sim.rec_list]:
         #    sim.append_rec(cell, syn.node.parent.parent)
-        # remove this synapse from the pool, so that additional "modulated" inputs can be selected from those that remain
+        # remove this synapse from the pool, so that additional "modulated" inputs can be selected from remaining
         all_exc_syns[syn.node.parent.parent.type].remove(syn)
 
 # rand_inh_seq_locs = [] will need this when inhibitory synapses become stochastic
@@ -465,14 +465,14 @@ for syn in stim_exc_syns[modulated_start_index:]:
     # remove this synapse from the pool, so that additional "modulated" inputs can be selected from those that remain
     all_exc_syns[syn.node.parent.parent.type].remove(syn)
 """
-"""
+
 if trial_seed is None:
     trials = 0
     run_n_trials(1)
 else:
     trials = trial_seed
     run_n_trials(1)
-"""
+
 """
 global_phase_offset = 0.
 end_baseline = np.where(stim_t >= input_field_duration / 2.)[0][0]
