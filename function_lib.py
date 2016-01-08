@@ -1081,3 +1081,46 @@ def get_subset_downsampled_recordings(rec_filename, description, dt=0.1):
             sim_list.append({'index_list': index_list, 'rec_list': rec_list})
     rec_t = np.arange(0., duration - track_equilibrate - equilibrate, dt)
     return rec_t, sim_list
+
+
+def get_patterned_input_r_inp(rec_filename):
+    """
+
+    :param rec_filename: str
+    :return: hypo_r_inp_array, hypo_phase_array, hypo_t_array, depo_r_inp_array, depo_phase_array, depo_t_array
+    """
+    with h5py.File(data_dir+rec_filename+'.hdf5', 'r') as f:
+        sim = f.values()[0]
+        equilibrate = sim.attrs['equilibrate']
+        track_equilibrate = sim.attrs['track_equilibrate']
+        duration = sim.attrs['duration']
+        duration -= equilibrate + track_equilibrate
+        dt = sim.attrs['stim_dt']
+        theta_cycle_duration = sim.attrs['global_theta_cycle_duration']
+        probe_amp = sim.attrs['r_inp_probe_amp']
+        probe_dur = sim.attrs['r_inp_probe_duration']
+        phase_offsets = [trial.attrs['phase_offset'] for trial in f.values()]
+        traces = get_removed_spikes(rec_filename, plot=0)
+        hypo_r_inp_array, hypo_phase_array, hypo_t_array = [], [], []
+        depo_r_inp_array, depo_phase_array, depo_t_array = [], [], []
+        for i, vm in enumerate(traces):
+            phase_offset = phase_offsets[i]
+            start = 0.
+            while start + probe_dur < duration:
+                r_inp = (vm[(start + probe_dur) / dt] - vm[start / dt]) / probe_amp
+                phase = ((start + probe_dur / 2. - phase_offset) % theta_cycle_duration) / theta_cycle_duration * 360.
+                hypo_r_inp_array.append(r_inp)
+                hypo_phase_array.append(phase)
+                hypo_t_array.append(start + probe_dur / 2.)
+                start += probe_dur
+                if start + probe_dur < duration:
+                    r_inp = (vm[(start + probe_dur) / dt] - vm[start / dt]) / (probe_amp * -1.)
+                    phase = ((start + probe_dur / 2. - phase_offset) % theta_cycle_duration) / theta_cycle_duration \
+                                                                                                * 360.
+                    depo_r_inp_array.append(r_inp)
+                    depo_phase_array.append(phase)
+                    depo_t_array.append(start + probe_dur / 2.)
+                    start += probe_dur
+    return hypo_r_inp_array, hypo_phase_array, hypo_t_array, depo_r_inp_array, depo_phase_array, depo_t_array
+
+

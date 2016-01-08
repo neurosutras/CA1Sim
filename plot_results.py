@@ -2568,3 +2568,72 @@ def get_spike_delay_vs_distance_simple_axon_model(rec_filename):
                         delays.append(delay)
                     break
     return distances, delays
+
+
+def plot_patterned_input_binned_rinp(t_dict, phase_dict, r_inp_dict, key_list=['modinh0', 'modinh1', 'modinh2'],
+                                     t_bounds=[0., 1800., 3900., 5700., 6000.], del_t=300., del_phase=30.):
+    """
+
+    :param t_dict: :class:'np.array', results from appending hypo_ and depo_array outputs of get_patterned_input_r_inp()
+    :param phase_dict: :class:'np.array'
+    :param r_inp_dict: :class:'np.array'
+    :param control_key: list of str
+    :param t_bounds: list of float, time points defining start and end of track and inhibitory manipulation
+    """
+    key_list.extend([key_list[0]+'_out', key_list[0]+'_in'])
+    filtered_t_dict, filtered_phase_dict, filtered_r_inp_dict, indexes = {}, {}, {}, {}
+    condition = key_list[0]
+    indexes[condition] = np.where(r_inp_dict[condition] > 0.)[0]
+    condition = key_list[1]
+    indexes[condition] = np.where((r_inp_dict[condition] > 0.) & (t_dict[condition] > t_bounds[0]) &
+                                  (t_dict[condition] <= t_bounds[1]))[0]
+    condition = key_list[2]
+    indexes[condition] = np.where((r_inp_dict[condition] > 0.) & (t_dict[condition] > t_bounds[2]) &
+                                  (t_dict[condition] <= t_bounds[3]))[0]
+    condition = key_list[0]
+    indexes[key_list[3]] = np.where((r_inp_dict[condition] > 0.) & (t_dict[condition] > t_bounds[0]) &
+                                  (t_dict[condition] <= t_bounds[1]))[0]
+    indexes[key_list[4]] = np.where((r_inp_dict[condition] > 0.) & (t_dict[condition] > t_bounds[2]) &
+                                  (t_dict[condition] <= t_bounds[3]))[0]
+    for condition in key_list[:3]:
+        filtered_t_dict[condition] = t_dict[condition][indexes[condition]]
+        filtered_phase_dict[condition] = phase_dict[condition][indexes[condition]]
+        filtered_r_inp_dict[condition] = r_inp_dict[condition][indexes[condition]]
+    for condition in key_list[3:]:
+        filtered_t_dict[condition] = t_dict[key_list[0]][indexes[condition]]
+        filtered_phase_dict[condition] = phase_dict[key_list[0]][indexes[condition]]
+        filtered_r_inp_dict[condition] = r_inp_dict[key_list[0]][indexes[condition]]
+    binned_t, binned_phase, r_inp_by_t, r_inp_by_phase = {}, {}, {}, {}
+    for condition in key_list[:3]:
+        binned_t[condition], r_inp_by_t[condition] = [], []
+        for t in np.arange(t_bounds[0], t_bounds[4], del_t):
+            indexes = np.where((filtered_t_dict[condition] > t) & (filtered_t_dict[condition] <= t + del_t))[0]
+            if np.any(indexes):
+                binned_t[condition].append(np.mean(filtered_t_dict[condition][indexes]))
+                r_inp_by_t[condition].append(np.mean(filtered_r_inp_dict[condition][indexes]))
+    for condition in key_list[1:]:
+        binned_phase[condition], r_inp_by_phase[condition] = [], []
+        for phase in np.arange(0., 360., del_phase):
+            indexes = np.where((filtered_phase_dict[condition] > phase) &
+                               (filtered_phase_dict[condition] <= phase + 30.))[0]
+            if np.any(indexes):
+                binned_phase[condition].append(np.mean(filtered_phase_dict[condition][indexes]))
+                r_inp_by_phase[condition].append(np.mean(filtered_r_inp_dict[condition][indexes]))
+    fig, axes = plt.subplots(1, 2)
+    axes[0].plot(binned_t[key_list[0]], r_inp_by_t[key_list[0]], c='k', label='Control')
+    axes[0].plot(binned_t[key_list[1]], r_inp_by_t[key_list[1]], c='r', label='Red. Inh. Out of Field')
+    axes[0].plot(binned_t[key_list[2]], r_inp_by_t[key_list[2]], c='b', label='Red. Inh. In Field')
+    axes[0].set_xlabel('Time (ms)')
+    axes[0].set_ylabel('Input Resistance (MOhm)')
+    axes[0].legend(loc='best', frameon=False, framealpha=0.5)
+    axes[1].plot(binned_phase[key_list[3]], r_inp_by_phase[key_list[3]], c='k', label='Control Out of Field')
+    axes[1].plot(binned_phase[key_list[4]], r_inp_by_phase[key_list[4]], c='y', label='Control In Field')
+    axes[1].plot(binned_phase[key_list[1]], r_inp_by_phase[key_list[1]], c='r', label='Red. Inh. Out of Field')
+    axes[1].plot(binned_phase[key_list[2]], r_inp_by_phase[key_list[2]], c='b', label='Red. Inh. In Field')
+    axes[1].set_xlabel('Phase ($^\circ$)')
+    axes[1].set_ylabel('Input Resistance (MOhm)')
+    axes[1].legend(loc='best', frameon=False, framealpha=0.5)
+    for condition in key_list:
+        print condition, np.mean(filtered_r_inp_dict[condition])
+    plt.show()
+    plt.close()
