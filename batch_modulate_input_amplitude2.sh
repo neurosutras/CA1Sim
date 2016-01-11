@@ -1,7 +1,7 @@
 #!/bin/bash
 #cd $HOME/PycharmProjects/NEURON/
 cd $HOME/CA1Sim
-qsub -N job_011116_e1600_i600_cal_fb_inh0_60 -m e -M milsteina@janelia.hhmi.org -b y -cwd -V 'python test_poisson_inputs_calibrate_feedback.py 2 1600 600 0 60'
+qsub -N job_011116_e1600_i600_cal_fb_inh0_60 -l haswell=true -m e -M milsteina@janelia.hhmi.org -b y -cwd -V 'python test_poisson_inputs_calibrate_feedback.py 2 1600 600 0 60'
 qsub -N job_011116_e1600_i600_cal_fb_inh0_61 -b y -cwd -V 'python test_poisson_inputs_calibrate_feedback.py 2 1600 600 0 61'
 qsub -N job_011116_e1600_i600_cal_fb_inh0_62 -b y -cwd -V 'python test_poisson_inputs_calibrate_feedback.py 2 1600 600 0 62'
 qsub -N job_011116_e1600_i600_cal_fb_inh0_63 -b y -cwd -V 'python test_poisson_inputs_calibrate_feedback.py 2 1600 600 0 63'
@@ -31,15 +31,3 @@ qsub -N job_011116_e1600_i600_cal_fb_inh2_86 -b y -cwd -V 'python test_poisson_i
 qsub -N job_011116_e1600_i600_cal_fb_inh2_87 -b y -cwd -V 'python test_poisson_inputs_calibrate_feedback.py 2 1600 600 2 87'
 qsub -N job_011116_e1600_i600_cal_fb_inh2_88 -b y -cwd -V 'python test_poisson_inputs_calibrate_feedback.py 2 1600 600 2 88'
 qsub -N job_011116_e1600_i600_cal_fb_inh2_89 -b y -cwd -V 'python test_poisson_inputs_calibrate_feedback.py 2 1600 600 2 89'
-qsub -N job_011116_e1600_i600_no_nmda_inh0_90 -b y -cwd -V 'python test_poisson_inputs_no_nmda.py 3 1600 600 0 90'
-qsub -N job_011116_e1600_i600_no_nmda_inh0_91 -b y -cwd -V 'python test_poisson_inputs_no_nmda.py 3 1600 600 0 91'
-qsub -N job_011116_e1600_i600_no_nmda_inh0_92 -b y -cwd -V 'python test_poisson_inputs_no_nmda.py 3 1600 600 0 92'
-qsub -N job_011116_e1600_i600_no_nmda_inh0_93 -b y -cwd -V 'python test_poisson_inputs_no_nmda.py 3 1600 600 0 93'
-qsub -N job_011116_e2000_i600_no_nmda_inh0_100 -b y -cwd -V 'python test_poisson_inputs_no_nmda.py 3 2000 600 0 100'
-qsub -N job_011116_e2000_i600_no_nmda_inh0_101 -b y -cwd -V 'python test_poisson_inputs_no_nmda.py 3 2000 600 0 101'
-qsub -N job_011116_e2000_i600_no_nmda_inh0_102 -b y -cwd -V 'python test_poisson_inputs_no_nmda.py 3 2000 600 0 102'
-qsub -N job_011116_e2000_i600_no_nmda_inh0_103 -b y -cwd -V 'python test_poisson_inputs_no_nmda.py 3 2000 600 0 103'
-qsub -N job_011116_e2400_i600_no_nmda_inh0_110 -b y -cwd -V 'python test_poisson_inputs_no_nmda.py 3 2400 600 0 110'
-qsub -N job_011116_e2400_i600_no_nmda_inh0_111 -b y -cwd -V 'python test_poisson_inputs_no_nmda.py 3 2400 600 0 111'
-qsub -N job_011116_e2400_i600_no_nmda_inh0_112 -b y -cwd -V 'python test_poisson_inputs_no_nmda.py 3 2400 600 0 112'
-qsub -N job_011116_e2400_i600_no_nmda_inh0_113 -b y -cwd -V 'python test_poisson_inputs_no_nmda.py 3 2400 600 0 113'
