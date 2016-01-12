@@ -214,7 +214,7 @@ input_field_duration = input_field_width * global_theta_cycle_duration
 track_length = 2.5  # field widths
 track_duration = track_length * input_field_duration
 track_equilibrate = 2. * global_theta_cycle_duration
-duration = equilibrate + track_equilibrate + track_duration  # input_field_duration
+duration = equilibrate + track_equilibrate + 2. * input_field_duration # track_duration  # input_field_duration
 excitatory_peak_rate = 40.
 excitatory_theta_modulation_depth = 0.8
 theta_compression_factor = 1. - unit_theta_cycle_duration / global_theta_cycle_duration
@@ -393,8 +393,8 @@ for group in stim_exc_syns.keys():
         #if syn.node.parent.parent not in [rec['node'] for rec in sim.rec_list]:
         #    sim.append_rec(cell, syn.node.parent.parent)
         # remove this synapse from the pool, so that additional "modulated" inputs can be selected from those that remain
-        #sim.append_rec(cell, syn.node, object=syn.target('AMPA_KIN'), param='_ref_i', description='i_AMPA')
-        #sim.append_rec(cell, syn.node, object=syn.target(NMDA_type), param='_ref_i', description='i_NMDA')
+        sim.append_rec(cell, syn.node, object=syn.target('AMPA_KIN'), param='_ref_i', description='i_AMPA')
+        sim.append_rec(cell, syn.node, object=syn.target(NMDA_type), param='_ref_i', description='i_NMDA')
         all_exc_syns[syn.node.parent.parent.type].remove(syn)
 
 # rand_inh_seq_locs = [] will need this when inhibitory synapses become stochastic

@@ -1,7 +1,7 @@
 #!/bin/bash
 #cd $HOME/PycharmProjects/NEURON/
 cd $HOME/CA1Sim
-qsub -N job_011116_e1600_i600_no_nmda_inh0_90 -m e -M milsteina@janelia.hhmi.org -b y -cwd -V 'python test_poisson_inputs_no_nmda.py 3 1600 600 0 90'
+qsub -N job_011116_e1600_i600_no_nmda_inh0_90 -l haswell=true -m e -M milsteina@janelia.hhmi.org -b y -cwd -V 'python test_poisson_inputs_no_nmda.py 3 1600 600 0 90'
 qsub -N job_011116_e1600_i600_no_nmda_inh0_91 -b y -cwd -V 'python test_poisson_inputs_no_nmda.py 3 1600 600 0 91'
 qsub -N job_011116_e1600_i600_no_nmda_inh0_92 -b y -cwd -V 'python test_poisson_inputs_no_nmda.py 3 1600 600 0 92'
 qsub -N job_011116_e1600_i600_no_nmda_inh0_93 -b y -cwd -V 'python test_poisson_inputs_no_nmda.py 3 1600 600 0 93'
