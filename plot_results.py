@@ -2116,16 +2116,19 @@ def process_patterned_input_simulation(rec_filename, title, dt=0.02):
         if 'inh_train' in f.values()[0]:
             inh_input = [get_binned_firing_rate(sim['inh_train'].values(), stim_t) for sim in f.values()]
             mean_inh_input = np.mean(inh_input, axis=0)
-        output = [get_smoothed_firing_rate([sim['output']], stim_t, dt=stim_dt) for sim in f.values()]
-        mean_output = np.mean(output, axis=0)
         start = int(track_equilibrate/stim_dt)
+        spatial_bin = input_field_duration/50.
+        #output = [get_binned_firing_rate([sim['output']], stim_t[start:], bin_dur=spatial_bin) for sim in f.values()]
+        output = [get_smoothed_firing_rate([sim['output']], stim_t[start:], bin_dur=3.*spatial_bin,
+                                           bin_step=spatial_bin, dt=stim_dt) for sim in f.values()]
+        mean_output = np.mean(output, axis=0)
         fig, axes = plt.subplots(3, 1)
         axes[0].plot(stim_t[start:], mean_input[start:], label='Total Excitatory Input Spike Rate', c='b')
         if 'successes' in f.values()[0]:
             axes[0].plot(stim_t[start:], mean_successes[start:], label='Total Excitatory Input Success Rate', c='g')
         if 'inh_train' in f.values()[0]:
             axes[1].plot(stim_t[start:], mean_inh_input[start:], label='Total Inhibitory Input Spike Rate', c='k')
-        axes[2].plot(stim_t[start:], mean_output[start:], label='Single Cell Output Spike Rate', c='r')
+        axes[2].plot(stim_t[start:], mean_output, label='Single Cell Output Spike Rate', c='r')
         for ax in axes:
             ax.legend(loc='upper left', frameon=False, framealpha=0.5)
         axes[2].set_xlabel('Time (ms)')
@@ -2160,7 +2163,7 @@ def process_patterned_input_simulation(rec_filename, title, dt=0.02):
         plt.show()
         plt.close()
     rec_t = np.arange(0., track_duration, dt)
-    spikes_removed = get_removed_spikes(rec_filename, plot=0)
+    spikes_removed = get_removed_spikes(rec_filename, plot=0, th=15.)
     # down_sample traces to 2 kHz after clipping spikes for theta and ramp filtering
     down_dt = 0.5
     down_t = np.arange(0., track_duration, down_dt)
@@ -2206,6 +2209,7 @@ def process_patterned_input_simulation(rec_filename, title, dt=0.02):
             binned_variance.append(np.var(residual[j*interval:(j+1)*interval]))
             binned_mean.append(np.mean(theta_removed[i][j*interval:(j+1)*interval]))
     intra_theta_amp = np.mean(np.abs(signal.hilbert(theta_traces)), axis=0)
+    mean_ramp = np.mean(ramp_traces, axis=0)
     print 'Intracellular Theta Amp for %s: %.2f' % (title, np.mean(intra_theta_amp))
     plt.plot(rec_t, mean_across_trials)
     plt.xlabel('Time (ms)')
@@ -2235,7 +2239,7 @@ def process_patterned_input_simulation(rec_filename, title, dt=0.02):
     plt.show()
     plt.close()
     return rec_t, ramp_removed, intra_theta_amp, binned_mean, binned_variance, mean_across_trials, \
-           variance_across_trials
+           variance_across_trials, mean_output, mean_ramp
 
 
 def plot_patterned_input_soma_vm(rec_filename, title, dt=0.02):

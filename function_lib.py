@@ -1057,6 +1057,57 @@ def get_phase_precession(rec_filename, start_loc=None, end_loc=None, dt=0.02):
     return spike_time_array, spike_phase_array, intra_peak_array, intra_phase_array
 
 
+
+def get_input_spike_train_phase_precession(rec_filename, index, start_loc=None, end_loc=None, dt=0.02):
+    """
+
+    :param rec_file_name: str
+    :param index: str: key to particular input train
+    # remember .attrs['phase_offset'] could be inside ['train'] for old files
+    """
+    with h5py.File(data_dir+rec_filename+'.hdf5', 'r') as f:
+        sim = f.values()[0]
+        equilibrate = sim.attrs['equilibrate']
+        track_equilibrate = sim.attrs['track_equilibrate']
+        track_length = sim.attrs['track_length']
+        input_field_duration = sim.attrs['input_field_duration']
+        duration = sim.attrs['duration']
+        stim_dt = sim.attrs['stim_dt']
+        track_duration = duration - equilibrate - track_equilibrate
+        stim_t = np.arange(-track_equilibrate, track_duration, stim_dt)
+        if 'global_theta_cycle_duration' in sim.attrs:
+            theta_duration = sim.attrs['global_theta_cycle_duration']
+        else:
+            theta_duration = 150.
+        if start_loc is None:
+            start_loc = 0.
+        if end_loc is None:
+            end_loc = track_duration
+        spike_phase_array = []
+        spike_time_array = []
+        for sim in f.values():
+            if 'phase_offset' in sim.attrs:
+                time_offset = sim.attrs['phase_offset']
+            elif 'train' in sim and 'phase_offset' in sim['train'].attrs:
+                time_offset = sim['train'].attrs['phase_offset']
+            else:
+                time_offset = 0.
+            train = sim['train'][index]
+            on_track = np.where((train >= start_loc) & (train <= end_loc))[0]
+            if not np.any(on_track):
+                spike_phase_array.append([])
+                spike_time_array.append([])
+            else:
+                spike_times = np.array(train)[on_track]
+                spike_time_array.append(spike_times)
+                spike_times = np.subtract(spike_times, time_offset)
+                spike_phases = np.mod(spike_times, theta_duration)
+                spike_phases /= theta_duration
+                spike_phases *= 360.
+                spike_phase_array.append(spike_phases)
+    return spike_time_array, spike_phase_array
+
+
 def get_subset_downsampled_recordings(rec_filename, description, dt=0.1):
     """
 
@@ -1123,4 +1174,121 @@ def get_patterned_input_r_inp(rec_filename):
                     start += probe_dur
     return hypo_r_inp_array, hypo_phase_array, hypo_t_array, depo_r_inp_array, depo_phase_array, depo_t_array
 
+
+def get_patterned_input_component_traces(rec_filename, dt=0.02):
+    """
+
+    :param rec_file_name: str
+    # remember .attrs['phase_offset'] could be inside ['train'] for old files
+    """
+    with h5py.File(data_dir+rec_filename+'.hdf5', 'r') as f:
+        sim = f.values()[0]
+        equilibrate = sim.attrs['equilibrate']
+        track_equilibrate = sim.attrs['track_equilibrate']
+        track_length = sim.attrs['track_length']
+        input_field_duration = sim.attrs['input_field_duration']
+        duration = sim.attrs['duration']
+        stim_dt = sim.attrs['stim_dt']
+        bins = int((1.5 + track_length) * input_field_duration / 20.)
+        track_duration = duration - equilibrate - track_equilibrate
+        stim_t = np.arange(-track_equilibrate, track_duration, stim_dt)
+        start = int((equilibrate + track_equilibrate)/dt)
+        vm_array = []
+        for sim in f.values():
+            t = np.arange(0., duration, dt)
+            vm = np.interp(t, sim['time'], sim['rec']['0'])
+            vm = vm[start:]
+            vm_array.append(vm)
+    rec_t = np.arange(0., track_duration, dt)
+    spikes_removed = get_removed_spikes(rec_filename, plot=0, th=15.)
+    # down_sample traces to 2 kHz after clipping spikes for theta and ramp filtering
+    down_dt = 0.5
+    down_t = np.arange(0., track_duration, down_dt)
+    # 2000 ms Hamming window, ~3 Hz low-pass for ramp, ~5 - 10 Hz bandpass for theta
+    window_len = int(2000./down_dt)
+    theta_filter = signal.firwin(window_len, [5., 10.], nyq=1000./2./down_dt, pass_zero=False)
+    ramp_filter = signal.firwin(window_len, 3., nyq=1000./2./down_dt)
+    theta_traces = []
+    ramp_traces = []
+    for trace in spikes_removed:
+        subtracted = trace # - offset
+        down_sampled = np.interp(down_t, rec_t, subtracted)
+        filtered = signal.filtfilt(theta_filter, [1.], down_sampled, padtype='even', padlen=window_len)
+        up_sampled = np.interp(rec_t, down_t, filtered)
+        theta_traces.append(up_sampled)
+        theta_filtered = subtracted - up_sampled
+        down_sampled = np.interp(down_t, rec_t, theta_filtered)
+        filtered = signal.filtfilt(ramp_filter, [1.], down_sampled, padtype='even', padlen=window_len)
+        up_sampled = np.interp(rec_t, down_t, filtered)
+        ramp_traces.append(up_sampled)
+    return rec_t, vm_array, theta_traces, ramp_traces
+
+
+def get_patterned_input_mean_values(residuals, intra_theta_amp, rate_map, ramp,
+                                    key_list=['modinh0', 'modinh1', 'modinh2'],
+                                    i_bounds=[0., 1800., 3900., 5700.], peak_bounds=[600., 1200., 4200., 4800.],
+                                    dt=0.02):
+    """
+
+    :param residuals: dict of np.array
+    :param intra_theta_amp: dict of np.array
+    :param rate_map: dict of np.array
+    :param ramp: dict of np.array
+    :param key_list: list of str
+    :param i_bounds: list of float, time points corresponding to inhibitory manipulation for variance measurement
+    :param peak_bounds: list of float, time points corresponding to 10 "spatial bins" for averaging
+
+    """
+    baseline = np.mean(ramp[key_list[0]][:int(600./dt)])
+    key_list.extend([key_list[0]+'_out', key_list[0]+'_in'])
+    mean_var, mean_theta_amp, mean_rate, mean_ramp = {}, {}, {}, {}
+    for source_condition, target_condition in zip([key_list[1], key_list[0]], [key_list[1], key_list[3]]):
+        start = int(i_bounds[0]/dt)
+        end = int(i_bounds[1]/dt)
+        mean_var[target_condition] = np.mean([np.var(residual[start:end]) for residual in residuals[source_condition]])
+        start = int(peak_bounds[0]/dt)
+        end = int(peak_bounds[1]/dt)
+        mean_theta_amp[target_condition] = np.mean(intra_theta_amp[source_condition][start:end])
+        mean_rate[target_condition] = np.mean(rate_map[source_condition][start:end])
+        mean_ramp[target_condition] = np.mean(ramp[source_condition][start:end]) - baseline
+    for source_condition, target_condition in zip([key_list[2], key_list[0]], [key_list[2], key_list[4]]):
+        start = int(i_bounds[2]/dt)
+        end = int(i_bounds[3]/dt)
+        mean_var[target_condition] = np.mean([np.var(residual[start:end]) for residual in residuals[source_condition]])
+        start = int(peak_bounds[2]/dt)
+        end = int(peak_bounds[3]/dt)
+        mean_theta_amp[target_condition] = np.mean(intra_theta_amp[source_condition][start:end])
+        mean_rate[target_condition] = np.mean(rate_map[source_condition][start:end])
+        mean_ramp[target_condition] = np.mean(ramp[source_condition][start:end]) - baseline
+    for parameter, title in zip([mean_var, mean_theta_amp, mean_rate, mean_ramp],
+                                ['Variance: ', 'Theta Amp: ', 'Rate: ', 'Ramp Amp: ']):
+        print title
+        for condition in key_list[1:]:
+            print condition, parameter[condition]
+
+
+def compress_i_syn_rec_files(rec_filelist, local_data_dir=data_dir):
+    """
+    Simulations in which i_AMPA and i_NMDA have been recorded from all active synapses produce very large files, but
+    only the total sum current is analyzed. This function replaces the individual current recordings in each .hdf5
+    output file with single summed current traces for i_AMPA and i_NMDA to reduce filesize. Can be run on the storage
+    server before local transfer and analysis.
+    :param rec_filelist: list of str
+    :param local_data_dir: str
+    """
+    for rec_file in rec_filelist:
+        with h5py.File(data_dir+rec_file+'.hdf5', 'a') as f:
+            for trial in f.values():
+                i_AMPA = np.zeros(len(trial['time']))
+                i_NMDA = np.zeros(len(trial['time']))
+                for rec in trial['rec']:
+                    if trial['rec'][rec].attrs['description'] == 'i_AMPA':
+                        i_AMPA = np.add(i_AMPA, trial['rec'][rec])
+                        del trial['rec'][rec]
+                    elif trial['rec'][rec].attrs['description'] == 'i_NMDA':
+                        i_NMDA = np.add(i_NMDA, trial['rec'][rec])
+                        del trial['rec'][rec]
+                trial.create_dataset('i_AMPA', compression='gzip', compression_opts=9, data=i_AMPA)
+                trial.create_dataset('i_NMDA', compression='gzip', compression_opts=9, data=i_NMDA)
+        print 'Compressed i_syn recordings in file: ', rec_file
 

@@ -442,14 +442,14 @@ for syn in stim_exc_syns[modulated_start_index:]:
     # remove this synapse from the pool, so that additional "modulated" inputs can be selected from those that remain
     all_exc_syns[syn.node.parent.parent.type].remove(syn)
 """
-
+"""
 if trial_seed is None:
     trials = 0
     run_n_trials(1)
 else:
     trials = trial_seed
     run_n_trials(1)
-
+"""
 """
 global_phase_offset = 0.
 end_baseline = np.where(stim_t >= input_field_duration / 2.)[0][0]
