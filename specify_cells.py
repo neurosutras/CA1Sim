@@ -1255,7 +1255,7 @@ class CA1_Pyr(HocCell):
 
         :param sec_type_list: str
         """
-        densities = {'soma': 4.285,  # 2.857,
+        densities = {'soma': 2.857,  # 4.285,
                      'trunk': {'min': 0.3022, 'max': 0.0627,
                                'start': 0.,
                                'end': max([self.get_distance_to_node(self.tree.root, branch) for branch in

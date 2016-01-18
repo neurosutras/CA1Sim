@@ -38,7 +38,7 @@ else:
 
 rec_filename = 'output'+datetime.datetime.today().strftime('%m%d%Y%H%M')+'-pid'+str(os.getpid())+'-seed'+\
                str(synapses_seed)+'-e'+str(num_exc_syns)+'-i'+str(num_inh_syns)+'-mod_inh'+str(mod_inh)+\
-               '-i_syn'+str(trial_seed)
+               '-cal_fb'+str(trial_seed)
 
 
 def get_instantaneous_spike_probability(rate, dt=0.1, generator=None):
@@ -131,12 +131,9 @@ def run_n_trials(n):
                 inhibitory_theta_force = inhibitory_theta_offset + inhibitory_theta_amp * np.cos(2. * np.pi /
                                                         global_theta_cycle_duration * stim_t - global_phase_offset -
                                                         inhibitory_phase_offset)
-                if mod_inh > 0 and group in inhibitory_manipulation_strength:
-                    inhibitory_theta_amp = inhibitory_manipulation_strength[group] * inhibitory_peak_rate[group] * \
-                                           inhibitory_theta_modulation_depth[group] / 2.
-                    inhibitory_theta_offset = inhibitory_manipulation_strength[group] * inhibitory_peak_rate[group] - \
-                                              inhibitory_theta_amp
-                    inhibitory_theta_force[mod_inh_start:mod_inh_stop] = inhibitory_theta_offset + \
+                if mod_inh > 0 and group in inhibitory_manipulation_offset:
+                    inhibitory_theta_force[mod_inh_start:mod_inh_stop] = inhibitory_theta_offset - \
+                                                            inhibitory_manipulation_offset[group] + \
                                                             inhibitory_theta_amp * np.cos(2. * np.pi /
                                                             global_theta_cycle_duration *
                                                             stim_t[mod_inh_start:mod_inh_stop] - global_phase_offset -
@@ -214,7 +211,7 @@ input_field_duration = input_field_width * global_theta_cycle_duration
 track_length = 2.5  # field widths
 track_duration = track_length * input_field_duration
 track_equilibrate = 2. * global_theta_cycle_duration
-duration = equilibrate + track_equilibrate + 2. * input_field_duration # track_duration  # input_field_duration
+duration = equilibrate + track_equilibrate + track_duration  # input_field_duration
 excitatory_peak_rate = 40.
 excitatory_theta_modulation_depth = 0.8
 theta_compression_factor = 1. - unit_theta_cycle_duration / global_theta_cycle_duration
@@ -225,7 +222,7 @@ excitatory_stochastic = 0
 inhibitory_peak_rate = {}
 inhibitory_theta_modulation_depth = {}
 inhibitory_theta_phase_offset = {}
-inhibitory_manipulation_strength = {'perisomatic': 0.5, 'apical dendritic': 0.8, 'tuft feedback': 0.8}
+inhibitory_manipulation_offset = {'perisomatic': 10., 'apical dendritic': 10., 'tuft feedback': 10.}
                                     # 'tuft feedforward': 1.,
 inhibitory_manipulation_duration = 0.6  # Ratio of input_field_duration
 inhibitory_peak_rate['perisomatic'] = 40.
@@ -364,7 +361,6 @@ for sec_type in all_inh_syns:
             distance = cell.get_distance_to_node(cell.tree.root, syn.node, syn.loc)
             group = 'perisomatic' if distance <= 75. else 'apical dendritic'
         stim_inh_syns[group].append(syn)
-        sim.append_rec(cell, syn.node, object=syn.target('GABA_A_KIN'), param='_ref_i', description='i_GABA')
 
 stim_t = np.arange(-track_equilibrate, track_duration, dt)
 

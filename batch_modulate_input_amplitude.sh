@@ -1,11 +1,15 @@
 #!/bin/bash
 #cd $HOME/PycharmProjects/NEURON/
 cd $HOME/CA1Sim
-qsub -N job_011516_e3200_i600_no_nmda_inh0_120 -l haswell=true -m e -M milsteina@janelia.hhmi.org -b y -cwd -V 'python test_poisson_inputs_no_nmda.py 3 3200 600 0 120'
-qsub -N job_011516_e3200_i600_no_nmda_inh0_121 -b y -cwd -V 'python test_poisson_inputs_no_nmda.py 3 3200 600 0 121'
-qsub -N job_011516_e3200_i600_no_nmda_inh0_122 -b y -cwd -V 'python test_poisson_inputs_no_nmda.py 3 3200 600 0 122'
-qsub -N job_011516_e3200_i600_no_nmda_inh0_123 -b y -cwd -V 'python test_poisson_inputs_no_nmda.py 3 3200 600 0 123'
-qsub -N job_011516_e3600_i600_no_nmda_inh0_130 -b y -cwd -V 'python test_poisson_inputs_no_nmda.py 3 3600 600 0 130'
-qsub -N job_011516_e3600_i600_no_nmda_inh0_131 -b y -cwd -V 'python test_poisson_inputs_no_nmda.py 3 3600 600 0 131'
-qsub -N job_011516_e3600_i600_no_nmda_inh0_132 -b y -cwd -V 'python test_poisson_inputs_no_nmda.py 3 3600 600 0 132'
-qsub -N job_011516_e3600_i600_no_nmda_inh0_133 -b y -cwd -V 'python test_poisson_inputs_no_nmda.py 3 3600 600 0 133'
+qsub -N job_011816_e1600_i600_subt_modinh0_0 -l haswell=true -m e -M milsteina@janelia.hhmi.org -b y -cwd -V 'python test_poisson_inputs_subtractive_modinh.py 0 1600 600 0 0'
+qsub -N job_011816_e1600_i600_subt_modinh0_1 -l haswell=true -b y -cwd -V 'python test_poisson_inputs_subtractive_modinh.py 0 1600 600 0 1'
+qsub -N job_011816_e1600_i600_subt_modinh0_2 -l haswell=true -b y -cwd -V 'python test_poisson_inputs_subtractive_modinh.py 0 1600 600 0 2'
+qsub -N job_011816_e1600_i600_subt_modinh0_3 -l haswell=true -b y -cwd -V 'python test_poisson_inputs_subtractive_modinh.py 0 1600 600 0 3'
+qsub -N job_011816_e1600_i600_subt_modinh1_10 -l haswell=true -b y -cwd -V 'python test_poisson_inputs_subtractive_modinh.py 0 1600 600 1 10'
+qsub -N job_011816_e1600_i600_subt_modinh1_11 -l haswell=true -b y -cwd -V 'python test_poisson_inputs_subtractive_modinh.py 0 1600 600 1 11'
+qsub -N job_011816_e1600_i600_subt_modinh1_12 -l haswell=true -b y -cwd -V 'python test_poisson_inputs_subtractive_modinh.py 0 1600 600 1 12'
+qsub -N job_011816_e1600_i600_subt_modinh1_13 -l haswell=true -b y -cwd -V 'python test_poisson_inputs_subtractive_modinh.py 0 1600 600 1 13'
+qsub -N job_011816_e1600_i600_subt_modinh2_20 -l haswell=true -b y -cwd -V 'python test_poisson_inputs_subtractive_modinh.py 0 1600 600 2 20'
+qsub -N job_011816_e1600_i600_subt_modinh2_21 -l haswell=true -b y -cwd -V 'python test_poisson_inputs_subtractive_modinh.py 0 1600 600 2 21'
+qsub -N job_011816_e1600_i600_subt_modinh2_22 -l haswell=true -b y -cwd -V 'python test_poisson_inputs_subtractive_modinh.py 0 1600 600 2 22'
+qsub -N job_011816_e1600_i600_subt_modinh2_23 -l haswell=true -b y -cwd -V 'python test_poisson_inputs_subtractive_modinh.py 0 1600 600 2 23'
