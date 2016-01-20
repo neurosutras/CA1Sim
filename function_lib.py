@@ -1268,28 +1268,27 @@ def get_patterned_input_mean_values(residuals, intra_theta_amp, rate_map, ramp,
             print condition, parameter[condition]
 
 
-def compress_i_syn_rec_files(rec_filelist, local_data_dir=data_dir):
+def compress_i_syn_rec_files(rec_filelist, rec_description_list=['i_AMPA', 'i_NMDA'], local_data_dir=data_dir):
     """
-    Simulations in which i_AMPA and i_NMDA have been recorded from all active synapses produce very large files, but
+    Simulations in which synaptic currents have been recorded from all active synapses produce very large files, but
     only the total sum current is analyzed. This function replaces the individual current recordings in each .hdf5
-    output file with single summed current traces for i_AMPA and i_NMDA to reduce filesize. Can be run on the storage
-    server before local transfer and analysis.
+    output file with single summed current traces for each synapse type (e.g. i_AMPA, i_NMDA, i_GABA) to reduce
+    file sizes. Can be run on the storage server before local transfer and analysis.
     :param rec_filelist: list of str
+    :param rec_description_list: list of str
     :param local_data_dir: str
     """
     for rec_file in rec_filelist:
         with h5py.File(local_data_dir+rec_file+'.hdf5', 'a') as f:
             for trial in f.values():
-                i_AMPA = np.zeros(len(trial['time']))
-                i_NMDA = np.zeros(len(trial['time']))
+                i_syn_dict = {syn_type: np.zeros(len(trial['time'])) for syn_type in rec_description_list}
                 for rec in trial['rec']:
-                    if trial['rec'][rec].attrs['description'] == 'i_AMPA':
-                        i_AMPA = np.add(i_AMPA, trial['rec'][rec])
-                        del trial['rec'][rec]
-                    elif trial['rec'][rec].attrs['description'] == 'i_NMDA':
-                        i_NMDA = np.add(i_NMDA, trial['rec'][rec])
-                        del trial['rec'][rec]
-                trial.create_dataset('i_AMPA', compression='gzip', compression_opts=9, data=i_AMPA)
-                trial.create_dataset('i_NMDA', compression='gzip', compression_opts=9, data=i_NMDA)
+                    for syn_type in i_syn_dict:
+                        if trial['rec'][rec].attrs['description'] == syn_type:
+                            i_syn_dict[syn_type] = np.add(i_syn_dict[syn_type], trial['rec'][rec])
+                            del trial['rec'][rec]
+                            break
+                for syn_type in i_syn_dict:
+                    trial.create_dataset(syn_type, compression='gzip', compression_opts=9, data=i_syn_dict[syn_type])
         print 'Compressed i_syn recordings in file: ', rec_file
 
