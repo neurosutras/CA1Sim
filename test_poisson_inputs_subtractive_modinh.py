@@ -9,7 +9,8 @@ import sys
 """
 morph_filename = 'EB2-late-bifurcation.swc'
 #mech_filename = '103115 interim dendritic excitability ampa nmda_kin3'
-mech_filename = '112915_less_excitable'
+#mech_filename = '112915_less_excitable'
+mech_filename = '012316 alternate km kinetics'
 
 if len(sys.argv) > 1:
     synapses_seed = int(sys.argv[1])
@@ -38,7 +39,7 @@ else:
 
 rec_filename = 'output'+datetime.datetime.today().strftime('%m%d%Y%H%M')+'-pid'+str(os.getpid())+'-seed'+\
                str(synapses_seed)+'-e'+str(num_exc_syns)+'-i'+str(num_inh_syns)+'-mod_inh'+str(mod_inh)+\
-               '-cal_fb'+str(trial_seed)
+               '-subtr'+str(trial_seed)
 
 
 def get_instantaneous_spike_probability(rate, dt=0.1, generator=None):
@@ -222,7 +223,7 @@ excitatory_stochastic = 0
 inhibitory_peak_rate = {}
 inhibitory_theta_modulation_depth = {}
 inhibitory_theta_phase_offset = {}
-inhibitory_manipulation_offset = {'perisomatic': 10., 'apical dendritic': 10., 'tuft feedback': 10.}
+inhibitory_manipulation_offset = {'perisomatic': 15., 'apical dendritic': 15., 'tuft feedback': 15.}
                                     # 'tuft feedforward': 1.,
 inhibitory_manipulation_duration = 0.6  # Ratio of input_field_duration
 inhibitory_peak_rate['perisomatic'] = 40.

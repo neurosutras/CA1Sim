@@ -1,3 +1,5 @@
+I) To install on a local machine:
+
 1) install anaconda python, includes ipython, numpy, matplotlib
 
 2) install neuron for mac from disk image:
@@ -53,6 +55,75 @@ export PATH="$PYTHONHOME:$PYTHONPATH:$LD_LIBRARY_PATH:$PATH"
 cd /Applications/NEURON-7.3/nrn/lib/python/neuron/
 install_name_tool -change libreadline.6.2.dylib $HOME/anaconda/lib/libreadline.6.2.dylib hoc.so
 
+II) To install on a linux cluster:
+
+1) Download the latest tar.gz from http://www.neuron.yale.edu/ftp/neuron/versions/
+e.g.
+wget http://www.neuron.yale.edu/ftp/neuron/versions/alpha/nrn-7.4.rel-1324.tar.gz
+
+2) Unpack the file:
+tar xvzf nrn-7.4.rel-1324.tar.gz
+
+3) create these subdirectories in your home directory on the cluster: /neuron/nrn
+
+4) install following these directions:
+http://www.neuron.yale.edu/neuron/download/compile_linux
+
+from the directory containing the unzipped install files:
+./configure --prefix=$HOME/neuron/nrn --without-x --with-paranrn=dynamic --with-nrnpython=dynamic
+make
+make install
+
+- produces some long pauses with error messages related to a deprecated NumPy API, I think this is a strange interaction with anaconda python2.7, but it doesn't appear to cause any problems.
+
+5) Make sure ~/neuron/nrnenv includes:
+
+export IDIR=$HOME/neuron
+export N=$IDIR/nrn
+export CPU=x86_64
+export PATH=$N/$CPU/bin:$PATH
+
+6) Make sure ~/.bash_profile includes:
+
+export PATH=/usr/local/anaconda/bin:$PATH
+export LD_LIBRARY_PATH=$HOME/usr/local/anaconda/lib
+source $HOME/neuron/nrnenv
+export PATH=$HOME/neuron/nrn:$PATH
+export PYTHONHOME=/usr/local/anaconda
+export PYTHONPATH=$PYTHONPATH:$HOME/neuron/nrn/lib/python
+export PYTHONPATH=$PYTHONPATH:$HOME/python_modules/btmorph
+export PYTHONPATH=$PYTHONPATH:$HOME/CA1Sim
+export PATH=$PYTHONHOME:$PYTHONPATH:$LD_LIBRARY_PATH:$PATH
+
+7) mpi4py is required to use the IPython.parallel framework across cores on more than one node, and it is already installed alongside anaconda on the Janelia cluster.
+In order to use the Intel MPI implementation on the Janelia cluster, make sure the following lines are included in ~/.bashrc
+
+if [ -f /usr/local/INTEL2013.sh ]; then
+  . /usr/local/INTEL2013.sh
+fi
+
+export I_MPI_DEBUG=0
+export I_MPI_RENDEZVOUS_RDMA_WRITE=1
+export I_MPI_DEVICE=rdssm:OpenIB-iwarp
+export I_MPI_FALLBACK_DEVICE=0
+export I_MPI_USE_DYNAMIC_CONNECTIONS=0
+
+8) In order for the IPython use more than one node on the cluster
+
+A custom ipython profile must be used for the IPython.parallel framework to work with an MPI backend on the Janelia cluster.
+
+ipython profile create --parallel --profile=mpi
+edit the file IPYTHONDIR/profile_mpi/ipcluster_config.py
+c.IPClusterEngines.engine_launcher_class = 'MPIEngineSetLauncher'
+c.IPClusterEngines.work_dir = u'/groups/magee/home/milsteina/CA1Sim/'
+
+edit the file IPYTHONDIR/profile_mpi/ipengine_config.py
+c.MPI.use = 'mpi4py'
+
+
+
+
+
 6) To run my simulations, make sure to execute nrnivmodl in the directory that contains the .mod and .py files.
 Make sure to put .swc files in the /morphologies directory and expect to find .pkl and .hdf5 data output files in the
 /data directory
@@ -107,4 +178,7 @@ sim.export_to_file(name_of_hdf5_object, index_of_similation_in_file)
 then calling a plot function on the output file:
 
 plot_superimpose_conditions('str_with_name_of_output_file') # no suffix necessary
+
+
+7) PyCharm limits the size of the console output buffer. Change the value of idea.cycle.buffer.size in the idea.properties file in the /bin directory of the install package.
 
