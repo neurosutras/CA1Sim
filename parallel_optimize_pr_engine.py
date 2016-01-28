@@ -87,7 +87,7 @@ def zero_na():
 
 equilibrate = 250.  # time to steady-state
 duration = 550.
-v_init = -67.
+v_init = -65.
 syn_types = ['AMPA_KIN', 'NMDA_KIN3']
 
 syn_list = []

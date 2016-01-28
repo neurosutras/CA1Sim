@@ -58,7 +58,7 @@ class HocCell(object):
         soma_diam = 9.
         for index in range(2):
             node = self.make_section('soma')
-            node.sec.L = soma_length/2
+            node.sec.L = soma_length/2.
             node.sec.diam = soma_diam
             self._init_cable(node)  # consults the mech_dict to initialize Ra, cm, and nseg
         self.tree.root = self.soma[0]
@@ -537,6 +537,26 @@ class HocCell(object):
                         else:
                             value = baseline
                         setattr(target, param_name, value)
+
+    def set_special_mech_param_linear_gradient(self, mech_name, param_name, sec_type_list, criterion, end_val):
+        """
+        This is an admittedly ad-hoc procedure to implement a linearly decreasing gradient of sodium channels in
+        terminal branches that is not easily accomplished by the general procedures implementing the mechanism
+        dictionary.
+        :param mech_name: str
+        :param param_name: str
+        :param sec_type_list: list of str
+        :param criterion: boolean function
+        :param end_val: float
+        """
+        for sec_type in sec_type_list:
+            for node in self.get_nodes_of_subtype(sec_type):
+                if criterion(node):
+                    start_val = getattr(node.sec(0.), param_name+'_'+mech_name)
+                    slope = end_val - start_val
+                    for seg in node.sec:
+                        value = start_val + slope * seg.x
+                        setattr(getattr(seg, mech_name), param_name, value)
 
     def init_spike_detector(self, node=None, loc=1., param='_ref_v', delay=None, weight=None, threshold=None,
                             target=None):

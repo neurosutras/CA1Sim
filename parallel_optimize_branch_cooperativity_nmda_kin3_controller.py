@@ -16,10 +16,11 @@ Parallel version dynamically submits jobs to available cores.
 Assumes a controller is already running in another process with:
 ipcluster start -n num_cores
 """
-#new_rec_filename = '052215 apical oblique cooperativity'
-#new_rec_filename = '052815 apical oblique cooperativity - proximal - new_mg - no nmda'
-#new_rec_filename = '072815 apical oblique cooperativity - proximal'
-new_rec_filename = '103015 apical oblique cooperativity - NMDA_KIN3'
+# new_rec_filename = '052215 apical oblique cooperativity'
+# new_rec_filename = '052815 apical oblique cooperativity - proximal - new_mg - no nmda'
+# new_rec_filename = '072815 apical oblique cooperativity - proximal'
+# new_rec_filename = '103015 apical oblique cooperativity - NMDA_KIN3'
+new_rec_filename = '012816 altered intrinsic properties - NMDA_KIN3'
 
 
 def create_no_nmda_expected_file():
@@ -184,13 +185,15 @@ global_start_time = time.time()
 dv.execute('from parallel_optimize_branch_cooperativity_nmda_kin3_engine import *')
 v = c.load_balanced_view()
 #create_no_nmda_expected_file()  # run once for each new mech_dict
-"""
+
 result = optimize.basinhopping(branch_cooperativity_error, x0, niter=700, niter_success=200, disp=True, interval=20,
                                                             minimizer_kwargs=minimizer_kwargs, take_step=mytakestep)
+print result
+"""
 branch_cooperativity_error(result.x, plot=1)
 
 result = optimize.minimize(branch_cooperativity_error, x0, method='Nelder-Mead', options={'xtol': 1e-3, 'ftol': 1e-3,
                                                                                     'disp': True, 'maxiter': 200})
 branch_cooperativity_error(result.x, plot=1)
 """
-branch_cooperativity_error(x0, 1)
+#branch_cooperativity_error(x0, 1)

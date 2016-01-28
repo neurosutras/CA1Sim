@@ -9,9 +9,10 @@ which synapse to optimize (coarse sampling of the full set of spines).
 #morph_filename = 'EB1-early-bifurcation.swc'
 morph_filename = 'EB2-late-bifurcation.swc'
 
-#mech_filename = '043015 pas_exp_scale kdr ka_scale ih_sig_scale - EB2'
-#mech_filename = '072515 optimized basal ka_scale dend_sh_ar_nas - EB2'
-mech_filename = '102915 interim dendritic excitability'
+# mech_filename = '043015 pas_exp_scale kdr ka_scale ih_sig_scale - EB2'
+# mech_filename = '072515 optimized basal ka_scale dend_sh_ar_nas - EB2'
+# mech_filename = '102915 interim dendritic excitability'
+mech_filename = '012816 altered intrinsic properties'
 
 def epsp_amp_error(x, syn):
     """
@@ -73,9 +74,8 @@ def zero_na():
     """
 
     """
-    for sec_type in ['axon_hill', 'ais']:
+    for sec_type in ['axon_hill', 'ais', 'axon']:
         cell.modify_mech_param(sec_type, 'nax', 'gbar', 0.)
-    cell.reinitialize_subset_mechanisms('axon', 'nax')
     cell.modify_mech_param('soma', 'nas', 'gbar', 0.)
     for sec_type in ['basal', 'trunk', 'apical', 'tuft']:
         cell.reinitialize_subset_mechanisms(sec_type, 'nas')
@@ -83,7 +83,7 @@ def zero_na():
 
 equilibrate = 250.  # time to steady-state
 duration = 300.
-v_init = -67.
+v_init = -65.
 syn_type = 'AMPA_KIN'
 param_names = ['gmax']
 param_ylabels = ['Peak Conductance (uS)']
@@ -112,7 +112,7 @@ for branch in cell.trunk:  # cell.basal+cell.trunk+cell.apical+cell.tuft:
         syn_list.append(syn)
 cell.init_synaptic_mechanisms()
 sim = QuickSim(duration, verbose=0)
-sim.append_rec(cell, cell.tree.root, 0.5, description='soma')
+sim.append_rec(cell, cell.tree.root, loc=0., description='soma')
 spike_times = h.Vector([equilibrate])
 
 #the target values and acceptable ranges

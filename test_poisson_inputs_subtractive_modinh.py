@@ -216,7 +216,7 @@ track_duration = track_length * input_field_duration
 track_equilibrate = 2. * global_theta_cycle_duration
 duration = equilibrate + track_equilibrate + track_duration  # input_field_duration
 excitatory_peak_rate = 40.
-excitatory_theta_modulation_depth = {'CA3': 0.8, 'ECIII': 0.6}
+excitatory_theta_modulation_depth = {'CA3': 0.8, 'ECIII': 0.8}
 theta_compression_factor = 1. - unit_theta_cycle_duration / global_theta_cycle_duration
 excitatory_theta_phase_offset = {}
 excitatory_theta_phase_offset['CA3'] = 160. / 360. * 2. * np.pi  # radians
@@ -254,6 +254,7 @@ local_random = random.Random()
 local_random.seed(synapses_seed)
 
 cell = CA1_Pyr(morph_filename, mech_filename, full_spines=True)
+cell.set_special_mech_param_linear_gradient('nas', 'gbar', ['basal', 'trunk', 'apical', 'tuft'], cell.is_terminal, 0.)
 cell.insert_inhibitory_synapses_in_subset()
 
 trunk_bifurcation = [trunk for trunk in cell.trunk if cell.is_bifurcation(trunk, 'trunk')]

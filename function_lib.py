@@ -1201,7 +1201,7 @@ def get_patterned_input_component_traces(rec_filename, dt=0.02):
             vm = vm[start:]
             vm_array.append(vm)
     rec_t = np.arange(0., track_duration, dt)
-    spikes_removed = get_removed_spikes(rec_filename, plot=0, th=15.)
+    spikes_removed = get_removed_spikes(rec_filename, plot=0, th=10.)
     # down_sample traces to 2 kHz after clipping spikes for theta and ramp filtering
     down_dt = 0.5
     down_t = np.arange(0., track_duration, down_dt)
