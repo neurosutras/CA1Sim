@@ -107,7 +107,7 @@ def branch_cooperativity_error(x, plot=0):
     unit_no_nmda = np.mean(units_no_nmda, 0)
     result = {'unitary_nmda_contribution': (np.max(unit_with_nmda) - np.max(unit_no_nmda)) / np.max(unit_no_nmda)}
     with h5py.File(data_dir+new_rec_filename+'_expected.hdf5', 'r') as expected_file:
-        expected_index_map = get_expected_spine_index_map(expected_file)
+        expected_index_map = get_expected_spine_index_map(expected_file).values()[0]
         with h5py.File(data_dir+new_rec_filename+'_actual.hdf5', 'r') as actual_file:
             sorted_sim_keys = actual_file.keys()
             sorted_sim_keys.sort(key=lambda x: len(actual_file[x].attrs['syn_indexes']))
@@ -166,10 +166,11 @@ target_range = {'peak_supralinearity': 1., 'min_supralinearity': 1.,'unitary_nmd
 
 #the initial guess
 # x = ['gmax', 'gamma', 'Kd', 'kin_scale']
-#x0 = [3.13E-03, 0.091, 9.44, 2.]
-#x0 = [3.992E-03, 0.100, 9.20, 1.29]
-#x0 = [3.607E-03, 0.098, 7.36, 1.92]
-x0 = [3.613E-03, 0.100, 7.51, 1.81]
+# x0 = [3.13E-03, 0.091, 9.44, 2.]
+# x0 = [3.992E-03, 0.100, 9.20, 1.29]
+# x0 = [3.607E-03, 0.098, 7.36, 1.92]
+# x0 = [3.613E-03, 0.100, 7.51, 1.81]
+x0 = [2.099e-03, 0.100, 8.52, 1.78]  # 012916, 435 basinhopping steps, error 110.3
 xmin = [1e-4, 0.05, 3., 1.]
 xmax = [5e-3, 0.1, 10., 4.]
 
@@ -185,15 +186,16 @@ global_start_time = time.time()
 dv.execute('from parallel_optimize_branch_cooperativity_nmda_kin3_engine import *')
 v = c.load_balanced_view()
 #create_no_nmda_expected_file()  # run once for each new mech_dict
-
+"""
 result = optimize.basinhopping(branch_cooperativity_error, x0, niter=700, niter_success=200, disp=True, interval=20,
                                                             minimizer_kwargs=minimizer_kwargs, take_step=mytakestep)
 print result
-"""
-branch_cooperativity_error(result.x, plot=1)
 
+branch_cooperativity_error(result.x, plot=1)
+"""
 result = optimize.minimize(branch_cooperativity_error, x0, method='Nelder-Mead', options={'xtol': 1e-3, 'ftol': 1e-3,
                                                                                     'disp': True, 'maxiter': 200})
-branch_cooperativity_error(result.x, plot=1)
 """
-#branch_cooperativity_error(x0, 1)
+branch_cooperativity_error(result.x, plot=1)
+branch_cooperativity_error(x0, 1)
+"""
