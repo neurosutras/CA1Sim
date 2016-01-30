@@ -28,7 +28,7 @@ time.sleep(300)
 v = c.load_balanced_view()
 
 start_time = time.time()
-"""
+
 instructions = []
 for i in range(len(parallel_clustered_branch_cooperativity_nmda_engine_110315.groups_to_stim)):
     for j in range(len(parallel_clustered_branch_cooperativity_nmda_engine_110315.groups_to_stim[i]['spines'])):
@@ -46,7 +46,7 @@ rec_file_list = [filename for filename in dv['rec_filename'] if os.path.isfile(d
 combine_output_files(rec_file_list, new_rec_filename+'_expected')
 for filename in rec_file_list:
     os.remove(data_dir+filename+'.hdf5')
-"""
+
 instructions = []
 for i in range(len(parallel_clustered_branch_cooperativity_nmda_engine_110315.groups_to_stim)):
     for j in range(1, len(parallel_clustered_branch_cooperativity_nmda_engine_110315.groups_to_stim[i]['spines'])+1):
