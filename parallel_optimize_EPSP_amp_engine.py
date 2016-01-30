@@ -70,17 +70,6 @@ def optimize_single_synapse(syn_index):
     return {'distance': distance, 'result': param_vals, 'sec_type': syn.node.parent.parent.type}
 
 
-def zero_na():
-    """
-
-    """
-    for sec_type in ['axon_hill', 'ais', 'axon']:
-        cell.modify_mech_param(sec_type, 'nax', 'gbar', 0.)
-    cell.modify_mech_param('soma', 'nas', 'gbar', 0.)
-    for sec_type in ['basal', 'trunk', 'apical', 'tuft']:
-        cell.reinitialize_subset_mechanisms(sec_type, 'nas')
-
-
 equilibrate = 250.  # time to steady-state
 duration = 300.
 v_init = -65.
@@ -91,7 +80,7 @@ local_random = random.Random()
 
 syn_list = []
 cell = CA1_Pyr(morph_filename, mech_filename, full_spines=True)
-zero_na()
+cell.zero_na()
 local_random.seed(0)
 
 for branch in cell.trunk:  # cell.basal+cell.trunk+cell.apical+cell.tuft:

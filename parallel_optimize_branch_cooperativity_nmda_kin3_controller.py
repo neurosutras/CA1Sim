@@ -170,7 +170,8 @@ target_range = {'peak_supralinearity': 1., 'min_supralinearity': 1.,'unitary_nmd
 # x0 = [3.992E-03, 0.100, 9.20, 1.29]
 # x0 = [3.607E-03, 0.098, 7.36, 1.92]
 # x0 = [3.613E-03, 0.100, 7.51, 1.81]
-x0 = [2.099e-03, 0.100, 8.52, 1.78]  # 012916, 435 basinhopping steps, error 110.3
+# x0 = [2.099e-03, 0.100, 8.52, 1.78]  # 012916, 435 basinhopping steps, error 110.3
+x0 = [2.228E-03, 0.100, 7.65, 1.78]  # 012916, simplex, error 108.85, prioritizes min supralinearity over min error
 xmin = [1e-4, 0.05, 3., 1.]
 xmax = [5e-3, 0.1, 10., 4.]
 
@@ -184,6 +185,7 @@ dv.clear()
 dv.block = True
 global_start_time = time.time()
 dv.execute('from parallel_optimize_branch_cooperativity_nmda_kin3_engine import *')
+time.sleep(90)
 v = c.load_balanced_view()
 #create_no_nmda_expected_file()  # run once for each new mech_dict
 """
@@ -198,4 +200,11 @@ result = optimize.minimize(branch_cooperativity_error, x0, method='Nelder-Mead',
 """
 branch_cooperativity_error(result.x, plot=1)
 branch_cooperativity_error(x0, 1)
+"""
+
+"""
+012915: Branch chosen with trunk origin between 75 - 100 um, spines between 30 - 60 um along ~90 um length.
+[gmax, gamma, Kd, kin_scale]: [2.228E-03, 0.100, 7.65, 1.78]
+Peak Supralinearity: 43.51, Min Supralinearity: -4.87, Unitary % NMDA: 0.092
+Error: 1.0885E+02
 """

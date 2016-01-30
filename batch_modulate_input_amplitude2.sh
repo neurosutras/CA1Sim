@@ -1,7 +1,7 @@
 #!/bin/bash
 #cd $HOME/PycharmProjects/NEURON/
 cd $HOME/CA1Sim
-qsub -pe batch 2 -N job_011816_e1600_i600_i_syn_inh0_60 -m e -M milsteina@janelia.hhmi.org -b y -cwd -V 'python test_poisson_inputs_record_i_syn.py 2 1600 600 0 60'
+qsub -pe batch 2 -N job_011816_e1600_i600_i_syn_inh0_60 -l haswell=true -m e -M milsteina@janelia.hhmi.org -b y -cwd -V 'python test_poisson_inputs_record_i_syn.py 2 1600 600 0 60'
 qsub -pe batch 2 -N job_011816_e1600_i600_i_syn_inh0_61 -b y -cwd -V 'python test_poisson_inputs_record_i_syn.py 2 1600 600 0 61'
 qsub -pe batch 2 -N job_011816_e1600_i600_i_syn_inh0_62 -b y -cwd -V 'python test_poisson_inputs_record_i_syn.py 2 1600 600 0 62'
 qsub -pe batch 2 -N job_011816_e1600_i600_i_syn_inh0_63 -b y -cwd -V 'python test_poisson_inputs_record_i_syn.py 2 1600 600 0 63'

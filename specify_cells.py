@@ -1338,6 +1338,35 @@ class CA1_Pyr(HocCell):
             syn = Synapse(self, node, type_list=syn_types, stochastic=stochastic, loc=interval/L)
             interval += self.random.exponential(beta)
 
+    def zero_na(self):
+        """
+        Set na channel conductances to zero in all compartments. Used during parameter optimization.
+        """
+        for sec_type in ['axon_hill', 'ais', 'axon']:
+            self.modify_mech_param(sec_type, 'nax', 'gbar', 0.)
+        self.modify_mech_param('soma', 'nas', 'gbar', 0.)
+        for sec_type in ['basal', 'trunk', 'apical', 'tuft']:
+            self.reinitialize_subset_mechanisms(sec_type, 'nas')
+
+    def zero_h(self):
+        """
+        Set ih conductances to zero in all compartments. Used during parameter optimization.
+        """
+        self.modify_mech_param('soma', 'h', 'ghbar', 0.)
+        self.mech_dict['trunk']['h']['ghbar']['value'] = 0.
+        self.mech_dict['trunk']['h']['ghbar']['slope'] = 0.
+        for sec_type in ['basal', 'trunk', 'apical', 'tuft']:
+            self.reinitialize_subset_mechanisms(sec_type, 'h')
+
+    def set_terminal_branch_nas_gradient(self):
+        """
+        This is an admittedly ad-hoc procedure to implement a linearly decreasing gradient of sodium channels in
+        terminal branches that is not easily accomplished by the general procedures implementing the mechanism
+        dictionary.
+        """
+        self.set_special_mech_param_linear_gradient('nas', 'gbar', ['basal', 'trunk', 'apical', 'tuft'],
+                                                    self.is_terminal, 0.)
+
 
 class Synapse(object):
     """

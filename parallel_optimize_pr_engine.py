@@ -73,18 +73,6 @@ def restore_random_sequence_locations():
         syn.randObj.seq(rand_seq_locs[i])
 
 
-def zero_na():
-    """
-
-    """
-    for sec_type in ['axon_hill', 'ais']:
-        cell.modify_mech_param(sec_type, 'nax', 'gbar', 0.)
-    cell.reinitialize_subset_mechanisms('axon', 'nax')
-    cell.modify_mech_param('soma', 'nas', 'gbar', 0.)
-    for sec_type in ['basal', 'trunk', 'apical', 'tuft']:
-        cell.reinitialize_subset_mechanisms(sec_type, 'nas')
-
-
 equilibrate = 250.  # time to steady-state
 duration = 550.
 v_init = -65.
@@ -93,7 +81,7 @@ syn_types = ['AMPA_KIN', 'NMDA_KIN3']
 syn_list = []
 rand_seq_locs = []
 cell = CA1_Pyr(morph_filename, mech_filename, full_spines=True)
-zero_na()
+cell.zero_na()
 
 local_random = random.Random()
 for branch in cell.trunk+cell.apical:

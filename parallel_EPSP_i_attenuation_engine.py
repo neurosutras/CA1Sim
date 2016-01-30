@@ -14,29 +14,6 @@ mech_filename = '080615 rebalanced na_ka ampa nmda - EB2'
 rec_filename = 'output'+datetime.datetime.today().strftime('%m%d%Y%H%M')+'-pid'+str(os.getpid())
 
 
-def zero_na():
-    """
-
-    """
-    for sec_type in ['axon_hill', 'ais']:
-        cell.modify_mech_param(sec_type, 'nax', 'gbar', 0.)
-    cell.reinitialize_subset_mechanisms('axon', 'nax')
-    cell.modify_mech_param('soma', 'nas', 'gbar', 0.)
-    for sec_type in ['basal', 'trunk', 'apical', 'tuft']:
-        cell.reinitialize_subset_mechanisms(sec_type, 'nas')
-
-
-def zero_h():
-    """
-
-    """
-    cell.modify_mech_param('soma', 'h', 'ghbar', 0.)
-    cell.mech_dict['trunk']['h']['ghbar']['value'] = 0.
-    cell.mech_dict['trunk']['h']['ghbar']['slope'] = 0.
-    for sec_type in ['basal', 'trunk', 'apical', 'tuft']:
-        cell.reinitialize_subset_mechanisms(sec_type, 'h')
-
-
 def stimulate_single_synapse(syn_index):
     """
     :param syn_index: int
@@ -71,8 +48,8 @@ cell = CA1_Pyr(morph_filename, mech_filename, full_spines=True)
 #cell.modify_mech_param('trunk', 'pas', 'g', origin='soma')
 #cell.reinit_mechanisms()
 
-zero_na()
-#zero_h()
+cell.zero_na()
+#cell.zero_h()
 
 nodes = cell.trunk  # cell.soma+cell.basal+cell.trunk+cell.apical+cell.tuft
 

@@ -7,37 +7,14 @@ Builds a cell locally so each engine is ready to receive jobs one at a time, spe
 corresponding to which synapses to stimulate. Remember to categorize output by distance from dendrite origin to soma.
 """
 morph_filename = 'EB2-late-bifurcation.swc'
-#mech_filename = '052915 pas_exp_scale kdr ka_scale ih_sig_scale ampar_exp_scale nmda - EB2'
-#mech_filename = '080615 rebalanced na_ka ampa nmda - EB2'
-mech_filename = '103115 interim dendritic excitability ampa nmda_kin3'
+# mech_filename = '052915 pas_exp_scale kdr ka_scale ih_sig_scale ampar_exp_scale nmda - EB2'
+# mech_filename = '080615 rebalanced na_ka ampa nmda - EB2'
+# mech_filename = '103115 interim dendritic excitability ampa nmda_kin3'
+mech_filename = '012816 altered intrinsic properties - ampa nmda_kin4'
 rec_filename = 'output'+datetime.datetime.today().strftime('%m%d%Y%H%M')+'-pid'+str(os.getpid())
 
-#NMDA_type = 'NMDA_KIN2'
-NMDA_type = 'NMDA_KIN3'
+NMDA_type = 'NMDA_KIN4'
 ISI = 0.3
-
-
-def zero_na():
-    """
-
-    """
-    for sec_type in ['axon_hill', 'ais']:
-        cell.modify_mech_param(sec_type, 'nax', 'gbar', 0.)
-    cell.reinitialize_subset_mechanisms('axon', 'nax')
-    cell.modify_mech_param('soma', 'nas', 'gbar', 0.)
-    for sec_type in ['basal', 'trunk', 'apical', 'tuft']:
-        cell.reinitialize_subset_mechanisms(sec_type, 'nas')
-
-
-def zero_h():
-    """
-
-    """
-    cell.modify_mech_param('soma', 'h', 'ghbar', 0.)
-    cell.mech_dict['trunk']['h']['ghbar']['value'] = 0.
-    cell.mech_dict['trunk']['h']['ghbar']['slope'] = 0.
-    for sec_type in ['basal', 'trunk', 'apical', 'tuft']:
-        cell.reinitialize_subset_mechanisms(sec_type, 'h')
 
 
 def stim_actual_group((group_index, num_spines)):
@@ -115,12 +92,12 @@ def stim_single_expected((group_index, spine_index)):
 
 equilibrate = 250.  # time to steady-state
 duration = 450.
-v_init = -67.
+v_init = -65.
 syn_types = ['AMPA_KIN', NMDA_type]
 
 cell = CA1_Pyr(morph_filename, mech_filename, full_spines=True)
 
-zero_na()
+cell.zero_na()
 
 # these synapses will not be used, but must be inserted for inheritance of synaptic parameters from trunk
 for branch in cell.trunk:
@@ -181,7 +158,7 @@ sim = QuickSim(duration, verbose=0)
 sim.parameters['equilibrate'] = equilibrate
 sim.parameters['duration'] = duration
 
-sim.append_rec(cell, cell.tree.root, description='soma', loc=0.5)
+sim.append_rec(cell, cell.tree.root, description='soma', loc=0.)
 sim.append_rec(cell, trunk, description='trunk', loc=0.)
 sim.append_rec(cell, trunk, description='branch', loc=0.5)  # placeholder for local branch
 sim.append_rec(cell, trunk, description='origin', loc=1.)  # placeholder for local dendrite origin

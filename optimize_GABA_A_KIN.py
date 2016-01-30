@@ -12,75 +12,6 @@ morph_filename = 'EB2-late-bifurcation.swc'
 mech_filename = '080615 rebalanced na_ka ampa nmda - EB2'
 
 
-class Normalized_Step(object):
-    """
-    For use with scipy.optimize packages like basinhopping that allow a customized step-taking method.
-    Converts basinhopping absolute stepsize into different stepsizes for each parameter such that the stepsizes are
-    some fraction of the ranges specified by xmin and xmax. Also enforces bounds for x, and explores the range in
-    log10 space when the range is greater than 2 orders of magnitude.
-    xmin and xmax are delivered as raw, not relative values. Can handle negative values and ranges that cross zero. If
-    xmin and xmax are not provided, or contain None as values, the default is 0.1 and 10. * x0.
-    """
-    def __init__(self, x0, xmin=None, xmax=None, stepsize=0.5):
-        self.stepsize = stepsize
-        if xmin is None:
-            xmin = [None for i in range(len(x0))]
-        for i in range(len(xmin)):
-            if xmin[i] is None:
-                if x0[i] > 0.:
-                    xmin[i] = 0.1 * x0[i]
-                else:
-                    xmin[i] = 10. * x0[i]
-        if xmax is None:
-            xmax = [None for i in range(len(x0))]
-        for i in range(len(xmax)):
-            if xmax[i] is None:
-                if x0[i] > 0.:
-                    xmax[i] = 10. * x0[i]
-                else:
-                    xmax[i] = 0.1 * x0[i]
-        self.x0 = x0
-        self.x_range = np.subtract(xmax, xmin)
-        self.order_mag = np.abs(np.log10(np.abs(np.divide(xmax, xmin))))
-        self.log10_range = np.log10(np.add(1., self.x_range))
-        self.x_offset = np.subtract(1., xmin)
-
-    def __call__(self, current_x):
-        x = np.add(current_x, self.x_offset)
-        x = np.maximum(x, 1.)
-        x = np.minimum(x, np.add(1., self.x_range))
-        for i in range(len(x)):
-            if self.order_mag[i] >= 2.:
-                x[i] = self.log10_step(i, x[i])
-            else:
-                x[i] = self.linear_step(i, x[i])
-        new_x = np.subtract(x, self.x_offset)
-        return new_x
-
-    def linear_step(self, i, xi):
-        step = self.stepsize * self.x_range[i] / 2.
-        new_xi = np.random.uniform(max(1., xi-step), min(xi+step, 1.+self.x_range[i]))
-        return new_xi
-
-    def log10_step(self, i, xi):
-        step = self.stepsize * self.log10_range[i] / 2.
-        xi = np.log10(xi)
-        new_xi = np.random.uniform(max(0., xi-step), min(xi+step, self.log10_range[i]))
-        new_xi = np.power(10., new_xi)
-        return new_xi
-
-
-def zero_na():
-    """
-
-    """
-    for sec_type in ['axon_hill', 'ais']:
-        cell.modify_mech_param(sec_type, 'nax', 'gbar', 0.)
-    cell.reinitialize_subset_mechanisms('axon', 'nax')
-    cell.modify_mech_param('soma', 'nas', 'gbar', 0.)
-    for sec_type in ['basal', 'trunk', 'apical', 'tuft']:
-        cell.reinitialize_subset_mechanisms(sec_type, 'nas')
-
 
 def synaptic_kinetics_error(x, plot=0):
     """
@@ -165,7 +96,7 @@ spike_times = h.Vector([equilibrate])
 
 cell = CA1_Pyr(morph_filename, mech_filename, full_spines=True)
 
-zero_na()
+cell.zero_na()
 
 syn_type = 'GABA_A_KIN'
 

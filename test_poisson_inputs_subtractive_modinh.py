@@ -8,9 +8,11 @@ import sys
 
 """
 morph_filename = 'EB2-late-bifurcation.swc'
-#mech_filename = '103115 interim dendritic excitability ampa nmda_kin3'
-#mech_filename = '112915_less_excitable'
-mech_filename = '012316 alternate km kinetics'
+# mech_filename = '103115 interim dendritic excitability ampa nmda_kin3'
+# mech_filename = '112915_less_excitable'
+# mech_filename = '012316 alternate km kinetics'
+mech_filename = '012816 altered intrinsic properties - ampa nmda_kin4'
+
 
 if len(sys.argv) > 1:
     synapses_seed = int(sys.argv[1])
@@ -201,7 +203,7 @@ def plot_waveform_phase_vs_time(t, x, time_offset=0.):
     return peak_times, peak_phases
 
 
-NMDA_type = 'NMDA_KIN3'
+NMDA_type = 'NMDA_KIN4'
 
 equilibrate = 250.  # time to steady-state
 global_theta_cycle_duration = 150.  # (ms)
@@ -244,7 +246,7 @@ inhibitory_theta_phase_offset['tuft feedback'] = 215. / 360. * 2. * np.pi  # Lik
 
 stim_dt = 0.02
 dt = 0.02
-v_init = -67.
+v_init = -65.
 
 syn_types = ['AMPA_KIN', NMDA_type]
 
@@ -254,7 +256,7 @@ local_random = random.Random()
 local_random.seed(synapses_seed)
 
 cell = CA1_Pyr(morph_filename, mech_filename, full_spines=True)
-cell.set_special_mech_param_linear_gradient('nas', 'gbar', ['basal', 'trunk', 'apical', 'tuft'], cell.is_terminal, 0.)
+cell.set_terminal_branch_nas_gradient()
 cell.insert_inhibitory_synapses_in_subset()
 
 trunk_bifurcation = [trunk for trunk in cell.trunk if cell.is_bifurcation(trunk, 'trunk')]
@@ -389,8 +391,8 @@ for group in stim_exc_syns.keys():
             stim_successes.append(success_vec)
             syn.netcon('AMPA_KIN').record(success_vec)
             rand_exc_seq_locs[group].append(syn.randObj.seq())
-        #if syn.node.parent.parent not in [rec['node'] for rec in sim.rec_list]:
-        #    sim.append_rec(cell, syn.node.parent.parent)
+        if syn.node.parent.parent not in [rec['node'] for rec in sim.rec_list]:
+            sim.append_rec(cell, syn.node.parent.parent)
         # remove this synapse from the pool, so that additional "modulated" inputs can be selected from those that remain
         #sim.append_rec(cell, syn.node, object=syn.target('AMPA_KIN'), param='_ref_i', description='i_AMPA')
         #sim.append_rec(cell, syn.node, object=syn.target(NMDA_type), param='_ref_i', description='i_NMDA')

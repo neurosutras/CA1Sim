@@ -59,15 +59,6 @@ def update_h(x):
         cell.modify_mech_param(sec_type, 'h', 'ghbar', origin='trunk')
 
 
-def update_v_rest():
-    """
-    """
-    for sec_type in ['soma', 'axon_hill', 'ais', 'axon', 'basal', 'trunk', 'apical', 'tuft']:
-        for node in cell.get_nodes_of_subtype(sec_type):
-            for seg in node.sec:
-                seg.pas.e = min(-30., seg.ik / seg.pas.g + v_init)
-
-
 def update_na_ka(x):
     """
 
@@ -191,17 +182,6 @@ def offset_vm(sec_type):
     return i_holding[sec_type]
 
 
-def zero_h():
-    """
-
-    """
-    cell.modify_mech_param('soma', 'h', 'ghbar', 0.)
-    cell.mech_dict['trunk']['h']['ghbar']['value'] = 0.
-    cell.mech_dict['trunk']['h']['ghbar']['slope'] = 0.
-    for sec_type in ['basal', 'trunk', 'apical', 'tuft']:
-        cell.reinitialize_subset_mechanisms(sec_type, 'h')
-
-
 def zero_na():
     """
 
@@ -255,7 +235,6 @@ def pas_error(x, plot=0):
     sim.tstop = duration
     result = {}
     amp = -0.15
-    #zero_h()
     zero_na()
     update_pas(x)
     #offset_vm('soma')

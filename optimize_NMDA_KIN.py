@@ -13,6 +13,7 @@ morph_filename = 'EB2-late-bifurcation.swc'
 #mech_filename = '072515 optimized basal ka_scale dend_sh_ar_nas - EB2'
 mech_filename = '102915 interim dendritic excitability'
 
+
 def synaptic_kinetics_error(x, plot=0):
     """
     :param x: list of parameters
@@ -89,18 +90,6 @@ def synaptic_kinetics_error(x, plot=0):
         return Err
 
 
-def zero_na():
-    """
-
-    """
-    for sec_type in ['axon_hill', 'ais']:
-        cell.modify_mech_param(sec_type, 'nax', 'gbar', 0.)
-    cell.reinitialize_subset_mechanisms('axon', 'nax')
-    cell.modify_mech_param('soma', 'nas', 'gbar', 0.)
-    for sec_type in ['basal', 'trunk', 'apical', 'tuft']:
-        cell.reinitialize_subset_mechanisms(sec_type, 'nas')
-
-
 equilibrate = 250.  # time to steady-state
 duration = 1250.
 v_init = -67.
@@ -108,7 +97,7 @@ num_syns = 1
 spike_times = h.Vector([equilibrate])
 
 cell = CA1_Pyr(morph_filename, mech_filename, full_spines=True)
-zero_na()
+cell.zero_na()
 
 syn_type = 'NMDA_KIN2'
 

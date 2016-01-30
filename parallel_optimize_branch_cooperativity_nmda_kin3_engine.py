@@ -86,24 +86,13 @@ def stim_expected(spine_index):
     return rec_filename
 
 
-def zero_na():
-    """
-
-    """
-    for sec_type in ['axon_hill', 'ais', 'axon']:
-        cell.modify_mech_param(sec_type, 'nax', 'gbar', 0.)
-    cell.modify_mech_param('soma', 'nas', 'gbar', 0.)
-    for sec_type in ['basal', 'trunk', 'apical', 'tuft']:
-        cell.reinitialize_subset_mechanisms(sec_type, 'nas')
-
-
 equilibrate = 250.  # time to steady-state
 duration = 450.
 v_init = -65.
 syn_types = ['AMPA_KIN', NMDA_type]
 
 cell = CA1_Pyr(morph_filename, mech_filename, full_spines=True)
-zero_na()
+cell.zero_na()
 
 # these synapses will not be used, but must be inserted for inheritance of synaptic parameters from trunk
 for branch in cell.trunk:

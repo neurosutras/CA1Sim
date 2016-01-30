@@ -20,28 +20,6 @@ mech_filename = '103115 interim dendritic excitability ampa nmda_kin3'
 rec_filename = 'output'+datetime.datetime.today().strftime('%m%d%Y%H%M')+'-pid'+str(os.getpid())
 
 
-def zero_na():
-    """
-
-    """
-    for sec_type in ['axon_hill', 'ais']:
-        cell.modify_mech_param(sec_type, 'nax', 'gbar', 0.)
-    cell.reinitialize_subset_mechanisms('axon', 'nax')
-    cell.modify_mech_param('soma', 'nas', 'gbar', 0.)
-    for sec_type in ['basal', 'trunk', 'apical', 'tuft']:
-        cell.reinitialize_subset_mechanisms(sec_type, 'nas')
-
-
-def zero_h():
-    """
-
-    """
-    cell.modify_mech_param('soma', 'h', 'ghbar', 0.)
-    cell.mech_dict['trunk']['h']['ghbar']['value'] = 0.
-    cell.mech_dict['trunk']['h']['ghbar']['slope'] = 0.
-    for sec_type in ['basal', 'trunk', 'apical', 'tuft']:
-        cell.reinitialize_subset_mechanisms(sec_type, 'h')
-
 
 def offset_vm(node, loc, index):
     """
@@ -118,8 +96,8 @@ i_holding = 0.
 syn_list = []
 cell = CA1_Pyr(morph_filename, mech_filename, full_spines=True)
 
-zero_na()
-zero_h()
+cell.zero_na()
+cell.zero_h()
 
 local_random.seed(0)
 for branch in cell.basal+cell.trunk+cell.apical+cell.tuft:
