@@ -13,7 +13,7 @@ Each engine sweeps the entire range of spines until max cooperativity is reached
 Assumes a controller is already running in another process with:
 ipcluster start -n num_cores
 """
-new_rec_filename = '060915 clustered nmda cooperativity - no_nmda'
+new_rec_filename = '012916 clustered nmda cooperativity - no_nmda'
 
 if len(sys.argv) > 1:
     cluster_id = sys.argv[1]
@@ -25,6 +25,7 @@ dv.clear()
 dv.block = True
 global_start_time = time.time()
 dv.execute('from parallel_clustered_branch_cooperativity_no_nmda_engine import *')
+time.sleep(300)
 v = c.load_balanced_view()
 
 start_time = time.time()
