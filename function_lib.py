@@ -1030,7 +1030,7 @@ def get_phase_precession(rec_filename, start_loc=None, end_loc=None, dt=0.02):
             spike_phases *= 360.
             spike_phase_array.append(spike_phases)
     rec_t = np.arange(0., track_duration, dt)
-    spikes_removed = get_removed_spikes(rec_filename, plot=0)
+    spikes_removed = get_removed_spikes(rec_filename, plot=0, th=10.)
     # down_sample traces to 2 kHz after clipping spikes for theta and ramp filtering
     down_dt = 0.5
     down_rec_t = np.arange(0., track_duration, down_dt)
@@ -1152,7 +1152,7 @@ def get_patterned_input_r_inp(rec_filename):
         probe_amp = sim.attrs['r_inp_probe_amp']
         probe_dur = sim.attrs['r_inp_probe_duration']
         phase_offsets = [trial.attrs['phase_offset'] for trial in f.values()]
-        traces = get_removed_spikes(rec_filename, plot=0)
+        traces = get_removed_spikes(rec_filename, plot=0, th=10.)
         hypo_r_inp_array, hypo_phase_array, hypo_t_array = [], [], []
         depo_r_inp_array, depo_phase_array, depo_t_array = [], [], []
         for i, vm in enumerate(traces):
