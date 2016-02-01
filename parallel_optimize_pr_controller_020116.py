@@ -77,7 +77,7 @@ def release_dynamics_error(x, plot=0):
     :return: float
     """
     start_time = time.time()
-    repeat = 2
+    repeat = 10
     ISI_list = [300, 100, 50, 25, 10]
     instructions = []
     for ISI in ISI_list:
