@@ -394,8 +394,8 @@ for group in stim_exc_syns.keys():
             stim_successes.append(success_vec)
             syn.netcon('AMPA_KIN').record(success_vec)
             rand_exc_seq_locs[group].append(syn.randObj.seq())
-        if syn.node.parent.parent not in [rec['node'] for rec in sim.rec_list]:
-            sim.append_rec(cell, syn.node.parent.parent)
+        # if syn.node.parent.parent not in [rec['node'] for rec in sim.rec_list]:
+        #    sim.append_rec(cell, syn.node.parent.parent)
         # sim.append_rec(cell, syn.node, object=syn.target('AMPA_KIN'), param='_ref_i', description='i_AMPA')
         # sim.append_rec(cell, syn.node, object=syn.target(NMDA_type), param='_ref_i', description='i_NMDA')
         # remove this synapse from the pool, so that additional "modulated" inputs
