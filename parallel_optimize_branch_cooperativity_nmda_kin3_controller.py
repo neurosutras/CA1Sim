@@ -52,7 +52,7 @@ def branch_cooperativity_error(x, plot=0):
     :return: float
     """
     start_time = time.time()
-    if x[0] < 0. or x[1] < 0.05 or x[1] > 0.1 or x[2] < 3. or x[2] > 10. or x[3] < 1.:
+    if x[0] < 0. or x[1] < 0.05 or x[1] > 0.12 or x[2] < 3. or x[2] > 10. or x[3] < 1.:
         return 1e9
     dv['gmax'] = x[0]
     dv['gamma'] = x[1]
@@ -105,7 +105,8 @@ def branch_cooperativity_error(x, plot=0):
             units_no_nmda.append(unit_no_nmda['trunk'])
     unit_with_nmda = np.mean(units_with_nmda, 0)
     unit_no_nmda = np.mean(units_no_nmda, 0)
-    result = {'unitary_nmda_contribution': (np.max(unit_with_nmda) - np.max(unit_no_nmda)) / np.max(unit_no_nmda)}
+    result = {'unitary_nmda_contribution': (np.max(unit_with_nmda) - np.max(unit_no_nmda)) /
+                                           np.max(unit_no_nmda) * 100.}
     with h5py.File(data_dir+new_rec_filename+'_expected.hdf5', 'r') as expected_file:
         expected_index_map = get_expected_spine_index_map(expected_file).values()[0]
         with h5py.File(data_dir+new_rec_filename+'_actual.hdf5', 'r') as actual_file:
@@ -162,18 +163,16 @@ def branch_cooperativity_error(x, plot=0):
 
 #the target values and acceptable ranges
 target_val = {'peak_supralinearity': 44., 'min_supralinearity': 0., 'unitary_nmda_contribution': 0.}
-target_range = {'peak_supralinearity': 1., 'min_supralinearity': 1.,'unitary_nmda_contribution': 0.01}
+target_range = {'peak_supralinearity': 1., 'min_supralinearity': 0.5,'unitary_nmda_contribution': 0.5}
 
 #the initial guess
 # x = ['gmax', 'gamma', 'Kd', 'kin_scale']
 # x0 = [3.13E-03, 0.091, 9.44, 2.]
 # x0 = [3.992E-03, 0.100, 9.20, 1.29]
 # x0 = [3.607E-03, 0.098, 7.36, 1.92]
-# x0 = [3.613E-03, 0.100, 7.51, 1.81]
-# x0 = [2.099e-03, 0.100, 8.52, 1.78]  # 012916, 435 basinhopping steps, error 110.3
-x0 = [2.228E-03, 0.100, 7.65, 1.78]  # 012916, simplex, error 108.85, prioritizes min supralinearity over min error
-xmin = [1e-4, 0.05, 3., 1.]
-xmax = [5e-3, 0.1, 10., 4.]
+x0 = [3.613E-03, 0.100, 7.51, 1.81]
+xmin = [5e-4, 0.05, 3., 1.]
+xmax = [5e-3, 0.12, 10., 4.]
 
 mytakestep = Normalized_Step(x0, xmin, xmax)
 
@@ -188,23 +187,26 @@ dv.execute('from parallel_optimize_branch_cooperativity_nmda_kin3_engine import 
 time.sleep(90)
 v = c.load_balanced_view()
 #create_no_nmda_expected_file()  # run once for each new mech_dict
-"""
+
 result = optimize.basinhopping(branch_cooperativity_error, x0, niter=700, niter_success=200, disp=True, interval=20,
                                                             minimizer_kwargs=minimizer_kwargs, take_step=mytakestep)
 print result
-
-branch_cooperativity_error(result.x, plot=1)
 """
+branch_cooperativity_error(result.x, plot=1)
+
 result = optimize.minimize(branch_cooperativity_error, x0, method='Nelder-Mead', options={'xtol': 1e-3, 'ftol': 1e-3,
                                                                                     'disp': True, 'maxiter': 200})
-"""
+
 branch_cooperativity_error(result.x, plot=1)
 branch_cooperativity_error(x0, 1)
 """
 
 """
-012915: Branch chosen with trunk origin between 75 - 100 um, spines between 30 - 60 um along ~90 um length.
+012916: Branch chosen with trunk origin between 75 - 100 um, spines between 30 - 60 um along ~90 um length.
 [gmax, gamma, Kd, kin_scale]: [2.228E-03, 0.100, 7.65, 1.78]
 Peak Supralinearity: 43.51, Min Supralinearity: -4.87, Unitary % NMDA: 0.092
 Error: 1.0885E+02
+
+020416: Branch chosen with trunk origin between ~100 um, spines between 30 - 60 um along ~90 um length.
+
 """

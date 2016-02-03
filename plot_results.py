@@ -2447,8 +2447,8 @@ def plot_phase_precession(t_array, phase_array, title, fit_start=1500., fit_end=
     binned_phases = []
     all_spike_times = []
     all_spike_phases = []
-    for start in np.arange(0., t_max+150., 150.):
-        index_array = [np.where((spike_times >= start) & (spike_times < start+150.))[0] for spike_times in t_array]
+    for start in np.arange(0., t_max+300., 300.):
+        index_array = [np.where((spike_times > start) & (spike_times <= start+300.))[0] for spike_times in t_array]
         spike_times = []
         spike_phases = []
         for i in range(len(t_array)):
@@ -2456,7 +2456,7 @@ def plot_phase_precession(t_array, phase_array, title, fit_start=1500., fit_end=
                 spike_times.append(spike_time)
                 spike_phases.append(spike_phase)
         if np.any(spike_times):
-            binned_times.append(np.mean(spike_times))
+            binned_times.append(start+150.)  # (np.mean(spike_times))
             binned_phases.append(stats.circmean(spike_phases, high=360., low=0.))
             all_spike_times.extend(spike_times)
             all_spike_phases.extend(spike_phases)
@@ -2465,12 +2465,12 @@ def plot_phase_precession(t_array, phase_array, title, fit_start=1500., fit_end=
     binned_times = np.array(binned_times)
     binned_phases = np.array(binned_phases)
     #indexes = np.where((all_spike_times >= fit_start) & (all_spike_times <= fit_end))[0]
-    indexes = np.where((binned_times >= fit_start) & (binned_times <= fit_end))[0]
+    indexes = np.where((binned_times > fit_start) & (binned_times < fit_end))[0]
     #m, b = np.polyfit(all_spike_times[indexes], all_spike_phases[indexes], 1)
     m, b = np.polyfit(binned_times[indexes], binned_phases[indexes], 1)
     indexes = np.where((all_spike_times >= fit_start) & (all_spike_times <= fit_end))[0]
     fit_t = np.arange(np.min(all_spike_times[indexes]), np.max(all_spike_times[indexes]), 10.)
-    plt.scatter(binned_times, binned_phases, c='r')
+    plt.plot(binned_times, binned_phases, c='k')
     plt.plot(fit_t, m * fit_t + b, c='r')
     plt.ylim(0., 360.)
     plt.xlim(t_min, t_max)

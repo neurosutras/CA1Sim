@@ -101,8 +101,8 @@ for branch in cell.trunk:
 
 # choose a distal apical oblique branch that has > 25 spines within 30 um, choose spines near the middle of the branch
 spine_list = []
-for branch in (apical for apical in cell.apical if 75 <= cell.get_distance_to_node(cell.tree.root,
-            cell.get_dendrite_origin(apical)) <= 100. and
+for branch in (apical for apical in cell.apical if cell.get_distance_to_node(cell.tree.root,
+            cell.get_dendrite_origin(apical)) >= 100. and
                 cell.get_distance_to_node(cell.get_dendrite_origin(apical), apical, loc=1.) >= 80.):
     spine_list = [spine for spine in branch.spines if
                   30. <= cell.get_distance_to_node(cell.get_dendrite_origin(branch), spine, loc=0.) <= 60.]
