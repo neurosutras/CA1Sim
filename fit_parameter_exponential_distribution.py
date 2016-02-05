@@ -12,7 +12,8 @@ import scipy.stats as stats
 # rec_filename = '043015 pas_exp_scale kdr ka_scale ih_sig_scale - EB2 - AMPAR_scaling'
 # rec_filename = '072515 optimized basal ka_scale dend_sh_ar_nas - EB2 - AMPAR_scaling'
 # rec_filename = '102915 interim dendritic excitability - AMPAR_scaling'
-rec_filename = '012816 altered intrinsic properties - AMPAR_scaling'
+# rec_filename = '012816 altered intrinsic properties - AMPAR_scaling'
+rec_filename = '020516 altered km2 rinp - AMPAR_scaling'
 
 def fit_exp_linear(t, y, y0=0):
     """

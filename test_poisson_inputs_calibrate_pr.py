@@ -100,7 +100,7 @@ def run_n_trials(n):
             if mod_inh == 1:
                 mod_inh_start = int(track_equilibrate / dt)
             elif mod_inh == 2:
-                mod_inh_start = int((track_equilibrate + modulated_field_center - 0.2 * input_field_duration) / dt)
+                mod_inh_start = int((track_equilibrate + modulated_field_center - 0.3 * input_field_duration) / dt)
             sim.parameters['mod_inh_start'] = stim_t[mod_inh_start]
             mod_inh_stop = mod_inh_start + int(inhibitory_manipulation_duration * input_field_duration / dt)
             sim.parameters['mod_inh_stop'] = stim_t[mod_inh_stop]
@@ -132,24 +132,17 @@ def run_n_trials(n):
             inhibitory_theta_amp = inhibitory_peak_rate[group] * inhibitory_theta_modulation_depth[group] / 2.
             inhibitory_theta_offset = inhibitory_peak_rate[group] - inhibitory_theta_amp
             inhibitory_phase_offset = inhibitory_theta_phase_offset[group]
-            inhibitory_theta_force = inhibitory_theta_offset + inhibitory_theta_amp * np.cos(2. * np.pi /
+            for i, syn in enumerate(stim_inh_syns[group]):
+                inhibitory_theta_force = inhibitory_theta_offset + inhibitory_theta_amp * np.cos(2. * np.pi /
                                                     global_theta_cycle_duration * stim_t - global_phase_offset -
                                                     inhibitory_phase_offset)
-            if mod_inh > 0 and group in inhibitory_manipulation_strength:
-                inhibitory_theta_amp = inhibitory_manipulation_strength[group] * inhibitory_peak_rate[group] * \
-                                           inhibitory_theta_modulation_depth[group] / 2.
-                inhibitory_theta_offset = inhibitory_manipulation_strength[group] * inhibitory_peak_rate[group] - \
-                                              inhibitory_theta_amp
-                inhibitory_theta_force[mod_inh_start:mod_inh_stop] = inhibitory_theta_offset + \
-                                                            inhibitory_theta_amp * np.cos(2. * np.pi /
-                                                            global_theta_cycle_duration *
-                                                            stim_t[mod_inh_start:mod_inh_stop] - global_phase_offset -
-                                                            inhibitory_phase_offset)
-            for i, syn in enumerate(stim_inh_syns[group]):
+                if mod_inh > 0 and group in inhibitory_manipulation_fraction and syn in manipulated_inh_syns[group]:
+                    inhibitory_theta_force[mod_inh_start:mod_inh_stop] = 0.
                 train = get_inhom_poisson_spike_times(inhibitory_theta_force, stim_t, dt=stim_dt,
                                                       generator=local_random)
                 stim_inh_trains[group].append(train)
                 syn.source.play(h.Vector(np.add(train, equilibrate + track_equilibrate)))
+        """
         sim.run(v_init)
         with h5py.File(data_dir+rec_filename+'.hdf5', 'a') as f:
             sim.export_to_file(f, simiter)
@@ -185,7 +178,9 @@ def run_n_trials(n):
             f[str(simiter)].create_dataset('output', compression='gzip', compression_opts=9,
                                         data=np.subtract(cell.spike_detector.get_recordvec().to_python(),
                                                          equilibrate + track_equilibrate))
+        """
     trials += n
+    return stim_inh_trains
 
 
 def plot_waveform_phase_vs_time(t, x, time_offset=0.):
@@ -230,26 +225,29 @@ excitatory_stochastic = 1
 inhibitory_peak_rate = {}
 inhibitory_theta_modulation_depth = {}
 inhibitory_theta_phase_offset = {}
-inhibitory_manipulation_strength = {'perisomatic': 0.6, 'apical dendritic': 0.6, 'tuft feedback': 0.6}
+inhibitory_manipulation_fraction = {'perisomatic': 0.4, 'apical dendritic': 0.4, 'tuft feedback': 0.4}
                                     # 'tuft feedforward': 1.,
 inhibitory_manipulation_duration = 0.6  # Ratio of input_field_duration
 inhibitory_peak_rate['perisomatic'] = 40.
 inhibitory_peak_rate['apical dendritic'] = 40.
+inhibitory_peak_rate['distal apical dendritic'] = 40.
 inhibitory_peak_rate['tuft feedforward'] = 40.
 inhibitory_peak_rate['tuft feedback'] = 40.
 inhibitory_theta_modulation_depth['perisomatic'] = 0.5
 inhibitory_theta_modulation_depth['apical dendritic'] = 0.5
+inhibitory_theta_modulation_depth['distal apical dendritic'] = 0.5
 inhibitory_theta_modulation_depth['tuft feedforward'] = 0.5
 inhibitory_theta_modulation_depth['tuft feedback'] = 0.5
 inhibitory_theta_phase_offset['perisomatic'] = 145. / 360. * 2. * np.pi  # Like PV+ Basket
-inhibitory_theta_phase_offset['apical dendritic'] = 215. / 360. * 2. * np.pi
-                                                                            # Like Bistratified (Mixed PV+, CCK+, NPY+)
+inhibitory_theta_phase_offset['apical dendritic'] = 215. / 360. * 2. * np.pi  # Like PYR-layer Bistratified
+# inhibitory_theta_phase_offset['distal apical dendritic'] = 165. / 360. * 2. * np.pi  # Like SR/SLM Border Cells
+inhibitory_theta_phase_offset['distal apical dendritic'] = 215. / 360. * 2. * np.pi  # Like SR/SLM Border Cells
 inhibitory_theta_phase_offset['tuft feedforward'] = 345. / 360. * 2. * np.pi  # Like Neurogliaform
 inhibitory_theta_phase_offset['tuft feedback'] = 215. / 360. * 2. * np.pi  # Like SST+ O-LM
 
 stim_dt = 0.02
 dt = 0.02
-v_init = -65.
+v_init = -67.
 
 syn_types = ['AMPA_KIN', NMDA_type]
 
@@ -274,13 +272,10 @@ else:
     trunk = trunk_bifurcation[0]
 
 all_exc_syns = {sec_type: [] for sec_type in ['basal', 'trunk', 'apical', 'tuft']}
-#all_exc_syns = {sec_type: [] for sec_type in ['basal', 'trunk', 'apical']}
-#all_exc_syns = {sec_type: [] for sec_type in ['tuft']}
 all_inh_syns = {sec_type: [] for sec_type in ['soma', 'basal', 'trunk', 'apical', 'tuft']}
-#all_inh_syns = {sec_type: [] for sec_type in ['soma', 'basal', 'trunk', 'apical']}
-#all_inh_syns = {sec_type: [] for sec_type in ['tuft']}
 stim_exc_syns = {'CA3': [], 'ECIII': []}
-stim_inh_syns = {'perisomatic': [], 'apical dendritic': [], 'tuft feedforward': [], 'tuft feedback': []}
+stim_inh_syns = {'perisomatic': [], 'apical dendritic': [], 'distal apical dendritic': [], 'tuft feedforward': [],
+                 'tuft feedback': []}
 stim_successes = []
 peak_locs = {'CA3': [], 'ECIII': []}
 
@@ -366,9 +361,22 @@ for sec_type in all_inh_syns:
             else:
                 # GABAergic synapses on intermediate tuft branches are about 50% feedforward
                 group = local_random.choice(['tuft feedforward', 'tuft feedback'])
-        else:
+        elif syn.node.type == 'trunk':
             distance = cell.get_distance_to_node(cell.tree.root, syn.node, syn.loc)
-            group = 'perisomatic' if distance <= 75. else 'apical dendritic'
+            if distance <= 50.:
+                group = 'perisomatic'
+            elif distance <= 150.:
+                group = 'apical dendritic'
+            else:
+                group = local_random.choice(['apical dendritic', 'distal apical dendritic'])
+        elif syn.node.type == 'basal':
+            distance = cell.get_distance_to_node(cell.tree.root, syn.node, syn.loc)
+            group = 'perisomatic' if distance <= 50. and not cell.is_terminal(syn.node) else 'apical dendritic'
+        elif syn.node.type == 'soma':
+            group = 'perisomatic'
+        elif syn.node.type == 'apical':
+            distance = cell.get_distance_to_node(cell.tree.root, cell.get_dendrite_origin(syn.node), loc=1.)
+            group = 'apical dendritic' if distance <= 150. else 'distal apical dendritic'
         stim_inh_syns[group].append(syn)
 
 stim_t = np.arange(-track_equilibrate, track_duration, dt)
@@ -416,9 +424,19 @@ for group in stim_exc_syns.keys():
     for i, syn in enumerate(stim_exc_syns[group]):
         syn.netcon('AMPA_KIN').weight[0] = gauss_mod_amp[group][i]
 
+manipulated_inh_syns = {}
+for group in inhibitory_manipulation_fraction:
+    num_syns = int(len(stim_inh_syns[group]) * inhibitory_manipulation_fraction[group])
+    manipulated_inh_syns[group] = local_random.sample(stim_inh_syns[group], num_syns)
+
+"""
 if trial_seed is None:
     trials = 0
     run_n_trials(1)
 else:
     trials = trial_seed
     run_n_trials(1)
+"""
+
+trials = trial_seed
+

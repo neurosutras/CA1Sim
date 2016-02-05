@@ -33,7 +33,7 @@ PARAMETER {
 	Rg   = 0.01 	(/ms)		: inact recov (v) 	
 	Rd   = .03 	    (/ms)		: inact (v)
 
-	thinf  = -47 	(mV)		: inact inf slope
+	thinf  = -50 	(mV)		: inact inf slope
 	qinf  = 4 	    (mV)		: inact inf slope
 
     vhalfs=-60	    (mV)		: slow inact.

@@ -12,7 +12,8 @@ morph_filename = 'EB2-late-bifurcation.swc'
 # mech_filename = '043015 pas_exp_scale kdr ka_scale ih_sig_scale - EB2'
 # mech_filename = '072515 optimized basal ka_scale dend_sh_ar_nas - EB2'
 # mech_filename = '102915 interim dendritic excitability'
-mech_filename = '012816 altered intrinsic properties'
+# mech_filename = '012816 altered intrinsic properties'
+mech_filename = '020516 altered km2 rinp'
 
 def epsp_amp_error(x, syn):
     """
@@ -72,7 +73,7 @@ def optimize_single_synapse(syn_index):
 
 equilibrate = 250.  # time to steady-state
 duration = 300.
-v_init = -65.
+v_init = -67.
 syn_type = 'AMPA_KIN'
 param_names = ['gmax']
 param_ylabels = ['Peak Conductance (uS)']

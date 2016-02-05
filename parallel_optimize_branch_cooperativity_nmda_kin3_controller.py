@@ -20,7 +20,8 @@ ipcluster start -n num_cores
 # new_rec_filename = '052815 apical oblique cooperativity - proximal - new_mg - no nmda'
 # new_rec_filename = '072815 apical oblique cooperativity - proximal'
 # new_rec_filename = '103015 apical oblique cooperativity - NMDA_KIN3'
-new_rec_filename = '012816 altered intrinsic properties - NMDA_KIN3'
+# new_rec_filename = '012816 altered intrinsic properties - NMDA_KIN3'
+new_rec_filename = '020516 altered km2 rinp - tuning NMDA_KIN3'
 
 
 def create_no_nmda_expected_file():
@@ -29,7 +30,7 @@ def create_no_nmda_expected_file():
     """
     start_time = time.time()
     dv['gmax'] = 0.
-    num_spines = min(32, len(parallel_optimize_branch_cooperativity_nmda_kin3_engine.spine_list))
+    num_spines = min(31, len(parallel_optimize_branch_cooperativity_nmda_kin3_engine.spine_list))
     result = v.map_async(parallel_optimize_branch_cooperativity_nmda_kin3_engine.stim_expected, range(num_spines))
     while not result.ready():
         time.sleep(30)
@@ -58,7 +59,7 @@ def branch_cooperativity_error(x, plot=0):
     dv['gamma'] = x[1]
     dv['Kd'] = x[2]
     dv['kin_scale'] = x[3]
-    num_spines = min(32, len(parallel_optimize_branch_cooperativity_nmda_kin3_engine.spine_list))
+    num_spines = min(31, len(parallel_optimize_branch_cooperativity_nmda_kin3_engine.spine_list))
     result = v.map_async(parallel_optimize_branch_cooperativity_nmda_kin3_engine.stim_expected, range(num_spines))
     while not result.ready():
         time.sleep(30)
@@ -184,19 +185,20 @@ dv.clear()
 dv.block = True
 global_start_time = time.time()
 dv.execute('from parallel_optimize_branch_cooperativity_nmda_kin3_engine import *')
-time.sleep(90)
+time.sleep(180)
 v = c.load_balanced_view()
-#create_no_nmda_expected_file()  # run once for each new mech_dict
+create_no_nmda_expected_file()  # run once for each new mech_dict
 
-result = optimize.basinhopping(branch_cooperativity_error, x0, niter=700, niter_success=200, disp=True, interval=20,
+result = optimize.basinhopping(branch_cooperativity_error, x0, niter=720, niter_success=300, disp=True, interval=30,
                                                             minimizer_kwargs=minimizer_kwargs, take_step=mytakestep)
 print result
+
+polished_result = optimize.minimize(branch_cooperativity_error, result.x, method='Nelder-Mead',
+                                    options={'xtol': 1e-3, 'ftol': 1e-3, 'disp': True, 'maxiter': 200})
+
+print polished_result
+
 """
-branch_cooperativity_error(result.x, plot=1)
-
-result = optimize.minimize(branch_cooperativity_error, x0, method='Nelder-Mead', options={'xtol': 1e-3, 'ftol': 1e-3,
-                                                                                    'disp': True, 'maxiter': 200})
-
 branch_cooperativity_error(result.x, plot=1)
 branch_cooperativity_error(x0, 1)
 """
