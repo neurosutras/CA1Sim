@@ -190,8 +190,10 @@ xmax['basal'] = [0.0040]
 # x0['dynamics'] = ['f', 'tau_F', 'd1', 'tau_D1']
 # x0['dynamics'] = [1.625, 65.775, 0.785, 113.151]
 # unit amp: 4.180, unit slope: -6.69E-02, recovery unit amp: 6.308, Error: 4.8017E+02
-x0['dynamics'] = [1.749, 70.195, 0.875, 88.964]
+# x0['dynamics'] = [1.749, 70.195, 0.875, 88.964]
 # unit amp: 4.444, unit slope: 3.817E-02, recovery unit amp: 7.101, basinhopping step 273: Error: 1323.4
+x0['dynamics'] = [1.786, 66.242, 0.883, 105.858]
+# unit amp: 3.794, unit slope: -3.023E-02, recovery unit amp: 7.664, basinhopping step 199: Error: 729.99
 # the bounds
 xmin['dynamics'] = [0.8, 25., 0.5, 50.]
 xmax['dynamics'] = [1.8, 150., 0.9, 300.]
@@ -207,7 +209,7 @@ dv.clear()
 dv.block = True
 global_start_time = time.time()
 dv.execute('from parallel_optimize_pr_engine_020116 import *')
-time.sleep(240)
+#time.sleep(240)
 v = c.load_balanced_view()
 
 """
@@ -222,16 +224,17 @@ print result
 # then use the resulting number of synapses during optimization of the parameters governing release dynamics
 N = int(x0['basal'][0] * 10000.)
 dv.execute('syn_list.choose_syns_to_stim('+str(N)+')')
-time.sleep(60)
+#time.sleep(60)
 
 
-
+"""
 mytakestep = Normalized_Step(x0['dynamics'], xmin['dynamics'], xmax['dynamics'])
 minimizer_kwargs = dict(method=null_minimizer)
 
 result = optimize.basinhopping(release_dynamics_error, x0['dynamics'], niter=720, niter_success=200, disp=True,
                                 interval=30, minimizer_kwargs=minimizer_kwargs, take_step=mytakestep)
 print result
+"""
 """
 # release_dynamics_error(result.x, plot=1)
 
@@ -242,4 +245,10 @@ print polished_result
 release_dynamics_error(polished_result.x, plot=1)
 """
 
-# release_dynamics_error(x0['dynamics'], plot=1)
+release_dynamics_error(x0['dynamics'], plot=1)
+
+"""
+020716:
+[Num synapses, P0, f, tau_F, d, tau_D]: [30, 0.200, 1.786, 66.242, 0.883, 105.858],
+unit amp: 3.794, unit slope: -3.023E-02, recovery unit amp: 7.664, basinhopping step 199: Error: 729.99
+"""

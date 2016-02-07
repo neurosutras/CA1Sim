@@ -11,7 +11,8 @@ morph_filename = 'EB2-late-bifurcation.swc'
 # mech_filename = '103115 interim dendritic excitability ampa nmda_kin3'
 # mech_filename = '112915_less_excitable'
 # mech_filename = '012316 alternate km kinetics'
-mech_filename = '012816 altered intrinsic properties - ampa nmda_kin4'
+# mech_filename = '012816 altered intrinsic properties - ampa nmda_kin4'
+mech_filename = '020516 altered km2 rinp - ampa nmda_kin5'
 
 
 if len(sys.argv) > 1:
@@ -142,7 +143,6 @@ def run_n_trials(n):
                                                       generator=local_random)
                 stim_inh_trains[group].append(train)
                 syn.source.play(h.Vector(np.add(train, equilibrate + track_equilibrate)))
-        """
         sim.run(v_init)
         with h5py.File(data_dir+rec_filename+'.hdf5', 'a') as f:
             sim.export_to_file(f, simiter)
@@ -178,9 +178,7 @@ def run_n_trials(n):
             f[str(simiter)].create_dataset('output', compression='gzip', compression_opts=9,
                                         data=np.subtract(cell.spike_detector.get_recordvec().to_python(),
                                                          equilibrate + track_equilibrate))
-        """
     trials += n
-    return stim_inh_trains
 
 
 def plot_waveform_phase_vs_time(t, x, time_offset=0.):
@@ -201,7 +199,7 @@ def plot_waveform_phase_vs_time(t, x, time_offset=0.):
     return peak_times, peak_phases
 
 
-NMDA_type = 'NMDA_KIN4'
+NMDA_type = 'NMDA_KIN5'
 
 equilibrate = 250.  # time to steady-state
 global_theta_cycle_duration = 150.  # (ms)
@@ -238,12 +236,12 @@ inhibitory_theta_modulation_depth['apical dendritic'] = 0.5
 inhibitory_theta_modulation_depth['distal apical dendritic'] = 0.5
 inhibitory_theta_modulation_depth['tuft feedforward'] = 0.5
 inhibitory_theta_modulation_depth['tuft feedback'] = 0.5
-inhibitory_theta_phase_offset['perisomatic'] = 145. / 360. * 2. * np.pi  # Like PV+ Basket
-inhibitory_theta_phase_offset['apical dendritic'] = 215. / 360. * 2. * np.pi  # Like PYR-layer Bistratified
+inhibitory_theta_phase_offset['perisomatic'] = 130. / 360. * 2. * np.pi  # Like PV+ Basket
+inhibitory_theta_phase_offset['apical dendritic'] = 190. / 360. * 2. * np.pi  # Like PYR-layer Bistratified
 # inhibitory_theta_phase_offset['distal apical dendritic'] = 165. / 360. * 2. * np.pi  # Like SR/SLM Border Cells
-inhibitory_theta_phase_offset['distal apical dendritic'] = 215. / 360. * 2. * np.pi  # Like SR/SLM Border Cells
+inhibitory_theta_phase_offset['distal apical dendritic'] = 190. / 360. * 2. * np.pi  # Like SR/SLM Border Cells
 inhibitory_theta_phase_offset['tuft feedforward'] = 345. / 360. * 2. * np.pi  # Like Neurogliaform
-inhibitory_theta_phase_offset['tuft feedback'] = 215. / 360. * 2. * np.pi  # Like SST+ O-LM
+inhibitory_theta_phase_offset['tuft feedback'] = 190. / 360. * 2. * np.pi  # Like SST+ O-LM
 
 stim_dt = 0.02
 dt = 0.02
@@ -376,7 +374,10 @@ for sec_type in all_inh_syns:
             group = 'perisomatic'
         elif syn.node.type == 'apical':
             distance = cell.get_distance_to_node(cell.tree.root, cell.get_dendrite_origin(syn.node), loc=1.)
-            group = 'apical dendritic' if distance <= 150. else 'distal apical dendritic'
+            if distance <= 150.:
+                group = 'apical dendritic'
+            else:
+                group = local_random.choice(['apical dendritic', 'distal apical dendritic'])
         stim_inh_syns[group].append(syn)
 
 stim_t = np.arange(-track_equilibrate, track_duration, dt)
@@ -429,14 +430,9 @@ for group in inhibitory_manipulation_fraction:
     num_syns = int(len(stim_inh_syns[group]) * inhibitory_manipulation_fraction[group])
     manipulated_inh_syns[group] = local_random.sample(stim_inh_syns[group], num_syns)
 
-"""
+
 if trial_seed is None:
     trials = 0
-    run_n_trials(1)
 else:
     trials = trial_seed
-    run_n_trials(1)
-"""
-
-trials = trial_seed
-
+run_n_trials(1)
