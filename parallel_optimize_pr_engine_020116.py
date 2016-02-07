@@ -200,8 +200,8 @@ class SynList(object):
 
 equilibrate = 250.  # time to steady-state
 duration = 550.
-v_init = -65.
-syn_types = ['AMPA_KIN', 'NMDA_KIN4']
+v_init = -67.
+syn_types = ['AMPA_KIN', 'NMDA_KIN5']
 
 cell = CA1_Pyr(morph_filename, mech_filename, full_spines=True)
 cell.zero_na()

@@ -10,10 +10,11 @@ morph_filename = 'EB2-late-bifurcation.swc'
 # mech_filename = '052915 pas_exp_scale kdr ka_scale ih_sig_scale ampar_exp_scale nmda - EB2'
 # mech_filename = '080615 rebalanced na_ka ampa nmda - EB2'
 # mech_filename = '103115 interim dendritic excitability ampa nmda_kin3'
-mech_filename = '012816 altered intrinsic properties - ampa no_nmda'
+# mech_filename = '012816 altered intrinsic properties - ampa no_nmda'
+mech_filename = '020516 altered km2 rinp - ampa no_nmda'
 rec_filename = 'output'+datetime.datetime.today().strftime('%m%d%Y%H%M')+'-pid'+str(os.getpid())
 
-NMDA_type = 'NMDA_KIN4'
+NMDA_type = 'NMDA_KIN5'
 ISI = 0.3
 
 
@@ -92,7 +93,7 @@ def stim_single_expected((group_index, spine_index)):
 
 equilibrate = 250.  # time to steady-state
 duration = 450.
-v_init = -65.
+v_init = -67.
 syn_types = ['AMPA_KIN', NMDA_type]
 
 cell = CA1_Pyr(morph_filename, mech_filename, full_spines=True)

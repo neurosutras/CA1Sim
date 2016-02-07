@@ -12,7 +12,7 @@ group of spines (actual) to generate input-output plots. Parallel version dynami
 Assumes a controller is already running in another process with:
 ipcluster start -n num_cores
 """
-new_rec_filename = '012916 clustered nmda cooperativity'
+new_rec_filename = '020616 clustered nmda cooperativity'
 
 if len(sys.argv) > 1:
     cluster_id = sys.argv[1]

@@ -13,7 +13,7 @@ Each engine sweeps the entire range of spines until max cooperativity is reached
 Assumes a controller is already running in another process with:
 ipcluster start -n num_cores
 """
-new_rec_filename = '012916 clustered nmda cooperativity - no_nmda'
+new_rec_filename = '020616 clustered nmda cooperativity - no_nmda'
 
 if len(sys.argv) > 1:
     cluster_id = sys.argv[1]

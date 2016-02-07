@@ -172,7 +172,8 @@ target_range = {'peak_supralinearity': 1., 'min_supralinearity': 0.1,'unitary_nm
 # x0 = [3.992E-03, 0.100, 9.20, 1.29]
 # x0 = [3.607E-03, 0.098, 7.36, 1.92]
 x0 = [3.613E-03, 0.100, 7.51, 1.81]
-x1 = [4.550E-03, 0.113, 8.96, 2.63]
+# x1 = [4.550E-03, 0.113, 8.96, 2.63]
+x1 = [3.026E-03, 0.101, 9.98, 1.83]
 xmin = [5e-4, 0.05, 3., 1.]
 xmax = [5e-3, 0.12, 10., 4.]
 
@@ -186,22 +187,23 @@ dv.clear()
 dv.block = True
 global_start_time = time.time()
 dv.execute('from parallel_optimize_branch_cooperativity_nmda_kin3_engine import *')
-time.sleep(240)
+#time.sleep(240)
 v = c.load_balanced_view()
 #create_no_nmda_expected_file()  # run once for each new mech_dict
 """
 result = optimize.basinhopping(branch_cooperativity_error, x0, niter=720, niter_success=300, disp=True, interval=30,
                                                             minimizer_kwargs=minimizer_kwargs, take_step=mytakestep)
 print result
-"""
+
 polished_result = optimize.minimize(branch_cooperativity_error, x0, method='Nelder-Mead',
                                     options={'xtol': 1e-3, 'ftol': 1e-3, 'disp': True, 'maxiter': 400})
 
 print polished_result
 """
+
 #branch_cooperativity_error(result.x, plot=1)
 branch_cooperativity_error(x1, 1)
-"""
+
 
 """
 012916: Branch chosen with trunk origin between 75 - 100 um, spines between 30 - 60 um along ~90 um length.
@@ -210,8 +212,8 @@ Peak Supralinearity: 43.51, Min Supralinearity: -4.87, Unitary % NMDA: 0.092
 Error: 1.0885E+02
 
 020416: Branch chosen with trunk origin between ~100 um, spines between 30 - 60 um along ~90 um length.
-Basinhopping:
-[4.550E-03, 0.113, 8.96, 2.63]
-Peak Supralinearity: 45.67, Min Supralinearity: -5.83, Unitary % NMDA: 6.892
-Parallel simulation took 91 s, Error: 3.2897E+02
+Simplex, favoring lower gmax over min error:
+[gmax, gamma, Kd, kin_scale]: [3.026E-03, 0.101, 9.98, 1.83]
+Peak Supralinearity: 45.42, Min Supralinearity: -1.22, Unitary % NMDA: 12.850
+Parallel simulation took 210 s, Error: 8.1046E+02
 """
