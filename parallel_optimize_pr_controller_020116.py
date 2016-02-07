@@ -21,7 +21,7 @@ def basal_release_error(x, plot=0):
     :return: float
     """
     start_time = time.time()
-    repeat = 10
+    repeat = 20
     instructions = []
     for i in range(repeat):
         instructions.append(x)
@@ -77,7 +77,7 @@ def release_dynamics_error(x, plot=0):
     :return: float
     """
     start_time = time.time()
-    repeat = 10
+    repeat = 20
     ISI_list = [300, 100, 50, 25, 10]
     instructions = []
     for ISI in ISI_list:
@@ -183,7 +183,7 @@ xmin = {}
 xmax = {}
 
 # x0['basal'] = [num_syns_to_stim]
-x0['basal'] = [0.0031]  # n will be filtered by f(n) = int(n * 10000)
+x0['basal'] = [0.00301]  # n will be filtered by f(n) = int(n * 10000)
 xmin['basal'] = [0.0030]
 xmax['basal'] = [0.0040]
 
@@ -207,7 +207,7 @@ dv.clear()
 dv.block = True
 global_start_time = time.time()
 dv.execute('from parallel_optimize_pr_engine_020116 import *')
-# time.sleep(120)
+time.sleep(240)
 v = c.load_balanced_view()
 
 """
@@ -222,16 +222,17 @@ print result
 # then use the resulting number of synapses during optimization of the parameters governing release dynamics
 N = int(x0['basal'][0] * 10000.)
 dv.execute('syn_list.choose_syns_to_stim('+str(N)+')')
-# time.sleep(60)
+time.sleep(60)
 
-"""
+
+
 mytakestep = Normalized_Step(x0['dynamics'], xmin['dynamics'], xmax['dynamics'])
 minimizer_kwargs = dict(method=null_minimizer)
 
-result = optimize.basinhopping(release_dynamics_error, x0['dynamics'], niter=600, niter_success=100, disp=True,
+result = optimize.basinhopping(release_dynamics_error, x0['dynamics'], niter=720, niter_success=200, disp=True,
                                 interval=30, minimizer_kwargs=minimizer_kwargs, take_step=mytakestep)
 print result
-
+"""
 # release_dynamics_error(result.x, plot=1)
 
 polished_result = optimize.minimize(release_dynamics_error, x0['dynamics'], method='Nelder-Mead',
@@ -241,4 +242,4 @@ print polished_result
 release_dynamics_error(polished_result.x, plot=1)
 """
 
-release_dynamics_error(x0['dynamics'], plot=1)
+# release_dynamics_error(x0['dynamics'], plot=1)
