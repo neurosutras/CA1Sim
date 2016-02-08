@@ -251,4 +251,7 @@ release_dynamics_error(x0['dynamics'], plot=1)
 020716:
 [Num synapses, P0, f, tau_F, d, tau_D]: [30, 0.200, 1.786, 66.242, 0.883, 105.858],
 unit amp: 3.794, unit slope: -3.023E-02, recovery unit amp: 7.664, basinhopping step 199: Error: 729.99
+
+[Num synapses, P0, f, tau_F, d, tau_D]: [30, 0.200, 1.769, 67.351, 0.878, 92.918],
+unit amp: 3.782, unit slope: 8.499E-02, recovery unit amp: 7.519, basinhopping step 313: Error: 687.832
 """
