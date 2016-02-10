@@ -38,7 +38,7 @@ sim.append_rec(cell, trunk, description='proximal_trunk', loc=1.)
 #GABA_syn = trunk.synapses[0]
 GABA_syn = cell.tree.root.synapses[0]
 GABA_syn.target('GABA_A_KIN').Erev = 0.
-GABA_syn.target('GABA_A_KIN').gmax = 0.000492
+GABA_syn.target('GABA_A_KIN').gmax = 0.000492 * 1.2
 #sim.append_rec(cell, trunk.spines[0], object=AMPA_syn.target('AMPA_KIN'), param='_ref_i', description='AMPA_i')
 sim.append_rec(cell, cell.tree.root, object=GABA_syn.target('GABA_A_KIN'), param='_ref_i', description='GABA_i')
 

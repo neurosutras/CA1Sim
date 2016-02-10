@@ -78,7 +78,7 @@ PARAMETER {
     Beta	= 283.090   (/ms)	        : channel opening rate
     Alpha   = 254.520   (/ms)           : open channel closing rate
 	Erev	= -73.0     (mV)		    : reversal potential (-70.0)
-	gmax	= 0.000492  (umho)	        : maximum conductance (0.000603)
+	gmax	= 0.000590  (umho)	        : maximum conductance [0.000603, 0.000492, 0.000590]
 }
 
 
