@@ -1414,14 +1414,31 @@ def plot_expected_vs_actual_traces(expected_filename, actual_filename, path_inde
             sim_keys.sort(key=lambda x: len(actual_file[x].attrs['syn_indexes']))
             syn_indexes = actual_file[sim_keys[max_num-1]].attrs['syn_indexes']
             equilibrate  = actual_file[sim_keys[max_num-1]].attrs['equilibrate']
-            duration  = actual_file[sim_keys[max_num-1]].attrs['duration']
+            duration = actual_file[sim_keys[max_num-1]].attrs['duration']
             t = np.arange(-10., duration - equilibrate, dt)
             running_expected = np.zeros(len(t))
             for i, syn_index in enumerate(syn_indexes):
-                trial = actual_file[sim_keys[i]]
-                local_duration = trial.attrs['duration']
-                interp_t = np.arange(0., local_duration, dt)
-                actua
+                if i % plot_every == 0:
+                    trial = actual_file[sim_keys[i]]
+                    local_duration = trial.attrs['duration']
+                    interp_t = np.arange(0., local_duration, dt)
+                    actual_trace = np.interp(interp_t, trial['time'], trial['rec'][rec_key])
+                    baseline = np.mean(actual_trace[int((equilibrate - 3.)/dt):int((equilibrate - 1.)/dt)])
+                    actual_trace -= baseline
+                    actual_trace = actual_trace[int((equilibrate - 10.)/dt):]
+                    actual_traces.append(actual_trace)
+                group_index = expected_index_map[spine_index]
+                trace_dict = get_expected_EPSP(expected_sim_file, group_index, equilibrate, duration, dt)
+                t = trace_dict['time']
+                left, right = time2index(interp_t, -2.+i*interval, interp_t[-1])
+                right = min(right, left+len(t))
+                for location in [location for location in trace_dict if not location == 'time']:
+                    trace = trace_dict[location]
+                    if not location in expected:
+                        expected[location] = []
+                        summed_traces[location] = np.zeros(len(interp_t))
+                    summed_traces[location][left:right] += trace[:right-left]
+                    expected[location].append(np.max(summed_traces[location]))
 
     return expected_index_map, syn_indexes
 

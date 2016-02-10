@@ -31,11 +31,13 @@ dv = c[:]
 dv.clear()
 dv.block = True
 start_time = time.time()
-dv.execute('from build_expected_EPSP_reference_engine import *')
-time.sleep(240)
-dv.execute('local_container.distribute_synapses('+str(synapses_seed)+', '+str(num_exc_syns)+', '+
+result = dv.execute('from build_expected_EPSP_reference_engine import *')
+while not result.ready():
+    time.sleep(30)
+result = dv.execute('local_container.distribute_synapses('+str(synapses_seed)+', '+str(num_exc_syns)+', '+
                     str(num_inh_syns)+')')
-time.sleep(60)
+while not result.ready():
+    time.sleep(30)
 
 v = c.load_balanced_view()
 num_exc_syns = dv['len(local_container.stim_exc_syn_list)'][0]

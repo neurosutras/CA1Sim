@@ -198,7 +198,7 @@ else:
     trunk_bifurcation = [node for node in cell.trunk if 'tuft' in (child.type for child in node.children)]
     trunk = trunk_bifurcation[0]
 
-sim = QuickSim(duration, cvode=0, dt=0.01, verbose=0)
+sim = QuickSim(duration, verbose=0)
 sim.parameters['equilibrate'] = equilibrate
 sim.parameters['global_theta_cycle_duration'] = global_theta_cycle_duration
 sim.parameters['input_field_duration'] = input_field_duration
