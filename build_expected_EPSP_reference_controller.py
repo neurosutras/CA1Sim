@@ -21,11 +21,11 @@ if len(sys.argv) > 1:
 else:
     c = Client()
 
-synapses_seed = 0
-num_exc_syns = 2800
+synapses_seed = 1
+num_exc_syns = 2700
 num_inh_syns = 400
 
-new_rec_filename = '020816 expected reference'+'-seed'+str(synapses_seed)+'-e'+str(num_exc_syns)+'-i'+str(num_inh_syns)
+new_rec_filename = '021016 expected reference'+'-seed'+str(synapses_seed)+'-e'+str(num_exc_syns)+'-i'+str(num_inh_syns)
 
 dv = c[:]
 dv.clear()

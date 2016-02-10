@@ -1,7 +1,7 @@
 __author__ = 'milsteina'
 from specify_cells import *
 import random
-import sys
+import os
 import time
 """
 
@@ -101,7 +101,8 @@ class EngineContainer(object):
                     elif distance <= 150.:
                         group = 'apical dendritic'
                     else:
-                        group = self.local_random.choice(['apical dendritic', 'distal apical dendritic'])
+                        group = self.local_random.choice(['apical dendritic', 'distal apical dendritic',
+                                                          'distal apical dendritic'])
                 elif syn.node.type == 'basal':
                     distance = self.cell.get_distance_to_node(self.cell.tree.root, syn.node, syn.loc)
                     group = 'perisomatic' if distance <= 50. and not self.cell.is_terminal(syn.node) else \
@@ -114,10 +115,9 @@ class EngineContainer(object):
                     if distance <= 150.:
                         group = 'apical dendritic'
                     else:
-                        group = self.local_random.choice(['apical dendritic', 'distal apical dendritic'])
+                        group = self.local_random.choice(['apical dendritic', 'distal apical dendritic',
+                                                          'distal apical dendritic'])
                 stim_inh_syns[group].append(syn)
-
-        stim_t = np.arange(-track_equilibrate, track_duration, dt)
 
         gauss_sigma = global_theta_cycle_duration * input_field_width / 3. / np.sqrt(2.)  # contains 99.7% gaussian area
 
@@ -175,10 +175,8 @@ unit_theta_cycle_duration = global_theta_cycle_duration * input_field_width / (i
 input_field_duration = input_field_width * global_theta_cycle_duration
 track_length = 2.5  # field widths
 track_duration = track_length * input_field_duration
-track_equilibrate = 2. * global_theta_cycle_duration
 duration = equilibrate + 200.
 
-dt = 0.02
 v_init = -67.
 
 syn_types = ['AMPA_KIN', NMDA_type]
@@ -200,14 +198,12 @@ else:
     trunk_bifurcation = [node for node in cell.trunk if 'tuft' in (child.type for child in node.children)]
     trunk = trunk_bifurcation[0]
 
-sim = QuickSim(duration, verbose=0)
+sim = QuickSim(duration, cvode=0, dt=0.01, verbose=0)
 sim.parameters['equilibrate'] = equilibrate
-sim.parameters['track_equilibrate'] = track_equilibrate
 sim.parameters['global_theta_cycle_duration'] = global_theta_cycle_duration
 sim.parameters['input_field_duration'] = input_field_duration
 sim.parameters['track_length'] = track_length
 sim.parameters['duration'] = duration
-sim.parameters['dt'] = dt
 sim.append_rec(cell, cell.tree.root, description='soma', loc=0.5)
 sim.append_rec(cell, trunk, description='distal_trunk', loc=0.)
 sim.append_rec(cell, trunk_bifurcation[0], description='proximal_trunk', loc=1.)
