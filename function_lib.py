@@ -1409,6 +1409,7 @@ def generate_patterned_input_expected(expected_filename, actual_filename, locati
     with h5py.File(data_dir+expected_filename+'.hdf5', 'r') as expected_file:
         expected_equilibrate = expected_file.itervalues().next().attrs['equilibrate']
         expected_duration = expected_file.itervalues().next().attrs['duration']
+        expected_key_map = {expected_file[key].attrs['spine_index']: key for key in expected_file}
         with h5py.File(data_dir+actual_filename+'.hdf5', 'r') as actual_file:
             trial = actual_file.itervalues().next()
             equilibrate = trial.attrs['equilibrate']
@@ -1423,8 +1424,8 @@ def generate_patterned_input_expected(expected_filename, actual_filename, locati
                 trial = actual_file[trial_index]
                 for train_index in trial['train']:
                     synapse_index = trial['train'][train_index].attrs['index']
-                    expected_EPSP = get_expected_EPSP(expected_file, str(synapse_index), expected_equilibrate,
-                                                      expected_duration, dt)
+                    expected_EPSP = get_expected_EPSP(expected_file, expected_key_map[synapse_index],
+                                                      expected_equilibrate, expected_duration, dt)
                     for spike_time in [spike_time for spike_time in trial['train'][train_index] if spike_time >= 0.]:
                         start = int(spike_time/dt)
                         for sec_type in location_list:

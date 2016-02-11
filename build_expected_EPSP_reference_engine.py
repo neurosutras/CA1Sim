@@ -157,6 +157,7 @@ def stim_single_exc_syn(index):
     sim.run(v_init)
     syn.source.play(h.Vector())
     with h5py.File(data_dir+rec_filename+'.hdf5', 'a') as f:
+        sim.parameters['spine_index'] = node_index
         sim.export_to_file(f, node_index)
     print 'Process: %i took %i s to stimulate synapse with index %i' % (os.getpid(), time.time() - start_time,
                                                                          node_index)
