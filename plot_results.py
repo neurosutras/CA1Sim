@@ -1221,7 +1221,7 @@ def plot_synaptic_parameter(rec_file_list, description_list=None):
     if description_list is None:
         description_list = ["" for rec in rec_file_list]
     with h5py.File(data_dir+rec_file_list[0]+'.hdf5', 'r') as f:
-        param_list = [dataset for dataset in f.values()[0] if not dataset == 'distances']
+        param_list = [dataset for dataset in f.itervalues().next() if not dataset == 'distances']
         fig, axes = plt.subplots(max(2,len(param_list)), max(2, len(f)))
     colors = ['k', 'r', 'c', 'y', 'm', 'g', 'b']
     for index, rec_filename in enumerate(rec_file_list):
@@ -2150,7 +2150,7 @@ def process_patterned_input_simulation(rec_filename, title, dt=0.02):
     # remember .attrs['phase_offset'] could be inside ['train'] for old files
     """
     with h5py.File(data_dir+rec_filename+'.hdf5', 'r') as f:
-        sim = f.values()[0]
+        sim = f.itervalues().next()
         equilibrate = sim.attrs['equilibrate']
         track_equilibrate = sim.attrs['track_equilibrate']
         track_length = sim.attrs['track_length']
@@ -2161,12 +2161,12 @@ def process_patterned_input_simulation(rec_filename, title, dt=0.02):
         track_duration = duration - equilibrate - track_equilibrate
         stim_t = np.arange(-track_equilibrate, track_duration, stim_dt)
         intervals = []
-        for sim in f.values():
-            for train in sim['train'].values():
+        for sim in f.itervalues():
+            for train in sim['train'].itervalues():
                 if len(train) > 0:
                     for i in range(len(train) - 1):
                         intervals.append(train[i+1] - train[i])
-        pop_input = [get_binned_firing_rate(sim['train'].values(), stim_t) for sim in f.values()]
+        pop_input = [get_binned_firing_rate(sim['train'].values(), stim_t) for sim in f.itervalues()]
         pop_psd = []
         for this_pop_input in pop_input:
             pop_freq, this_pop_psd = signal.periodogram(this_pop_input, 1000./stim_dt)
@@ -2176,23 +2176,23 @@ def process_patterned_input_simulation(rec_filename, title, dt=0.02):
         right = np.where(pop_freq >= 11.)[0][0]
         pop_psd /= np.max(pop_psd[left:right])
         mean_input = np.mean(pop_input, axis=0)
-        if 'successes' in f.values()[0]:
-            successes = [get_binned_firing_rate(sim['successes'].values(), stim_t) for sim in f.values()]
+        if 'successes' in f.itervalues().next():
+            successes = [get_binned_firing_rate(sim['successes'].values(), stim_t) for sim in f.itervalues()]
             mean_successes = np.mean(successes, axis=0)
-        if 'inh_train' in f.values()[0]:
-            inh_input = [get_binned_firing_rate(sim['inh_train'].values(), stim_t) for sim in f.values()]
+        if 'inh_train' in f.itervalues().next():
+            inh_input = [get_binned_firing_rate(sim['inh_train'].values(), stim_t) for sim in f.itervalues()]
             mean_inh_input = np.mean(inh_input, axis=0)
         start = int(track_equilibrate/stim_dt)
         spatial_bin = input_field_duration/50.
         #output = [get_binned_firing_rate([sim['output']], stim_t[start:], bin_dur=spatial_bin) for sim in f.values()]
         output = [get_smoothed_firing_rate([sim['output']], stim_t[start:], bin_dur=3.*spatial_bin,
-                                           bin_step=spatial_bin, dt=stim_dt) for sim in f.values()]
+                                           bin_step=spatial_bin, dt=stim_dt) for sim in f.itervalues()]
         mean_output = np.mean(output, axis=0)
         fig, axes = plt.subplots(3, 1)
         axes[0].plot(stim_t[start:], mean_input[start:], label='Total Excitatory Input Spike Rate', c='b')
-        if 'successes' in f.values()[0]:
+        if 'successes' in f.itervalues().next():
             axes[0].plot(stim_t[start:], mean_successes[start:], label='Total Excitatory Input Success Rate', c='g')
-        if 'inh_train' in f.values()[0]:
+        if 'inh_train' in f.itervalues().next():
             axes[1].plot(stim_t[start:], mean_inh_input[start:], label='Total Inhibitory Input Spike Rate', c='k')
         axes[2].plot(stim_t[start:], mean_output, label='Single Cell Output Spike Rate', c='r')
         for ax in axes:
@@ -2209,7 +2209,7 @@ def process_patterned_input_simulation(rec_filename, title, dt=0.02):
         plt.title('Distribution of Input Inter-Spike Intervals - '+title)
         plt.show()
         plt.close()
-        peak_locs = [sim.attrs['peak_loc'] for sim in f.values()[0]['train'].values()]
+        peak_locs = [sim.attrs['peak_loc'] for sim in f.itervalues().next()['train'].itervalues()]
         plt.hist(peak_locs, bins=bins)
         plt.xlabel('Time (ms)')
         plt.ylabel('Count (20 ms Bins)')
@@ -2217,7 +2217,7 @@ def process_patterned_input_simulation(rec_filename, title, dt=0.02):
         plt.xlim((np.min(peak_locs), np.max(peak_locs)))
         plt.show()
         plt.close()
-        for sim in f.values():
+        for sim in f.itervalues():
             t = np.arange(0., duration, dt)
             vm = np.interp(t, sim['time'], sim['rec']['0'])
             start = int((equilibrate + track_equilibrate)/dt)
@@ -2316,7 +2316,7 @@ def plot_patterned_input_soma_vm(rec_filename, title, dt=0.02):
     # remember .attrs['phase_offset'] could be inside ['train'] for old files
     """
     with h5py.File(data_dir+rec_filename+'.hdf5', 'r') as f:
-        sim = f.values()[0]
+        sim = f.itervalues().next()
         equilibrate = sim.attrs['equilibrate']
         track_equilibrate = sim.attrs['track_equilibrate']
         track_length = sim.attrs['track_length']
@@ -2324,7 +2324,7 @@ def plot_patterned_input_soma_vm(rec_filename, title, dt=0.02):
         duration = sim.attrs['duration']
         stim_dt = sim.attrs['stim_dt']
         track_duration = duration - equilibrate - track_equilibrate
-        for sim in f.values():
+        for sim in f.itervalues():
             t = np.arange(0., duration, dt)
             vm = np.interp(t, sim['time'], sim['rec']['0'])
             start = int((equilibrate + track_equilibrate)/dt)
@@ -2345,7 +2345,7 @@ def process_simple_input_simulation(rec_filename, title, dt=0.02):
     # remember .attrs['phase_offset'] could be inside ['train'] for old files
     """
     with h5py.File(data_dir+rec_filename+'.hdf5', 'r') as f:
-        sim = f.values()[0]
+        sim = f.itervalues().next()
         equilibrate = sim.attrs['equilibrate']
         track_equilibrate = sim.attrs['track_equilibrate']
         track_length = sim.attrs['track_length']
@@ -2356,12 +2356,12 @@ def process_simple_input_simulation(rec_filename, title, dt=0.02):
         track_duration = duration - equilibrate - track_equilibrate
         stim_t = np.arange(-track_equilibrate, track_duration, stim_dt)
         intervals = []
-        for sim in f.values():
-            for train in sim['train'].values():
+        for sim in f.itervalues():
+            for train in sim['train'].itervalues():
                 if len(train) > 0:
                     for i in range(len(train) - 1):
                         intervals.append(train[i+1] - train[i])
-        pop_input = [get_binned_firing_rate(sim['train'].values(), stim_t) for sim in f.values()]
+        pop_input = [get_binned_firing_rate(sim['train'].values(), stim_t) for sim in f.itervalues()]
         pop_psd = []
         for this_pop_input in pop_input:
             pop_freq, this_pop_psd = signal.periodogram(this_pop_input, 1000./stim_dt)
@@ -2371,18 +2371,18 @@ def process_simple_input_simulation(rec_filename, title, dt=0.02):
         right = np.where(pop_freq >= 11.)[0][0]
         pop_psd /= np.max(pop_psd[left:right])
         mean_input = np.mean(pop_input, axis=0)
-        if 'successes' in f.values()[0]:
-            successes = [get_binned_firing_rate(sim['successes'].values(), stim_t) for sim in f.values()]
+        if 'successes' in f.itervalues().next():
+            successes = [get_binned_firing_rate(sim['successes'].values(), stim_t) for sim in f.itervalues()]
             mean_successes = np.mean(successes, axis=0)
-        if 'inh_train' in f.values()[0]:
-            inh_input = [get_binned_firing_rate(sim['inh_train'].values(), stim_t) for sim in f.values()]
+        if 'inh_train' in f.itervalues().next():
+            inh_input = [get_binned_firing_rate(sim['inh_train'].values(), stim_t) for sim in f.itervalues()]
             mean_inh_input = np.mean(inh_input, axis=0)
         start = int(track_equilibrate/stim_dt)
         fig, axes = plt.subplots(2, 1)
         axes[0].plot(stim_t[start:], mean_input[start:], label='Total Excitatory Input Spike Rate', c='b')
-        if 'successes' in f.values()[0]:
+        if 'successes' in f.itervalues().next():
             axes[0].plot(stim_t[start:], mean_successes[start:], label='Total Excitatory Input Success Rate', c='g')
-        if 'inh_train' in f.values()[0]:
+        if 'inh_train' in f.itervalues().next():
             axes[1].plot(stim_t[start:], mean_inh_input[start:], label='Total Inhibitory Input Spike Rate', c='k')
         for ax in axes:
             ax.legend(loc='upper left', frameon=False, framealpha=0.5)
@@ -2398,7 +2398,7 @@ def process_simple_input_simulation(rec_filename, title, dt=0.02):
         plt.title('Distribution of Input Inter-Spike Intervals - '+title)
         plt.show()
         plt.close()
-        peak_locs = [sim.attrs['peak_loc'] for sim in f.values()[0]['train'].values()]
+        peak_locs = [sim.attrs['peak_loc'] for sim in f.itervalues().next()['train'].itervalues()]
         plt.hist(peak_locs, bins=bins)
         plt.xlabel('Time (ms)')
         plt.ylabel('Count (20 ms Bins)')
@@ -2406,7 +2406,7 @@ def process_simple_input_simulation(rec_filename, title, dt=0.02):
         plt.xlim((np.min(peak_locs), np.max(peak_locs)))
         plt.show()
         plt.close()
-        for sim in f.values():
+        for sim in f.itervalues():
             t = np.arange(0., duration, dt)
             vm = np.interp(t, sim['time'], sim['rec']['0'])
             start = int((equilibrate + track_equilibrate)/dt)
@@ -2574,12 +2574,12 @@ def process_simple_axon_model_output(rec_filename):
         right = int((equilibrate-1.) / dt)
         start = int((equilibrate+stim_dur-11.) / dt)
         end = int((equilibrate+stim_dur-1.) / dt)
-        distances = [rec.attrs['soma_distance'] for rec in f.values()[0]['rec'].values()]
-        propagation = {sim.attrs['vm_amp_target']: [] for sim in f.values()}
-        for i, sim in enumerate(f.values()):
+        distances = [rec.attrs['soma_distance'] for rec in f.itervalues().next()['rec'].itervalues()]
+        propagation = {sim.attrs['vm_amp_target']: [] for sim in f.itervalues()}
+        for i, sim in enumerate(f.itervalues()):
             target = sim.attrs['vm_amp_target']
             soma_plateau = sim.attrs['plateau']
-            for rec in sim['rec'].values():
+            for rec in sim['rec'].itervalues():
                 vm = np.interp(t, sim['time'], rec)
                 baseline = np.mean(vm[left:right])
                 plateau = np.min(vm[start:end]) - baseline
@@ -2613,9 +2613,9 @@ def get_spike_delay_vs_distance_simple_axon_model(rec_filename):
         end = int((equilibrate+stim_dur) / dt)
         distances = []
         delays = []
-        for sim in f.values():
+        for sim in f.itervalues():
             if not distances:
-                for rec in sim['rec'].values():
+                for rec in sim['rec'].itervalues():
                     distances.append(rec.attrs['soma_distance'])
             if sim['stim']['0'].attrs['amp'] > 0.:
                 rec = sim['rec']['0']
@@ -2629,7 +2629,7 @@ def get_spike_delay_vs_distance_simple_axon_model(rec_filename):
                     soma_peak_x = np.where(vm[soma_th_x:end]==soma_peak)[0][0] + soma_th_x
                     soma_peak_t = t[soma_peak_x]
                     start = soma_th_x - int(2. / dt)
-                    for rec in sim['rec'].values():
+                    for rec in sim['rec'].itervalues():
                         vm = np.interp(t, sim['time'], rec)
                         peak = np.max(vm[start:end])
                         peak_x = np.where(vm[start:end]==peak)[0][0] + start

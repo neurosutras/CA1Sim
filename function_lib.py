@@ -1326,7 +1326,7 @@ def get_patterned_input_component_traces(rec_filename, dt=0.02):
 
 def get_patterned_input_mean_values(residuals, intra_theta_amp, rate_map, ramp,
                                     key_list=['modinh0', 'modinh1', 'modinh2'],
-                                    i_bounds=[0., 1800., 3900., 5700.], peak_bounds=[600., 1200., 4200., 4800.],
+                                    i_bounds=[0., 1800., 3600., 5400.], peak_bounds=[600., 1200., 4200., 4800.],
                                     dt=0.02):
     """
 
