@@ -1420,6 +1420,14 @@ def generate_patterned_input_expected(expected_filename, actual_filename, locati
             stochastic = True if 'successes' in trial else False
             pre = {sec_type: np.zeros(len(t)) for sec_type in location_list}
             post = {sec_type: np.zeros(len(t)) for sec_type in location_list}
+            expected_sim = expected_file.itervalues().next()
+            expected_t = np.arange(0., expected_duration, dt)
+            for rec in (rec for rec in expected_sim['rec'].itervalues() if rec.attrs['description'] in location_list):
+                sec_type = rec.attrs['description']
+                vm = np.interp(expected_t, expected_sim['time'], rec)
+                baseline = np.mean(vm[int((expected_equilibrate-3.)/dt):int((expected_equilibrate-1.)/dt)])
+                pre[sec_type] += baseline
+                post[sec_type] += baseline
             for trial_index in actual_file:
                 trial = actual_file[trial_index]
                 for train_index in trial['train']:
@@ -1431,11 +1439,11 @@ def generate_patterned_input_expected(expected_filename, actual_filename, locati
                         for sec_type in location_list:
                             if sec_type in expected_EPSP:
                                 this_EPSP = expected_EPSP[sec_type][int(2./dt):]
-                                stop = start + len(this_EPSP)
+                                stop = min(start + len(this_EPSP), len(t))
                                 if stochastic:
-                                    pre[sec_type][start:stop] += P0 * this_EPSP
+                                    pre[sec_type][start:stop] += P0 * this_EPSP[:stop-start]
                                 else:
-                                    post[sec_type][start:stop] += this_EPSP
+                                    post[sec_type][start:stop] += this_EPSP[:stop-start]
                     if stochastic:
                         for spike_time in [spike_time for spike_time in trial['successes'][train_index] if
                                            spike_time >= 0.]:
@@ -1443,20 +1451,20 @@ def generate_patterned_input_expected(expected_filename, actual_filename, locati
                             for sec_type in location_list:
                                 if sec_type in expected_EPSP:
                                     this_EPSP = expected_EPSP[sec_type][int(2./dt):]
-                                    stop = start + len(this_EPSP)
-                                    post[sec_type][start:stop] += this_EPSP
+                                    stop = min(start + len(this_EPSP), len(t))
+                                    post[sec_type][start:stop] += this_EPSP[:stop-start]
                 with h5py.File(data_dir+output_filename+'.hdf5', 'a') as output_file:
                     output_file.create_group(trial_index)
                     output_file[trial_index].attrs['dt'] = dt
                     output_file[trial_index].attrs['duration'] = track_duration
                     if stochastic:
                         output_file[trial_index].create_group('pre')
-                        for i, sec_type in location_list:
+                        for i, sec_type in enumerate(location_list):
                             output_file[trial_index]['pre'].create_dataset(str(i), compression='gzip',
                                                                            compression_opts=9, data=pre[sec_type])
                             output_file[trial_index]['pre'][str(i)].attrs['description'] = sec_type
                     output_file[trial_index].create_group('post')
-                    for i, sec_type in location_list:
+                    for i, sec_type in enumerate(location_list):
                         output_file[trial_index]['post'].create_dataset(str(i), compression='gzip',
                                                                        compression_opts=9, data=post[sec_type])
                         output_file[trial_index]['post'][str(i)].attrs['description'] = sec_type

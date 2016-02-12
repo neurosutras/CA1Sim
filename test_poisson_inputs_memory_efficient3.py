@@ -337,7 +337,7 @@ modulated_field_center = track_duration * 0.6
 gauss_mod_amp = {}
 #modulated_start_index = len(stim_exc_syns)
 for group in stim_exc_syns:
-    gauss_mod_amp[group] = 1.3 * np.exp(-((np.array(peak_locs[group]) - modulated_field_center) /
+    gauss_mod_amp[group] = 1.5 * np.exp(-((np.array(peak_locs[group]) - modulated_field_center) /
                                           (gauss_sigma * 1.4)) ** 2.) + 1.
     for i, syn in enumerate(stim_exc_syns[group]):
         syn.netcon('AMPA_KIN').weight[0] = gauss_mod_amp[group][i]
