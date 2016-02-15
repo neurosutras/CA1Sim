@@ -1392,7 +1392,8 @@ def compress_i_syn_rec_files(rec_filelist, rec_description_list=['i_AMPA', 'i_NM
         print 'Compressed i_syn recordings in file: ', rec_file
 
 
-def generate_patterned_input_expected(expected_filename, actual_filename, location_list=['soma'], dt=0.02, P0=0.2):
+def generate_patterned_input_expected(expected_filename, actual_filename, output_filename=None,
+                                      location_list=['soma'], dt=0.02, P0=0.2):
     """
     Given a reference file containing unitary EPSPs corresponding to stimulating individual spines in isolation, and an
     actual file from a patterned input simulation, generate an output file containing two sets of expected waveforms: a
@@ -1400,12 +1401,14 @@ def generate_patterned_input_expected(expected_filename, actual_filename, locati
     post-synaptic expectation assuming linear summation of the expected value of transmission, including a low basal P0.
     :param expected_filename: str
     :param actual_filename: str
+    :param output_filename: str
     :param location_list: list of str
     :param dt: float
     :param P0: float
     :return: str: output_filename
     """
-    output_filename = actual_filename+'_linear_expected'
+    if output_filename is None:
+        output_filename = actual_filename+'_linear_expected'
     with h5py.File(data_dir+expected_filename+'.hdf5', 'r') as expected_file:
         expected_equilibrate = expected_file.itervalues().next().attrs['equilibrate']
         expected_duration = expected_file.itervalues().next().attrs['duration']

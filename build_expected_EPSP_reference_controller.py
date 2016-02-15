@@ -20,10 +20,13 @@ if len(sys.argv) > 1:
     c = Client(cluster_id=cluster_id)
 else:
     c = Client()
+if len(sys.argv) > 2:
+    synapses_seed = int(sys.argv[2])
+else:
+    synapses_seed = 1
 
-synapses_seed = 1
-num_exc_syns = 2700
-num_inh_syns = 400
+num_exc_syns = 2900
+num_inh_syns = 500
 
 new_rec_filename = '021016 expected reference'+'-seed'+str(synapses_seed)+'-e'+str(num_exc_syns)+'-i'+str(num_inh_syns)
 

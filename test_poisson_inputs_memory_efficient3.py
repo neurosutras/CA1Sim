@@ -41,7 +41,7 @@ else:
 
 rec_filename = 'output'+datetime.datetime.today().strftime('%m%d%Y%H%M')+'-pid'+str(os.getpid())+'-seed'+\
                str(synapses_seed)+'-e'+str(num_exc_syns)+'-i'+str(num_inh_syns)+'-mod_inh'+str(mod_inh)+\
-               '-mem_eff2_'+str(trial_seed)
+               '-mem_eff3_'+str(trial_seed)
 
 
 def run_trial(simiter):
