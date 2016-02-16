@@ -1367,7 +1367,7 @@ def get_patterned_input_mean_values(residuals, intra_theta_amp, rate_map, ramp,
             print condition, parameter[condition]
 
 
-def compress_i_syn_rec_files(rec_filelist, rec_description_list=['i_AMPA', 'i_NMDA'], local_data_dir=data_dir):
+def compress_i_syn_rec_files(rec_filelist, rec_description_list=['i_AMPA', 'i_NMDA', 'i_GABA'], local_data_dir=data_dir):
     """
     Simulations in which synaptic currents have been recorded from all active synapses produce very large files, but
     only the total sum current is analyzed. This function replaces the individual current recordings in each .hdf5
@@ -1380,13 +1380,15 @@ def compress_i_syn_rec_files(rec_filelist, rec_description_list=['i_AMPA', 'i_NM
     for rec_file in rec_filelist:
         with h5py.File(local_data_dir+rec_file+'.hdf5', 'a') as f:
             for trial in f.itervalues():
-                i_syn_dict = {syn_type: np.zeros(len(trial['time'])) for syn_type in rec_description_list}
+                i_syn_dict = {}
                 for rec in trial['rec']:
-                    for syn_type in i_syn_dict:
-                        if trial['rec'][rec].attrs['description'] == syn_type:
+                    syn_type = trial['rec'][rec].attrs['description']
+                    if syn_type in rec_description_list:
+                        if syn_type not in i_syn_dict:
+                            i_syn_dict[syn_type] = np.array(trial['rec'][rec])
+                        else:
                             i_syn_dict[syn_type] = np.add(i_syn_dict[syn_type], trial['rec'][rec])
-                            del trial['rec'][rec]
-                            break
+                        del trial['rec'][rec]
                 for syn_type in i_syn_dict:
                     trial.create_dataset(syn_type, compression='gzip', compression_opts=9, data=i_syn_dict[syn_type])
         print 'Compressed i_syn recordings in file: ', rec_file
