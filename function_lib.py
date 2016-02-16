@@ -1394,6 +1394,52 @@ def compress_i_syn_rec_files(rec_filelist, rec_description_list=['i_AMPA', 'i_NM
         print 'Compressed i_syn recordings in file: ', rec_file
 
 
+def process_i_syn_rec_file(rec_filename, rec_description_list=['i_AMPA', 'i_NMDA', 'i_GABA'], dt=0.02):
+    """
+
+    :param rec_filename: str
+    :param rec_description_list: list of str
+    :param dt: float
+    :return: dict
+    """
+    with h5py.File(data_dir+rec_filename+'.hdf5', 'r') as f:
+        sim = f.itervalues().next()
+        equilibrate = sim.attrs['equilibrate']
+        track_equilibrate = sim.attrs['track_equilibrate']
+        duration = sim.attrs['duration']
+        track_duration = duration - equilibrate - track_equilibrate
+        t = np.arange(0., duration, dt)
+        rec_t = np.arange(0., track_duration, dt)
+        start = int((equilibrate + track_equilibrate) / dt)
+        i_syn_dict = {}
+        for trial in f.itervalues():
+            for key in trial:
+                if key in rec_description_list:
+                    if key not in i_syn_dict:
+                        i_syn_dict[key] = []
+                    i_syn = np.interp(t, trial['time'], trial[key])
+                    i_syn_dict[key].append(i_syn[start:])
+        i_syn_mean_dict = {}
+        for syn_type in i_syn_dict:
+            i_syn_mean_dict[syn_type] = np.mean(i_syn_dict[syn_type], axis=0)
+        down_dt = 0.5
+        down_t = np.arange(0., track_duration, down_dt)
+        # 2000 ms Hamming window, ~3 Hz low-pass filter
+        window_len = int(2000./down_dt)
+        ramp_filter = signal.firwin(window_len, 3., nyq=1000./2./down_dt)
+        i_syn_low_pass_dict = {syn_type: [] for syn_type in i_syn_dict}
+        for syn_type in i_syn_dict:
+            for i_syn in i_syn_dict[syn_type]:
+                down_sampled = np.interp(down_t, rec_t, i_syn)
+                filtered = signal.filtfilt(ramp_filter, [1.], down_sampled, padtype='even', padlen=window_len)
+                up_sampled = np.interp(rec_t, down_t, filtered)
+                i_syn_low_pass_dict[syn_type].append(up_sampled)
+        i_syn_mean_low_pass_dict = {}
+        for syn_type in i_syn_low_pass_dict:
+            i_syn_mean_low_pass_dict[syn_type] = np.mean(i_syn_low_pass_dict[syn_type], axis=0)
+        return rec_t, i_syn_mean_dict, i_syn_mean_low_pass_dict
+
+
 def generate_patterned_input_expected(expected_filename, actual_filename, output_filename=None,
                                       location_list=['soma'], dt=0.02, P0=0.2):
     """
