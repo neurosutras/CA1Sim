@@ -896,30 +896,29 @@ def get_inhom_poisson_spike_times(rate, t, dt=0.02, refractory=3., generator=Non
     return spike_times
 
 
-def get_binned_firing_rate(spike_times, t, bin_dur=10.):
+def get_binned_firing_rate(train, t, bin_dur=10.):
     """
 
-    :param spike_times: list of lists
+    :param train: array of float
     :param t: array
     :param bin_dur: float (ms)
     :return: array (Hz)
     """
     bin_centers = np.arange(t[0]+bin_dur/2., t[-1], bin_dur)
     count = np.zeros(len(bin_centers))
-    for train in spike_times:
-        for spike_time in train:
-            if t[0] <= spike_time <= bin_centers[-1] + bin_dur / 2.:
-                i = np.where(bin_centers + bin_dur / 2. >= spike_time)[0][0]
-                count[i] += 1
+    for spike_time in train:
+        if t[0] <= spike_time <= bin_centers[-1] + bin_dur / 2.:
+            i = np.where(bin_centers + bin_dur / 2. >= spike_time)[0][0]
+            count[i] += 1
     rate = count / bin_dur * 1000.
     rate = np.interp(t, bin_centers, rate)
     return rate
 
 
-def get_smoothed_firing_rate(spike_times, t, bin_dur=50., bin_step=10., dt=0.1):
+def get_smoothed_firing_rate(train, t, bin_dur=50., bin_step=10., dt=0.1):
     """
 
-    :param spike_times: list of lists
+    :param train: array of float
     :param t: array
     :param bin_dur: float (ms)
     :param dt: float (ms)
@@ -928,11 +927,10 @@ def get_smoothed_firing_rate(spike_times, t, bin_dur=50., bin_step=10., dt=0.1):
     count = np.zeros(len(t))
     bin_centers = np.arange(t[0]+bin_dur/2., t[-1]-bin_dur/2., bin_step)
     rate = np.zeros(len(bin_centers))
-    for train in spike_times:
-        for spike_time in train:
-            if spike_time >= t[0] and spike_time <= t[-1]:
-                i = np.where(t >= spike_time)[0][0]
-                count[i] += 1
+    for spike_time in train:
+        if spike_time >= t[0] and spike_time <= t[-1]:
+            i = np.where(t >= spike_time)[0][0]
+            count[i] += 1
     left = 0
     right = int(bin_dur / dt)
     interval = int(bin_step / dt)
@@ -1041,10 +1039,26 @@ def get_theta_filtered_traces(rec_filename, dt=0.02):
         stim_dt = sim.attrs['stim_dt']
         track_duration = duration - equilibrate - track_equilibrate
         stim_t = np.arange(-track_equilibrate, track_duration, stim_dt)
-        exc_input = [get_binned_firing_rate(sim['train'].values(), stim_t) for sim in f.itervalues()]
-        inh_input = [get_binned_firing_rate(sim['inh_train'].values(), stim_t) for sim in f.itervalues()]
+        exc_input = []
+        inh_input = []
         phase_offsets = []
         for sim in f.itervalues():
+            exc_input_sum = None
+            inh_input_sum = None
+            for train in sim['train'].itervalues():
+                this_exc_rate = get_binned_firing_rate(np.array(train), stim_t)
+                if exc_input_sum is None:
+                    exc_input_sum = np.array(this_exc_rate)
+                else:
+                    exc_input_sum = np.add(exc_input_sum, this_exc_rate)
+            exc_input.append(exc_input_sum)
+            for train in sim['inh_train'].itervalues():
+                this_inh_rate = get_binned_firing_rate(np.array(train), stim_t)
+                if inh_input_sum is None:
+                    inh_input_sum = np.array(this_inh_rate)
+                else:
+                    inh_input_sum = np.add(inh_input_sum, this_inh_rate)
+            inh_input.append(inh_input_sum)
             if 'phase_offset' in sim.attrs:
                 phase_offsets.append(sim.attrs['phase_offset'])
             elif 'phase_offset' in sim['train'].attrs:
