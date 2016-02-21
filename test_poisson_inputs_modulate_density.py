@@ -32,16 +32,21 @@ if len(sys.argv) > 4:
     mod_inh = int(sys.argv[4])
 else:
     mod_inh = 0
+# the number of in-field inputs will be multiplied by this factor, with their density following a gaussian distribution
+if len(sys.argv) > 5:
+    mod_density = float(sys.argv[5])
+else:
+    mod_density = 1.
 # allows parallel computation of multiple trials for the same spines with the same peak_locs, but with different
 # input spike trains and stochastic synapses for each trial
-if len(sys.argv) > 5:
-    trial_seed = int(sys.argv[5])
+if len(sys.argv) > 6:
+    trial_seed = int(sys.argv[6])
 else:
     trial_seed = 0
 
 rec_filename = 'output'+datetime.datetime.today().strftime('%m%d%Y%H%M')+'-pid'+str(os.getpid())+'-seed'+\
                str(synapses_seed)+'-e'+str(num_exc_syns)+'-i'+str(num_inh_syns)+'-mod_inh'+str(mod_inh)+\
-               '-r_inp3_'+str(trial_seed)
+               '-density_'+str(trial_seed)
 
 
 def run_trial(simiter):
@@ -299,35 +304,6 @@ for sec_type in all_inh_syns:
 
 stim_t = np.arange(-track_equilibrate, track_duration, dt)
 
-# input resistance probe, oscillating hyperpolarizing somatic current injection
-
-r_inp_probe_amp = -0.1  # nA
-r_inp_probe_duration = 40.  # ms
-r_inp_stim = []
-r_inp_stim_t = []
-r_inp_stim.append(0.)
-r_inp_stim_t.append(0.)
-r_inp_probe_start = equilibrate + track_equilibrate
-while r_inp_probe_start + r_inp_probe_duration + dt < duration:
-    r_inp_stim.append(0.)
-    r_inp_stim_t.append(r_inp_probe_start)
-    r_inp_stim.append(r_inp_probe_amp)
-    r_inp_stim_t.append(r_inp_probe_start + dt)
-    r_inp_stim.append(r_inp_probe_amp)
-    r_inp_stim_t.append(r_inp_probe_start + r_inp_probe_duration)
-    r_inp_stim.append(0.)
-    r_inp_stim_t.append(r_inp_probe_start + r_inp_probe_duration + dt)
-    r_inp_probe_start += 2 * r_inp_probe_duration
-r_inp_stim.append(0.)
-r_inp_stim_t.append(duration)
-r_inp_stim_t_vec = h.Vector(r_inp_stim_t)
-r_inp_stim_vector = h.Vector(r_inp_stim)
-sim.append_stim(cell, cell.tree.root, 0., 0., 0., duration)
-sim.parameters['r_inp_probe_duration'] = r_inp_probe_duration
-sim.parameters['r_inp_probe_amp'] = r_inp_probe_amp
-r_inp_stim_vector.play(sim.stim_list[0]['stim']._ref_amp, r_inp_stim_t_vec, 1)  # makes continuous vector out of list of
-                                                                                # discrete times
-
 gauss_sigma = global_theta_cycle_duration * input_field_width / 3. / np.sqrt(2.)  # contains 99.7% gaussian area
 
 rand_exc_seq_locs = {}
@@ -363,19 +339,63 @@ for group in stim_exc_syns:
 # modulate the weights of inputs that have peak_locs along this stretch of the track
 #modulated_num_exc_syn = 100
 modulated_field_center = track_duration * 0.6
-gauss_mod_amp = {}
-#modulated_start_index = len(stim_exc_syns)
+
+peak_loc_choices = {}
+peak_loc_probabilities = {}
+pre_modulation_num_exc_syns = {}
+modulated_num_exc_syns = 0
+peak_loc_t = np.arange(-0.75 * input_field_duration, (0.75 + track_length) * input_field_duration, dt)
+gauss_mod_density = 1.5 * np.exp(-((peak_loc_t - modulated_field_center) / (gauss_sigma * 1.4)) ** 2.) + 1.
+gauss_probability = np.exp(-((peak_loc_t - modulated_field_center) / (gauss_sigma * 1.4)) ** 2.)
+indexes = np.where(gauss_mod_density > 1.01)[0]
+start = peak_loc_t[indexes[0]]
+end = peak_loc_t[indexes[-1]]
 for group in stim_exc_syns:
-    gauss_mod_amp[group] = 1.5 * np.exp(-((np.array(peak_locs[group]) - modulated_field_center) /
-                                          (gauss_sigma * 1.4)) ** 2.) + 1.
-    for i, syn in enumerate(stim_exc_syns[group]):
-        syn.netcon('AMPA_KIN').weight[0] = gauss_mod_amp[group][i]
+    pre_modulation_num_exc_syns[group] = len(stim_exc_syns[group])
+    peak_loc_choices[group] = []
+    peak_loc_probabilities[group] = []
+    baseline_interval = (1.5 + track_length) * input_field_duration / int(len(stim_exc_syns[group]))
+    current_peak_loc = peak_loc_t[0]
+    peak_loc_choices[group].append(current_peak_loc)
+    while current_peak_loc <= peak_loc_t[-1]:
+        density = gauss_mod_density[int((current_peak_loc + 0.75 * input_field_duration)/dt)]
+        interval = baseline_interval / density
+        current_peak_loc += interval
+        if current_peak_loc <= peak_loc_t[-1]:
+            peak_loc_choices[group].append(current_peak_loc)
+    baseline_num_exc_syns = len(np.where((peak_locs[group] >= start) & (peak_locs[group] <= end))[0])
+    modulated_num_exc_syns += int(baseline_num_exc_syns * mod_density)
+    for peak_loc_choice in peak_loc_choices[group]:
+        peak_loc_probability = gauss_probability[int((peak_loc_choice + 0.75 * input_field_duration)/dt)]
+        peak_loc_probabilities[group].append(peak_loc_probability)
+    peak_loc_probabilities[group] /= np.sum(peak_loc_probabilities[group])  # sum of probabilities must equal 1
+
+for sec_type in all_exc_syns:
+    for i in local_random.sample(range(len(all_exc_syns[sec_type])),
+                                 min(int(modulated_num_exc_syns*fraction_exc_syns[sec_type]),
+                                     len(all_exc_syns[sec_type]))):
+        syn = all_exc_syns[sec_type][i]
+        if sec_type == 'tuft':
+            stim_exc_syns['ECIII'].append(syn)
+        else:
+            stim_exc_syns['CA3'].append(syn)
+
+np_local_random = np.random.RandomState()
+np_local_random.seed(synapses_seed)
+modulated_num_exc_syns = {}
+for group in stim_exc_syns:
+    modulated_num_exc_syns[group] = len(stim_exc_syns[group]) - pre_modulation_num_exc_syns[group]
+    new_peak_locs = np_local_random.choice(peak_loc_choices[group], modulated_num_exc_syns[group],
+                                           p=peak_loc_probabilities[group])
+    peak_locs[group].extend(new_peak_locs)
 
 manipulated_inh_syns = {}
 for group in inhibitory_manipulation_fraction:
     num_syns = int(len(stim_inh_syns[group]) * inhibitory_manipulation_fraction[group])
     manipulated_inh_syns[group] = local_random.sample(stim_inh_syns[group], num_syns)
 
+"""
 run_trial(trial_seed)
 if os.path.isfile(data_dir+rec_filename+'-working.hdf5'):
     os.rename(data_dir+rec_filename+'-working.hdf5', data_dir+rec_filename+'.hdf5')
+"""
