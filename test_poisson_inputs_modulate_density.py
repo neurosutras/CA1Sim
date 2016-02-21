@@ -318,8 +318,6 @@ for group in stim_exc_syns:
 
 for group in stim_exc_syns:
     for syn in stim_exc_syns[group]:
-        #peak_loc = local_random.uniform(-0.75 * input_field_duration, (0.75 + track_length) * input_field_duration)
-        #peak_locs.append(peak_loc)
         if excitatory_stochastic:
             success_vec = h.Vector()
             stim_successes.append(success_vec)
@@ -336,8 +334,7 @@ for group in stim_exc_syns:
 # rand_inh_seq_locs = [] will need this when inhibitory synapses become stochastic
 # stim_inh_successes = [] will need this when inhibitory synapses become stochastic
 
-# modulate the weights of inputs that have peak_locs along this stretch of the track
-#modulated_num_exc_syn = 100
+# modulate the number and density of inputs with peak_locs along this stretch of the track
 modulated_field_center = track_duration * 0.6
 
 peak_loc_choices = {}
@@ -388,6 +385,19 @@ for group in stim_exc_syns:
     new_peak_locs = np_local_random.choice(peak_loc_choices[group], modulated_num_exc_syns[group],
                                            p=peak_loc_probabilities[group])
     peak_locs[group].extend(new_peak_locs)
+    for syn in stim_exc_syns[group][pre_modulation_num_exc_syns[group]:]:
+        if excitatory_stochastic:
+            success_vec = h.Vector()
+            stim_successes.append(success_vec)
+            syn.netcon('AMPA_KIN').record(success_vec)
+            rand_exc_seq_locs[group].append(syn.randObj.seq())
+        # if syn.node.parent.parent not in [rec['node'] for rec in sim.rec_list]:
+        #    sim.append_rec(cell, syn.node.parent.parent)
+        # sim.append_rec(cell, syn.node, object=syn.target('AMPA_KIN'), param='_ref_i', description='i_AMPA')
+        # sim.append_rec(cell, syn.node, object=syn.target(NMDA_type), param='_ref_i', description='i_NMDA')
+        # remove this synapse from the pool, so that additional "modulated" inputs
+        # can be selected from those that remain
+        all_exc_syns[syn.node.parent.parent.type].remove(syn)
 
 manipulated_inh_syns = {}
 for group in inhibitory_manipulation_fraction:
