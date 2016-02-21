@@ -192,8 +192,9 @@ xmax['basal'] = [0.0040]
 # unit amp: 4.180, unit slope: -6.69E-02, recovery unit amp: 6.308, Error: 4.8017E+02
 # x0['dynamics'] = [1.749, 70.195, 0.875, 88.964]
 # unit amp: 4.444, unit slope: 3.817E-02, recovery unit amp: 7.101, basinhopping step 273: Error: 1323.4
-x0['dynamics'] = [1.786, 66.242, 0.883, 105.858]
+# x0['dynamics'] = [1.786, 66.242, 0.883, 105.858]
 # unit amp: 3.794, unit slope: -3.023E-02, recovery unit amp: 7.664, basinhopping step 199: Error: 729.99
+x0['dynamics'] = [1.769, 67.351, 0.878, 92.918]
 # the bounds
 xmin['dynamics'] = [0.8, 25., 0.5, 50.]
 xmax['dynamics'] = [1.8, 150., 0.9, 300.]
@@ -208,8 +209,9 @@ dv = c[:]
 dv.clear()
 dv.block = True
 global_start_time = time.time()
-dv.execute('from parallel_optimize_pr_engine_020116 import *')
-#time.sleep(240)
+result = dv.execute('from parallel_optimize_pr_engine_020116 import *')
+while not result.ready():
+    time.sleep(30)
 v = c.load_balanced_view()
 
 """
@@ -223,8 +225,9 @@ print result
 
 # then use the resulting number of synapses during optimization of the parameters governing release dynamics
 N = int(x0['basal'][0] * 10000.)
-dv.execute('syn_list.choose_syns_to_stim('+str(N)+')')
-#time.sleep(60)
+result = dv.execute('syn_list.choose_syns_to_stim('+str(N)+')')
+while not result.ready():
+    time.sleep(30)
 
 
 """
