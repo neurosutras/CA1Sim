@@ -340,40 +340,54 @@ modulated_field_center = track_duration * 0.6
 peak_loc_choices = {}
 peak_loc_probabilities = {}
 pre_modulation_num_exc_syns = {}
-modulated_num_exc_syns = 0
-peak_loc_t = np.arange(-0.75 * input_field_duration, (0.75 + track_length) * input_field_duration, dt)
-gauss_mod_probability = np.exp(-((peak_loc_t - modulated_field_center) / (gauss_sigma * 1.4)) ** 2.)
+total_modulated_num_exc_syns = 0
+gauss_mod_probability = np.exp(-((stim_t - modulated_field_center) / (gauss_sigma * 1.4)) ** 2.)
 indexes = np.where(gauss_mod_probability > 0.01)[0]
-start = peak_loc_t[indexes[0]]
-end = peak_loc_t[indexes[-1]]
+start = stim_t[indexes[0]]
+end = stim_t[indexes[-1]]
 for group in stim_exc_syns:
     pre_modulation_num_exc_syns[group] = len(stim_exc_syns[group])
-    peak_loc_choices[group] = np.arange(-0.75 * input_field_duration, (0.75 + track_length) * input_field_duration,
-                          (1.5 + track_length) * input_field_duration / int(len(stim_exc_syns[group])) / 2.)
-    peak_loc_probabilities[group] = np.exp(-((peak_loc_choices[group] - modulated_field_center) /
-                                             (gauss_sigma * 1.4)) ** 2.)
-    peak_loc_probabilities[group] /= np.sum(peak_loc_probabilities[group])  # sum of probabilities must equal 1
+    peak_loc_t = np.arange(-0.75 * input_field_duration, (0.75 + track_length) * input_field_duration,
+                          (1.5 + track_length) * input_field_duration / int(len(stim_exc_syns[group])))
+    in_field_indexes = np.where((peak_loc_t >= start) & (peak_loc_t <= end))[0]
+    in_field_peak_locs = peak_loc_t[in_field_indexes]
+    peak_loc_probabilities = np.exp(-((in_field_peak_locs - modulated_field_center) /
+                                      (gauss_sigma * 1.4)) ** 2.)
+    peak_loc_probabilities /= np.sum(peak_loc_probabilities)  # sum of probabilities must equal 1
     baseline_num_exc_syns = len(np.where((peak_locs[group] >= start) & (peak_locs[group] <= end))[0])
-    modulated_num_exc_syns += int(baseline_num_exc_syns * (mod_density - 1.))
+    this_modulated_num_exc_syns = int(baseline_num_exc_syns * (mod_density - 1.))
+    peak_loc_probabilities *= this_modulated_num_exc_syns  # now sum of probabilities equals number of new inputs
+    peak_loc_choices[group] = []
+    j = 0
+    running_sum = 0.
+    for i, this_peak_loc in enumerate(in_field_peak_locs):
+        running_sum += peak_loc_probabilities[i]
+        if running_sum >= 1.:
+            bin_center = (this_peak_loc + in_field_peak_locs[j]) / 2.
+            neighbor_index = np.where(in_field_peak_locs[j:] >= bin_center)[0][0]
+            new_peak_loc_choice = in_field_peak_locs[j+neighbor_index]
+            peak_loc_choices[group].append(new_peak_loc_choice)
+            j = i
+            running_sum = 0.
+    local_random.shuffle(peak_loc_choices[group])
+    total_modulated_num_exc_syns += len(peak_loc_choices[group])
 
+modulated_num_exc_syns = {group: 0 for group in stim_exc_syns}
 for sec_type in all_exc_syns:
     for i in local_random.sample(range(len(all_exc_syns[sec_type])),
-                                 min(int(modulated_num_exc_syns*fraction_exc_syns[sec_type]),
+                                 min(int(total_modulated_num_exc_syns*fraction_exc_syns[sec_type]),
                                      len(all_exc_syns[sec_type]))):
         syn = all_exc_syns[sec_type][i]
         if sec_type == 'tuft':
-            stim_exc_syns['ECIII'].append(syn)
+            group = 'ECIII'
         else:
-            stim_exc_syns['CA3'].append(syn)
+            group = 'CA3'
+        if modulated_num_exc_syns[group] < peak_loc_choices[group]:
+            stim_exc_syns[group].append(syn)
+            modulated_num_exc_syns[group] += 1
 
-np_local_random = np.random.RandomState()
-np_local_random.seed(synapses_seed)
-modulated_num_exc_syns = {}
 for group in stim_exc_syns:
-    modulated_num_exc_syns[group] = len(stim_exc_syns[group]) - pre_modulation_num_exc_syns[group]
-    new_peak_locs = np_local_random.choice(peak_loc_choices[group], modulated_num_exc_syns[group],
-                                           p=peak_loc_probabilities[group])
-    peak_locs[group].extend(new_peak_locs)
+    peak_locs[group].extend(peak_loc_choices[group][:modulated_num_exc_syns[group]])
     for syn in stim_exc_syns[group][pre_modulation_num_exc_syns[group]:]:
         if excitatory_stochastic:
             success_vec = h.Vector()
