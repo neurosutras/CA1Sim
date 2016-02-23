@@ -125,6 +125,7 @@ def release_dynamics_error(x, plot=0):
     Err = 0.
     for ISI in results:
         if ISI == 300:
+            print 'ISI:', ISI, 'Amp:', mean_unit_amp
             Err += round(((target_val[ISI] - mean_unit_amp)/target_range[ISI])**2., 10)
             Err += round(((target_val['unit_slope'] - mean_unit_slope)/target_range['unit_slope'])**2., 10)
         elif ISI == 10:
@@ -132,6 +133,7 @@ def release_dynamics_error(x, plot=0):
             left = 0
             right = int((2.+ISI*3)/interp_dt)
             amp = np.max(results[ISI][left:right])
+            print 'ISI:', ISI, 'Amp:', amp
             #print '3rd pulse amp:', amp
             Err += round(((target_val[ISI] - amp)/target_range[ISI])**2., 10)
             # 5th pulse in burst of 5
@@ -147,7 +149,9 @@ def release_dynamics_error(x, plot=0):
             #print 'recovery pulse amp:', amp
             Err += round(((target_val['recovery'] - amp)/target_range['recovery'])**2., 10)
         else:
-            Err += round(((target_val[ISI] - np.max(results[ISI]))/target_range[ISI])**2., 10)
+            amp = np.max(results[ISI])
+            print 'ISI:', ISI, 'Amp:', amp
+            Err += round(((target_val[ISI] - amp)/target_range[ISI])**2., 10)
     N = int(x0['basal'][0] * 10000.)
     P0 = parallel_optimize_pr_engine_020116.P0
     print 'Parallel simulation took %i s, Error: %.4E' % (time.time()-start_time, Err)
@@ -167,7 +171,7 @@ def release_dynamics_error(x, plot=0):
         fig.subplots_adjust(hspace=0.55, wspace=0.3, left=0.05, right=0.95, top=0.95, bottom=0.08)
         plt.show()
         plt.close()
-    return Err
+    return Err, results
 
 
 #the target values and acceptable ranges
@@ -248,7 +252,7 @@ print polished_result
 release_dynamics_error(polished_result.x, plot=1)
 """
 
-release_dynamics_error(x0['dynamics'], plot=1)
+Err, results = release_dynamics_error(x0['dynamics'], plot=0)
 
 """
 020716:

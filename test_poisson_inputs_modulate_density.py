@@ -382,7 +382,7 @@ for sec_type in all_exc_syns:
             group = 'ECIII'
         else:
             group = 'CA3'
-        if modulated_num_exc_syns[group] < peak_loc_choices[group]:
+        if modulated_num_exc_syns[group] < len(peak_loc_choices[group]):
             stim_exc_syns[group].append(syn)
             modulated_num_exc_syns[group] += 1
 
