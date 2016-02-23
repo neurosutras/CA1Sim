@@ -342,30 +342,19 @@ peak_loc_probabilities = {}
 pre_modulation_num_exc_syns = {}
 modulated_num_exc_syns = 0
 peak_loc_t = np.arange(-0.75 * input_field_duration, (0.75 + track_length) * input_field_duration, dt)
-gauss_mod_density = 1.5 * np.exp(-((peak_loc_t - modulated_field_center) / (gauss_sigma * 1.4)) ** 2.) + 1.
-gauss_probability = np.exp(-((peak_loc_t - modulated_field_center) / (gauss_sigma * 1.4)) ** 2.)
-indexes = np.where(gauss_mod_density > 1.01)[0]
+gauss_mod_probability = np.exp(-((peak_loc_t - modulated_field_center) / (gauss_sigma * 1.4)) ** 2.)
+indexes = np.where(gauss_mod_probability > 0.01)[0]
 start = peak_loc_t[indexes[0]]
 end = peak_loc_t[indexes[-1]]
 for group in stim_exc_syns:
     pre_modulation_num_exc_syns[group] = len(stim_exc_syns[group])
-    peak_loc_choices[group] = []
-    peak_loc_probabilities[group] = []
-    baseline_interval = (1.5 + track_length) * input_field_duration / int(len(stim_exc_syns[group]))
-    current_peak_loc = peak_loc_t[0]
-    peak_loc_choices[group].append(current_peak_loc)
-    while current_peak_loc <= peak_loc_t[-1]:
-        density = gauss_mod_density[int((current_peak_loc + 0.75 * input_field_duration)/dt)]
-        interval = baseline_interval / density
-        current_peak_loc += interval
-        if current_peak_loc <= peak_loc_t[-1]:
-            peak_loc_choices[group].append(current_peak_loc)
+    peak_loc_choices[group] = np.arange(-0.75 * input_field_duration, (0.75 + track_length) * input_field_duration,
+                          (1.5 + track_length) * input_field_duration / int(len(stim_exc_syns[group])) / 2.)
+    peak_loc_probabilities[group] = np.exp(-((peak_loc_choices[group] - modulated_field_center) /
+                                             (gauss_sigma * 1.4)) ** 2.)
+    peak_loc_probabilities[group] /= np.sum(peak_loc_probabilities[group])  # sum of probabilities must equal 1
     baseline_num_exc_syns = len(np.where((peak_locs[group] >= start) & (peak_locs[group] <= end))[0])
     modulated_num_exc_syns += int(baseline_num_exc_syns * (mod_density - 1.))
-    for peak_loc_choice in peak_loc_choices[group]:
-        peak_loc_probability = gauss_probability[int((peak_loc_choice + 0.75 * input_field_duration)/dt)]
-        peak_loc_probabilities[group].append(peak_loc_probability)
-    peak_loc_probabilities[group] /= np.sum(peak_loc_probabilities[group])  # sum of probabilities must equal 1
 
 for sec_type in all_exc_syns:
     for i in local_random.sample(range(len(all_exc_syns[sec_type])),
