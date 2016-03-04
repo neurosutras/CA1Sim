@@ -26,7 +26,7 @@ def branch_cooperativity_error(x, plot=0):
     :return: float
     """
     start_time = time.time()
-    num_spines = len(parallel_optimize_branch_cooperativity_na_engine.spine_list)
+    num_spines = min(30, len(parallel_optimize_branch_cooperativity_na_engine.spine_list))
     result = v.map_async(parallel_optimize_branch_cooperativity_na_engine.stim_expected, range(num_spines))
     while not result.ready():
         time.sleep(30)
@@ -57,7 +57,7 @@ def branch_cooperativity_error(x, plot=0):
     for filename in rec_file_list:
         os.remove(data_dir+filename+'.hdf5')
     with h5py.File(data_dir+new_rec_filename+'_expected.hdf5', 'r') as expected_file:
-        expected_index_map = get_expected_spine_index_map(expected_file).values()[0]
+        expected_index_map = get_expected_spine_index_map(expected_file).itervalues().next()
         with h5py.File(data_dir+new_rec_filename+'_actual.hdf5', 'r') as actual_file:
             sorted_sim_keys = actual_file.keys()
             sorted_sim_keys.sort(key=lambda x: len(actual_file[x].attrs['syn_indexes']))
@@ -120,7 +120,7 @@ dv.block = True
 global_start_time = time.time()
 dv.execute('from parallel_optimize_branch_cooperativity_na_engine import *')
 v = c.load_balanced_view()
-#create_no_nmda_expected_file()  # run once for each new mech_dict
+
 """
 result = optimize.basinhopping(branch_cooperativity_error, x0, niter=700, niter_success=200, disp=True, interval=20,
                                                             minimizer_kwargs=minimizer_kwargs, take_step=mytakestep)

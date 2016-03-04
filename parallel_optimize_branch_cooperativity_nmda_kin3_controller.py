@@ -109,7 +109,7 @@ def branch_cooperativity_error(x, plot=0):
     result = {'unitary_nmda_contribution': (np.max(unit_with_nmda) - np.max(unit_no_nmda)) /
                                            np.max(unit_no_nmda) * 100.}
     with h5py.File(data_dir+new_rec_filename+'_expected.hdf5', 'r') as expected_file:
-        expected_index_map = get_expected_spine_index_map(expected_file).values()[0]
+        expected_index_map = get_expected_spine_index_map(expected_file).itervalues().next()
         with h5py.File(data_dir+new_rec_filename+'_actual.hdf5', 'r') as actual_file:
             sorted_sim_keys = actual_file.keys()
             sorted_sim_keys.sort(key=lambda x: len(actual_file[x].attrs['syn_indexes']))

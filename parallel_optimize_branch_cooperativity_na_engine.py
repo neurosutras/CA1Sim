@@ -9,7 +9,8 @@ corresponding to which synapses to stimulate.
 """
 #morph_filename = 'EB1-early-bifurcation.swc'
 morph_filename = 'EB2-late-bifurcation.swc'
-mech_filename = '103115 interim dendritic excitability ampa nmda_kin3'
+#mech_filename = '103115 interim dendritic excitability ampa nmda_kin3'
+mech_filename = '020516 altered km2 rinp - ampa nmda_kin5'
 
 rec_filename = 'output'+datetime.datetime.today().strftime('%m%d%Y%H%M')+'-pid'+str(os.getpid())
 
@@ -67,25 +68,14 @@ def stim_expected(spine_index):
     return rec_filename
 
 
-def zero_na():
-    """
-
-    """
-    for sec_type in ['axon_hill', 'ais']:
-        cell.modify_mech_param(sec_type, 'nax', 'gbar', 0.)
-    cell.reinitialize_subset_mechanisms('axon', 'nax')
-    cell.modify_mech_param('soma', 'nas', 'gbar', 0.)
-    for sec_type in ['basal', 'trunk', 'apical', 'tuft']:
-        cell.reinitialize_subset_mechanisms(sec_type, 'nas')
-
-
 equilibrate = 250.  # time to steady-state
 duration = 450.
 v_init = -67.
 syn_types = ['AMPA_KIN', NMDA_type]
 
 cell = CA1_Pyr(morph_filename, mech_filename, full_spines=True)
-#zero_na()
+cell.set_terminal_branch_nas_gradient()
+#cell.zero_na()
 
 # these synapses will not be used, but must be inserted for inheritance of synaptic parameters from trunk
 for branch in cell.trunk:
@@ -94,13 +84,13 @@ for branch in cell.trunk:
 
 # choose a distal apical oblique branch that has > 25 spines within 30 um, choose spines near the middle of the branch
 min_num_spines = 25
-trunk_loc = 'proximal'  # in ['proximal', 'distal']
+trunk_loc = 'distal'  # in ['proximal', 'distal']
 path_category = 'terminal'  # in ['proximal', 'intermediate', 'terminal']
 spine_list = []
 branch_list = (apical for apical in cell.apical if cell.get_distance_to_node(cell.tree.root,
                                                    cell.get_dendrite_origin(apical)) >= 100.) \
                 if trunk_loc == 'distal' else (apical for apical in cell.apical
-                                               if cell.get_distance_to_node(cell.tree.root,
+                                               if 25 <= cell.get_distance_to_node(cell.tree.root,
                                                   cell.get_dendrite_origin(apical)) <= 75.)
 for branch in branch_list:
     if (path_category == 'proximal' and cell.get_branch_order(branch) == 1 and branch.sec.L >= 30. and

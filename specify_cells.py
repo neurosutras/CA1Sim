@@ -1270,12 +1270,13 @@ class CA1_Pyr(HocCell):
         head.sec.diam = 0.5
         self._init_cable(head)
 
-    def insert_inhibitory_synapses_in_subset(self, sec_type_list=['soma', 'basal', 'trunk', 'apical', 'tuft']):
+    def insert_inhibitory_synapses_in_subset(self, sec_type_list=['soma', 'ais', 'basal', 'trunk', 'apical', 'tuft']):
         """
 
         :param sec_type_list: str
         """
         densities = {'soma': 2.857,  # 4.285,
+                     'ais': 0.53,
                      'trunk': {'min': 0.3022, 'max': 0.0627,
                                'start': 0.,
                                'end': max([self.get_distance_to_node(self.tree.root, branch) for branch in
@@ -1291,6 +1292,9 @@ class CA1_Pyr(HocCell):
         if 'soma' in sec_type_list:
             for node in self.soma:
                 self.insert_inhibitory_synapse_every(node, densities['soma'])
+        if 'ais' in sec_type_list:
+            for node in self.get_nodes_of_subtype('ais'):
+                self.insert_inhibitory_synapse_every(node, densities['ais'])
         if 'basal' in sec_type_list:
             for node in self.basal:
                 if self.is_terminal(node):

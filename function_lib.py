@@ -1599,3 +1599,50 @@ def generate_patterned_input_expected(expected_filename, actual_filename, output
                                                                        compression_opts=9, data=post[sec_type])
                         output_file[trial_index]['post'][str(i)].attrs['description'] = sec_type
     return output_filename
+
+
+def sliding_window(unsorted_x, y, bin_size=60., window_size=3, start=-60., end=7560.):
+    """
+    An ad hoc function used to compute sliding window density and average.
+    :param unsorted_x: array
+    :param y: array
+    :return: bin_center, density, rolling_mean: array, array, array
+    """
+    indexes = range(len(unsorted_x))
+    indexes.sort(key=unsorted_x.__getitem__)
+    sorted_x = map(unsorted_x.__getitem__, indexes)
+    sorted_y = map(y.__getitem__, indexes)
+    window_dur = bin_size * window_size
+    bin_centers = np.arange(start+window_dur/2., end-window_dur/2.+bin_size, bin_size)
+    density = np.zeros(len(bin_centers))
+    rolling_mean = np.zeros(len(bin_centers))
+    x0 = 0
+    x1 = 1
+    for i, bin in enumerate(bin_centers):
+        while sorted_x[x0] < bin - window_dur / 2.:
+            x0 += 1
+            x1 += 1
+        while sorted_x[x1] <= bin + window_dur / 2.:
+            x1 += 1
+        density[i] = (x1 - x0 + 1) / window_dur / 1000.
+        rolling_mean[i] = np.mean(sorted_y[x0:x1+1])
+    return bin_centers, density, rolling_mean
+
+
+def clean_axes(axes):
+    """
+    Remove top and right axes from pyplot axes object.
+    :param axes:
+    """
+    if not type(axes) in [np.ndarray, list]:
+        axes = [axes]
+    for axis in axes:
+        axis.spines['top'].set_visible(False)
+        axis.spines['right'].set_visible(False)
+        axis.get_xaxis().tick_bottom()
+        axis.get_yaxis().tick_left()
+
+
+
+
+
