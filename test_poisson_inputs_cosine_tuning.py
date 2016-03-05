@@ -163,7 +163,7 @@ inhibitory_theta_modulation_depth = {'perisomatic': 0.5, 'axo-axonic': 0.5, 'api
                                      'distal apical dendritic': 0.5, 'tuft feedforward': 0.5, 'tuft feedback': 0.5}
 inhibitory_theta_phase_offset = {}
 inhibitory_theta_phase_offset['perisomatic'] = 155. / 360. * 2. * np.pi  # Like PV+ Basket
-inhibitory_theta_phase_offset['axo-axonic'] = 70. * 2. * np.pi  # Vargas et al., ELife, 2014
+inhibitory_theta_phase_offset['axo-axonic'] = 70. / 360. * 2. * np.pi  # Vargas et al., ELife, 2014
 inhibitory_theta_phase_offset['apical dendritic'] = 215. / 360. * 2. * np.pi  # Like PYR-layer Bistratified
 # inhibitory_theta_phase_offset['distal apical dendritic'] = 165. / 360. * 2. * np.pi  # Like SR/SLM Border Cells
 inhibitory_theta_phase_offset['distal apical dendritic'] = 180. / 360. * 2. * np.pi  # Like SR/SLM Border Cells
