@@ -148,7 +148,7 @@ track_duration = track_length * input_field_duration
 track_equilibrate = 2. * global_theta_cycle_duration
 duration = equilibrate + track_equilibrate + track_duration  # input_field_duration
 excitatory_peak_rate = 40.
-excitatory_theta_modulation_depth = {'CA3': 0.7, 'ECIII': 0.7}
+excitatory_theta_modulation_depth = {'CA3': 0.75, 'ECIII': 0.7}
 theta_compression_factor = 1. - unit_theta_cycle_duration / global_theta_cycle_duration
 excitatory_theta_phase_offset = {}
 excitatory_theta_phase_offset['CA3'] = 165. / 360. * 2. * np.pi  # radians
@@ -162,13 +162,12 @@ inhibitory_peak_rate = {'perisomatic': 40., 'axo-axonic': 40., 'apical dendritic
 inhibitory_theta_modulation_depth = {'perisomatic': 0.5, 'axo-axonic': 0.5, 'apical dendritic': 0.5,
                                      'distal apical dendritic': 0.5, 'tuft feedforward': 0.5, 'tuft feedback': 0.5}
 inhibitory_theta_phase_offset = {}
-inhibitory_theta_phase_offset['perisomatic'] = 155. / 360. * 2. * np.pi  # Like PV+ Basket
+inhibitory_theta_phase_offset['perisomatic'] = 145. / 360. * 2. * np.pi  # Like PV+ Basket
 inhibitory_theta_phase_offset['axo-axonic'] = 70. / 360. * 2. * np.pi  # Vargas et al., ELife, 2014
-inhibitory_theta_phase_offset['apical dendritic'] = 215. / 360. * 2. * np.pi  # Like PYR-layer Bistratified
-# inhibitory_theta_phase_offset['distal apical dendritic'] = 165. / 360. * 2. * np.pi  # Like SR/SLM Border Cells
+inhibitory_theta_phase_offset['apical dendritic'] = 210. / 360. * 2. * np.pi  # Like PYR-layer Bistratified
 inhibitory_theta_phase_offset['distal apical dendritic'] = 180. / 360. * 2. * np.pi  # Like SR/SLM Border Cells
-inhibitory_theta_phase_offset['tuft feedforward'] = 350. / 360. * 2. * np.pi  # Like Neurogliaform
-inhibitory_theta_phase_offset['tuft feedback'] = 215. / 360. * 2. * np.pi  # Like SST+ O-LM
+inhibitory_theta_phase_offset['tuft feedforward'] = 340. / 360. * 2. * np.pi  # Like Neurogliaform
+inhibitory_theta_phase_offset['tuft feedback'] = 210. / 360. * 2. * np.pi  # Like SST+ O-LM
 
 stim_dt = 0.02
 dt = 0.02
