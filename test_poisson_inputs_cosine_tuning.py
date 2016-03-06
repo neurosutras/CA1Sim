@@ -154,8 +154,8 @@ excitatory_theta_phase_offset = {}
 excitatory_theta_phase_offset['CA3'] = 165. / 360. * 2. * np.pi  # radians
 excitatory_theta_phase_offset['ECIII'] = 0. / 360. * 2. * np.pi  # radians
 excitatory_stochastic = 1
-inhibitory_manipulation_fraction = {'perisomatic': 0.3, 'axo-axonic': 0.3, 'apical dendritic': 0.3,
-                                    'tuft feedback': 0.3}
+inhibitory_manipulation_fraction = {'perisomatic': 0.35, 'axo-axonic': 0.35, 'apical dendritic': 0.35,
+                                    'tuft feedback': 0.35}
 inhibitory_manipulation_duration = 0.6  # Ratio of input_field_duration
 inhibitory_peak_rate = {'perisomatic': 40., 'axo-axonic': 40., 'apical dendritic': 40., 'distal apical dendritic': 40.,
                         'tuft feedforward': 40., 'tuft feedback': 40.}
