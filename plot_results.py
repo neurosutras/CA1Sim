@@ -2475,6 +2475,42 @@ def process_patterned_input_simulation(rec_filename, title, dt=0.02):
            variance_across_trials, mean_output, mean_ramp
 
 
+def plot_patterned_input_individual_trial_traces(rec_t, vm_array, theta_traces, ramp_traces, index=None,
+                                                 svg_title=None):
+    """
+    Accepts the output of get_patterned_input_component_traces, and either saves a single figure, or cycles through a
+    a series of plots so the user can choose an individual trial to save as a figure.
+    :param rec_t: array
+    :param vm_array: list of array
+    :param theta_traces: list of array
+    :param ramp_traces: list of array
+    :param index: int
+    :param svg_title: str
+    """
+    if index is not None:
+        index_range = [index]
+    else:
+        index_range = range(len(vm_array))
+    for i in index_range:
+        fig, axes = plt.subplots(3, sharey=True, sharex=True)
+        clean_axes(axes)
+        label_handles = []
+        axes[0].plot(rec_t, vm_array[i], color='k', label='Soma Vm')
+        axes[0].set_axis_off()
+        label_handles.append(mlines.Line2D([], [], color='k', label='Soma Vm'))
+        axes[1].plot(rec_t, ramp_traces[i], color='r', label='Ramp (<3 Hz)')
+        axes[1].set_axis_off()
+        label_handles.append(mlines.Line2D([], [], color='r', label='Ramp (<3 Hz)'))
+        axes[2].plot(rec_t, theta_traces[i], color='c', label='Intracellular Theta (5-10 Hz)')
+        label_handles.append(mlines.Line2D([], [], color='c', label='Intracellular Theta (5-10 Hz)'))
+        axes[2].set_xlim(0., 7500.)
+        if svg_title is not None:
+            axes[1].legend(handles=label_handles, loc='best', frameon=False, framealpha=0.5)
+            plt.savefig(data_dir+svg_title+str(i)+'.svg', format='svg')
+        plt.show()
+        plt.close()
+
+
 def plot_patterned_input_soma_vm(rec_filename, title, dt=0.02):
     """
 
@@ -2661,7 +2697,7 @@ def process_simple_input_simulation(rec_filename, title, dt=0.02):
 
 
 def plot_phase_precession(t_array, phase_array, title, fit_start=1500., fit_end=3000., display_start=0.,
-                          display_end=7500., bin_size=60., num_bins=3):
+                          display_end=7500., bin_size=60., num_bins=3, svg_title=None):
     """
 
     :param t_array: list of np.array
@@ -2674,22 +2710,18 @@ def plot_phase_precession(t_array, phase_array, title, fit_start=1500., fit_end=
     :param bin_size: float
     :param num_bins: int
     """
-    #colors = plt.cm.rainbow(np.linspace(0, 1, len(t_array)))
-    t_min = np.min([t[0] for t in t_array])
-    t_max = np.max([t[-1] for t in t_array])
+    fig, axes = plt.subplots(1)
     for i, t in enumerate(t_array):
         phases = phase_array[i]
-        #m, b = np.polyfit(t, phases, 1)
-        plt.scatter(t, phases, color='lightgray')  # colors[i])
-        #fit_t = np.arange(np.min(t), np.max(t), 10.)
-        #plt.plot(fit_t, m * fit_t + b, c=colors[i])
+        axes.scatter(t, phases, color='lightgray')  # colors[i])
     binned_times = []
     binned_phases = []
     all_spike_times = []
     all_spike_phases = []
     window_dur = float(num_bins) * bin_size
-    for start in np.arange(0., t_max+window_dur, window_dur):
-        index_array = [np.where((spike_times > start) & (spike_times <= start+window_dur))[0] for spike_times in
+    start = display_start
+    while start < display_end:
+        index_array = [np.where((spike_times >= start) & (spike_times < start + window_dur))[0] for spike_times in
                                                                                                         t_array]
         spike_times = []
         spike_phases = []
@@ -2702,6 +2734,7 @@ def plot_phase_precession(t_array, phase_array, title, fit_start=1500., fit_end=
             binned_phases.append(stats.circmean(spike_phases, high=360., low=0.))
             all_spike_times.extend(spike_times)
             all_spike_phases.extend(spike_phases)
+        start += window_dur
     all_spike_times = np.array(all_spike_times)
     all_spike_phases = np.array(all_spike_phases)
     binned_times = np.array(binned_times)
@@ -2712,14 +2745,18 @@ def plot_phase_precession(t_array, phase_array, title, fit_start=1500., fit_end=
     m, b = np.polyfit(binned_times[indexes], binned_phases[indexes], 1)
     #indexes = np.where((all_spike_times >= fit_start) & (all_spike_times <= fit_end))[0]
     #fit_t = np.arange(np.min(all_spike_times[indexes]), np.max(all_spike_times[indexes]), 10.)
-    fit_t = np.arange(np.min(binned_times[indexes]), np.max(binned_times[indexes]+window_dur/2.), window_dur)
-    plt.plot(binned_times, binned_phases, c='k', linewidth=2.)
-    plt.plot(fit_t, m * fit_t + b, c='r', linewidth=2.)
-    plt.ylim(0., 360.)
-    plt.xlim(display_start, display_end)
-    plt.ylabel('Phase ($^\circ$)')
-    plt.xlabel('Time (ms)')
-    plt.title('Phase Precession - '+ title)
+    #fit_t = np.arange(np.min(binned_times[indexes]), np.max(binned_times[indexes]+window_dur/2.), window_dur)
+    fit_t = np.arange(fit_start, fit_end+bin_size, bin_size)
+    axes.plot(binned_times, binned_phases, c='k', linewidth=2.)
+    axes.plot(fit_t, m * fit_t + b, c='r', linewidth=2.)
+    axes.set_ylim(0., 360.)
+    axes.set_xlim(display_start, display_end)
+    axes.set_ylabel('Phase (Degrees)', fontsize=14)
+    axes.set_xlabel('Time (ms)', fontsize=14)
+    axes.set_title('Phase Precession - '+ title, fontsize=14)
+    clean_axes(axes)
+    if svg_title is not None:
+        plt.savefig(data_dir+svg_title+'.svg', format='svg')
     plt.show()
     plt.close()
     return binned_times, binned_phases
