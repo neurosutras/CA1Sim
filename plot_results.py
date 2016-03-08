@@ -2504,6 +2504,7 @@ def plot_patterned_input_individual_trial_traces(rec_t, vm_array, theta_traces, 
         axes[2].plot(rec_t, theta_traces[i], color='c', label='Intracellular Theta (5-10 Hz)')
         label_handles.append(mlines.Line2D([], [], color='c', label='Intracellular Theta (5-10 Hz)'))
         axes[2].set_xlim(0., 7500.)
+        axes[2].set_ylim(-67., 30.)
         if svg_title is not None:
             axes[1].legend(handles=label_handles, loc='best', frameon=False, framealpha=0.5)
             plt.savefig(data_dir+svg_title+str(i)+'.svg', format='svg')
@@ -2511,33 +2512,74 @@ def plot_patterned_input_individual_trial_traces(rec_t, vm_array, theta_traces, 
         plt.close()
 
 
-def plot_patterned_input_soma_vm(rec_filename, title, dt=0.02):
+def plot_vm_distribution(rec_filenames, key_list=['modinh0', 'modinh1', 'modinh2'], i_bounds=[0., 1800., 3600., 5400.],
+                         dt=0.02, bin_width=0.2, svg_title=None):
     """
-
-    :param rec_file_name: str
-    :param title: str
-    # remember .attrs['phase_offset'] could be inside ['train'] for old files
+    Given a set of simulation files, collapse all the trials for a given condition into a single occupancy distribution
+    of absolute voltages, for the time periods corresponding to the inhibitory manipulation. Superimpose the 4
+    conditions ['Control - Out of Field', 'Control - In Field', 'Reduced Inhibition - Out of Field',
+    'Reduced Inhibition - In Field'] in a single plot.
+    :param rec_filenames: dict of str
+    :param key_list: list of str
+    :param i_bounds: list of float, time points corresponding to inhibitory manipulation
+    :param peak_bounds: list of float, time points corresponding to 10 "spatial bins" for averaging
+    :param dt: float, temporal resolution
+    :param bin_width: float, in mV, determines number of bins
+    :param svg_title: str
     """
-    with h5py.File(data_dir+rec_filename+'.hdf5', 'r') as f:
-        sim = f.itervalues().next()
-        equilibrate = sim.attrs['equilibrate']
-        track_equilibrate = sim.attrs['track_equilibrate']
-        track_length = sim.attrs['track_length']
-        input_field_duration = sim.attrs['input_field_duration']
-        duration = sim.attrs['duration']
-        stim_dt = sim.attrs['stim_dt']
-        track_duration = duration - equilibrate - track_equilibrate
-        for sim in f.itervalues():
-            t = np.arange(0., duration, dt)
-            vm = np.interp(t, sim['time'], sim['rec']['0'])
-            start = int((equilibrate + track_equilibrate)/dt)
-            plt.plot(np.subtract(t[start:], equilibrate + track_equilibrate), vm[start:])
-            plt.xlabel('Time (ms)')
-            plt.ylabel('Voltage (mV)')
-            plt.title('Somatic Vm - '+title)
-            plt.ylim((-70., -50.))
-        plt.show()
-        plt.close()
+    trial_array = {}
+    vm_array = {}
+    for condition in key_list:
+        trial_array[condition] = get_removed_spikes(rec_filenames[condition], th=10., plot=0)
+    key_list.extend([key_list[0]+'_out', key_list[0]+'_in'])
+    for source_condition, target_condition in zip([key_list[1], key_list[0]], [key_list[1], key_list[3]]):
+        start = int(i_bounds[0]/dt)
+        end = int(i_bounds[1]/dt)
+        for trial in trial_array[source_condition]:
+            this_vm_chunk = trial[start:end]
+            if target_condition not in vm_array:
+                vm_array[target_condition] = np.array(this_vm_chunk)
+            else:
+                vm_array[target_condition] = np.append(vm_array[target_condition], np.array(this_vm_chunk))
+    for source_condition, target_condition in zip([key_list[2], key_list[0]], [key_list[2], key_list[4]]):
+        start = int(i_bounds[2]/dt)
+        end = int(i_bounds[3]/dt)
+        for trial in trial_array[source_condition]:
+            this_vm_chunk = trial[start:end]
+            if target_condition not in vm_array:
+                vm_array[target_condition] = np.array(this_vm_chunk)
+            else:
+                vm_array[target_condition] = np.append(vm_array[target_condition], np.array(this_vm_chunk))
+    hist, edges = {}, {}
+    for condition in vm_array:
+        num_bins = int((np.max(vm_array[condition]) - np.min(vm_array[condition])) / bin_width)
+        hist[condition], edges[condition] = np.histogram(vm_array[condition], density=True, bins=num_bins)
+        hist[condition] *= bin_width
+    colors = ['c', 'k', 'g', 'r']
+    fig, axes = plt.subplots(1)
+    for i, (condition, title) in enumerate(zip([key_list[3], key_list[4]], ['Out of Field', 'In Field'])):
+        axes.plot(edges[condition][1:], hist[condition], color=colors[i], label=title)
+    clean_axes(axes)
+    axes.set_xlabel('Voltage (mV)', fontsize=20)
+    axes.set_ylabel('Normalized Probability', fontsize=20)
+    axes.set_title('Control', fontsize=20)
+    plt.legend(loc='best', frameon=False, framealpha=0.5, fontsize=20)
+    if svg_title is not None:
+        plt.savefig(data_dir+svg_title+'-Control.svg', format='svg')
+    plt.show()
+    plt.close()
+    fig, axes = plt.subplots(1)
+    for i, (condition, title) in enumerate(zip([key_list[1], key_list[2]], ['Out of Field', 'In Field'])):
+        axes.plot(edges[condition][1:], hist[condition], color=colors[i+2], label=title)
+    clean_axes(axes)
+    axes.set_xlabel('Voltage (mV)', fontsize=20)
+    axes.set_ylabel('Normalized Probability', fontsize=20)
+    axes.set_title('Reduced Inhibition', fontsize=20)
+    plt.legend(loc='best', frameon=False, framealpha=0.5, fontsize=20)
+    if svg_title is not None:
+        plt.savefig(data_dir+svg_title+'-ModInh.svg', format='svg')
+    plt.show()
+    plt.close()
 
 
 def process_simple_input_simulation(rec_filename, title, dt=0.02):
@@ -2751,9 +2793,9 @@ def plot_phase_precession(t_array, phase_array, title, fit_start=1500., fit_end=
     axes.plot(fit_t, m * fit_t + b, c='r', linewidth=2.)
     axes.set_ylim(0., 360.)
     axes.set_xlim(display_start, display_end)
-    axes.set_ylabel('Phase (Degrees)', fontsize=14)
-    axes.set_xlabel('Time (ms)', fontsize=14)
-    axes.set_title('Phase Precession - '+ title, fontsize=14)
+    axes.set_ylabel('Phase (Degrees)', fontsize=20)
+    axes.set_xlabel('Time (ms)', fontsize=20)
+    axes.set_title('Phase Precession - '+ title, fontsize=20)
     clean_axes(axes)
     if svg_title is not None:
         plt.savefig(data_dir+svg_title+'.svg', format='svg')
@@ -2943,12 +2985,12 @@ def plot_patterned_input_i_syn_summary(rec_filename_array, svg_title=None):
         axes[i].plot(rec_t, i_syn_dict['i_NMDA'][condition], c='r', label='i_NMDA', linewidth=2)
         axes[i].plot(rec_t, i_syn_dict['i_GABA'][condition], c='c', label='i_GABA_A', linewidth=2)
     plt.xlim(0., rec_t[-1])
-    axes[0].set_ylabel('Current (nA)', fontsize=22)
-    axes[1].set_xlabel('Time (ms)', fontsize=22)
-    axes[0].set_title('Control', fontsize=24)
-    axes[1].set_title('Reduced Inhibition\nOut of Field', fontsize=24)
-    axes[2].set_title('Reduced Inhibition\nIn Field', fontsize=24)
-    axes[0].legend(loc='center left', bbox_to_anchor=(0.15, 0.6), frameon=False, framealpha=0.5, fontsize=22)
+    axes[0].set_ylabel('Current (nA)', fontsize=20)
+    axes[1].set_xlabel('Time (ms)', fontsize=20)
+    axes[0].set_title('Control', fontsize=20)
+    axes[1].set_title('Reduced Inhibition\nOut of Field', fontsize=20)
+    axes[2].set_title('Reduced Inhibition\nIn Field', fontsize=20)
+    axes[0].legend(loc='center left', bbox_to_anchor=(0.15, 0.6), frameon=False, framealpha=0.5, fontsize=20)
     clean_axes(axes)
     if svg_title is not None:
         plt.savefig(data_dir+svg_title+' - synaptic currents.svg', format='svg')
@@ -2962,12 +3004,12 @@ def plot_patterned_input_i_syn_summary(rec_filename_array, svg_title=None):
     for i, condition in enumerate(['modinh0', 'modinh1', 'modinh2']):
         axes[i].plot(rec_t, i_syn_dict['ratio'][condition], c='b', label='E:I Ratio', linewidth=2)
     plt.xlim(0., rec_t[-1])
-    axes[0].set_ylabel('E:I Ratio', fontsize=22)
-    axes[1].set_xlabel('Time (ms)', fontsize=22)
-    axes[0].set_title('Control', fontsize=24)
-    axes[1].set_title('Reduced Inhibition\nOut of Field', fontsize=24)
-    axes[2].set_title('Reduced Inhibition\nIn Field', fontsize=24)
-    axes[0].legend(loc='center left', bbox_to_anchor=(0.15, 0.6), frameon=False, framealpha=0.5, fontsize=22)
+    axes[0].set_ylabel('E:I Ratio', fontsize=20)
+    axes[1].set_xlabel('Time (ms)', fontsize=20)
+    axes[0].set_title('Control', fontsize=20)
+    axes[1].set_title('Reduced Inhibition\nOut of Field', fontsize=20)
+    axes[2].set_title('Reduced Inhibition\nIn Field', fontsize=20)
+    axes[0].legend(loc='center left', bbox_to_anchor=(0.15, 0.6), frameon=False, framealpha=0.5, fontsize=20)
     clean_axes(axes)
     if svg_title is not None:
         plt.savefig(data_dir+svg_title+' - E_I ratio.svg', format='svg')

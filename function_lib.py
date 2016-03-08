@@ -1358,7 +1358,7 @@ def get_patterned_input_mean_values(residuals, intra_theta_amp, rate_map, ramp,
     :param key_list: list of str
     :param i_bounds: list of float, time points corresponding to inhibitory manipulation for variance measurement
     :param peak_bounds: list of float, time points corresponding to 10 "spatial bins" for averaging
-
+    :param dt: float, temporal resolution
     """
     baseline = np.mean(ramp[key_list[0]][:int(600./dt)])
     key_list.extend([key_list[0]+'_out', key_list[0]+'_in'])
@@ -1643,6 +1643,20 @@ def clean_axes(axes):
         axis.get_yaxis().tick_left()
 
 
+def sort_str_list(str_list):
+    """
+    Given a list of filenames ending with _int, sort the strings by increasing value of int.
+    :param str_list: list of str
+    :return: list of str
+    """
+    indexes = range(len(str_list))
+    values = []
+    for this_str in str_list:
+        this_value = int(this_str.split('_')[-1])
+        values.append(this_value)
+    indexes.sort(key=values.__getitem__)
+    sorted_str_list = map(str_list.__getitem__, indexes)
+    return sorted_str_list
 
 
 

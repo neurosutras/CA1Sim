@@ -7,10 +7,6 @@ import sys
 
 """
 morph_filename = 'EB2-late-bifurcation.swc'
-# mech_filename = '103115 interim dendritic excitability ampa nmda_kin3'
-# mech_filename = '112915_less_excitable'
-# mech_filename = '012316 alternate km kinetics'
-# mech_filename = '012816 altered intrinsic properties - ampa nmda_kin4'
 mech_filename = '020516 altered km2 rinp - ampa nmda_kin5'
 
 
@@ -32,7 +28,7 @@ if len(sys.argv) > 4:
     mod_inh = int(sys.argv[4])
 else:
     mod_inh = 0
-# the number of in-field inputs will be multiplied by this factor, with their density following a gaussian distribution
+# the number of in-field excitatory inputs will be multiplied by this factor, with their density following a gaussian distribution
 if len(sys.argv) > 5:
     mod_density = float(sys.argv[5])
 else:
@@ -153,33 +149,25 @@ track_duration = track_length * input_field_duration
 track_equilibrate = 2. * global_theta_cycle_duration
 duration = equilibrate + track_equilibrate + track_duration  # input_field_duration
 excitatory_peak_rate = 40.
-excitatory_theta_modulation_depth = {'CA3': 0.7, 'ECIII': 0.7}
+excitatory_theta_modulation_depth = {'CA3': 0.75, 'ECIII': 0.7}
 theta_compression_factor = 1. - unit_theta_cycle_duration / global_theta_cycle_duration
 excitatory_theta_phase_offset = {}
-excitatory_theta_phase_offset['CA3'] = 160. / 360. * 2. * np.pi  # radians
+excitatory_theta_phase_offset['CA3'] = 165. / 360. * 2. * np.pi  # radians
 excitatory_theta_phase_offset['ECIII'] = 0. / 360. * 2. * np.pi  # radians
 excitatory_stochastic = 1
-inhibitory_peak_rate = {}
-inhibitory_theta_modulation_depth = {}
-inhibitory_theta_phase_offset = {}
-inhibitory_manipulation_fraction = {'perisomatic': 0.3, 'apical dendritic': 0.3, 'tuft feedback': 0.3}
-                                    # 'tuft feedforward': 1.,
+inhibitory_manipulation_fraction = {'perisomatic': 0.35, 'axo-axonic': 0.35, 'apical dendritic': 0.35,
+                                    'tuft feedback': 0.35}
 inhibitory_manipulation_duration = 0.6  # Ratio of input_field_duration
-inhibitory_peak_rate['perisomatic'] = 40.
-inhibitory_peak_rate['apical dendritic'] = 40.
-inhibitory_peak_rate['distal apical dendritic'] = 40.
-inhibitory_peak_rate['tuft feedforward'] = 40.
-inhibitory_peak_rate['tuft feedback'] = 40.
-inhibitory_theta_modulation_depth['perisomatic'] = 0.5
-inhibitory_theta_modulation_depth['apical dendritic'] = 0.5
-inhibitory_theta_modulation_depth['distal apical dendritic'] = 0.5
-inhibitory_theta_modulation_depth['tuft feedforward'] = 0.5
-inhibitory_theta_modulation_depth['tuft feedback'] = 0.5
+inhibitory_peak_rate = {'perisomatic': 40., 'axo-axonic': 40., 'apical dendritic': 40., 'distal apical dendritic': 40.,
+                        'tuft feedforward': 40., 'tuft feedback': 40.}
+inhibitory_theta_modulation_depth = {'perisomatic': 0.5, 'axo-axonic': 0.5, 'apical dendritic': 0.5,
+                                     'distal apical dendritic': 0.5, 'tuft feedforward': 0.5, 'tuft feedback': 0.5}
+inhibitory_theta_phase_offset = {}
 inhibitory_theta_phase_offset['perisomatic'] = 145. / 360. * 2. * np.pi  # Like PV+ Basket
+inhibitory_theta_phase_offset['axo-axonic'] = 70. / 360. * 2. * np.pi  # Vargas et al., ELife, 2014
 inhibitory_theta_phase_offset['apical dendritic'] = 210. / 360. * 2. * np.pi  # Like PYR-layer Bistratified
-# inhibitory_theta_phase_offset['distal apical dendritic'] = 165. / 360. * 2. * np.pi  # Like SR/SLM Border Cells
-inhibitory_theta_phase_offset['distal apical dendritic'] = 210. / 360. * 2. * np.pi  # Like SR/SLM Border Cells
-inhibitory_theta_phase_offset['tuft feedforward'] = 345. / 360. * 2. * np.pi  # Like Neurogliaform
+inhibitory_theta_phase_offset['distal apical dendritic'] = 180. / 360. * 2. * np.pi  # Like SR/SLM Border Cells
+inhibitory_theta_phase_offset['tuft feedforward'] = 340. / 360. * 2. * np.pi  # Like Neurogliaform
 inhibitory_theta_phase_offset['tuft feedback'] = 210. / 360. * 2. * np.pi  # Like SST+ O-LM
 
 stim_dt = 0.02
@@ -209,10 +197,10 @@ else:
     trunk = trunk_bifurcation[0]
 
 all_exc_syns = {sec_type: [] for sec_type in ['basal', 'trunk', 'apical', 'tuft']}
-all_inh_syns = {sec_type: [] for sec_type in ['soma', 'basal', 'trunk', 'apical', 'tuft']}
+all_inh_syns = {sec_type: [] for sec_type in ['soma', 'ais', 'basal', 'trunk', 'apical', 'tuft']}
 stim_exc_syns = {'CA3': [], 'ECIII': []}
-stim_inh_syns = {'perisomatic': [], 'apical dendritic': [], 'distal apical dendritic': [], 'tuft feedforward': [],
-                 'tuft feedback': []}
+stim_inh_syns = {'perisomatic': [], 'axo-axonic': [], 'apical dendritic': [], 'distal apical dendritic': [],
+                 'tuft feedforward': [], 'tuft feedback': []}
 stim_successes = []
 peak_locs = {'CA3': [], 'ECIII': []}
 
@@ -237,7 +225,6 @@ for sec_type in all_inh_syns:
             if 'GABA_A_KIN' in syn._syn:
                 all_inh_syns[sec_type].append(syn)
 
-#sim = QuickSim(duration)
 sim = QuickSim(duration, cvode=0, dt=0.01)
 sim.parameters['equilibrate'] = equilibrate
 sim.parameters['track_equilibrate'] = track_equilibrate
@@ -266,9 +253,10 @@ for sec_type in all_exc_syns:
             stim_exc_syns['CA3'].append(syn)
 
 # get the fraction of inhibitory synapses contained in each sec_type
-total_inh_syns = {sec_type: len(all_inh_syns[sec_type]) for sec_type in ['soma', 'basal', 'trunk', 'apical', 'tuft']}
+total_inh_syns = {sec_type: len(all_inh_syns[sec_type]) for sec_type in ['soma', 'ais', 'basal', 'trunk', 'apical',
+                                                                         'tuft']}
 fraction_inh_syns = {sec_type: float(total_inh_syns[sec_type]) / float(np.sum(total_inh_syns.values())) for sec_type in
-                 ['soma', 'basal', 'trunk', 'apical', 'tuft']}
+                 ['soma', 'ais', 'basal', 'trunk', 'apical', 'tuft']}
 num_inh_syns = min(num_inh_syns, int(np.sum(total_inh_syns.values())))
 
 for sec_type in all_inh_syns:
@@ -300,6 +288,8 @@ for sec_type in all_inh_syns:
                 group = 'apical dendritic'
             else:
                 group = local_random.choice(['apical dendritic', 'distal apical dendritic', 'distal apical dendritic'])
+        elif syn.node.type == 'ais':
+            group = 'axo-axonic'
         stim_inh_syns[group].append(syn)
 
 stim_t = np.arange(-track_equilibrate, track_duration, dt)
