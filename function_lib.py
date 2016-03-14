@@ -1601,9 +1601,9 @@ def generate_patterned_input_expected(expected_filename, actual_filename, output
     return output_filename
 
 
-def sliding_window(unsorted_x, y, bin_size=60., window_size=3, start=-60., end=7560.):
+def sliding_window(unsorted_x, y=None, bin_size=60., window_size=3, start=-60., end=7560.):
     """
-    An ad hoc function used to compute sliding window density and average.
+    An ad hoc function used to compute sliding window density and average value in window, if a y array is provided.
     :param unsorted_x: array
     :param y: array
     :return: bin_center, density, rolling_mean: array, array, array
@@ -1611,21 +1611,23 @@ def sliding_window(unsorted_x, y, bin_size=60., window_size=3, start=-60., end=7
     indexes = range(len(unsorted_x))
     indexes.sort(key=unsorted_x.__getitem__)
     sorted_x = map(unsorted_x.__getitem__, indexes)
-    sorted_y = map(y.__getitem__, indexes)
+    if y is not None:
+        sorted_y = map(y.__getitem__, indexes)
     window_dur = bin_size * window_size
     bin_centers = np.arange(start+window_dur/2., end-window_dur/2.+bin_size, bin_size)
     density = np.zeros(len(bin_centers))
     rolling_mean = np.zeros(len(bin_centers))
     x0 = 0
-    x1 = 1
+    x1 = 0
     for i, bin in enumerate(bin_centers):
         while sorted_x[x0] < bin - window_dur / 2.:
             x0 += 1
+            # x1 += 1
+        while sorted_x[x1] < bin + window_dur / 2.:
             x1 += 1
-        while sorted_x[x1] <= bin + window_dur / 2.:
-            x1 += 1
-        density[i] = (x1 - x0 + 1) / window_dur / 1000.
-        rolling_mean[i] = np.mean(sorted_y[x0:x1+1])
+        density[i] = (x1 - x0) / window_dur * 1000.
+        if y is not None:
+            rolling_mean[i] = np.mean(sorted_y[x0:x1])
     return bin_centers, density, rolling_mean
 
 
@@ -1659,4 +1661,22 @@ def sort_str_list(str_list):
     return sorted_str_list
 
 
+def fit_power_func(p, x):
+    """
+    Expects [y0, x0, exponent] to fit an exponential relationship with an unknown power.
+    :param p: array
+    :param x: array
+    :return: array
+    """
+    return p[0] + p[1] * ((x - p[2]) ** p[3])
 
+
+def error_power_func(p, x, y):
+    """
+    Expects [y0, x0, exponent] to fit an exponential relationship with an unknown power. Evaluates error relative to y.
+    :param p:
+    :param x:
+    :param y:
+    :return: float
+    """
+    return np.sum((y - fit_power_func(p, x)) ** 2.)

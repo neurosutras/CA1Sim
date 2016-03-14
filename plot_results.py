@@ -1239,7 +1239,8 @@ def plot_synaptic_parameter(rec_file_list, description_list=None):
     plt.close()
 
 
-def plot_synaptic_param_distribution(cell, syn_type, param_name, title=None):
+def plot_synaptic_param_distribution(cell, syn_type, param_name, scale_factor=1., param_label=None,
+                                 ylabel='Peak Conductance', yunits='uS', svg_title=None):
     """
     Takes a cell as input rather than a file. No simulation is required, this method just takes a fully specified cell
     and plots the relationship between distance and the specified synaptic parameter for all spines. Used while
@@ -1247,11 +1248,15 @@ def plot_synaptic_param_distribution(cell, syn_type, param_name, title=None):
     :param cell: :class:'HocCell'
     :param syn_type: str
     :param param_name: str
-    :param title: str
+    :param scale_factor: float
+    :param ylabel: str
+    :param yunits: str
+    :param svg_title: str
     """
     colors = ['k', 'r', 'c', 'y', 'm', 'g', 'b']
     dend_types = ['basal', 'trunk', 'apical', 'tuft']
 
+    fig, axes = plt.subplots(1)
     for i, sec_type in enumerate(dend_types):
         syn_list = []
         distances = []
@@ -1263,18 +1268,28 @@ def plot_synaptic_param_distribution(cell, syn_type, param_name, title=None):
             distances.append(cell.get_distance_to_node(cell.tree.root, syn.node.parent.parent, syn.loc))
             if sec_type == 'basal':
                     distances[-1] *= -1
-            param_vals.append(getattr(syn.target(syn_type), param_name))
-        plt.scatter(distances, param_vals, color=colors[i], label=sec_type)
-    plt.legend(loc='best', scatterpoints=1, frameon=False, framealpha=0.5)
-    if not title is None:
-        plt.set_size_inches(19.2, 12)
-        plt.savefig(data_dir+title+' - '+syn_type+'_'+param_name+' distribution.svg', format='svg')
-    plt.show()
+            param_vals.append(getattr(syn.target(syn_type), param_name) * scale_factor)
+        axes.scatter(distances, param_vals, color=colors[i], label=sec_type)
+    axes.set_xlabel('Distance to Soma (um)', fontsize=20)
+    axes.set_ylabel(ylabel+' ('+yunits+')', fontsize=20)
+    plt.legend(loc='best', scatterpoints=1, frameon=False, framealpha=0.5, fontsize=20)
+    if param_label is not None:
+        plt.title(param_label, fontsize=20)
+    clean_axes(axes)
+    if not svg_title is None:
+        if param_label is not None:
+            svg_title = svg_title+' - '+param_label+'.svg'
+        else:
+            svg_title = svg_title+' - '+syn_type+'_'+param_name+' distribution.svg'
+        plt.savefig(data_dir+svg_title, format='svg')
+    else:
+        plt.show()
     plt.close()
-    print '# spines: ', len(cell.get_nodes_of_subtype('spine_head'))
+    # print '# spines: ', len(cell.get_nodes_of_subtype('spine_head'))
 
 
-def plot_mech_param_distribution(cell, mech_name, param_name, title=None):
+def plot_mech_param_distribution(cell, mech_name, param_name, scale_factor=1., param_label=None,
+                                 ylabel='Conductance Density', yunits='S/cm2', svg_title=None):
     """
     Takes a cell as input rather than a file. No simulation is required, this method just takes a fully specified cell
     and plots the relationship between distance and the specified mechanism parameter for all dendritic segments. Used
@@ -1282,11 +1297,16 @@ def plot_mech_param_distribution(cell, mech_name, param_name, title=None):
     :param cell: :class:'HocCell'
     :param mech_name: str
     :param param_name: str
-    :param title: str
+    :param scale_factor: float
+    :param ylabel: str
+    :param yunits: str
+    :param svg_title: str
     """
     colors = ['k', 'r', 'c', 'y', 'm', 'g', 'b']
     dend_types = ['basal', 'trunk', 'apical', 'tuft']
 
+    fig, axes = plt.subplots(1)
+    maxval, minval = None, None
     for i, sec_type in enumerate(dend_types):
         distances = []
         param_vals = []
@@ -1295,13 +1315,96 @@ def plot_mech_param_distribution(cell, mech_name, param_name, title=None):
                 distances.append(cell.get_distance_to_node(cell.tree.root, branch, seg.x))
                 if sec_type == 'basal':
                     distances[-1] *= -1
-                param_vals.append(getattr(getattr(seg, mech_name), param_name))
-        plt.scatter(distances, param_vals, color=colors[i], label=sec_type)
-    plt.legend(loc='best', scatterpoints=1, frameon=False, framealpha=0.5)
-    if not title is None:
-        plt.set_size_inches(19.2, 12)
-        plt.savefig(data_dir+title+' - '+mech_name+'_'+param_name+' distribution.svg', format='svg')
-    plt.show()
+                param_vals.append(getattr(getattr(seg, mech_name), param_name) * scale_factor)
+        axes.scatter(distances, param_vals, color=colors[i], label=sec_type)
+        if maxval is None:
+            maxval = max(param_vals)
+        else:
+            maxval = max(maxval, max(param_vals))
+        if minval is None:
+            minval = min(param_vals)
+        else:
+            minval = min(minval, min(param_vals))
+    axes.set_xlabel('Distance to Soma (um)', fontsize=20)
+    axes.set_ylabel(ylabel+' ('+yunits+')', fontsize=20)
+    buffer = 0.1 * (maxval - minval)
+    axes.set_ylim(minval-buffer, maxval+buffer)
+    if param_label is not None:
+        plt.title(param_label, fontsize=20)
+    plt.legend(loc='best', scatterpoints=1, frameon=False, framealpha=0.5, fontsize=20)
+    clean_axes(axes)
+    if not svg_title is None:
+        if param_label is not None:
+            svg_title = svg_title+' - '+param_label+'.svg'
+        else:
+            svg_title = svg_title+' - '+mech_name+'_'+param_name+' distribution.svg'
+        plt.savefig(data_dir+svg_title, format='svg')
+    else:
+        plt.show()
+    plt.close()
+
+
+def plot_sum_mech_param_distribution(cell, mech_param_list, scale_factor=1., param_label=None,
+                                 ylabel='Conductance Density', yunits='S/cm2', svg_title=None):
+    """
+    Takes a cell as input rather than a file. No simulation is required, this method just takes a fully specified cell
+    and plots the relationship between distance and the specified mechanism parameter for all dendritic segments. Used
+    while debugging specification of mechanism parameters.
+    :param cell: :class:'HocCell'
+    :param mech_param_list: list of tuple of str
+    :param scale_factor: float
+    :param ylabel: str
+    :param yunits: str
+    :param svg_title: str
+    """
+    colors = ['k', 'r', 'c', 'y', 'm', 'g', 'b']
+    dend_types = ['basal', 'trunk', 'apical', 'tuft']
+
+    fig, axes = plt.subplots(1)
+    maxval, minval = None, None
+    for i, sec_type in enumerate(dend_types):
+        distances = []
+        param_vals = []
+        for branch in cell.get_nodes_of_subtype(sec_type):
+            for seg in branch.sec:
+                this_param_val = 0.
+                this_distance = None
+                for mech_name, param_name in mech_param_list:
+                    if hasattr(seg, mech_name):
+                        if this_distance is None:
+                            this_distance = cell.get_distance_to_node(cell.tree.root, branch, seg.x)
+                            if sec_type == 'basal':
+                                this_distance *= -1
+                        this_param_val += getattr(getattr(seg, mech_name), param_name) * scale_factor
+                if this_distance is not None:
+                    distances.append(this_distance)
+                    param_vals.append(this_param_val)
+        axes.scatter(distances, param_vals, color=colors[i], label=sec_type)
+        if maxval is None:
+            maxval = max(param_vals)
+        else:
+            maxval = max(maxval, max(param_vals))
+        if minval is None:
+            minval = min(param_vals)
+        else:
+            minval = min(minval, min(param_vals))
+    axes.set_xlabel('Distance to Soma (um)', fontsize=20)
+    axes.set_ylabel(ylabel+' ('+yunits+')', fontsize=20)
+    buffer = 0.1 * (maxval - minval)
+    axes.set_ylim(minval-buffer, maxval+buffer)
+    if param_label is not None:
+        plt.title(param_label, fontsize=20)
+    plt.legend(loc='best', scatterpoints=1, frameon=False, framealpha=0.5, fontsize=20)
+    clean_axes(axes)
+    if not svg_title is None:
+        if param_label is not None:
+            svg_title = svg_title+' - '+param_label+'.svg'
+        else:
+            mech_name, param_name = mech_param_list[0]
+            svg_title = svg_title+' - '+mech_name+'_'+param_name+' distribution.svg'
+        plt.savefig(data_dir+svg_title, format='svg')
+    else:
+        plt.show()
     plt.close()
 
 
@@ -1486,20 +1589,22 @@ def plot_expected_vs_actual_traces(expected_filename, actual_filenames, path_ind
     plt.close()
 
 
-def plot_expected_vs_actual_from_processed(actual_file_list, description_list=None, location_list=None, title=None):
+def plot_expected_vs_actual_from_processed(actual_file_list, description_list=None, location_list=None, x='expected',
+                                           title=None):
     """
     Expects each file in actual_file_list to be generated by passing the output of parallel_clustered_ or
     parallel_distributed_branch_cooperativity through export_nmdar_cooperativity. Files contain expected vs. actual
     measurements from simultaneous voltage recordings from 3 locations (soma, trunk, dendrite origin) during synchronous
     stimulation of branches. Spines are distributed across 4 dendritic sec_types (basal, trunk, apical, tuft).
     Produces one figure containing a grid of up to 12 plots (4 sec_types by 3 recording locs) of expected EPSP amplitude
-    vs. actual EPSP amplitude.
+    (or number of inputs) vs. actual EPSP amplitude.
     Superimposes results from multiple branches in two colors, separating by the path_category (e.g. proximal, distal,
     or terminal).
     Superimposes results from multiple files in list using different colors.
     :param actual_file_list: list of str
     :param description_list: list of str
     :param location_list: list of str
+    :param x: str in ['expected', 'number']
     :param title: str
     """
     if not type(actual_file_list) == list:
@@ -1552,10 +1657,18 @@ def plot_expected_vs_actual_from_processed(actual_file_list, description_list=No
                                                         label=description_list[index]+': '+path_category)
                 i = input_locs.index(input_loc)
                 for j, rec_loc in enumerate(rec_locs):
-                    axes[i][j].plot(sim[rec_loc]['expected'][:], sim[rec_loc]['actual'][:], color=color)
+                    actual = sim[rec_loc]['actual'][:]
+                    if x == 'number':
+                        axes[i][j].plot(range(1, len(actual)+1), actual, color=color)
+                    else:
+                        axes[i][j].plot(sim[rec_loc]['expected'][:], actual, color=color)
+                    clean_axes(axes[i][j])
     for j, location in enumerate(rec_locs):
         axes[0][j].set_title('Recording loc: '+location)
-        axes[-1][j].set_xlabel('Expected EPSP Amp (mV)')  # , fontsize='x-large')
+        if x == 'number':
+            axes[-1][j].set_xlabel('Number of Inputs')  # , fontsize='x-large')
+        else:
+            axes[-1][j].set_xlabel('Expected EPSP Amp (mV)')  # , fontsize='x-large')
     for i, input_loc in enumerate(input_locs):
         axes[i][0].set_ylabel('Spine Location: '+input_loc+'\nActual EPSP Amp (mV)')  # , fontsize='xx-large')
         label_handle = []
@@ -1565,7 +1678,7 @@ def plot_expected_vs_actual_from_processed(actual_file_list, description_list=No
     plt.subplots_adjust(hspace=0.4, wspace=0.3, left=0.05, right=0.95, top=0.95, bottom=0.05)
     if not title is None:
         fig.set_size_inches(20.8, 15.6)  # 19.2, 12)19.2, 12)
-        fig.savefig(data_dir+title+' - branch cooperativity.svg', format='svg')
+        fig.savefig(data_dir+title+' - vs ' + x + ' - branch cooperativity.svg', format='svg')
     plt.show()
     plt.close()
 
@@ -2028,6 +2141,7 @@ def plot_nmdar_supralinearity_from_processed(actual_file_list, description_list=
                             color = colors[index*3+2]
                         axes[i][j].scatter(distances[input_loc][path_category],
                                            peaks[input_loc][rec_loc][path_category], color=color)
+                        clean_axes(axes[i][j])
             xlabel = 'Distance to Soma (um)'
             ylabel = 'Peak NMDAR Supralinearity (%)'
         else:
@@ -2227,12 +2341,12 @@ def plot_nmdar_conductance_from_processed(actual_file_list, description_list=Non
     plt.close()
 
 
-def process_patterned_input_simulation_input_output(rec_filename, title, dt=0.02):
+def process_patterned_input_simulation_input_output(rec_filename, title, svg_title=None):
     """
 
     :param rec_file_name: str
     :param title: str
-    # remember .attrs['phase_offset'] could be inside ['train'] for old files
+    :param svg_title: str
     """
     with h5py.File(data_dir+rec_filename+'.hdf5', 'r') as f:
         sim = f.itervalues().next()
@@ -2242,7 +2356,6 @@ def process_patterned_input_simulation_input_output(rec_filename, title, dt=0.02
         input_field_duration = sim.attrs['input_field_duration']
         duration = sim.attrs['duration']
         stim_dt = sim.attrs['stim_dt']
-        bins = int((1.5 + track_length) * input_field_duration / 20.)
         track_duration = duration - equilibrate - track_equilibrate
         stim_t = np.arange(-track_equilibrate, track_duration, stim_dt)
         start = int(track_equilibrate/stim_dt)
@@ -2301,20 +2414,29 @@ def process_patterned_input_simulation_input_output(rec_filename, title, dt=0.02
         axes[1].plot(stim_t[start:], mean_inh_input[start:], label='Total Inhibitory Input Spike Rate', c='k')
         axes[2].plot(stim_t[start:], mean_output, label='Single Cell Output Spike Rate', c='r')
         for ax in axes:
-            ax.legend(loc='upper left', frameon=False, framealpha=0.5)
-        axes[2].set_xlabel('Time (ms)')
-        axes[1].set_ylabel('Event Rate (Hz)')
-        axes[0].set_title(title)
+            ax.legend(loc='upper left', frameon=False, framealpha=0.5, fontsize=18)
+        axes[2].set_xlabel('Time (ms)', fontsize=18)
+        axes[1].set_ylabel('Event Rate (Hz)', fontsize=18)
+        axes[0].set_title(title, fontsize=20)
+        axes[0].set_ylim(0., max(16000., np.max(mean_input) * 1.2))
+        axes[0].set_yticks(np.arange(0., max(16000., np.max(mean_input) * 1.2) + 1., 4000.))
+        axes[1].set_ylim(0., max(20000., np.max(mean_inh_input) * 1.2))
+        axes[2].set_ylim(0., max(50., np.max(mean_output) * 1.2))
         plt.xlim(0., track_duration)
-        plt.show()
-        plt.close()
-        plt.hist(intervals, bins=int(max(intervals)/3.), normed=True)
-        plt.xlim(0., 200.)
-        plt.ylabel('Probability')
-        plt.xlabel('Inter-Spike Interval (ms)')
-        plt.title('Distribution of Input Inter-Spike Intervals - '+title)
-        plt.show()
-        plt.close()
+        clean_axes(axes)
+        if svg_title is not None:
+            plt.savefig(data_dir+svg_title+' - input output - '+title+'.svg', format='svg')
+            plt.close()
+        else:
+            plt.show()
+            plt.close()
+            plt.hist(intervals, bins=int(max(intervals)/3.), normed=True)
+            plt.xlim(0., 200.)
+            plt.ylabel('Probability')
+            plt.xlabel('Inter-Spike Interval (ms)')
+            plt.title('Distribution of Input Inter-Spike Intervals - '+title)
+            plt.show()
+            plt.close()
     if stochastic:
         return stim_t[start:], mean_input[start:], mean_successes[start:], mean_inh_input[start:], mean_output
     else:
