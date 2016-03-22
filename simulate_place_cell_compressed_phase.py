@@ -4,6 +4,9 @@ from plot_results import *
 import random
 import sys
 """
+In this version of the simulation, phase precession of CA3 inputs is implemented using the method from Chadwick et al.,
+Elife, 2015, which uses a circular gaussian with a phase sensitivity factor that effectively compresses the range of
+phases within each theta cycle that each input is active, which will reduce jitter across within-cycle input sequences.
 
 """
 morph_filename = 'EB2-late-bifurcation.swc'
@@ -43,7 +46,7 @@ else:
 
 rec_filename = 'output'+datetime.datetime.today().strftime('%m%d%Y%H%M')+'-pid'+str(os.getpid())+'-seed'+\
                str(synapses_seed)+'-e'+str(num_exc_syns)+'-i'+str(num_inh_syns)+'-mod_inh'+str(mod_inh)+\
-               '-weights_'+str(mod_weights)+'_'+str(trial_seed)
+               '-phase_compress_'+str(mod_weights)+'_'+str(trial_seed)
 
 
 def run_trial(simiter):
@@ -68,8 +71,6 @@ def run_trial(simiter):
         sim.parameters['mod_inh_stop'] = stim_t[mod_inh_stop]
     index = 0
     for group in stim_exc_syns:
-        excitatory_theta_amp = excitatory_theta_modulation_depth[group] / 2.
-        excitatory_theta_offset = 1. - excitatory_theta_amp
         for i, syn in enumerate(stim_exc_syns[group]):
             # the stochastic sequence used for each synapse is unique for each trial,
             # up to 1000 input spikes per spine
@@ -77,14 +78,37 @@ def run_trial(simiter):
                 syn.randObj.seq(rand_exc_seq_locs[group][i]+int(simiter*1e3))
             gauss_force = excitatory_peak_rate * np.exp(-((stim_t - peak_locs[group][i]) / gauss_sigma)**2.)
             if group == 'ECIII':
+                excitatory_theta_amp = excitatory_theta_modulation_depth[group] / 2.
+                excitatory_theta_offset = 1. - excitatory_theta_amp
                 theta_force = excitatory_theta_offset + excitatory_theta_amp * np.cos(2. * np.pi /
                                         global_theta_cycle_duration * stim_t - global_phase_offset -
                                         excitatory_theta_phase_offset['ECIII'])
             else:
-                unit_phase_offset = peak_locs[group][i] * theta_compression_factor
-                theta_force = excitatory_theta_offset + excitatory_theta_amp * np.cos(2. * np.pi /
-                                        unit_theta_cycle_duration * (stim_t - unit_phase_offset) -
-                                        global_phase_offset - excitatory_theta_phase_offset['CA3'])
+                dphase = (excitatory_precession_range[group][1] - excitatory_precession_range[group][0]) / \
+                         input_field_duration * dt
+                phase_gradient = np.arange(excitatory_precession_range[group][0],
+                                           excitatory_precession_range[group][1], dphase)
+                phase_force = np.ones_like(stim_t) * excitatory_precession_range[group][0]
+                if stim_t[0] <= peak_locs[group][i]-input_field_duration/2. <= stim_t[-1]:
+                    phase_start = np.where(peak_locs[group][i]-input_field_duration/2. >= stim_t)[0]
+                    if np.any(phase_start):
+                        phase_start = phase_start[-1]
+                        phase_end = min(len(stim_t), phase_start+len(phase_gradient))
+                        phase_force[:phase_start] = excitatory_precession_range[group][0]
+                        phase_force[phase_start:phase_end] = phase_gradient[:phase_end-phase_start]
+                        phase_force[phase_end:] = excitatory_precession_range[group][1]
+                elif stim_t[0] <= peak_locs[group][i]+input_field_duration/2. <= stim_t[-1]:
+                    phase_end = np.where(peak_locs[group][i]+input_field_duration/2. >= stim_t)[0]
+                    if np.any(phase_end):
+                        phase_end = phase_end[-1]
+                        phase_start = max(0, phase_end-len(phase_gradient))
+                        phase_force[:phase_start] = excitatory_precession_range[group][0]
+                        phase_force[phase_start:phase_end] = phase_gradient[-(phase_end-phase_start):]
+                        phase_force[phase_end:] = excitatory_precession_range[group][1]
+                phase_force += excitatory_theta_phase_offset['CA3']
+                theta_force = np.exp(excitatory_theta_phase_modulation_factor[group] * np.cos(phase_force - 2. * np.pi *
+                                        stim_t / global_theta_cycle_duration + global_phase_offset))
+                theta_force /= np.max(theta_force)
             stim_force = np.multiply(gauss_force, theta_force)
             train = get_inhom_poisson_spike_times(stim_force, stim_t, dt=stim_dt, generator=local_random)
             syn.source.play(h.Vector(np.add(train, equilibrate + track_equilibrate)))
@@ -140,18 +164,16 @@ NMDA_type = 'NMDA_KIN5'
 equilibrate = 250.  # time to steady-state
 global_theta_cycle_duration = 150.  # (ms)
 input_field_width = 20  # (theta cycles per 6 standard deviations)
-excitatory_phase_extent = 450.  # (degrees)
-# Geissler...Buzsaki, PNAS 2010
-unit_theta_cycle_duration = global_theta_cycle_duration * input_field_width / (input_field_width +
-                                                                               (excitatory_phase_extent / 360.))
+excitatory_precession_range = {'CA3': [180. / 360. * 2. * np.pi, -180. / 360. * 2. * np.pi]}  # radians
 input_field_duration = input_field_width * global_theta_cycle_duration
 track_length = 2.5  # field widths
 track_duration = track_length * input_field_duration
 track_equilibrate = 2. * global_theta_cycle_duration
 duration = equilibrate + track_equilibrate + track_duration  # input_field_duration
 excitatory_peak_rate = 40.
-excitatory_theta_modulation_depth = {'CA3': 0.75, 'ECIII': 0.7}
-theta_compression_factor = 1. - unit_theta_cycle_duration / global_theta_cycle_duration
+excitatory_theta_modulation_depth = {'ECIII': 0.7}
+# From Chadwick et al., ELife 2015
+excitatory_theta_phase_modulation_factor = {'CA3': 0.8}
 excitatory_theta_phase_offset = {}
 excitatory_theta_phase_offset['CA3'] = 165. / 360. * 2. * np.pi  # radians
 excitatory_theta_phase_offset['ECIII'] = 0. / 360. * 2. * np.pi  # radians
@@ -335,8 +357,6 @@ tuning_offset1 = tuning_amp1 + trough_mod_weight
 tuning_amp2 = (peak_mod_weight - 1.) / 2.
 tuning_offset2 = tuning_amp2 + 1.
 
-pre_weights = {}
-post_weights = {}
 for group in stim_exc_syns:
     cos_mod_weight1 = tuning_amp1 * np.cos(2. * np.pi / (input_field_duration * 1.2) * (peak_locs[group] -
                                                                                        modulated_field_center)) + \
@@ -359,65 +379,14 @@ for group in stim_exc_syns:
     local_random.shuffle(indexes)
     peak_locs[group] = map(peak_locs[group].__getitem__, indexes)
     cos_mod_weight[group] = map(cos_mod_weight[group].__getitem__, indexes)
-    pre_weights[group] = []
-    post_weights[group] = []
     for i, syn in enumerate(stim_exc_syns[group]):
-        pre_weight = syn.target('AMPA_KIN').gmax * 1000. * 0.3252  # scale by peak AMPAR PO and convert to nS
-        pre_weights[group].append(pre_weight)
         syn.netcon('AMPA_KIN').weight[0] = cos_mod_weight[group][i]
-        post_weights[group].append(pre_weight * cos_mod_weight[group][i])
 
 manipulated_inh_syns = {}
 for group in inhibitory_manipulation_fraction:
     num_syns = int(len(stim_inh_syns[group]) * inhibitory_manipulation_fraction[group])
     manipulated_inh_syns[group] = local_random.sample(stim_inh_syns[group], num_syns)
-"""
+
 run_trial(trial_seed)
 if os.path.isfile(data_dir+rec_filename+'-working.hdf5'):
     os.rename(data_dir+rec_filename+'-working.hdf5', data_dir+rec_filename+'.hdf5')
-"""
-"""
-svg_title = '030916 - cell68'
-collapsed_peak_locs = []
-collapsed_pre_weights = []
-collapsed_post_weights = []
-for group in peak_locs:
-    collapsed_peak_locs.extend(peak_locs[group])
-    collapsed_pre_weights.extend(pre_weights[group])
-    collapsed_post_weights.extend(post_weights[group])
-pre_bins, pre_density, pre_weight_mean = sliding_window(collapsed_peak_locs, collapsed_pre_weights)
-post_bins, post_density, post_weight_mean = sliding_window(collapsed_peak_locs, collapsed_post_weights)
-fig, axes = plt.subplots(1)
-axes.scatter(pre_bins, pre_weight_mean, color='k', label='Postsynaptic Input Weight Distribution')
-axes.set_xlim(0., 7500.)
-axes.set_ylim(0., 2.)
-axes.set_xlabel('Time (ms)', fontsize=20)
-axes.set_ylabel('Peak Synaptic AMPAR\nConductances (nS)', fontsize=20)
-axes.legend(loc='best', frameon=False, framealpha=0.5, fontsize=20)
-clean_axes(axes)
-plt.savefig(data_dir+svg_title+' - premod weights.svg', format='svg')
-plt.show()
-plt.close()
-fig, axes = plt.subplots(1)
-axes.scatter(post_bins, post_weight_mean, color='k', label='Postsynaptic Input Weight Distribution')
-axes.set_xlim(0., 7500.)
-axes.set_ylim(0., 2.)
-axes.set_xlabel('Time (ms)', fontsize=20)
-axes.set_ylabel('Peak Synaptic AMPAR\nConductances (nS)', fontsize=20)
-axes.legend(loc='best', frameon=False, framealpha=0.5, fontsize=20)
-clean_axes(axes)
-plt.savefig(data_dir+svg_title+' - postmod weights.svg', format='svg')
-plt.show()
-plt.close()
-fig, axes = plt.subplots(1)
-axes.scatter(post_bins, post_density, color='r', label='Presynaptic Input Density Distribution')
-axes.set_xlim(0., 7500.)
-axes.set_ylim(0., 600.)
-axes.set_xlabel('Time (ms)', fontsize=20)
-axes.set_ylabel('Input Density (/s)', fontsize=20)
-axes.legend(loc='best', frameon=False, framealpha=0.5, fontsize=20)
-clean_axes(axes)
-plt.savefig(data_dir+svg_title+' - input density.svg', format='svg')
-plt.show()
-plt.close()
-"""

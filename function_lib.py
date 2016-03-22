@@ -1680,3 +1680,22 @@ def error_power_func(p, x, y):
     :return: float
     """
     return np.sum((y - fit_power_func(p, x)) ** 2.)
+
+
+def plot_waveform_phase_vs_time(t, x, cycle_duration=150., time_offset=0., start_loc=1500., end_loc=3000.):
+    """
+
+    :param :
+    """
+    phase_array = []
+    peak_array = []
+    peak_locs = signal.argrelmax(x)[0]
+    peak_times = t[peak_locs]
+    peak_array.append(peak_times)
+    peak_times = np.subtract(peak_times, time_offset)
+    peak_phases = np.mod(peak_times, cycle_duration)
+    peak_phases /= cycle_duration
+    peak_phases *= 360.
+    phase_array.append(peak_phases)
+    #plot_phase_precession(peak_array, phase_array, 'waveform', start_loc, end_loc)
+    return peak_times, peak_phases

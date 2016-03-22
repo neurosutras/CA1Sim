@@ -2923,6 +2923,63 @@ def plot_phase_precession(t_array, phase_array, title, fit_start=1500., fit_end=
         plt.savefig(data_dir+svg_title+'.svg', format='svg')
     plt.show()
     plt.close()
+    print title, abs(m * (fit_end - fit_start))
+    return binned_times, binned_phases
+
+
+def plot_phase_precession_sliding(t_array, phase_array, title, fit_start=3660., fit_end=5400., display_start=0.,
+                          display_end=7500., bin_size=60., num_bins=3, svg_title=None):
+    """
+
+    :param t_array: list of np.array
+    :param phase_array: list of np.array
+    :param title: str
+    :param fit_start: float
+    :param fit_end: float
+    :param display_start: float
+    :param display_end: float
+    :param bin_size: float
+    :param num_bins: int
+    """
+    fig, axes = plt.subplots(1)
+    for i, t in enumerate(t_array):
+        phases = phase_array[i]
+        axes.scatter(t, phases, color='lightgray')  # colors[i])
+    binned_times = []
+    binned_phases = []
+    window_dur = float(num_bins) * bin_size
+    start = display_start
+    while start < display_end:
+        index_array = [np.where((spike_times >= start) & (spike_times < start + window_dur))[0] for spike_times in
+                                                                                                        t_array]
+        spike_times = []
+        spike_phases = []
+        for i in range(len(t_array)):
+            for spike_time, spike_phase in zip(t_array[i][index_array[i]], phase_array[i][index_array[i]]):
+                spike_times.append(spike_time)
+                spike_phases.append(spike_phase)
+        if np.any(spike_times):
+            binned_times.append(start+window_dur/2.)  # (np.mean(spike_times))
+            binned_phases.append(stats.circmean(spike_phases, high=360., low=0.))
+        start += bin_size
+    binned_times = np.array(binned_times)
+    binned_phases = np.array(binned_phases)
+    indexes = np.where((binned_times >= fit_start+window_dur/2.) & (binned_times <= fit_end-window_dur/2.))[0]
+    m, b = np.polyfit(binned_times[indexes], binned_phases[indexes], 1)
+    fit_t = np.arange(fit_start, fit_end+bin_size, bin_size)
+    axes.plot(binned_times, binned_phases, c='k', linewidth=2.)
+    axes.plot(fit_t, m * fit_t + b, c='r', linewidth=2.)
+    axes.set_ylim(0., 360.)
+    axes.set_xlim(display_start, display_end)
+    axes.set_ylabel('Phase (Degrees)', fontsize=20)
+    axes.set_xlabel('Time (ms)', fontsize=20)
+    axes.set_title('Phase Precession - '+ title, fontsize=20)
+    clean_axes(axes)
+    if svg_title is not None:
+        plt.savefig(data_dir+svg_title+'.svg', format='svg')
+    plt.show()
+    plt.close()
+    print title, abs(m * (fit_end - fit_start))
     return binned_times, binned_phases
 
 
