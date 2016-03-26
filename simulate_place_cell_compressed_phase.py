@@ -224,10 +224,10 @@ inhibitory_precession_range = {}
 inhibitory_theta_phase_offset = {}
 inhibitory_theta_phase_offset['perisomatic'] = 135. / 360. * 2. * np.pi  # Like PV+ Basket
 inhibitory_theta_phase_offset['axo-axonic'] = 45. / 360. * 2. * np.pi  # Vargas et al., ELife, 2014
-inhibitory_theta_phase_offset['apical dendritic'] = 210. / 360. * 2. * np.pi  # Like PYR-layer Bistratified
+inhibitory_theta_phase_offset['apical dendritic'] = 200. / 360. * 2. * np.pi  # Like PYR-layer Bistratified
 inhibitory_theta_phase_offset['distal apical dendritic'] = 180. / 360. * 2. * np.pi  # Like SR/SLM Border Cells
 inhibitory_theta_phase_offset['tuft feedforward'] = 340. / 360. * 2. * np.pi  # Like Neurogliaform
-inhibitory_theta_phase_offset['tuft feedback'] = 210. / 360. * 2. * np.pi  # Like SST+ O-LM
+inhibitory_theta_phase_offset['tuft feedback'] = 200. / 360. * 2. * np.pi  # Like SST+ O-LM
 
 stim_dt = 0.02
 dt = 0.02
