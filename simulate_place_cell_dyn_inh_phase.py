@@ -103,13 +103,11 @@ def run_trial(simiter):
     """
     local_random.seed(simiter)
     global_phase_offset = local_random.uniform(-np.pi, np.pi)
-    """
     with h5py.File(data_dir+rec_filename+'-working.hdf5', 'a') as f:
         f.create_group(str(simiter))
         f[str(simiter)].create_group('train')
         f[str(simiter)].create_group('inh_train')
         f[str(simiter)].attrs['phase_offset'] = global_phase_offset / 2. / np.pi * global_theta_cycle_duration
-    """
     if mod_inh > 0:
         if mod_inh == 1:
             mod_inh_start = int(track_equilibrate / dt)
@@ -141,7 +139,6 @@ def run_trial(simiter):
             theta_force *= excitatory_theta_modulation_depth[group]
             theta_force += 1. - excitatory_theta_modulation_depth[group]
             stim_force = np.multiply(gauss_force, theta_force)
-            """
             train = get_inhom_poisson_spike_times(stim_force, stim_t, dt=stim_dt, generator=local_random)
             syn.source.play(h.Vector(np.add(train, equilibrate + track_equilibrate)))
             with h5py.File(data_dir+rec_filename+'-working.hdf5', 'a') as f:
@@ -150,14 +147,20 @@ def run_trial(simiter):
                 f[str(simiter)]['train'][str(index)].attrs['index'] = syn.node.index
                 f[str(simiter)]['train'][str(index)].attrs['type'] = syn.node.parent.parent.type
                 f[str(simiter)]['train'][str(index)].attrs['peak_loc'] = peak_locs[group][i]
-            """
             index += 1
     index = 0
     for group in stim_inh_syns:
         for syn in stim_inh_syns[group]:
-            inhibitory_theta_force = np.exp(inhibitory_theta_phase_tuning_factor[group] *
-                                 np.cos(inhibitory_theta_phase_offset[group] - 2. * np.pi * stim_t /
-                                        global_theta_cycle_duration + global_phase_offset))
+            if group in inhibitory_precession_range:
+                phase_force = get_dynamic_theta_phase_force(inhibitory_precession_range[group], modulated_field_center,
+                                                            input_field_duration, stim_t, stim_dt)
+                inhibitory_theta_force = np.exp(inhibitory_theta_phase_tuning_factor[group] * np.cos(phase_force +
+                                                         inhibitory_theta_phase_offset[group] - 2. * np.pi * stim_t /
+                                                         global_theta_cycle_duration + global_phase_offset))
+            else:
+                inhibitory_theta_force = np.exp(inhibitory_theta_phase_tuning_factor[group] *
+                                                np.cos(inhibitory_theta_phase_offset[group] - 2. * np.pi * stim_t /
+                                                       global_theta_cycle_duration + global_phase_offset))
             inhibitory_theta_force -= np.min(inhibitory_theta_force)
             inhibitory_theta_force /= np.max(inhibitory_theta_force)
             inhibitory_theta_force *= inhibitory_theta_modulation_depth[group]
@@ -165,7 +168,6 @@ def run_trial(simiter):
             inhibitory_theta_force *= inhibitory_peak_rate[group]
             if mod_inh > 0 and group in inhibitory_manipulation_fraction and syn in manipulated_inh_syns[group]:
                 inhibitory_theta_force[mod_inh_start:mod_inh_stop] = 0.
-            """
             train = get_inhom_poisson_spike_times(inhibitory_theta_force, stim_t, dt=stim_dt,
                                                   generator=local_random)
             syn.source.play(h.Vector(np.add(train, equilibrate + track_equilibrate)))
@@ -176,9 +178,7 @@ def run_trial(simiter):
                 f[str(simiter)]['inh_train'][str(index)].attrs['index'] = syn.node.index
                 f[str(simiter)]['inh_train'][str(index)].attrs['loc'] = syn.loc
                 f[str(simiter)]['inh_train'][str(index)].attrs['type'] = syn.node.type
-            """
             index += 1
-    """
     sim.run(v_init)
     with h5py.File(data_dir+rec_filename+'-working.hdf5', 'a') as f:
         sim.export_to_file(f, simiter)
@@ -195,7 +195,6 @@ def run_trial(simiter):
         f[str(simiter)].create_dataset('output', compression='gzip', compression_opts=9,
                                     data=np.subtract(cell.spike_detector.get_recordvec().to_python(),
                                                      equilibrate + track_equilibrate))
-    """
 
 
 NMDA_type = 'NMDA_KIN5'
@@ -209,14 +208,14 @@ track_duration = track_length * input_field_duration
 track_equilibrate = 2. * global_theta_cycle_duration
 duration = equilibrate + track_equilibrate + track_duration  # input_field_duration
 excitatory_peak_rate = {'CA3': 40., 'ECIII': 40.}
-excitatory_theta_modulation_depth = {'CA3': 0.65, 'ECIII': 0.65}
+excitatory_theta_modulation_depth = {'CA3': 0.7, 'ECIII': 0.7}
 # From Chadwick et al., ELife 2015
 excitatory_theta_phase_tuning_factor = {'CA3': 0.8, 'ECIII': 0.8}
 excitatory_precession_range = {}
 excitatory_precession_range['CA3'] = [(-input_field_duration*0.5, 180.), (-input_field_duration*0.35, 180.),
                                       (input_field_duration*0.35, -180.), (input_field_duration*0.5, -180.)]  # (ms, degrees)
 excitatory_theta_phase_offset = {}
-excitatory_theta_phase_offset['CA3'] = 155. / 360. * 2. * np.pi  # radians
+excitatory_theta_phase_offset['CA3'] = 165. / 360. * 2. * np.pi  # radians
 excitatory_theta_phase_offset['ECIII'] = 0. / 360. * 2. * np.pi  # radians
 excitatory_stochastic = 1
 inhibitory_manipulation_fraction = {'perisomatic': 0.3, 'axo-axonic': 0.3, 'apical dendritic': 0.3,
@@ -229,13 +228,34 @@ inhibitory_theta_modulation_depth = {'perisomatic': 0.5, 'axo-axonic': 0.5, 'api
 inhibitory_theta_phase_tuning_factor = {'perisomatic': 0.6, 'axo-axonic': 0.6, 'apical dendritic': 0.6,
                                      'distal apical dendritic': 0.6, 'tuft feedforward': 0.6, 'tuft feedback': 0.6}
 inhibitory_precession_range = {}
+inhibitory_precession_range['apical dendritic'] = [(-input_field_duration * 0.5, 0.),
+                                                   (-input_field_duration * 0.272, 0.),
+                                                   (-input_field_duration * 0.272 + 3. * global_theta_cycle_duration,
+                                                    20.),
+                                                   (input_field_duration * 0.5, 20.),
+                                                   (input_field_duration * 0.5 + 3. * global_theta_cycle_duration, 0.)]
+inhibitory_precession_range['distal apical dendritic'] = [(-input_field_duration * 0.5, 0.),
+                                                          (-input_field_duration * 0.117, 0.),
+                                                          (
+                                                          -input_field_duration * 0.117 + 3. * global_theta_cycle_duration,
+                                                          20.),
+                                                          (input_field_duration * 0.5, 20.),
+                                                          (
+                                                          input_field_duration * 0.5 + 3. * global_theta_cycle_duration,
+                                                          0.)]
+inhibitory_precession_range['perisomatic'] = [(-input_field_duration * 0.5, 0.),
+                                              (input_field_duration * 0.233, 0.),
+                                              (input_field_duration * 0.233 + 3. * global_theta_cycle_duration,
+                                               20.),
+                                              (input_field_duration * 0.5, 20.),
+                                              (input_field_duration * 0.5 + 3. * global_theta_cycle_duration, 0.)]
 inhibitory_theta_phase_offset = {}
 inhibitory_theta_phase_offset['perisomatic'] = 135. / 360. * 2. * np.pi  # Like PV+ Basket
 inhibitory_theta_phase_offset['axo-axonic'] = 45. / 360. * 2. * np.pi  # Vargas et al., ELife, 2014
-inhibitory_theta_phase_offset['apical dendritic'] = 210. / 360. * 2. * np.pi  # Like PYR-layer Bistratified
+inhibitory_theta_phase_offset['apical dendritic'] = 200. / 360. * 2. * np.pi  # Like PYR-layer Bistratified
 inhibitory_theta_phase_offset['distal apical dendritic'] = 180. / 360. * 2. * np.pi  # Like SR/SLM Border Cells
 inhibitory_theta_phase_offset['tuft feedforward'] = 340. / 360. * 2. * np.pi  # Like Neurogliaform
-inhibitory_theta_phase_offset['tuft feedback'] = 210. / 360. * 2. * np.pi  # Like SST+ O-LM
+inhibitory_theta_phase_offset['tuft feedback'] = 200. / 360. * 2. * np.pi  # Like SST+ O-LM
 
 stim_dt = 0.02
 dt = 0.02
@@ -422,7 +442,5 @@ for group in inhibitory_manipulation_fraction:
     manipulated_inh_syns[group] = local_random.sample(stim_inh_syns[group], num_syns)
 
 run_trial(trial_seed)
-"""
 if os.path.isfile(data_dir+rec_filename+'-working.hdf5'):
     os.rename(data_dir+rec_filename+'-working.hdf5', data_dir+rec_filename+'.hdf5')
-"""
