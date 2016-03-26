@@ -201,14 +201,14 @@ track_duration = track_length * input_field_duration
 track_equilibrate = 2. * global_theta_cycle_duration
 duration = equilibrate + track_equilibrate + track_duration  # input_field_duration
 excitatory_peak_rate = {'CA3': 40., 'ECIII': 40.}
-excitatory_theta_modulation_depth = {'CA3': 0.65, 'ECIII': 0.65}
+excitatory_theta_modulation_depth = {'CA3': 0.7, 'ECIII': 0.7}
 # From Chadwick et al., ELife 2015
 excitatory_theta_phase_tuning_factor = {'CA3': 0.8, 'ECIII': 0.8}
 excitatory_precession_range = {}
 excitatory_precession_range['CA3'] = [(-input_field_duration*0.5, 180.), (-input_field_duration*0.35, 180.),
                                       (input_field_duration*0.35, -180.), (input_field_duration*0.5, -180.)]  # (ms, degrees)
 excitatory_theta_phase_offset = {}
-excitatory_theta_phase_offset['CA3'] = 155. / 360. * 2. * np.pi  # radians
+excitatory_theta_phase_offset['CA3'] = 165. / 360. * 2. * np.pi  # radians
 excitatory_theta_phase_offset['ECIII'] = 0. / 360. * 2. * np.pi  # radians
 excitatory_stochastic = 1
 inhibitory_manipulation_fraction = {'perisomatic': 0.3, 'axo-axonic': 0.3, 'apical dendritic': 0.3,
