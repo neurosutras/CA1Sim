@@ -46,7 +46,7 @@ else:
 
 rec_filename = 'output'+datetime.datetime.today().strftime('%m%d%Y%H%M')+'-pid'+str(os.getpid())+'-seed'+\
                str(synapses_seed)+'-e'+str(num_exc_syns)+'-i'+str(num_inh_syns)+'-mod_inh'+str(mod_inh)+\
-               '-dyn_inh_phase_'+str(mod_weights)+'_'+str(trial_seed)
+               '-recessing_inh_'+str(mod_weights)+'_'+str(trial_seed)
 
 
 def get_dynamic_theta_phase_force(phase_ranges, peak_loc, input_field_duration, stim_t, dt):
@@ -228,44 +228,20 @@ inhibitory_theta_modulation_depth = {'perisomatic': 0.5, 'axo-axonic': 0.5, 'api
 inhibitory_theta_phase_tuning_factor = {'perisomatic': 0.6, 'axo-axonic': 0.6, 'apical dendritic': 0.6,
                                      'distal apical dendritic': 0.6, 'tuft feedforward': 0.6, 'tuft feedback': 0.6}
 inhibitory_precession_range = {}
-"""
 inhibitory_precession_range['apical dendritic'] = [(-input_field_duration * 0.5, 0.),
-                                                   (-input_field_duration * 0.272, 0.),
-                                                   (-input_field_duration * 0.272 + 3. * global_theta_cycle_duration,
-                                                    20.),
+                                                   (-input_field_duration * 0.15, 0.),
+                                                   (input_field_duration * 0.15, 20.),
                                                    (input_field_duration * 0.5, 20.),
                                                    (input_field_duration * 0.5 + 3. * global_theta_cycle_duration, 0.)]
 inhibitory_precession_range['distal apical dendritic'] = [(-input_field_duration * 0.5, 0.),
-                                                          (-input_field_duration * 0.117, 0.),
-                                                          (
-                                                          -input_field_duration * 0.117 + 3. * global_theta_cycle_duration,
-                                                          20.),
-                                                          (input_field_duration * 0.5, 20.),
-                                                          (
-                                                          input_field_duration * 0.5 + 3. * global_theta_cycle_duration,
-                                                          0.)]
-inhibitory_precession_range['perisomatic'] = [(-input_field_duration * 0.5, 0.),
-                                              (input_field_duration * 0.233, 0.),
-                                              (input_field_duration * 0.233 + 3. * global_theta_cycle_duration,
-                                               20.),
-                                              (input_field_duration * 0.5, 20.),
-                                              (input_field_duration * 0.5 + 3. * global_theta_cycle_duration, 0.)]
-"""
-inhibitory_precession_range['apical dendritic'] = [(-input_field_duration * 0.5, 0.),
-                                                   (-input_field_duration * 0.2, 0.),
-                                                   (-input_field_duration * 0.2 + 3. * global_theta_cycle_duration,
-                                                    20.),
-                                                   (input_field_duration * 0.5, 20.),
-                                                   (input_field_duration * 0.5 + 3. * global_theta_cycle_duration, 0.)]
-inhibitory_precession_range['distal apical dendritic'] = [(-input_field_duration * 0.5, 0.),
-                                                          (0., 0.),
-                                                          (3. * global_theta_cycle_duration, 20.),
+                                                          (-input_field_duration * 0.15, 0.),
+                                                          (input_field_duration * 0.15, 20.),
                                                           (input_field_duration * 0.5, 20.),
                                                           (input_field_duration * 0.5 +
                                                            3. * global_theta_cycle_duration, 0.)]
 inhibitory_precession_range['perisomatic'] = [(-input_field_duration * 0.5, 0.),
-                                              (input_field_duration * 0.2, 0.),
-                                              (input_field_duration * 0.2 + 3. * global_theta_cycle_duration, 20.),
+                                              (-input_field_duration * 0.15, 0.),
+                                              (input_field_duration * 0.15, 20.),
                                               (input_field_duration * 0.5, 20.),
                                               (input_field_duration * 0.5 + 3. * global_theta_cycle_duration, 0.)]
 inhibitory_theta_phase_offset = {}
