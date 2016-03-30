@@ -1326,20 +1326,21 @@ def get_patterned_input_component_traces(rec_filename, dt=0.02):
     down_dt = 0.5
     down_t = np.arange(0., track_duration, down_dt)
     # 2000 ms Hamming window, ~3 Hz low-pass for ramp, ~5 - 10 Hz bandpass for theta
-    window_len = int(2000./down_dt)
+    window_len = int(1000./down_dt)
     theta_filter = signal.firwin(window_len, [5., 10.], nyq=1000./2./down_dt, pass_zero=False)
-    ramp_filter = signal.firwin(window_len, 3., nyq=1000./2./down_dt)
+    #ramp_filter = signal.firwin(window_len, 3., nyq=1000./2./down_dt)
+    ramp_filter = signal.firwin(window_len, 2., nyq=1000./2./ down_dt)
     theta_traces = []
     ramp_traces = []
     for trace in spikes_removed:
         subtracted = trace # - offset
         down_sampled = np.interp(down_t, rec_t, subtracted)
-        filtered = signal.filtfilt(theta_filter, [1.], down_sampled, padtype='even', padlen=window_len)
+        filtered = signal.filtfilt(theta_filter, [1.], down_sampled, padtype='even', padlen=window_len/2.)
         up_sampled = np.interp(rec_t, down_t, filtered)
         theta_traces.append(up_sampled)
         theta_filtered = subtracted - up_sampled
         down_sampled = np.interp(down_t, rec_t, theta_filtered)
-        filtered = signal.filtfilt(ramp_filter, [1.], down_sampled, padtype='even', padlen=window_len)
+        filtered = signal.filtfilt(ramp_filter, [1.], down_sampled, padtype='even', padlen=window_len/2.)
         up_sampled = np.interp(rec_t, down_t, filtered)
         ramp_traces.append(up_sampled)
     return rec_t, vm_array, theta_traces, ramp_traces
