@@ -2522,33 +2522,29 @@ def process_patterned_input_simulation(rec_filename, title, dt=0.02):
     # down_sample traces to 2 kHz after clipping spikes for theta and ramp filtering
     down_dt = 0.5
     down_t = np.arange(0., track_duration, down_dt)
-    # 2000 ms Hamming window, ~3 Hz low-pass for ramp, ~5 - 10 Hz bandpass for theta
+    # 2000 ms Hamming window, ~2 Hz low-pass for ramp, ~5 - 10 Hz bandpass for theta
     window_len = int(2000./down_dt)
     theta_filter = signal.firwin(window_len, [5., 10.], nyq=1000./2./down_dt, pass_zero=False)
-    ramp_filter = signal.firwin(window_len, 3., nyq=1000./2./down_dt)
+    ramp_filter = signal.firwin(window_len, 2., nyq=1000./2./down_dt)
     theta_traces = []
     theta_removed = []
     ramp_traces = []
-    ramp_removed = []
+    residuals = []
     intra_psd = []
     for trace in spikes_removed:
         intra_freq, this_intra_psd = signal.periodogram(trace, 1000./dt)
         intra_psd.append(this_intra_psd)
-        #counts, vals = np.histogram(trace, bins=(np.max(trace)-np.min(trace))/0.2)
-        #offset = vals[np.where(counts == np.max(counts))[0][0]]
-        subtracted = trace # - offset
-        down_sampled = np.interp(down_t, rec_t, subtracted)
-        filtered = signal.filtfilt(theta_filter, [1.], down_sampled, padtype='even', padlen=window_len)
+        down_sampled = np.interp(down_t, rec_t, trace)
+        filtered = signal.filtfilt(theta_filter, [1.], down_sampled, padtype='odd', padlen=window_len/2.)
         up_sampled = np.interp(rec_t, down_t, filtered)
         theta_traces.append(up_sampled)
-        theta_filtered = subtracted - up_sampled
+        theta_filtered = trace - up_sampled
         theta_removed.append(theta_filtered)
-        down_sampled = np.interp(down_t, rec_t, theta_filtered)
-        filtered = signal.filtfilt(ramp_filter, [1.], down_sampled, padtype='even', padlen=window_len)
+        filtered = signal.filtfilt(ramp_filter, [1.], down_sampled, padtype='odd', padlen=window_len/2.)
         up_sampled = np.interp(rec_t, down_t, filtered)
         ramp_traces.append(up_sampled)
         ramp_filtered = theta_filtered - up_sampled
-        ramp_removed.append(ramp_filtered)
+        residuals.append(ramp_filtered)
     intra_psd = np.mean(intra_psd, axis=0)
     left = np.where(intra_freq >= 4.)[0][0]
     right = np.where(intra_freq >= 11.)[0][0]
@@ -2559,7 +2555,7 @@ def process_patterned_input_simulation(rec_filename, title, dt=0.02):
     binned_variance = []
     bin_duration = 3. * spatial_bin
     interval = int(bin_duration/dt)
-    for i, residual in enumerate(ramp_removed):
+    for i, residual in enumerate(residuals):
         for j in range(0, int(track_duration/bin_duration) - 1):
             binned_variance.append(np.var(residual[j*interval:(j+1)*interval]))
             binned_mean.append(np.mean(theta_removed[i][j*interval:(j+1)*interval]))
@@ -2593,7 +2589,7 @@ def process_patterned_input_simulation(rec_filename, title, dt=0.02):
     plt.legend(loc='best')
     plt.show()
     plt.close()
-    return rec_t, ramp_removed, intra_theta_amp, binned_mean, binned_variance, mean_across_trials, \
+    return rec_t, residuals, intra_theta_amp, binned_mean, binned_variance, mean_across_trials, \
            variance_across_trials, mean_output, mean_ramp
 
 

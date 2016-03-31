@@ -202,7 +202,6 @@ track_equilibrate = 2. * global_theta_cycle_duration
 duration = equilibrate + track_equilibrate + track_duration  # input_field_duration
 excitatory_peak_rate = {'CA3': 40., 'ECIII': 40.}
 excitatory_theta_modulation_depth = {'CA3': 0.8, 'ECIII': 0.7}
-#excitatory_theta_modulation_depth = {'CA3': 0.75, 'ECIII': 0.75}
 # From Chadwick et al., ELife 2015
 excitatory_theta_phase_tuning_factor = {'CA3': 0.8, 'ECIII': 0.8}
 excitatory_precession_range = {}
@@ -212,10 +211,6 @@ excitatory_theta_phase_offset = {}
 excitatory_theta_phase_offset['CA3'] = 165. / 360. * 2. * np.pi  # radians
 excitatory_theta_phase_offset['ECIII'] = 0. / 360. * 2. * np.pi  # radians
 excitatory_stochastic = 1
-"""
-inhibitory_manipulation_fraction = {'perisomatic': 0.3, 'axo-axonic': 0.3, 'apical dendritic': 0.3,
-                                    'distal apical dendritic': 0.3, 'tuft feedback': 0.3}
-"""
 inhibitory_manipulation_fraction = {'perisomatic': 0.325, 'axo-axonic': 0.325, 'apical dendritic': 0.325,
                                     'distal apical dendritic': 0.325, 'tuft feedback': 0.325}
 inhibitory_manipulation_duration = 0.6  # Ratio of input_field_duration
@@ -228,7 +223,6 @@ inhibitory_theta_phase_tuning_factor = {'perisomatic': 0.6, 'axo-axonic': 0.6, '
 inhibitory_precession_range = {}
 inhibitory_theta_phase_offset = {}
 inhibitory_theta_phase_offset['perisomatic'] = 135. / 360. * 2. * np.pi  # Like PV+ Basket
-#inhibitory_theta_phase_offset['perisomatic'] = 145. / 360. * 2. * np.pi  # Like PV+ Basket
 inhibitory_theta_phase_offset['axo-axonic'] = 45. / 360. * 2. * np.pi  # Vargas et al., ELife, 2014
 inhibitory_theta_phase_offset['apical dendritic'] = 200. / 360. * 2. * np.pi  # Like PYR-layer Bistratified
 inhibitory_theta_phase_offset['distal apical dendritic'] = 180. / 360. * 2. * np.pi  # Like SR/SLM Border Cells
