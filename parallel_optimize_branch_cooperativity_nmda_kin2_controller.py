@@ -203,7 +203,7 @@ dv.clear()
 dv.block = True
 global_start_time = time.time()
 dv.execute('from parallel_optimize_branch_cooperativity_nmda_kin2_engine import *')
-time.sleep(180)
+#time.sleep(180)
 v = c.load_balanced_view()
 create_no_nmda_expected_file()  # run once for each new mech_dict
 
