@@ -185,7 +185,8 @@ target_range = {'peak_supralinearity': 0.5, 'min_supralinearity': 0.1,'unitary_n
 # x = ['gmax', 'gamma', 'Kd', 'sh]
 x0 = [2.892E-03, 9.314E-02, 9.819E+00, 1.816E+00]
 #x0 = [3.01655636e-03, 0.09606, 9.963, 0.]
-x1 = [3.01655636e-03, 0.09606, 9.963, 0.0]
+#x1 = [3.01655636e-03, 0.09606, 9.963, 0.0]
+x1 = [2.223E-03, 9.137E-02, 9.888E+00, 2.222E+00]  #042016 Interim polish_coop
 xmin = [5e-4, 0.05, 3., -0.01]
 xmax = [5e-3, 0.12, 10., 5.]
 
@@ -214,19 +215,20 @@ print result
 
 polished_result = optimize.minimize(branch_cooperativity_error, result.x, method='Nelder-Mead',
                                     options={'xtol': 1e-3, 'ftol': 1e-3, 'disp': True, 'maxiter': 400})
-"""
+
 polished_result = optimize.minimize(branch_cooperativity_error, x0, method='Nelder-Mead',
                                     options={'xtol': 1e-3, 'ftol': 1e-3, 'disp': True, 'maxiter': 400})
 
 print polished_result
-
+"""
 
 #branch_cooperativity_error(result.x, plot=1)
 #branch_cooperativity_error(x0, 1)
-#branch_cooperativity_error(x1, 1)
+branch_cooperativity_error(x1, 1)
 
 """
 042016:
-
-
+[gmax, gamma, Kd, sh]: [2.223E-03, 9.137E-02, 9.888E+00, 2.222E+00]
+Peak Supralinearity: 50.50, Min Supralinearity: -1.19, Unitary % NMDA: 14.490
+Parallel simulation took 181 s, Error: 1.1506E+03
 """

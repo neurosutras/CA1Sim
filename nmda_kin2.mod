@@ -81,11 +81,11 @@ PARAMETER {
     Beta	    = 0.68      (/ms)	    : channel opening rate
     Alpha       = 0.079     (/ms)       : open channel closing rate
 	Erev	    = 0.        (mV)		: reversal potential
-	Kd          = 9.98      (mM)        : modulate Mg concentration dependence
-    gamma       = 0.101     (/mV)       : modulate slope of Mg sensitivity
+	Kd          = 9.888     (mM)        : modulate Mg concentration dependence
+    gamma       = 0.09137   (/mV)       : modulate slope of Mg sensitivity
     mg          = 1.0       (mM)        : extracellular Mg concentration
-	sh 			= 0. 		(mV) 		: shift v1/2 of mg sensitivity
-    gmax	    = 0.003026  (umho)	    : maximum conductance
+	sh 			= 2.222		(mV) 		: shift v1/2 of mg sensitivity
+    gmax	    = 0.002223  (umho)	    : maximum conductance
     kin_slope   = -0.00754  (1)         : controls voltage sensitivity of decay kinetics
 	kin_offset  = 1.302     (1)         : controls voltage sensitivity of decay kinetics
 }

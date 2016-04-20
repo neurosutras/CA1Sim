@@ -11,7 +11,8 @@ phases within each theta cycle that each input is active, which will reduce jitt
 """
 morph_filename = 'EB2-late-bifurcation.swc'
 #mech_filename = '020516 altered km2 rinp - ampa nmda_kin5'
-mech_filename = '042016 nmda_kin2 tuning'
+#mech_filename = '042016 nmda_kin2 tuning'
+mech_filename = '042016 interim NMDA_KIN2'
 
 
 if len(sys.argv) > 1:
@@ -387,12 +388,15 @@ for group in stim_exc_syns:
 # modulate the weights of inputs with peak_locs along this stretch of the track
 modulated_field_center = track_duration * 0.6
 cos_mod_weight = {}
+gmax_vals = {}
 peak_mod_weight = mod_weights
 trough_mod_weight = 0.8
 tuning_amp = (peak_mod_weight - 1.) / 2.
 tuning_offset = tuning_amp + 1.
+peak_gmax = 0.005463
 
 for group in stim_exc_syns:
+    gmax_vals[group] = []
     this_cos_mod_weight = tuning_amp * np.cos(2. * np.pi / (input_field_duration * 1.2) * (peak_locs[group] -
                                                                         modulated_field_center)) + tuning_offset
     left = np.where(peak_locs[group] >= modulated_field_center - input_field_duration * 1.2 / 2.)[0][0]
@@ -407,7 +411,11 @@ for group in stim_exc_syns:
     peak_locs[group] = map(peak_locs[group].__getitem__, indexes)
     cos_mod_weight[group] = map(cos_mod_weight[group].__getitem__, indexes)
     for i, syn in enumerate(stim_exc_syns[group]):
+        this_gmax = syn.target('AMPA_KIN').gmax
+        if this_gmax * cos_mod_weight[group][i] > peak_gmax:
+            cos_mod_weight[group][i] = peak_gmax / this_gmax
         syn.netcon('AMPA_KIN').weight[0] = cos_mod_weight[group][i]
+        gmax_vals[group].append(this_gmax * cos_mod_weight[group][i])
 
 manipulated_inh_syns = {}
 for group in inhibitory_manipulation_fraction:
