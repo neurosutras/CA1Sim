@@ -10,7 +10,8 @@ phases within each theta cycle that each input is active, which will reduce jitt
 
 """
 morph_filename = 'EB2-late-bifurcation.swc'
-mech_filename = '020516 altered km2 rinp - ampa nmda_kin5'
+#mech_filename = '020516 altered km2 rinp - ampa nmda_kin5'
+mech_filename = '042016 nmda_kin2 tuning'
 
 
 if len(sys.argv) > 1:
@@ -190,7 +191,7 @@ def run_trial(simiter):
                                                      equilibrate + track_equilibrate))
 
 
-NMDA_type = 'NMDA_KIN5'
+NMDA_type = 'NMDA_KIN2'
 
 equilibrate = 250.  # time to steady-state
 global_theta_cycle_duration = 150.  # (ms)
@@ -201,7 +202,7 @@ track_duration = track_length * input_field_duration
 track_equilibrate = 2. * global_theta_cycle_duration
 duration = equilibrate + track_equilibrate + track_duration  # input_field_duration
 excitatory_peak_rate = {'CA3': 40., 'ECIII': 40.}
-excitatory_theta_modulation_depth = {'CA3': 0.8, 'ECIII': 0.7}
+excitatory_theta_modulation_depth = {'CA3': 0.7, 'ECIII': 0.7}
 # From Chadwick et al., ELife 2015
 excitatory_theta_phase_tuning_factor = {'CA3': 0.8, 'ECIII': 0.8}
 excitatory_precession_range = {}
@@ -241,7 +242,7 @@ local_random = random.Random()
 local_random.seed(synapses_seed)
 
 cell = CA1_Pyr(morph_filename, mech_filename, full_spines=True)
-cell.set_terminal_branch_nas_gradient()
+cell.set_terminal_branch_na_gradient()
 cell.insert_inhibitory_synapses_in_subset()
 
 trunk_bifurcation = [trunk for trunk in cell.trunk if cell.is_bifurcation(trunk, 'trunk')]

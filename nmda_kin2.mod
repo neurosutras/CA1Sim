@@ -10,7 +10,7 @@ block by extracellular Mg.
 Synaptic mechanism based on a simplified model of transmitter binding to
 postsynaptic receptors.
 
-Written by Aaron Milstein, 2015.
+Modified by Aaron Milstein, 2015.
 
 Modification of original code by:
 
@@ -60,7 +60,7 @@ ENDCOMMENT
 
 NEURON {
 	POINT_PROCESS NMDA_KIN2
-	RANGE Cmax, Cdur, kon, koff, CC, CO, Beta, Alpha, Erev, Kd, gamma, mg, gmax, g, B
+	RANGE Cmax, Cdur, kon, koff, CC, CO, Beta, Alpha, Erev, Kd, gamma, mg, gmax, g, sh, B, kin_slope, kin_offset
 	NONSPECIFIC_CURRENT i
 }
 UNITS {
@@ -72,19 +72,22 @@ UNITS {
 
 PARAMETER {
 
-	Cmax    = 1.        (mM)        : transmitter concentration during release event
-	Cdur	= 0.3       (ms)		: transmitter duration (rising phase)
-	kon     = 86.89     (/mM/ms)    : unbound receptor ligand-binding rate
-    koff    = 0.69      (/ms)       : bound receptor ligand-unbinding rate
-    CC      = 9.64      (/ms)       : bound receptor cleft closing rate
-    CO      = 2.60      (/ms)       : bound receptor cleft opening rate
-    Beta	= 0.68      (/ms)	    : channel opening rate
-    Alpha   = 0.079     (/ms)       : open channel closing rate
-	Erev	= 0.        (mV)		: reversal potential
-	Kd      = 9.44      (mM)        : modulate Mg concentration dependence
-    gamma   = 0.091     (/mV)       : modulate slope of Mg sensitivity
-    mg      = 1.0       (mM)        : extracellular Mg concentration
-    gmax	= 0.00361   (umho)	    : maximum conductance
+	Cmax        = 1.        (mM)        : transmitter concentration during release event
+	Cdur	    = 0.3       (ms)		: transmitter duration (rising phase)
+	kon         = 86.89     (/mM/ms)    : unbound receptor ligand-binding rate
+    koff        = 0.69      (/ms)       : bound receptor ligand-unbinding rate
+    CC          = 9.64      (/ms)       : bound receptor cleft closing rate
+    CO          = 2.60      (/ms)       : bound receptor cleft opening rate
+    Beta	    = 0.68      (/ms)	    : channel opening rate
+    Alpha       = 0.079     (/ms)       : open channel closing rate
+	Erev	    = 0.        (mV)		: reversal potential
+	Kd          = 9.98      (mM)        : modulate Mg concentration dependence
+    gamma       = 0.101     (/mV)       : modulate slope of Mg sensitivity
+    mg          = 1.0       (mM)        : extracellular Mg concentration
+	sh 			= 0. 		(mV) 		: shift v1/2 of mg sensitivity
+    gmax	    = 0.003026  (umho)	    : maximum conductance
+    kin_slope   = -0.00754  (1)         : controls voltage sensitivity of decay kinetics
+	kin_offset  = 1.302     (1)         : controls voltage sensitivity of decay kinetics
 }
 
 
@@ -92,8 +95,9 @@ ASSIGNED {
 	v		(mV)		: postsynaptic voltage
 	i 		(nA)		: current = g * (v - Erev)
 	g 		(umho)		: conductance
-	C                   : unbound transmitter concentration
+	C       (mM)        : unbound transmitter concentration
     B                   : fraction of channels not blocked by extracellular Mg
+    kin_factor          : exponential scaling of decay rates with voltage
     scale               : allow netcon weight to scale conductance
 }
 
@@ -110,12 +114,12 @@ INITIAL {
     Rb = 0.
     Rc = 0.
     Ro = 0.
-    B = 0.
     scale = 1.
+    mgblock(v)
 }
 
 BREAKPOINT {
-    B = mgblock(v)
+    mgblock(v)
     SOLVE kstates METHOD sparse
 	g = scale * gmax * B * Ro
     i = g * (v - Erev)
@@ -123,8 +127,8 @@ BREAKPOINT {
 
 KINETIC kstates {
     ~ Ru <-> Rb     (C * kon, koff)
-    ~ Rb <-> Rc     (CC, CO)
-    ~ Rc <-> Ro     (Beta, Alpha)
+    ~ Rb <-> Rc     (CC, CO * kin_factor)
+    ~ Rc <-> Ro     (Beta, Alpha * kin_factor)
 }
 
 NET_RECEIVE(weight) {
@@ -137,7 +141,18 @@ NET_RECEIVE(weight) {
     }
 }
 
-FUNCTION mgblock(v(mV)) {
+PROCEDURE mgblock(v(mV)) {
 	: from Jahr & Stevens
-    mgblock = 1. / (1. + exp(gamma * (-v)) * (mg / Kd))
+    B = 1. / (1. + exp(gamma * (-v+sh)) * (mg / Kd))
+	if (v <= -70) {
+		kin_factor = kin_slope * (-70) + kin_offset
+		}
+	else {
+		if (v >= 40) {
+			kin_factor = 1
+			}
+		else {
+    		kin_factor = kin_slope * (v) + kin_offset
+			}
+		}
 }

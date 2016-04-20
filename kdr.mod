@@ -9,7 +9,6 @@ UNITS {
         (mA) = (milliamp)
         (mV) = (millivolt)
         (mol) = (1)
-
 }
 
 NEURON {

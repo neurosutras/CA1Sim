@@ -1219,7 +1219,7 @@ def plot_synaptic_parameter(rec_file_list, description_list=None):
     if not type(rec_file_list) == list:
         rec_file_list = [rec_file_list]
     if description_list is None:
-        description_list = ["" for rec in rec_file_list]
+        description_list = [" " for rec in rec_file_list]
     with h5py.File(data_dir+rec_file_list[0]+'.hdf5', 'r') as f:
         param_list = [dataset for dataset in f.itervalues().next() if not dataset == 'distances']
         fig, axes = plt.subplots(max(2,len(param_list)), max(2, len(f)))
@@ -1233,7 +1233,7 @@ def plot_synaptic_parameter(rec_file_list, description_list=None):
                     axes[j][i].set_title(sec_type+' spines')
                     axes[j][i].set_xlabel('Distance from Soma (um)')
                     axes[j][i].set_ylabel(f.attrs['syn_type']+': '+dataset+'\n'+f.attrs[dataset])
-                    axes[j][i].legend(loc='best', scatterpoints=1, frameon=False, framealpha=0.5)
+    plt.legend(loc='best', scatterpoints=1, frameon=False, framealpha=0.5)
     plt.subplots_adjust(hspace=0.4, wspace=0.3, left=0.05, right=0.98, top=0.95, bottom=0.05)
     plt.show()
     plt.close()
@@ -1316,19 +1316,21 @@ def plot_mech_param_distribution(cell, mech_name, param_name, scale_factor=1., p
                 if sec_type == 'basal':
                     distances[-1] *= -1
                 param_vals.append(getattr(getattr(seg, mech_name), param_name) * scale_factor)
-        axes.scatter(distances, param_vals, color=colors[i], label=sec_type)
-        if maxval is None:
-            maxval = max(param_vals)
-        else:
-            maxval = max(maxval, max(param_vals))
-        if minval is None:
-            minval = min(param_vals)
-        else:
-            minval = min(minval, min(param_vals))
+        if param_vals:
+            axes.scatter(distances, param_vals, color=colors[i], label=sec_type)
+            if maxval is None:
+                maxval = max(param_vals)
+            else:
+                maxval = max(maxval, max(param_vals))
+            if minval is None:
+                minval = min(param_vals)
+            else:
+                minval = min(minval, min(param_vals))
     axes.set_xlabel('Distance to Soma (um)', fontsize=20)
     axes.set_ylabel(ylabel+' ('+yunits+')', fontsize=20)
-    buffer = 0.1 * (maxval - minval)
-    axes.set_ylim(minval-buffer, maxval+buffer)
+    if (maxval is not None) and (minval is not None):
+        buffer = 0.1 * (maxval - minval)
+        axes.set_ylim(minval-buffer, maxval+buffer)
     if param_label is not None:
         plt.title(param_label, fontsize=20)
     plt.legend(loc='best', scatterpoints=1, frameon=False, framealpha=0.5, fontsize=20)
@@ -2352,7 +2354,6 @@ def process_patterned_input_simulation_input_output(rec_filename, title, svg_tit
         sim = f.itervalues().next()
         equilibrate = sim.attrs['equilibrate']
         track_equilibrate = sim.attrs['track_equilibrate']
-        track_length = sim.attrs['track_length']
         input_field_duration = sim.attrs['input_field_duration']
         duration = sim.attrs['duration']
         stim_dt = sim.attrs['stim_dt']
@@ -2518,65 +2519,89 @@ def process_patterned_input_simulation(rec_filename, title, dt=0.02):
         plt.show()
         plt.close()
     rec_t = np.arange(0., track_duration, dt)
-    spikes_removed = get_removed_spikes(rec_filename, plot=0, th=10.)
+    spikes_removed = get_removed_spikes_alt(rec_filename, plot=0)
     # down_sample traces to 2 kHz after clipping spikes for theta and ramp filtering
     down_dt = 0.5
     down_t = np.arange(0., track_duration, down_dt)
-    # 2000 ms Hamming window, ~2 Hz low-pass for ramp, ~5 - 10 Hz bandpass for theta
-    window_len = int(2000./down_dt)
-    theta_filter = signal.firwin(window_len, [5., 10.], nyq=1000./2./down_dt, pass_zero=False)
-    ramp_filter = signal.firwin(window_len, 2., nyq=1000./2./down_dt)
+    # 2000 ms Hamming window, ~2 Hz low-pass for ramp, ~5 - 10 Hz bandpass for theta, ~0.2 Hz low-pass for residuals
+    window_len = int(2000. / down_dt)
+    pad_len = int(window_len / 2.)
+    theta_filter = signal.firwin(window_len, [5., 10.], nyq=1000. / 2. / down_dt, pass_zero=False)
+    ramp_filter = signal.firwin(window_len, 2., nyq=1000. / 2. / down_dt)
+    slow_vm_filter = signal.firwin(window_len, .2, nyq=1000. / 2. / down_dt)
     theta_traces = []
     theta_removed = []
     ramp_traces = []
+    slow_vm_traces = []
     residuals = []
     intra_psd = []
+    theta_envelopes = []
     for trace in spikes_removed:
-        intra_freq, this_intra_psd = signal.periodogram(trace, 1000./dt)
+        intra_freq, this_intra_psd = signal.periodogram(trace, 1000. / dt)
         intra_psd.append(this_intra_psd)
         down_sampled = np.interp(down_t, rec_t, trace)
-        filtered = signal.filtfilt(theta_filter, [1.], down_sampled, padtype='odd', padlen=window_len/2.)
+        padded_trace = np.zeros(len(down_sampled) + window_len)
+        padded_trace[pad_len:-pad_len] = down_sampled
+        padded_trace[:pad_len] = down_sampled[::-1][-pad_len:]
+        padded_trace[-pad_len:] = down_sampled[::-1][:pad_len]
+        filtered = signal.filtfilt(theta_filter, [1.], padded_trace, padlen=pad_len)
+        this_theta_envelope = np.abs(signal.hilbert(filtered))
+        filtered = filtered[pad_len:-pad_len]
         up_sampled = np.interp(rec_t, down_t, filtered)
         theta_traces.append(up_sampled)
-        theta_filtered = trace - up_sampled
-        theta_removed.append(theta_filtered)
-        filtered = signal.filtfilt(ramp_filter, [1.], down_sampled, padtype='odd', padlen=window_len/2.)
+        this_theta_removed = trace - up_sampled
+        theta_removed.append(this_theta_removed)
+        this_theta_envelope = this_theta_envelope[pad_len:-pad_len]
+        up_sampled = np.interp(rec_t, down_t, this_theta_envelope)
+        theta_envelopes.append(up_sampled)
+        filtered = signal.filtfilt(ramp_filter, [1.], padded_trace, padlen=pad_len)
+        filtered = filtered[pad_len:-pad_len]
         up_sampled = np.interp(rec_t, down_t, filtered)
         ramp_traces.append(up_sampled)
-        ramp_filtered = theta_filtered - up_sampled
-        residuals.append(ramp_filtered)
+        filtered = signal.filtfilt(slow_vm_filter, [1.], padded_trace, padlen=pad_len)
+        filtered = filtered[pad_len:-pad_len]
+        up_sampled = np.interp(rec_t, down_t, filtered)
+        slow_vm_traces.append(up_sampled)
+        this_residual = this_theta_removed - up_sampled
+        residuals.append(this_residual)
     intra_psd = np.mean(intra_psd, axis=0)
     left = np.where(intra_freq >= 4.)[0][0]
     right = np.where(intra_freq >= 11.)[0][0]
     intra_psd /= np.max(intra_psd[left:right])
-    mean_across_trials = np.mean(theta_removed, axis=0)
-    variance_across_trials = np.var(theta_removed, axis=0)
-    binned_mean = []
-    binned_variance = []
+    # mean_across_trials = np.mean(theta_removed, axis=0)
+    # variance_across_trials = np.var(theta_removed, axis=0)
+    binned_mean = [[] for i in range(len(residuals))]
+    binned_variance = [[] for i in range(len(residuals))]
+    binned_t = []
     bin_duration = 3. * spatial_bin
-    interval = int(bin_duration/dt)
-    for i, residual in enumerate(residuals):
-        for j in range(0, int(track_duration/bin_duration) - 1):
-            binned_variance.append(np.var(residual[j*interval:(j+1)*interval]))
-            binned_mean.append(np.mean(theta_removed[i][j*interval:(j+1)*interval]))
-    intra_theta_amp = np.mean(np.abs(signal.hilbert(theta_traces)), axis=0)
+    interval = int(bin_duration / dt)
+    for j in range(0, int(track_duration / bin_duration) - 1):
+        binned_t.append(j * bin_duration + bin_duration / 2.)
+        for i, residual in enumerate(residuals):
+            binned_variance[i].append(np.var(residual[j * interval:(j + 1) * interval]))
+            binned_mean[i].append(np.mean(theta_removed[i][j * interval:(j + 1) * interval]))
+    mean_theta_envelope = np.mean(theta_envelopes, axis=0)
     mean_ramp = np.mean(ramp_traces, axis=0)
-    print 'Intracellular Theta Amp for %s: %.2f' % (title, np.mean(intra_theta_amp))
-    plt.plot(rec_t, mean_across_trials)
-    plt.xlabel('Time (ms)')
+    mean_binned_vm = np.mean(binned_mean, axis=0)
+    mean_binned_var = np.mean(binned_variance, axis=0)
+    scatter_vm_mean = np.array(binned_mean).flatten()
+    scatter_vm_var = np.array(binned_variance).flatten()
+    print 'Mean Theta Envelope for %s: %.2f' % (title, np.mean(mean_theta_envelope))
+    plt.plot(binned_t, mean_binned_vm)
+    plt.xlabel('Time - 180 ms bins')
     plt.ylabel('Voltage (mV)')
     plt.title('Somatic Vm Mean - Across Trials - ' + title)
     plt.show()
     plt.close()
-    plt.plot(rec_t, variance_across_trials)
+    plt.plot(binned_t, mean_binned_var)
     plt.xlabel('Time (ms)')
-    plt.ylabel('Vm Variance (mV'+r'$^2$'+')')
+    plt.ylabel('Vm Variance (mV' + r'$^2$' + ')')
     plt.title('Somatic Vm Variance - Across Trials - ' + title)
     plt.show()
     plt.close()
-    plt.scatter(binned_mean, binned_variance)
+    plt.scatter(scatter_vm_mean, scatter_vm_var)
     plt.xlabel('Mean Vm (mV)')
-    plt.ylabel('Vm Variance (mV'+r'$^2$'+')')
+    plt.ylabel('Vm Variance (mV' + r'$^2$' + ')')
     plt.title('Mean - Variance Analysis - ' + title)
     plt.show()
     plt.close()
@@ -2589,8 +2614,8 @@ def process_patterned_input_simulation(rec_filename, title, dt=0.02):
     plt.legend(loc='best')
     plt.show()
     plt.close()
-    return rec_t, residuals, intra_theta_amp, binned_mean, binned_variance, mean_across_trials, \
-           variance_across_trials, mean_output, mean_ramp
+    return rec_t, residuals, mean_theta_envelope, scatter_vm_mean, scatter_vm_var, binned_t, mean_binned_vm, \
+           mean_binned_var, mean_ramp, mean_output
 
 
 def plot_patterned_input_individual_trial_traces(rec_t, vm_array, theta_traces, ramp_traces, index=None,
@@ -2648,26 +2673,29 @@ def plot_vm_distribution(rec_filenames, key_list=['modinh0', 'modinh1', 'modinh2
     trial_array = {}
     vm_array = {}
     for condition in key_list:
-        trial_array[condition] = get_removed_spikes(rec_filenames[condition], th=10., plot=0)
+        #trial_array[condition] = get_removed_spikes(rec_filenames[condition], plot=0)
+        spikes_removed_interp, trial_array[condition] = get_removed_spikes_nangaps(rec_filenames[condition])
     key_list.extend([key_list[0]+'_out', key_list[0]+'_in'])
     for source_condition, target_condition in zip([key_list[1], key_list[0]], [key_list[1], key_list[3]]):
         start = int(i_bounds[0]/dt)
         end = int(i_bounds[1]/dt)
         for trial in trial_array[source_condition]:
             this_vm_chunk = trial[start:end]
+            keep = ~np.isnan(this_vm_chunk)
             if target_condition not in vm_array:
-                vm_array[target_condition] = np.array(this_vm_chunk)
+                vm_array[target_condition] = np.array(this_vm_chunk[keep])
             else:
-                vm_array[target_condition] = np.append(vm_array[target_condition], np.array(this_vm_chunk))
+                vm_array[target_condition] = np.append(vm_array[target_condition], np.array(this_vm_chunk[keep]))
     for source_condition, target_condition in zip([key_list[2], key_list[0]], [key_list[2], key_list[4]]):
         start = int(i_bounds[2]/dt)
         end = int(i_bounds[3]/dt)
         for trial in trial_array[source_condition]:
             this_vm_chunk = trial[start:end]
+            keep = ~np.isnan(this_vm_chunk)
             if target_condition not in vm_array:
-                vm_array[target_condition] = np.array(this_vm_chunk)
+                vm_array[target_condition] = np.array(this_vm_chunk[keep])
             else:
-                vm_array[target_condition] = np.append(vm_array[target_condition], np.array(this_vm_chunk))
+                vm_array[target_condition] = np.append(vm_array[target_condition], np.array(this_vm_chunk[keep]))
     hist, edges = {}, {}
     for condition in vm_array:
         num_bins = int((np.max(vm_array[condition]) - np.min(vm_array[condition])) / bin_width)
@@ -2680,6 +2708,8 @@ def plot_vm_distribution(rec_filenames, key_list=['modinh0', 'modinh1', 'modinh2
     clean_axes(axes)
     axes.set_xlabel('Voltage (mV)', fontsize=20)
     axes.set_ylabel('Normalized Probability', fontsize=20)
+    axes.set_ylim(0., 0.07)
+    axes.set_xlim(-70., -45.)
     axes.set_title('Control', fontsize=20)
     plt.legend(loc='best', frameon=False, framealpha=0.5, fontsize=20)
     if svg_title is not None:
@@ -2692,168 +2722,14 @@ def plot_vm_distribution(rec_filenames, key_list=['modinh0', 'modinh1', 'modinh2
     clean_axes(axes)
     axes.set_xlabel('Voltage (mV)', fontsize=20)
     axes.set_ylabel('Normalized Probability', fontsize=20)
+    axes.set_ylim(0., 0.07)
+    axes.set_xlim(-70., -45.)
     axes.set_title('Reduced Inhibition', fontsize=20)
     plt.legend(loc='best', frameon=False, framealpha=0.5, fontsize=20)
     if svg_title is not None:
         plt.savefig(data_dir+svg_title+'-ModInh.svg', format='svg')
     plt.show()
     plt.close()
-
-
-def process_simple_input_simulation(rec_filename, title, dt=0.02):
-    """
-    Note - this method has not been updated - get_binned_firing rate expected a single train, not a list of trains.
-    :param rec_file_name: str
-    :param title: str
-    # remember .attrs['phase_offset'] could be inside ['train'] for old files
-    """
-    with h5py.File(data_dir+rec_filename+'.hdf5', 'r') as f:
-        sim = f.itervalues().next()
-        equilibrate = sim.attrs['equilibrate']
-        track_equilibrate = sim.attrs['track_equilibrate']
-        track_length = sim.attrs['track_length']
-        input_field_duration = sim.attrs['input_field_duration']
-        duration = sim.attrs['duration']
-        stim_dt = sim.attrs['stim_dt']
-        bins = int((1.5 + track_length) * input_field_duration / 20.)
-        track_duration = duration - equilibrate - track_equilibrate
-        stim_t = np.arange(-track_equilibrate, track_duration, stim_dt)
-        intervals = []
-        for sim in f.itervalues():
-            for train in sim['train'].itervalues():
-                if len(train) > 0:
-                    for i in range(len(train) - 1):
-                        intervals.append(train[i+1] - train[i])
-        pop_input = [get_binned_firing_rate(sim['train'].values(), stim_t) for sim in f.itervalues()]
-        pop_psd = []
-        for this_pop_input in pop_input:
-            pop_freq, this_pop_psd = signal.periodogram(this_pop_input, 1000./stim_dt)
-            pop_psd.append(this_pop_psd)
-        pop_psd = np.mean(pop_psd, axis=0)
-        left = np.where(pop_freq >= 4.)[0][0]
-        right = np.where(pop_freq >= 11.)[0][0]
-        pop_psd /= np.max(pop_psd[left:right])
-        mean_input = np.mean(pop_input, axis=0)
-        if 'successes' in f.itervalues().next():
-            successes = [get_binned_firing_rate(sim['successes'].values(), stim_t) for sim in f.itervalues()]
-            mean_successes = np.mean(successes, axis=0)
-        if 'inh_train' in f.itervalues().next():
-            inh_input = [get_binned_firing_rate(sim['inh_train'].values(), stim_t) for sim in f.itervalues()]
-            mean_inh_input = np.mean(inh_input, axis=0)
-        start = int(track_equilibrate/stim_dt)
-        fig, axes = plt.subplots(2, 1)
-        axes[0].plot(stim_t[start:], mean_input[start:], label='Total Excitatory Input Spike Rate', c='b')
-        if 'successes' in f.itervalues().next():
-            axes[0].plot(stim_t[start:], mean_successes[start:], label='Total Excitatory Input Success Rate', c='g')
-        if 'inh_train' in f.itervalues().next():
-            axes[1].plot(stim_t[start:], mean_inh_input[start:], label='Total Inhibitory Input Spike Rate', c='k')
-        for ax in axes:
-            ax.legend(loc='upper left', frameon=False, framealpha=0.5)
-        axes[1].set_xlabel('Time (ms)')
-        axes[1].set_ylabel('Event Rate (Hz)')
-        axes[0].set_title(title)
-        plt.show()
-        plt.close()
-        plt.hist(intervals, bins=int(max(intervals)/3.), normed=True)
-        plt.xlim(0., 200.)
-        plt.ylabel('Probability')
-        plt.xlabel('Inter-Spike Interval (ms)')
-        plt.title('Distribution of Input Inter-Spike Intervals - '+title)
-        plt.show()
-        plt.close()
-        peak_locs = [sim.attrs['peak_loc'] for sim in f.itervalues().next()['train'].itervalues()]
-        plt.hist(peak_locs, bins=bins)
-        plt.xlabel('Time (ms)')
-        plt.ylabel('Count (20 ms Bins)')
-        plt.title('Distribution of Input Peak Locations - '+title)
-        plt.xlim((np.min(peak_locs), np.max(peak_locs)))
-        plt.show()
-        plt.close()
-        for sim in f.itervalues():
-            t = np.arange(0., duration, dt)
-            vm = np.interp(t, sim['time'], sim['rec']['0'])
-            start = int((equilibrate + track_equilibrate)/dt)
-            plt.plot(np.subtract(t[start:], equilibrate + track_equilibrate), vm[start:])
-            plt.xlabel('Time (ms)')
-            plt.ylabel('Voltage (mV)')
-            plt.title('Somatic Vm - '+title)
-            plt.ylim((-70., -50.))
-        plt.show()
-        plt.close()
-    rec_t = np.arange(0., track_duration, dt)
-    spikes_removed = get_removed_spikes(rec_filename, plot=0)
-    # down_sample traces to 2 kHz after clipping spikes for theta and ramp filtering
-    down_dt = 0.5
-    down_t = np.arange(0., track_duration, down_dt)
-    # 2000 ms Hamming window, ~3 Hz low-pass for ramp, ~5 - 10 Hz bandpass for theta
-    window_len = int(2000./down_dt)
-    theta_filter = signal.firwin(window_len, [5., 10.], nyq=1000./2./down_dt, pass_zero=False)
-    ramp_filter = signal.firwin(window_len, 3., nyq=1000./2./down_dt)
-    theta_traces = []
-    theta_removed = []
-    ramp_traces = []
-    ramp_removed = []
-    intra_psd = []
-    for trace in spikes_removed:
-        intra_freq, this_intra_psd = signal.periodogram(trace, 1000./dt)
-        intra_psd.append(this_intra_psd)
-        #counts, vals = np.histogram(trace, bins=(np.max(trace)-np.min(trace))/0.2)
-        #offset = vals[np.where(counts == np.max(counts))[0][0]]
-        subtracted = trace # - offset
-        down_sampled = np.interp(down_t, rec_t, subtracted)
-        filtered = signal.filtfilt(theta_filter, [1.], down_sampled, padtype='even', padlen=window_len)
-        up_sampled = np.interp(rec_t, down_t, filtered)
-        theta_traces.append(up_sampled)
-        theta_filtered = subtracted - up_sampled
-        theta_removed.append(theta_filtered)
-        down_sampled = np.interp(down_t, rec_t, theta_filtered)
-        filtered = signal.filtfilt(ramp_filter, [1.], down_sampled, padtype='even', padlen=window_len)
-        up_sampled = np.interp(rec_t, down_t, filtered)
-        ramp_traces.append(up_sampled)
-        ramp_filtered = theta_filtered - up_sampled
-        ramp_removed.append(ramp_filtered)
-    intra_psd = np.mean(intra_psd, axis=0)
-    left = np.where(intra_freq >= 4.)[0][0]
-    right = np.where(intra_freq >= 11.)[0][0]
-    intra_psd /= np.max(intra_psd[left:right])
-    mean_across_trials = np.mean(theta_removed, axis=0)
-    variance_across_trials = np.var(theta_removed, axis=0)
-    binned_mean = []
-    binned_variance = []
-    bin_duration = 250.
-    interval = int(bin_duration/dt)
-    for i, residual in enumerate(ramp_removed):
-        for j in range(0, int(track_duration/bin_duration) - 1):
-            binned_variance.append(np.var(residual[j*interval:(j+1)*interval]))
-            binned_mean.append(np.mean(theta_removed[i][j*interval:(j+1)*interval]))
-    plt.plot(rec_t, mean_across_trials)
-    plt.xlabel('Time (ms)')
-    plt.ylabel('Voltage (mV)')
-    plt.title('Somatic Vm Mean - Across Trials - ' + title)
-    plt.show()
-    plt.close()
-    plt.plot(rec_t, variance_across_trials)
-    plt.xlabel('Time (ms)')
-    plt.ylabel('Vm Variance (mV'+r'$^2$'+')')
-    plt.title('Somatic Vm Variance - Across Trials - ' + title)
-    plt.show()
-    plt.close()
-    plt.scatter(binned_mean, binned_variance)
-    plt.xlabel('Mean Vm (mV)')
-    plt.ylabel('Vm Variance (mV'+r'$^2$'+')')
-    plt.title('Mean - Variance Analysis - ' + title)
-    plt.show()
-    plt.close()
-    plt.plot(pop_freq, pop_psd, label='Total Population Input Spikes')
-    plt.plot(intra_freq, intra_psd, label='Single Cell Intracellular Vm')
-    plt.xlim(4., 11.)
-    plt.xlabel('Frequency (Hz)')
-    plt.ylabel('Normalized Power Density')
-    plt.title('Power Spectral Density - ' + title)
-    plt.legend(loc='best')
-    plt.show()
-    plt.close()
-    return binned_mean, binned_variance
 
 
 def plot_phase_precession(t_array, phase_array, title, fit_start=1500., fit_end=3000., display_start=0.,

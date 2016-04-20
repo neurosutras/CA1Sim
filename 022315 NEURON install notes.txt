@@ -180,5 +180,5 @@ then calling a plot function on the output file:
 plot_superimpose_conditions('str_with_name_of_output_file') # no suffix necessary
 
 
-7) PyCharm limits the size of the console output buffer. Change the value of idea.cycle.buffer.size in the idea.properties file in the /bin directory of the install package.
+7) PyCharm limits the size of the console output buffer. Change the value of idea.cycle.buffer.size in the idea.properties file in the /bin directory of the install package. To change the size of the terminal output buffer, change the registry key terminal.buffer.max.lines.count. Navigate to Help| Find action| Type "Registry"| Find terminal.buffer.max.lines.count.
 

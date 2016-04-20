@@ -83,7 +83,7 @@ def lambda_f(sec, f=freq):
     diam = sec(0.5).diam
     Ra = sec.Ra
     cm = sec.cm
-    return 1e5*math.sqrt(diam/(4*math.pi*f*Ra*cm))
+    return 1e5*math.sqrt(diam/(4.*math.pi*f*Ra*cm))
 
 
 def d_lambda_nseg(sec, lam=d_lambda, f=freq):
@@ -1023,6 +1023,156 @@ def get_removed_spikes(rec_filename, before=1.6, after=6., dt=0.02, th=20., plot
     return removed
 
 
+def get_removed_spikes_alt(rec_filename, before=1.6, after=5., dt=0.02, th=10., plot=1, rec_key='0'):
+    """
+
+    :param rec_filename: str
+    :param before: float : time to remove before spike
+    :param after: float : time to remove after spike in case where trough or voltage recovery cannot be used
+    :param dt: float : temporal resolution for interpolation and dvdt
+    :param th: float : slope threshold
+    :param plot: int
+    :param rec_key: str
+    :return: list of :class:'numpy.array'
+    """
+    removed = []
+    with h5py.File(data_dir+rec_filename+'.hdf5', 'r') as f:
+        sim = f.itervalues().next()
+        equilibrate = sim.attrs['equilibrate']
+        duration = sim.attrs['duration']
+        track_equilibrate = sim.attrs['track_equilibrate']
+        for trial in f.itervalues():
+            t = np.arange(0., duration, dt)
+            vm = np.interp(t, trial['time'], trial['rec'][rec_key])
+            start = int((equilibrate + track_equilibrate) / dt)
+            t = np.subtract(t[start:], equilibrate + track_equilibrate)
+            vm = vm[start:]
+            dvdt = np.gradient(vm, [dt])
+            crossings = np.where(dvdt >= th)[0]
+            if not np.any(crossings):
+                removed.append(vm)
+            else:
+                start = 0.
+                i = 0
+                left = max(0, crossings[i] - int(before/dt))
+                previous_vm = vm[left]
+                while i < len(crossings) and start < len(vm):
+                    start = crossings[i]
+                    left = max(0, crossings[i] - int(before/dt))
+                    right = min(crossings[i] + int(after/dt), len(vm) - 1)
+                    if not np.isnan(vm[left]):
+                        previous_vm = vm[left]
+                    recovers = np.where(vm[crossings[i]:] < previous_vm)[0]
+                    if np.any(recovers):
+                        recovers = crossings[i] + recovers[0]
+                    falling = np.where(dvdt[crossings[i]:] < 0.)[0]
+                    if np.any(falling):
+                        falling = crossings[i] + falling[0]
+                        rising = np.where(dvdt[falling:] >= 0.)[0]
+                        if np.any(rising):
+                            rising = falling + rising[0]
+                    else:
+                        rising = []
+                    if np.any(rising):
+                        right = min(right, rising)
+                    # added to remove majority of complex spike:
+                    if vm[right] >= -35. and np.any(recovers):
+                        right = recovers
+                    for j in range(left, right):
+                        vm[j] = np.nan
+                    i += 1
+                    while i < len(crossings) and crossings[i] < right:
+                        i += 1
+                not_blank = np.where(~np.isnan(vm))[0]
+                vm = np.interp(t, t[not_blank], vm[not_blank])
+                removed.append(vm)
+            temp_t = np.arange(0., duration, dt)
+            temp_vm = np.interp(temp_t, trial['time'], trial['rec'][rec_key])
+            start = int((equilibrate + track_equilibrate) / dt)
+            temp_t = np.subtract(temp_t[start:], equilibrate + track_equilibrate)
+            temp_vm = temp_vm[start:]
+            if plot:
+                plt.plot(temp_t, temp_vm)
+                plt.plot(t, vm)
+                plt.show()
+                plt.close()
+    return removed
+
+
+def get_removed_spikes_nangaps(rec_filename, before=0.2, after=5., dt=0.02, th=20., rec_key='0'):
+    """
+    Return traces with spikes removed and interpolated, but also traces with spikes replaced with nan to keep track of
+    where spike removal occurred.
+    :param rec_filename: str
+    :param before: float : time to remove before spike
+    :param after: float : time to remove after spike in case where trough or voltage recovery cannot be used
+    :param dt: float : temporal resolution for interpolation and dvdt
+    :param th: float : slope threshold
+    :param rec_key: str : default is '0', which is the somatic recording
+    :return: list of :class:'numpy.array', list of :class:'numpy.array'
+    """
+    removed_interp = []
+    removed_nangaps = []
+    with h5py.File(data_dir+rec_filename+'.hdf5', 'r') as f:
+        sim = f.itervalues().next()
+        equilibrate = sim.attrs['equilibrate']
+        duration = sim.attrs['duration']
+        track_equilibrate = sim.attrs['track_equilibrate']
+        for trial in f.itervalues():
+            t = np.arange(0., duration, dt)
+            vm = np.interp(t, trial['time'], trial['rec'][rec_key])
+            start = int((equilibrate + track_equilibrate) / dt)
+            t = np.subtract(t[start:], equilibrate + track_equilibrate)
+            vm = vm[start:]
+            dvdt = np.gradient(vm, [dt])
+            crossings = np.where(dvdt >= th)[0]
+            if not np.any(crossings):
+                removed_interp.append(vm)
+            else:
+                start = 0.
+                i = 0
+                left = max(0, crossings[i] - int(before/dt))
+                previous_vm = vm[left]
+                while i < len(crossings) and start < len(vm):
+                    start = crossings[i]
+                    left = max(0, crossings[i] - int(before/dt))
+                    if not np.isnan(vm[left]):
+                        previous_vm = vm[left]
+                    recovers = np.where(vm[crossings[i]:] < previous_vm)[0]
+                    if np.any(recovers):
+                        recovers = crossings[i] + recovers[0]
+                    falling = np.where(dvdt[crossings[i]:] < 0.)[0]
+                    if np.any(falling):
+                        falling = crossings[i] + falling[0]
+                        rising = np.where(dvdt[falling:] >= 0.)[0]
+                        if np.any(rising):
+                            rising = falling + rising[0]
+                    else:
+                        rising = []
+                    if np.any(recovers):
+                        if np.any(rising):
+                            right = min(recovers, rising)
+                        else:
+                            right = recovers
+                    elif np.any(rising):
+                        right = rising
+                    else:
+                        right = min(crossings[i] + int(after/dt), len(vm)-1)
+                    # added to remove majority of complex spike:
+                    if vm[right] >= -45. and np.any(recovers):
+                        right = recovers
+                    for j in range(left, right):
+                        vm[j] = np.nan
+                    i += 1
+                    while i < len(crossings) and crossings[i] < right:
+                        i += 1
+                not_blank = np.where(~np.isnan(vm))[0]
+                removed_nangaps.append(vm)
+                vm = np.interp(t, t[not_blank], vm[not_blank])
+                removed_interp.append(vm)
+    return removed_interp, removed_nangaps
+
+
 def get_theta_filtered_traces(rec_filename, dt=0.02):
     """
 
@@ -1103,12 +1253,8 @@ def get_phase_precession(rec_filename, start_loc=None, end_loc=None, dt=0.02):
         sim = f.itervalues().next()
         equilibrate = sim.attrs['equilibrate']
         track_equilibrate = sim.attrs['track_equilibrate']
-        track_length = sim.attrs['track_length']
-        input_field_duration = sim.attrs['input_field_duration']
         duration = sim.attrs['duration']
-        stim_dt = sim.attrs['stim_dt']
         track_duration = duration - equilibrate - track_equilibrate
-        stim_t = np.arange(-track_equilibrate, track_duration, stim_dt)
         if 'global_theta_cycle_duration' in sim.attrs:
             theta_duration = sim.attrs['global_theta_cycle_duration']
         else:
@@ -1143,17 +1289,23 @@ def get_phase_precession(rec_filename, start_loc=None, end_loc=None, dt=0.02):
             spike_phases *= 360.
             spike_phase_array.append(spike_phases)
     rec_t = np.arange(0., track_duration, dt)
-    spikes_removed = get_removed_spikes(rec_filename, plot=0, th=10.)
-    # down_sample traces to 2 kHz after clipping spikes for theta and ramp filtering
+    spikes_removed = get_removed_spikes_alt(rec_filename, plot=0)
+    # down_sample traces to 2 kHz after clipping spikes for theta filtering
     down_dt = 0.5
     down_rec_t = np.arange(0., track_duration, down_dt)
-    # 2000 ms Hamming window, ~3 Hz low-pass for ramp, ~5 - 10 Hz bandpass for theta
-    window_len = min(len(down_rec_t) - 1, int(2000./down_dt))
-    theta_filter = signal.firwin(window_len, [5., 10.], nyq=1000./2./down_dt, pass_zero=False)
+    # 2000 ms Hamming window, ~5 - 10 Hz bandpass for theta
+    window_len = min(len(down_rec_t) - 1, int(2000. / down_dt))
+    pad_len = int(window_len / 2.)
+    theta_filter = signal.firwin(window_len, [5., 10.], nyq=1000. / 2. / down_dt, pass_zero=False)
     intra_theta = []
     for trace in spikes_removed:
         down_sampled = np.interp(down_rec_t, rec_t, trace)
-        filtered = signal.filtfilt(theta_filter, [1.], down_sampled, padtype='even', padlen=window_len)
+        padded_trace = np.zeros(len(down_sampled) + window_len)
+        padded_trace[pad_len:-pad_len] = down_sampled
+        padded_trace[:pad_len] = down_sampled[::-1][-pad_len:]
+        padded_trace[-pad_len:] = down_sampled[::-1][:pad_len]
+        filtered = signal.filtfilt(theta_filter, [1.], padded_trace, padlen=pad_len)
+        filtered = filtered[pad_len:-pad_len]
         up_sampled = np.interp(rec_t, down_rec_t, filtered)
         intra_theta.append(up_sampled)
     intra_peak_array = []
@@ -1171,7 +1323,6 @@ def get_phase_precession(rec_filename, start_loc=None, end_loc=None, dt=0.02):
     return spike_time_array, spike_phase_array, intra_peak_array, intra_phase_array
 
 
-
 def get_input_spike_train_phase_precession(rec_filename, index, start_loc=None, end_loc=None, dt=0.02):
     """
 
@@ -1183,12 +1334,9 @@ def get_input_spike_train_phase_precession(rec_filename, index, start_loc=None, 
         sim = f.itervalues().next()
         equilibrate = sim.attrs['equilibrate']
         track_equilibrate = sim.attrs['track_equilibrate']
-        track_length = sim.attrs['track_length']
-        input_field_duration = sim.attrs['input_field_duration']
         duration = sim.attrs['duration']
         stim_dt = sim.attrs['stim_dt']
         track_duration = duration - equilibrate - track_equilibrate
-        stim_t = np.arange(-track_equilibrate, track_duration, stim_dt)
         if 'global_theta_cycle_duration' in sim.attrs:
             theta_duration = sim.attrs['global_theta_cycle_duration']
         else:
@@ -1238,8 +1386,8 @@ def get_subset_downsampled_recordings(rec_filename, description, dt=0.1):
         for sim in f.itervalues():
             rec_list = []
             index_list = []
-            for rec in [rec for rec in sim['rec'].itervalues() if 'description' in rec.attrs and rec.attrs['description']
-                                                                                                        == description]:
+            for rec in [rec for rec in sim['rec'].itervalues() if 'description' in rec.attrs and
+                            rec.attrs['description'] == description]:
                 down_sampled = np.interp(rec_t, sim['time'], rec)
                 rec_list.append(down_sampled[int((equilibrate + track_equilibrate) / dt):])
                 index_list.append(rec.attrs['index'])
@@ -1306,13 +1454,8 @@ def get_patterned_input_component_traces(rec_filename, dt=0.02):
         sim = f.itervalues().next()
         equilibrate = sim.attrs['equilibrate']
         track_equilibrate = sim.attrs['track_equilibrate']
-        track_length = sim.attrs['track_length']
-        input_field_duration = sim.attrs['input_field_duration']
         duration = sim.attrs['duration']
-        stim_dt = sim.attrs['stim_dt']
-        bins = int((1.5 + track_length) * input_field_duration / 20.)
         track_duration = duration - equilibrate - track_equilibrate
-        stim_t = np.arange(-track_equilibrate, track_duration, stim_dt)
         start = int((equilibrate + track_equilibrate)/dt)
         vm_array = []
         for sim in f.itervalues():
@@ -1325,22 +1468,25 @@ def get_patterned_input_component_traces(rec_filename, dt=0.02):
     # down_sample traces to 2 kHz after clipping spikes for theta and ramp filtering
     down_dt = 0.5
     down_t = np.arange(0., track_duration, down_dt)
-    # 2000 ms Hamming window, ~3 Hz low-pass for ramp, ~5 - 10 Hz bandpass for theta
+    # 2000 ms Hamming window, ~2 Hz low-pass for ramp, ~5 - 10 Hz bandpass for theta
     window_len = int(2000./down_dt)
+    pad_len = int(window_len/2.)
     theta_filter = signal.firwin(window_len, [5., 10.], nyq=1000./2./down_dt, pass_zero=False)
-    #ramp_filter = signal.firwin(window_len, 3., nyq=1000./2./down_dt)
     ramp_filter = signal.firwin(window_len, 2., nyq=1000./2./down_dt)
     theta_traces = []
     ramp_traces = []
     for trace in spikes_removed:
-        subtracted = trace # - offset
-        down_sampled = np.interp(down_t, rec_t, subtracted)
-        filtered = signal.filtfilt(theta_filter, [1.], down_sampled, padtype='odd', padlen=window_len/2.)
+        down_sampled = np.interp(down_t, rec_t, trace)
+        padded_trace = np.zeros(len(down_sampled)+window_len)
+        padded_trace[pad_len:-pad_len] = down_sampled
+        padded_trace[:pad_len] = down_sampled[::-1][-pad_len:]
+        padded_trace[-pad_len:] = down_sampled[::-1][:pad_len]
+        filtered = signal.filtfilt(theta_filter, [1.], padded_trace, padlen=pad_len)
+        filtered = filtered[pad_len:-pad_len]
         up_sampled = np.interp(rec_t, down_t, filtered)
         theta_traces.append(up_sampled)
-        theta_filtered = subtracted - up_sampled
-        down_sampled = np.interp(down_t, rec_t, theta_filtered)
-        filtered = signal.filtfilt(ramp_filter, [1.], down_sampled, padtype='odd', padlen=window_len/2.)
+        filtered = signal.filtfilt(ramp_filter, [1.], padded_trace, padlen=pad_len)
+        filtered = filtered[pad_len:-pad_len]
         up_sampled = np.interp(rec_t, down_t, filtered)
         ramp_traces.append(up_sampled)
     return rec_t, vm_array, theta_traces, ramp_traces
@@ -1362,144 +1508,78 @@ def alternative_binned_vm_variance_analysis(rec_filename, dt=0.02):
         track_length = sim.attrs['track_length']
         input_field_duration = sim.attrs['input_field_duration']
         duration = sim.attrs['duration']
-        stim_dt = sim.attrs['stim_dt']
-        bins = int((1.5 + track_length) * input_field_duration / 20.)
         track_duration = duration - equilibrate - track_equilibrate
-        stim_t = np.arange(-track_equilibrate, track_duration, stim_dt)
-        start = int(track_equilibrate / stim_dt)
         spatial_bin = input_field_duration / 50.
-        intervals = []
-        pop_input = []
-        output = []
-        for sim in f.itervalues():
-            exc_input_sum = None
-            for key, train in sim['train'].iteritems():
-                this_train = np.array(train)
-                if len(this_train) > 0:
-                    for i in range(len(this_train) - 1):
-                        intervals.append(this_train[i + 1] - this_train[i])
-                this_exc_rate = get_binned_firing_rate(this_train, stim_t)
-                if exc_input_sum is None:
-                    exc_input_sum = np.array(this_exc_rate)
-                else:
-                    exc_input_sum = np.add(exc_input_sum, this_exc_rate)
-            pop_input.append(exc_input_sum)
-            this_output = get_smoothed_firing_rate(np.array(sim['output']), stim_t[start:], bin_dur=3. * spatial_bin,
-                                                   bin_step=spatial_bin, dt=stim_dt)
-            output.append(this_output)
-        pop_psd = []
-        for this_pop_input in pop_input:
-            pop_freq, this_pop_psd = signal.periodogram(this_pop_input, 1000. / stim_dt)
-            pop_psd.append(this_pop_psd)
-        pop_psd = np.mean(pop_psd, axis=0)
-        left = np.where(pop_freq >= 4.)[0][0]
-        right = np.where(pop_freq >= 11.)[0][0]
-        pop_psd /= np.max(pop_psd[left:right])
-        mean_output = np.mean(output, axis=0)
-        plt.hist(intervals, bins=int(max(intervals) / 3.), normed=True)
-        plt.xlim(0., 200.)
-        plt.ylabel('Probability')
-        plt.xlabel('Inter-Spike Interval (ms)')
-        plt.title('Distribution of Input Inter-Spike Intervals - ' + title)
-        plt.show()
-        plt.close()
-        peak_locs = [sim.attrs['peak_loc'] for sim in f.itervalues().next()['train'].itervalues()]
-        plt.hist(peak_locs, bins=bins)
-        plt.xlabel('Time (ms)')
-        plt.ylabel('Count (20 ms Bins)')
-        plt.title('Distribution of Input Peak Locations - ' + title)
-        plt.xlim((np.min(peak_locs), np.max(peak_locs)))
-        plt.show()
-        plt.close()
-        for sim in f.itervalues():
-            t = np.arange(0., duration, dt)
-            vm = np.interp(t, sim['time'], sim['rec']['0'])
-            start = int((equilibrate + track_equilibrate) / dt)
-            plt.plot(np.subtract(t[start:], equilibrate + track_equilibrate), vm[start:])
-            plt.xlabel('Time (ms)')
-            plt.ylabel('Voltage (mV)')
-            plt.title('Somatic Vm - ' + title)
-            plt.ylim((-70., -50.))
-        plt.show()
-        plt.close()
     rec_t = np.arange(0., track_duration, dt)
-    spikes_removed = get_removed_spikes(rec_filename, plot=0, th=10.)
+    spikes_removed_interp, spikes_removed_nangaps = get_removed_spikes_nangaps(rec_filename, th=10.)
+    spikes_removed_interp = get_removed_spikes_alt(rec_filename, plot=0)
     # down_sample traces to 2 kHz after clipping spikes for theta and ramp filtering
     down_dt = 0.5
     down_t = np.arange(0., track_duration, down_dt)
-    # 2000 ms Hamming window, ~3 Hz low-pass for ramp, ~5 - 10 Hz bandpass for theta
+    # 2000 ms Hamming window, ~2 Hz low-pass for ramp, ~5 - 10 Hz bandpass for theta, ~0.2 Hz low-pass for residuals
     window_len = int(2000. / down_dt)
-    theta_filter = signal.firwin(window_len, [5., 10.], nyq=1000. / 2. / down_dt, pass_zero=False)
-    ramp_filter = signal.firwin(window_len, 3., nyq=1000. / 2. / down_dt)
+    pad_len = int(window_len / 2.)
+    theta_filter = signal.firwin(window_len, [5., 10.], nyq=1000./2./down_dt, pass_zero=False)
+    ramp_filter = signal.firwin(window_len, 2., nyq=1000./2./down_dt)
+    slow_vm_filter = signal.firwin(window_len, .2, nyq=1000./2./down_dt)
     theta_traces = []
     theta_removed = []
     ramp_traces = []
-    ramp_removed = []
-    intra_psd = []
-    for trace in spikes_removed:
-        intra_freq, this_intra_psd = signal.periodogram(trace, 1000. / dt)
-        intra_psd.append(this_intra_psd)
-        # counts, vals = np.histogram(trace, bins=(np.max(trace)-np.min(trace))/0.2)
-        # offset = vals[np.where(counts == np.max(counts))[0][0]]
-        subtracted = trace  # - offset
-        down_sampled = np.interp(down_t, rec_t, subtracted)
-        filtered = signal.filtfilt(theta_filter, [1.], down_sampled, padtype='even', padlen=window_len)
+    residuals_interp = []
+    residuals_nangaps = []
+    theta_envelopes = []
+    for trace in spikes_removed_interp:
+        down_sampled = np.interp(down_t, rec_t, trace)
+        padded_trace = np.zeros(len(down_sampled) + window_len)
+        padded_trace[pad_len:-pad_len] = down_sampled
+        padded_trace[:pad_len] = down_sampled[::-1][-pad_len:]
+        padded_trace[-pad_len:] = down_sampled[::-1][:pad_len]
+        filtered = signal.filtfilt(theta_filter, [1.], padded_trace, padlen=pad_len)
+        this_theta_envelope = np.abs(signal.hilbert(filtered))
+        filtered = filtered[pad_len:-pad_len]
         up_sampled = np.interp(rec_t, down_t, filtered)
         theta_traces.append(up_sampled)
-        theta_filtered = subtracted - up_sampled
-        theta_removed.append(theta_filtered)
-        down_sampled = np.interp(down_t, rec_t, theta_filtered)
-        filtered = signal.filtfilt(ramp_filter, [1.], down_sampled, padtype='even', padlen=window_len)
+        this_theta_removed = trace - up_sampled
+        theta_removed.append(this_theta_removed)
+        this_theta_envelope = this_theta_envelope[pad_len:-pad_len]
+        up_sampled = np.interp(rec_t, down_t, this_theta_envelope)
+        theta_envelopes.append(up_sampled)
+        filtered = signal.filtfilt(ramp_filter, [1.], padded_trace, padlen=pad_len)
+        filtered = filtered[pad_len:-pad_len]
         up_sampled = np.interp(rec_t, down_t, filtered)
         ramp_traces.append(up_sampled)
-        ramp_filtered = theta_filtered - up_sampled
-        ramp_removed.append(ramp_filtered)
-    intra_psd = np.mean(intra_psd, axis=0)
-    left = np.where(intra_freq >= 4.)[0][0]
-    right = np.where(intra_freq >= 11.)[0][0]
-    intra_psd /= np.max(intra_psd[left:right])
-    mean_across_trials = np.mean(theta_removed, axis=0)
-    variance_across_trials = np.var(theta_removed, axis=0)
-    binned_mean = []
-    binned_variance = []
+        filtered = signal.filtfilt(slow_vm_filter, [1.], padded_trace, padlen=pad_len)
+        filtered = filtered[pad_len:-pad_len]
+        up_sampled = np.interp(rec_t, down_t, filtered)
+        residual_interp = this_theta_removed - up_sampled
+        residuals_interp.append(residual_interp)
+    """
+    for i, trace in enumerate(spikes_removed_nangaps):
+        residual_nangaps = np.array(residuals_interp[i])
+        nan_indexes = np.where(np.isnan(trace))[0]
+        if np.any(nan_indexes):
+            residual_nangaps[nan_indexes] = np.nan
+        residuals_nangaps.append(residual_nangaps)
+    """
+    binned_mean = [[] for i in range(len(residuals_interp))]
+    binned_variance = [[] for i in range(len(residuals_interp))]
+    binned_t = []
     bin_duration = 3. * spatial_bin
     interval = int(bin_duration / dt)
-    for i, residual in enumerate(ramp_removed):
-        for j in range(0, int(track_duration / bin_duration) - 1):
-            binned_variance.append(np.var(residual[j * interval:(j + 1) * interval]))
-            binned_mean.append(np.mean(theta_removed[i][j * interval:(j + 1) * interval]))
-    intra_theta_amp = np.mean(np.abs(signal.hilbert(theta_traces)), axis=0)
+    for j in range(0, int(track_duration / bin_duration) - 1):
+        binned_t.append(j * bin_duration + bin_duration / 2.)
+        for i, residual in enumerate(residuals_interp):
+            binned_variance[i].append(np.var(residual[j * interval:(j + 1) * interval]))
+            #binned_variance[i].append(np.nanvar(residuals_nangaps[i][j * interval:(j + 1) * interval]))
+            binned_mean[i].append(np.mean(theta_removed[i][j * interval:(j + 1) * interval]))
+    mean_theta_envelope = np.mean(theta_envelopes, axis=0)
     mean_ramp = np.mean(ramp_traces, axis=0)
-    print 'Intracellular Theta Amp for %s: %.2f' % (title, np.mean(intra_theta_amp))
-    plt.plot(rec_t, mean_across_trials)
-    plt.xlabel('Time (ms)')
-    plt.ylabel('Voltage (mV)')
-    plt.title('Somatic Vm Mean - Across Trials - ' + title)
-    plt.show()
-    plt.close()
-    plt.plot(rec_t, variance_across_trials)
-    plt.xlabel('Time (ms)')
-    plt.ylabel('Vm Variance (mV' + r'$^2$' + ')')
-    plt.title('Somatic Vm Variance - Across Trials - ' + title)
-    plt.show()
-    plt.close()
-    plt.scatter(binned_mean, binned_variance)
-    plt.xlabel('Mean Vm (mV)')
-    plt.ylabel('Vm Variance (mV' + r'$^2$' + ')')
-    plt.title('Mean - Variance Analysis - ' + title)
-    plt.show()
-    plt.close()
-    plt.plot(pop_freq, pop_psd, label='Total Population Input Spikes')
-    plt.plot(intra_freq, intra_psd, label='Single Cell Intracellular Vm')
-    plt.xlim(4., 11.)
-    plt.xlabel('Frequency (Hz)')
-    plt.ylabel('Normalized Power Density')
-    plt.title('Power Spectral Density - ' + title)
-    plt.legend(loc='best')
-    plt.show()
-    plt.close()
-    return rec_t, ramp_removed, intra_theta_amp, binned_mean, binned_variance, mean_across_trials, \
-           variance_across_trials, mean_output, mean_ramp
+    mean_binned_vm = np.mean(binned_mean, axis=0)
+    mean_binned_var = np.mean(binned_variance, axis=0)
+    scatter_vm_mean = np.array(binned_mean).flatten()
+    scatter_vm_var = np.array(binned_variance).flatten()
+    return rec_t, residuals_interp, mean_theta_envelope, scatter_vm_mean, scatter_vm_var, binned_t, mean_binned_vm, \
+           mean_binned_var, mean_ramp
 
 
 def get_patterned_input_mean_values(residuals, intra_theta_amp, rate_map, ramp,
@@ -1523,7 +1603,8 @@ def get_patterned_input_mean_values(residuals, intra_theta_amp, rate_map, ramp,
     for source_condition, target_condition in zip([key_list[1], key_list[0]], [key_list[1], key_list[3]]):
         start = int(i_bounds[0]/dt)
         end = int(i_bounds[1]/dt)
-        mean_var[target_condition] = np.mean([np.var(residual[start:end]) for residual in residuals[source_condition]])
+        mean_var[target_condition] = np.mean([np.nanvar(residual[start:end]) for residual in
+                                              residuals[source_condition]])
         start = int(peak_bounds[0]/dt)
         end = int(peak_bounds[1]/dt)
         mean_theta_amp[target_condition] = np.mean(intra_theta_amp[source_condition][start:end])
@@ -1532,14 +1613,15 @@ def get_patterned_input_mean_values(residuals, intra_theta_amp, rate_map, ramp,
     for source_condition, target_condition in zip([key_list[2], key_list[0]], [key_list[2], key_list[4]]):
         start = int(i_bounds[2]/dt)
         end = int(i_bounds[3]/dt)
-        mean_var[target_condition] = np.mean([np.var(residual[start:end]) for residual in residuals[source_condition]])
+        mean_var[target_condition] = np.mean([np.nanvar(residual[start:end]) for residual in
+                                              residuals[source_condition]])
         start = int(peak_bounds[2]/dt)
         end = int(peak_bounds[3]/dt)
         mean_theta_amp[target_condition] = np.mean(intra_theta_amp[source_condition][start:end])
         mean_rate[target_condition] = np.mean(rate_map[source_condition][start:end])
         mean_ramp[target_condition] = np.mean(ramp[source_condition][start:end]) - baseline
     for parameter, title in zip([mean_var, mean_theta_amp, mean_rate, mean_ramp],
-                                ['Variance: ', 'Theta Amp: ', 'Rate: ', 'Ramp Amp: ']):
+                                ['Variance: ', 'Theta Envelope: ', 'Rate: ', 'Depolarization: ']):
         print title
         for condition in key_list[1:]:
             print condition, parameter[condition]
@@ -1656,7 +1738,8 @@ def process_special_rec_within_group(rec_filename, group_name='pre',
         down_t = np.arange(0., track_duration, down_dt)
         # 2000 ms Hamming window, ~3 Hz low-pass filter
         window_len = int(2000./down_dt)
-        ramp_filter = signal.firwin(window_len, 3., nyq=1000./2./down_dt)
+        print 'This method hasn\'t been updated with appropriate signal padding before filtering.'
+        ramp_filter = signal.firwin(window_len, 2., nyq=1000./2./down_dt)
         rec_low_pass_dict = {description: [] for description in rec_dict}
         for description in rec_dict:
             for rec in rec_dict[description]:
