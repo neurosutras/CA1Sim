@@ -227,12 +227,12 @@ def optimize_num_syn(x, repeats):
     Err = []
     x0 = x[0]
     x_hist = []
-    this_Err = basal_release_error_average(x, (repeats,))
+    this_Err = basal_release_error_average(x, repeats)
     Err.append(this_Err)
     for delta in [0.001, -0.001]:
         this_x = x0 + delta
         x.hist.append(this_x)
-        this_Err = basal_release_error_average([this_x], (repeats,))
+        this_Err = basal_release_error_average([this_x], repeats)
         Err.append(this_Err)
     if (Err[1] > Err[0]) and (Err[2] > Err[0]):
         return {'x': x, 'Err': Err[0]}
@@ -249,7 +249,7 @@ def optimize_num_syn(x, repeats):
         delta = float(i) * 0.001 * direction
         this_x = x0 + delta
         x.hist.append(this_x)
-        this_Err = basal_release_error_average([this_x], (repeats,))
+        this_Err = basal_release_error_average([this_x], repeats)
         delta_Err.append(this_Err - Err[-1])
         Err.append(this_Err)
         if (len(delta_Err) > 2) and (delta_Err[-1] < 0.) and (delta_Err[-2] < 0.):
