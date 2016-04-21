@@ -229,7 +229,7 @@ def optimize_num_syn(x, repeats):
     x_hist = []
     this_Err = basal_release_error_average(x, repeats)
     Err.append(this_Err)
-    for delta in [0.001, -0.001]:
+    for delta in [0.0001, -0.0001]:
         this_x = x0 + delta
         x_hist.append(this_x)
         this_Err = basal_release_error_average([this_x], repeats)
@@ -246,7 +246,7 @@ def optimize_num_syn(x, repeats):
         x_hist.pop(1)
     delta_Err = [Err[1] - Err[0]]
     for i in range(2, 20):
-        delta = float(i) * 0.001 * direction
+        delta = float(i) * 0.0001 * direction
         this_x = x0 + delta
         x_hist.append(this_x)
         this_Err = basal_release_error_average([this_x], repeats)
@@ -271,7 +271,7 @@ xmax = {}
 
 # x0['basal'] = [num_syns_to_stim]
 #x0['basal'] = [0.00801]  # n will be filtered by f(n) = int(n * 10000)
-x0['basal'] = [0.00761]
+x0['basal'] = [0.00741]
 xmin['basal'] = [0.0030]
 xmax['basal'] = [0.0100]
 

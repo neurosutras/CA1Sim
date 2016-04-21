@@ -126,7 +126,8 @@ def run_trial(simiter):
             # up to 1000 input spikes per spine
             if excitatory_stochastic:
                 syn.randObj.seq(rand_exc_seq_locs[group][i]+int(simiter*1e3))
-            gauss_force = excitatory_peak_rate[group] * np.exp(-((stim_t - peak_locs[group][i]) / gauss_sigma)**2.)
+            gauss_force = (excitatory_peak_rate[group] - excitatory_background_rate[group]) * \
+                          np.exp(-((stim_t - peak_locs[group][i]) / gauss_sigma)**2.)
             if group in excitatory_precession_range:
                 phase_force = get_dynamic_theta_phase_force(excitatory_precession_range[group], peak_locs[group][i],
                                                             input_field_duration, stim_t, stim_dt)
@@ -142,6 +143,8 @@ def run_trial(simiter):
             theta_force *= excitatory_theta_modulation_depth[group]
             theta_force += 1. - excitatory_theta_modulation_depth[group]
             stim_force = np.multiply(gauss_force, theta_force)
+            # add nonspecific background noise
+            stim_force += excitatory_background_rate[group]
             train = get_inhom_poisson_spike_times(stim_force, stim_t, dt=stim_dt, generator=local_random)
             syn.source.play(h.Vector(np.add(train, equilibrate + track_equilibrate)))
             with h5py.File(data_dir+rec_filename+'-working.hdf5', 'a') as f:
@@ -150,6 +153,21 @@ def run_trial(simiter):
                 f[str(simiter)]['train'][str(index)].attrs['index'] = syn.node.index
                 f[str(simiter)]['train'][str(index)].attrs['type'] = syn.node.parent.parent.type
                 f[str(simiter)]['train'][str(index)].attrs['peak_loc'] = peak_locs[group][i]
+            index += 1
+    # add nonspecific background noise to all remaining synapses
+    for sec_type in all_exc_syns:
+        group = 'ECIII' if sec_type == 'tuft' else 'CA3'
+        for syn in all_exc_syns[sec_type]:
+            stim_force = np.ones_like(stim_t) * excitatory_background_rate[group]
+            train = get_inhom_poisson_spike_times(stim_force, stim_t, dt=stim_dt, generator=local_random)
+            syn.source.play(h.Vector(np.add(train, equilibrate + track_equilibrate)))
+            with h5py.File(data_dir + rec_filename + '-working.hdf5', 'a') as f:
+                f[str(simiter)]['train'].create_dataset(str(index), compression='gzip', compression_opts=9, data=train)
+                f[str(simiter)]['train'][str(index)].attrs['group'] = group
+                f[str(simiter)]['train'][str(index)].attrs['index'] = syn.node.index
+                f[str(simiter)]['train'][str(index)].attrs['type'] = sec_type
+                # give these inputs a peak_loc far off the track
+                f[str(simiter)]['train'][str(index)].attrs['peak_loc'] = input_field_duration * 2.
             index += 1
     index = 0
     for group in stim_inh_syns:
@@ -187,6 +205,12 @@ def run_trial(simiter):
                                 data=np.subtract(syn.netcon('AMPA_KIN').get_recordvec().to_python(),
                                                  equilibrate + track_equilibrate))
                     index += 1
+            for sec_type in all_exc_syns:
+                for syn in all_exc_syns[sec_type]:
+                    f[str(simiter)]['successes'].create_dataset(str(index), compression='gzip', compression_opts=9,
+                                data=np.subtract(syn.netcon('AMPA_KIN').get_recordvec().to_python(),
+                                                equilibrate + track_equilibrate))
+                    index += 1
         # save the spike output of the cell, removing the equilibration offset
         f[str(simiter)].create_dataset('output', compression='gzip', compression_opts=9,
                                     data=np.subtract(cell.spike_detector.get_recordvec().to_python(),
@@ -204,6 +228,7 @@ track_duration = track_length * input_field_duration
 track_equilibrate = 2. * global_theta_cycle_duration
 duration = equilibrate + track_equilibrate + track_duration  # input_field_duration
 excitatory_peak_rate = {'CA3': 40., 'ECIII': 40.}
+excitatory_background_rate = {'CA3': 0.1, 'ECIII': 0.1}
 excitatory_theta_modulation_depth = {'CA3': 0.7, 'ECIII': 0.7}
 # From Chadwick et al., ELife 2015
 excitatory_theta_phase_tuning_factor = {'CA3': 0.8, 'ECIII': 0.8}
@@ -422,14 +447,6 @@ manipulated_inh_syns = {}
 for group in inhibitory_manipulation_fraction:
     num_syns = int(len(stim_inh_syns[group]) * inhibitory_manipulation_fraction[group])
     manipulated_inh_syns[group] = local_random.sample(stim_inh_syns[group], num_syns)
-
-# add nonmodulated synapses to background noise:
-background_exc_syns = {group: [] for group in stim_exc_syns}
-for sec_type in all_exc_syns:
-    group = 'ECIII' if sec_type == 'tuft' else 'CA3'
-    for syn in all_exc_syns[sec_type]:
-        if syn not in stim_exc_syns[group]:
-            background_exc_syns[group].append(syn)
 
 """
 run_trial(trial_seed)
