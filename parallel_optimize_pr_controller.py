@@ -281,8 +281,8 @@ x0['dynamics'] = [1.762, 73.998, 0.891, 96.819]  # D1 Only
 #x0['dynamics'] = [1.791, 80.100, 0.896, 53.665, 0.982, 192.895]  # D1 + D2
 
 # the bounds
-xmin['dynamics'] = [1.0, 25., 0.6, 25., 0.7, 100.]
-xmax['dynamics'] = [2.0, 150., 0.95, 200., 1., 500.]
+xmin['dynamics'] = [1.0, 25., 0.6, 25.]  #, 0.7, 100.]
+xmax['dynamics'] = [2.0, 150., 0.95, 200.]  #, 1., 500.]
 
 if len(sys.argv) > 1:
     cluster_id = sys.argv[1]
