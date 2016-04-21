@@ -231,4 +231,8 @@ branch_cooperativity_error(x1, 1)
 [gmax, gamma, Kd, sh]: [2.223E-03, 9.137E-02, 9.888E+00, 2.222E+00]
 Peak Supralinearity: 50.50, Min Supralinearity: -1.19, Unitary % NMDA: 14.490
 Parallel simulation took 181 s, Error: 1.1506E+03
+
+[gmax, gamma, Kd, sh]: [2.094E-03, 9.060E-02, 1.000E+01, 2.267E+00]
+Peak Supralinearity: 45.09, Min Supralinearity: -1.37, Unitary % NMDA: 14.383
+Parallel simulation took 121 s, Error: 1.0211E+03
 """
