@@ -207,12 +207,12 @@ excitatory_peak_rate = {'CA3': 40., 'ECIII': 40.}
 excitatory_theta_modulation_depth = {'CA3': 0.7, 'ECIII': 0.7}
 # From Chadwick et al., ELife 2015
 excitatory_theta_phase_tuning_factor = {'CA3': 0.8, 'ECIII': 0.8}
-excitatory_precession_range = {}
+excitatory_precession_range = {}  # (ms, degrees)
 excitatory_precession_range['CA3'] = [(-input_field_duration*0.5, 180.), (-input_field_duration*0.35, 180.),
-                                      (input_field_duration*0.35, -180.), (input_field_duration*0.5, -180.)]  # (ms, degrees)
-excitatory_theta_phase_offset = {}
-excitatory_theta_phase_offset['CA3'] = 165. / 360. * 2. * np.pi  # radians
-excitatory_theta_phase_offset['ECIII'] = 0. / 360. * 2. * np.pi  # radians
+                                      (input_field_duration*0.35, -180.), (input_field_duration*0.5, -180.)]
+excitatory_theta_phase_offset = {}  # radians
+excitatory_theta_phase_offset['CA3'] = 165. / 360. * 2. * np.pi
+excitatory_theta_phase_offset['ECIII'] = 0. / 360. * 2. * np.pi
 excitatory_stochastic = 1
 inhibitory_manipulation_fraction = {'perisomatic': 0.325, 'axo-axonic': 0.325, 'apical dendritic': 0.325,
                                     'distal apical dendritic': 0.325, 'tuft feedback': 0.325}
@@ -423,6 +423,16 @@ for group in inhibitory_manipulation_fraction:
     num_syns = int(len(stim_inh_syns[group]) * inhibitory_manipulation_fraction[group])
     manipulated_inh_syns[group] = local_random.sample(stim_inh_syns[group], num_syns)
 
+# add nonmodulated synapses to background noise:
+background_exc_syns = {group: [] for group in stim_exc_syns}
+for sec_type in all_exc_syns:
+    group = 'ECIII' if sec_type == 'tuft' else 'CA3'
+    for syn in all_exc_syns[sec_type]:
+        if syn not in stim_exc_syns[group]:
+            background_exc_syns[group].append(syn)
+
+"""
 run_trial(trial_seed)
 if os.path.isfile(data_dir+rec_filename+'-working.hdf5'):
     os.rename(data_dir+rec_filename+'-working.hdf5', data_dir+rec_filename+'.hdf5')
+"""
