@@ -269,20 +269,20 @@ x0 = {}
 xmin = {}
 xmax = {}
 
-# x0['basal'] = [num_syns_to_stim]
-#x0['basal'] = [0.00801]  # n will be filtered by f(n) = int(n * 10000)
-x0['basal'] = [0.00741]
+# x0['basal'] = [num_syns_to_stim]  # n will be filtered by f(n) = int(n * 10000)
+#x0['basal'] = [0.00801]
+x0['basal'] = [0.00731]
 xmin['basal'] = [0.0030]
 xmax['basal'] = [0.0100]
 
 # x0['dynamics'] = ['f', 'tau_F', 'd1', 'tau_D1', 'd2', 'tau_D2']
 #x0['dynamics'] = [1.769, 67.351, 0.878, 92.918]  #, 1., 150.]
-#x0['dynamics'] = [1.762, 73.998, 0.891, 96.819]  # D1 Only
-x0['dynamics'] = [1.791, 80.100, 0.896, 53.665, 0.982, 192.895]  # D1 + D2
+x0['dynamics'] = [1.762, 73.998, 0.891, 96.819]  # D1 Only
+#x0['dynamics'] = [1.791, 80.100, 0.896, 53.665, 0.982, 192.895]  # D1 + D2
 
 # the bounds
-xmin['dynamics'] = [0.8, 25., 0.5, 50., 0.7, 100.]
-xmax['dynamics'] = [1.8, 150., 0.9, 300., 1., 500.]
+xmin['dynamics'] = [1.0, 25., 0.6, 25., 0.7, 100.]
+xmax['dynamics'] = [2.0, 150., 0.95, 200., 1., 500.]
 
 if len(sys.argv) > 1:
     cluster_id = sys.argv[1]
@@ -298,7 +298,7 @@ dv.execute('from parallel_optimize_pr_engine import *')
 #time.sleep(180)
 v = c.load_balanced_view()
 
-
+"""
 # first optimize basal_release_error_average once in order to determine the ideal number of synapses to produce the
 # target single pulse EPSP with the specified basal release probability
 
@@ -319,7 +319,7 @@ minimizer_kwargs = dict(method=null_minimizer, args=(2,))
 result = optimize.basinhopping(release_dynamics_error_average, x0['dynamics'], niter=720, niter_success=200,
                                disp=True, interval=30, minimizer_kwargs=minimizer_kwargs, take_step=mytakestep)
 print result
-
+"""
 
 polished_result = optimize.minimize(release_dynamics_error_average, x0['dynamics'], args=(4,), method='Nelder-Mead',
                                     options={'xtol': 1e-3, 'ftol': 1e-3, 'maxiter': 200, 'disp': True})
@@ -332,4 +332,5 @@ print polished_result
 
 """
 042116:
+'basal': x: [7.3100E-03], Error (average of 10 repeats): 1.2990E+00
 """
