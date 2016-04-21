@@ -14,21 +14,18 @@ ipcluster start -n num_cores
 """
 
 
-def release_dynamics_error(x, plot=0):
+def basal_release_error(x, plot=0):
     """
 
     :param x: list
     :return: float
     """
     start_time = time.time()
-    repeat = 10
-    ISI_list = [300, 100, 50, 25, 10]
+    repeat = 20
     instructions = []
-    for ISI in ISI_list:
-        for i in range(repeat):
-            instructions.append(ISI)
-    dv['x'] = x
-    map_result = v.map_async(parallel_optimize_pr_engine.sim_stim_train, instructions)
+    for i in range(repeat):
+        instructions.append(x)
+    map_result = v.map_async(parallel_optimize_pr_engine.sim_stim_train_basal, instructions)
     while not map_result.ready():
         time.sleep(30)
         clear_output()
@@ -37,7 +34,65 @@ def release_dynamics_error(x, plot=0):
             if lines[-2]:
                 print lines[-2]
         sys.stdout.flush()
-    dv.execute('restore_random_sequence_locations()')
+    unit_amps = []
+    interp_dt = parallel_optimize_pr_engine.interp_dt
+    num_stims = parallel_optimize_pr_engine.num_stims
+    ISI = 300.
+    mean_trace = None
+    for result in map_result.get():
+        interp_t = np.arange(0., interp_dt*len(result), interp_dt)
+        these_unit_amps = []
+        for i in range(num_stims):
+            left, right = time2index(interp_t, 2.0+ISI*i, 102.0+ISI*i)
+            these_unit_amps.append(np.max(result[left:right]))
+        unit_amps.append(these_unit_amps)
+        if mean_trace is None:
+            mean_trace = np.array(result)
+        else:
+            mean_trace += result
+    mean_trace /= float(repeat)
+    mean_unit_amp = np.mean(unit_amps)
+    Err = 0.
+    Err += round(((target_val[300] - mean_unit_amp)/target_range[300])**2., 10)
+    P0 = parallel_optimize_pr_engine.P0
+    print 'Parallel simulation took %i s, Error: %.4E' % (time.time()-start_time, Err)
+    print '[x, P0]: [%4E, %.3f], Num synapses: %i, unit amp: %.3f' % (x[0], P0, int(x[0]*10000.), mean_unit_amp)
+    if plot:
+        interp_dt = parallel_optimize_pr_engine.interp_dt
+        interp_t = np.arange(0., interp_dt*len(mean_trace), interp_dt)
+        interp_t -= 2.
+        plt.plot(interp_t, mean_trace)
+        plt.title('300 ms ISI')
+        plt.ylabel('EPSP Amp (mV)')
+        plt.xlabel('Time (ms)')
+        plt.show()
+        plt.close()
+    return Err
+
+
+def release_dynamics_error(x, plot=0):
+    """
+
+    :param x: list
+    :return: float
+    """
+    start_time = time.time()
+    repeat = 20
+    ISI_list = [300, 100, 50, 25, 10]
+    instructions = []
+    for ISI in ISI_list:
+        for i in range(repeat):
+            instructions.append(ISI)
+    dv['x'] = x
+    map_result = v.map_async(parallel_optimize_pr_engine.sim_stim_train_dynamics, instructions)
+    while not map_result.ready():
+        time.sleep(30)
+        clear_output()
+        for stdout in [stdout for stdout in map_result.stdout if stdout][-len(c):]:
+            lines = stdout.split('\n')
+            if lines[-2]:
+                print lines[-2]
+        sys.stdout.flush()
     results = {}
     unit_amps = []
     interp_dt = parallel_optimize_pr_engine.interp_dt
@@ -70,6 +125,7 @@ def release_dynamics_error(x, plot=0):
     Err = 0.
     for ISI in results:
         if ISI == 300:
+            print 'ISI:', ISI, 'Amp:', mean_unit_amp
             Err += round(((target_val[ISI] - mean_unit_amp)/target_range[ISI])**2., 10)
             Err += round(((target_val['unit_slope'] - mean_unit_slope)/target_range['unit_slope'])**2., 10)
         elif ISI == 10:
@@ -77,6 +133,7 @@ def release_dynamics_error(x, plot=0):
             left = 0
             right = int((2.+ISI*3)/interp_dt)
             amp = np.max(results[ISI][left:right])
+            print 'ISI:', ISI, 'Amp:', amp
             #print '3rd pulse amp:', amp
             Err += round(((target_val[ISI] - amp)/target_range[ISI])**2., 10)
             # 5th pulse in burst of 5
@@ -88,15 +145,24 @@ def release_dynamics_error(x, plot=0):
             # 6th pulse after recovery
             left = right + int(100./interp_dt)
             right = left + int(ISI/interp_dt)
-            amp = np.max(results[ISI][left:right])
+            recovery = np.max(results[ISI][left:right])
             #print 'recovery pulse amp:', amp
-            Err += round(((target_val['recovery'] - amp)/target_range['recovery'])**2., 10)
+            Err += round(((target_val['recovery'] - recovery)/target_range['recovery'])**2., 10)
         else:
-            Err += round(((target_val[ISI] - np.max(results[ISI]))/target_range[ISI])**2., 10)
+            amp = np.max(results[ISI])
+            print 'ISI:', ISI, 'Amp:', amp
+            Err += round(((target_val[ISI] - amp)/target_range[ISI])**2., 10)
+    N = int(x0['basal'][0] * 10000.)
+    P0 = parallel_optimize_pr_engine.P0
     print 'Parallel simulation took %i s, Error: %.4E' % (time.time()-start_time, Err)
-    print '[Num synapses, P0, f, tau_F, D, tau_D]: [%i, %.3f, %.3f, %.3f, %.3f, %.3f], unit amp: %.3f, unit slope: ' \
-          '%.2E, recovery unit amp: %.3f' % (int(x[0]*1000), x[1], x[2], x[3], x[4], x[5], mean_unit_amp,
-                                                          mean_unit_slope, amp)
+    if len(x) <= 4:
+        print '[Num synapses, P0, f, tau_F, d, tau_D]: [%i, %.3f, %.3f, %.3f, %.3f, %.3f], unit amp: %.3f, ' \
+              'unit slope: %.3E, recovery unit amp: %.3f' % (N, P0, x[0], x[1], x[2], x[3], mean_unit_amp,
+                                                             mean_unit_slope, recovery)
+    else:
+        print '[Num synapses, P0, f, tau_F, d1, tau_D1, d2, tau_D2]: [%i, %.3f, %.3f, %.3f, %.3f, %.3f, %.3f, %.3f], ' \
+              'unit amp: %.3f, unit slope: %.3E, recovery unit amp: %.3f' % (N, P0, x[0], x[1], x[2], x[3], x[4], x[5],
+                                                                             mean_unit_amp, mean_unit_slope, recovery)
     interp_t = {}
     if plot:
         interp_dt = parallel_optimize_pr_engine.interp_dt
@@ -111,30 +177,112 @@ def release_dynamics_error(x, plot=0):
         fig.subplots_adjust(hspace=0.55, wspace=0.3, left=0.05, right=0.95, top=0.95, bottom=0.08)
         plt.show()
         plt.close()
+        return Err, results
     else:
         return Err
 
+
+def release_dynamics_error_average(x, *args):
+    """
+
+    :param x: array
+    :param args: tuple
+    :return: float
+    """
+    repeats = int(args[0])
+    Err = []
+    for i in range(repeats):
+        print 'Iteration %i: ' % (i)
+        Err.append(release_dynamics_error(x))
+    av_Err = np.mean(Err)
+    print 'Error (average of %i repeats): %.4E' % (repeats, av_Err)
+    return np.mean(Err)
+
+
+def basal_release_error_average(x, *args):
+    """
+
+    :param x: array
+    :param args: tuple
+    :return: float
+    """
+    print 'Next x: [%.4E]' % (x[0])
+    repeats = int(args[0])
+    Err = []
+    for i in range(repeats):
+        print 'Iteration %i: ' % (i)
+        Err.append(basal_release_error(x))
+    av_Err = np.mean(Err)
+    print 'x: [%.4E], Error (average of %i repeats): %.4E' % (x[0], repeats, av_Err)
+    return np.mean(Err)
+
+
+def optimize_num_syn(x, repeats):
+    """
+
+    :param x: array
+    :param repeats: int
+    :return: float
+    """
+    Err = []
+    x0 = x[0]
+    x_hist = []
+    this_Err = basal_release_error_average(x, (repeats,))
+    Err.append(this_Err)
+    for delta in [0.001, -0.001]:
+        this_x = x0 + delta
+        x.hist.append(this_x)
+        this_Err = basal_release_error_average([this_x], (repeats,))
+        Err.append(this_Err)
+    if (Err[1] > Err[0]) and (Err[2] > Err[0]):
+        return {'x': x, 'Err': Err[0]}
+    if Err[1] < Err[2]:
+        direction = 1.
+        Err.pop(2)
+        x_hist.pop(2)
+    else:
+        direction = -1.
+        Err.pop(1)
+        x_hist.pop(1)
+    delta_Err = [Err[1] - Err[0]]
+    for i in range(2, 20):
+        delta = float(i) * 0.001 * direction
+        this_x = x0 + delta
+        x.hist.append(this_x)
+        this_Err = basal_release_error_average([this_x], (repeats,))
+        delta_Err.append(this_Err - Err[-1])
+        Err.append(this_Err)
+        if (len(delta_Err) > 2) and (delta_Err[-1] < 0.) and (delta_Err[-2] < 0.):
+            break
+    best_Err = np.min(Err)
+    index = np.where(np.array(Err) == best_Err)[0][0]
+    best_x = [x_hist[index]]
+    return {'x': best_x, 'Err': best_Err}
+
+
 #the target values and acceptable ranges
 target_val = {300: 3.8, 100: 7.1, 50: 9.0, 25: 11.6, 10: 15.1, '5th pulse': 21.7, 'recovery': 5.8, 'unit_slope': 0.}
-#target_range = {300: 0.6, 100: 1.0, 50: 1.4, 25: 1.7, 10: 1.8, '5th pulse': 2., 'recovery': 0.5, 'unit_slope': .01}
 target_range = {300: 0.1, 100: 0.1, 50: 0.1, 25: 0.1, 10: 0.1, '5th pulse': 0.1, 'recovery': 0.1, 'unit_slope': .01}
-#target_val = {300: 3.8, 100: 7.1, 50: 9.0, 25: 11.6, 10: 15.1, 'unit_slope': 0.}
-#target_range = {300: 0.6, 100: 1.0, 50: 1.4, 25: 1.7, 10: 1.8, 'unit_slope': .01}
-
-param_names = ['n', 'P0', 'f', 'tau_F', 'd1', 'tau_D1']
 
 #the initial guess
-#x0 = [0.067, 0.18, 0.92, 105.5, 0.64, 10.]  # first pass after calibrating NMDA_KIN2.gmax for cooperativity
-# with 103115 interim dendritic excitability ampa nmda_kin3.pkl as mech_dict:
-#x0 = [0.082, 0.233, 1.603, 46.732, 0.830, 133.609]  # Err 1.0880E+03
-x0 = [0.094, 0.190, 1.625, 65.775, 0.785, 113.151]
-# unit amp: 4.180, unit slope: -6.69E-02, recovery unit amp: 6.308, Error: 4.8017E+02
+x0 = {}
+xmin = {}
+xmax = {}
+
+# x0['basal'] = [num_syns_to_stim]
+#x0['basal'] = [0.00801]  # n will be filtered by f(n) = int(n * 10000)
+x0['basal'] = [0.00751]
+xmin['basal'] = [0.0030]
+xmax['basal'] = [0.0100]
+
+# x0['dynamics'] = ['f', 'tau_F', 'd1', 'tau_D1', 'd2', 'tau_D2']
+#x0['dynamics'] = [1.769, 67.351, 0.878, 92.918]  #, 1., 150.]
+#x0['dynamics'] = [1.762, 73.998, 0.891, 96.819]  # D1 Only
+x0['dynamics'] = [1.791, 80.100, 0.896, 53.665, 0.982, 192.895]  # D1 + D2
 
 # the bounds
-#xmin = [0.01, 0.1, 0.01, 1., 0.01, 1.]  # n will be filtered by f(n) = int(n * 1000)
-#xmax = [0.3, 0.9, 50., 1e4, 1.0, 1e5]
-xmin = [0.06, 0.15, 0.8, 25., 0.5, 50.]  # n will be filtered by f(n) = int(n * 1000)
-xmax = [0.15, 0.3, 1.8, 150., 0.9, 300.]
+xmin['dynamics'] = [0.8, 25., 0.5, 50., 0.7, 100.]
+xmax['dynamics'] = [1.8, 150., 0.9, 300., 1., 500.]
 
 if len(sys.argv) > 1:
     cluster_id = sys.argv[1]
@@ -147,21 +295,41 @@ dv.clear()
 dv.block = True
 global_start_time = time.time()
 dv.execute('from parallel_optimize_pr_engine import *')
+#time.sleep(180)
 v = c.load_balanced_view()
 
-mytakestep = Normalized_Step(x0, xmin, xmax)
 
-minimizer_kwargs = dict(method=null_minimizer)
+# first optimize basal_release_error_average once in order to determine the ideal number of synapses to produce the
+# target single pulse EPSP with the specified basal release probability
+
+result = optimize_num_syn(x0['basal'], repeats=10)
+
+print result
 """
-result = optimize.basinhopping(release_dynamics_error, x0, niter=400, niter_success=100, disp=True, interval=30,
-                                                            minimizer_kwargs=minimizer_kwargs, take_step=mytakestep)
-#print result
-release_dynamics_error(result.x, plot=1)
 
-polished_result = optimize.minimize(release_dynamics_error, x0, method='Nelder-Mead',
+# then use the resulting number of synapses during optimization of the parameters governing release dynamics
+N = int(x0['basal'][0] * 10000.)
+dv.execute('syn_list.choose_syns_to_stim('+str(N)+')')
+#time.sleep(180)
+
+
+mytakestep = Normalized_Step(x0['dynamics'], xmin['dynamics'], xmax['dynamics'])
+minimizer_kwargs = dict(method=null_minimizer, args=(2,))
+
+result = optimize.basinhopping(release_dynamics_error_average, x0['dynamics'], niter=720, niter_success=200,
+                               disp=True, interval=30, minimizer_kwargs=minimizer_kwargs, take_step=mytakestep)
+print result
+
+
+polished_result = optimize.minimize(release_dynamics_error_average, x0['dynamics'], args=(4,), method='Nelder-Mead',
                                     options={'xtol': 1e-3, 'ftol': 1e-3, 'maxiter': 200, 'disp': True})
-#print polished_result
-
-release_dynamics_error(polished_result.x, plot=1)
+print polished_result
 """
-release_dynamics_error(x0, plot=1)
+
+
+#release_dynamics_error(polished_result.x, plot=1)
+#Err, results = release_dynamics_error(x0['dynamics'], plot=1)
+
+"""
+042116:
+"""
