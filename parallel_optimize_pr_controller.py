@@ -196,7 +196,7 @@ def release_dynamics_error_average(x, *args):
         Err.append(release_dynamics_error(x))
     av_Err = np.mean(Err)
     print 'Error (average of %i repeats): %.4E' % (repeats, av_Err)
-    return np.mean(Err)
+    return av_Err
 
 
 def basal_release_error_average(x, *args):
@@ -214,7 +214,7 @@ def basal_release_error_average(x, *args):
         Err.append(basal_release_error(x))
     av_Err = np.mean(Err)
     print 'x: [%.4E], Error (average of %i repeats): %.4E' % (x[0], repeats, av_Err)
-    return np.mean(Err)
+    return av_Err
 
 
 def optimize_num_syn(x, repeats):

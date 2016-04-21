@@ -465,15 +465,14 @@ class Normalized_Step(object):
         self.stepsize = stepsize
         if xmin is None:
             xmin = [None for i in range(len(x0))]
-        for i in range(len(xmin)):
+        if xmax is None:
+            xmax = [None for i in range(len(x0))]
+        for i in range(len(x0)):
             if xmin[i] is None:
                 if x0[i] > 0.:
                     xmin[i] = 0.1 * x0[i]
                 else:
                     xmin[i] = 10. * x0[i]
-        if xmax is None:
-            xmax = [None for i in range(len(x0))]
-        for i in range(len(xmax)):
             if xmax[i] is None:
                 if x0[i] > 0.:
                     xmax[i] = 10. * x0[i]
