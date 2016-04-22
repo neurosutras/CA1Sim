@@ -276,8 +276,8 @@ xmin['basal'] = [0.0030]
 xmax['basal'] = [0.0100]
 
 # x0['dynamics'] = ['f', 'tau_F', 'd1', 'tau_D1', 'd2', 'tau_D2']
-#x0['dynamics'] = [1.769, 67.351, 0.878, 92.918]  #, 1., 150.]
-x0['dynamics'] = [1.762, 73.998, 0.891, 96.819]  # D1 Only
+#x0['dynamics'] = [1.762, 73.998, 0.891, 96.819]  # D1 Only
+x0['dynamics'] = [1.776, 70.695, 0.906, 140.711]  # 042216 Basinhopping Step 98: Err: 893.3
 #x0['dynamics'] = [1.791, 80.100, 0.896, 53.665, 0.982, 192.895]  # D1 + D2
 
 # the bounds
@@ -312,7 +312,7 @@ N = int(x0['basal'][0] * 10000.)
 dv.execute('syn_list.choose_syns_to_stim('+str(N)+')')
 #time.sleep(180)
 
-
+"""
 mytakestep = Normalized_Step(x0['dynamics'], xmin['dynamics'], xmax['dynamics'])
 minimizer_kwargs = dict(method=null_minimizer, args=(2,))
 
@@ -324,7 +324,7 @@ print result
 polished_result = optimize.minimize(release_dynamics_error_average, x0['dynamics'], args=(4,), method='Nelder-Mead',
                                     options={'xtol': 1e-3, 'ftol': 1e-3, 'maxiter': 200, 'disp': True})
 print polished_result
-"""
+
 
 
 #release_dynamics_error(polished_result.x, plot=1)
@@ -333,4 +333,15 @@ print polished_result
 """
 042116:
 'basal': x: [7.3100E-03], Error (average of 10 repeats): 1.2990E+00
+'dynamics':
+ISI: 100 Amp: 5.42612612339
+ISI: 50 Amp: 7.74888132503
+ISI: 300 Amp: 3.68189158585
+ISI: 10 Amp: 15.7666887941
+ISI: 25 Amp: 10.1569166059
+Parallel simulation took 180 s, Error: 9.9492E+02
+[Num synapses, P0, f, tau_F, d, tau_D]: [73, 0.200, 1.776, 70.695, 0.906, 140.711], unit amp: 3.682, unit slope: -6.162E-02, recovery unit amp: 7\
+.237
+Error (average of 2 repeats): 8.9323E+02
+basinhopping step 98: f 893.229 trial_f 893.229 accepted 1  lowest_f 893.229
 """
