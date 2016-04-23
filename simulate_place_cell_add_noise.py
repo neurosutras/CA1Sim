@@ -433,7 +433,7 @@ peak_mod_weight = mod_weights
 trough_mod_weight = 0.8
 tuning_amp = (peak_mod_weight - 1.) / 2.
 tuning_offset = tuning_amp + 1.
-peak_gmax = 0.005463
+#peak_gmax = 0.005463
 
 for group in stim_exc_syns:
     gmax_vals[group] = []
@@ -452,8 +452,10 @@ for group in stim_exc_syns:
     cos_mod_weight[group] = map(cos_mod_weight[group].__getitem__, indexes)
     for i, syn in enumerate(stim_exc_syns[group]):
         this_gmax = syn.target('AMPA_KIN').gmax
+        """
         if this_gmax * cos_mod_weight[group][i] > peak_gmax:
             cos_mod_weight[group][i] = peak_gmax / this_gmax
+        """
         syn.netcon('AMPA_KIN').weight[0] = cos_mod_weight[group][i]
         gmax_vals[group].append(this_gmax * cos_mod_weight[group][i])
 
