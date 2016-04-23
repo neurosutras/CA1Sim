@@ -157,7 +157,12 @@ def run_trial(simiter):
     # add nonspecific background noise to all remaining synapses
     for sec_type in all_exc_syns:
         group = 'ECIII' if sec_type == 'tuft' else 'CA3'
-        for syn in all_exc_syns[sec_type]:
+        start_index = len(stim_exc_syns[group])
+        for i, syn in enumerate(all_exc_syns[sec_type]):
+            # the stochastic sequence used for each synapse is unique for each trial,
+            # up to 1000 input spikes per spine
+            if excitatory_stochastic:
+                syn.randObj.seq(rand_exc_seq_locs[group][i+start_index] + int(simiter * 1e3))
             stim_force = np.ones_like(stim_t) * excitatory_background_rate[group]
             train = get_inhom_poisson_spike_times(stim_force, stim_t, dt=stim_dt, generator=local_random)
             syn.source.play(h.Vector(np.add(train, equilibrate + track_equilibrate)))
@@ -196,6 +201,10 @@ def run_trial(simiter):
     sim.run(v_init)
     with h5py.File(data_dir+rec_filename+'-working.hdf5', 'a') as f:
         sim.export_to_file(f, simiter)
+        # save the spike output of the cell, removing the equilibration offset
+        f[str(simiter)].create_dataset('output', compression='gzip', compression_opts=9,
+                                       data=np.subtract(cell.spike_detector.get_recordvec().to_python(),
+                                                        equilibrate + track_equilibrate))
         if excitatory_stochastic:
             f[str(simiter)].create_group('successes')
             index = 0
@@ -211,10 +220,6 @@ def run_trial(simiter):
                                 data=np.subtract(syn.netcon('AMPA_KIN').get_recordvec().to_python(),
                                                 equilibrate + track_equilibrate))
                     index += 1
-        # save the spike output of the cell, removing the equilibration offset
-        f[str(simiter)].create_dataset('output', compression='gzip', compression_opts=9,
-                                    data=np.subtract(cell.spike_detector.get_recordvec().to_python(),
-                                                     equilibrate + track_equilibrate))
 
 
 NMDA_type = 'NMDA_KIN2'
@@ -407,6 +412,15 @@ for group in stim_exc_syns:
         # remove this synapse from the pool, so that additional "modulated" inputs
         # can be selected from those that remain
         all_exc_syns[syn.node.parent.parent.type].remove(syn)
+
+for sec_type in all_exc_syns:
+    group = 'ECIII' if sec_type == 'tuft' else 'CA3'
+    for syn in all_exc_syns[sec_type]:
+        if excitatory_stochastic:
+            success_vec = h.Vector()
+            stim_successes.append(success_vec)
+            syn.netcon('AMPA_KIN').record(success_vec)
+            rand_exc_seq_locs[group].append(syn.randObj.seq())
 
 # rand_inh_seq_locs = [] will need this when inhibitory synapses become stochastic
 # stim_inh_successes = [] will need this when inhibitory synapses become stochastic
