@@ -7,7 +7,7 @@ import scipy.signal as signal
 import scipy.stats as stats
 
 mpl.rcParams['svg.fonttype'] = 'none'
-mpl.rcParams['font.size'] = 14.  # 18.
+mpl.rcParams['font.size'] = 18.  # 18.
 mpl.rcParams['font.sans-serif'] = 'Arial'
 mpl.rcParams['text.usetex'] = False
 """
@@ -84,7 +84,7 @@ def plot_AR(rec_file_list, description_list="", title=None):
                     elif rec.attrs['description'] == 'spine':
                         spine_rec = rec
                 distances[sec_type].append(branch_rec.attrs['branch_distance'])
-                interp_t = np.arange(0, duration, 0.001)
+                interp_t = np.arange(0., duration, 0.001)
                 interp_branch_vm = np.interp(interp_t, spine_tvec[:], branch_rec[:])
                 interp_spine_vm = np.interp(interp_t, spine_tvec[:], spine_rec[:])
                 left, right = time2index(interp_t, equilibrate-3.0, equilibrate-1.0)
@@ -96,7 +96,7 @@ def plot_AR(rec_file_list, description_list="", title=None):
                 this_AR = peak_spine / peak_branch
                 AR[sec_type].append(this_AR)
                 branch_rec = branch_stim['0'] if branch_stim['0'].attrs['description'] == 'branch' else branch_stim['1']
-                interp_t = np.arange(0, duration, 0.001)
+                interp_t = np.arange(0., duration, 0.001)
                 interp_branch_vm = np.interp(interp_t, branch_tvec[:], branch_rec[:])
                 left, right = time2index(interp_t, equilibrate-3.0, equilibrate-1.0)
                 baseline_branch = np.average(interp_branch_vm[left:right])
@@ -200,7 +200,7 @@ def plot_AR_EPSP_amp(rec_file_list, description_list="", title=None):
                             branch_rec = rec
                         else:
                             spine_rec = rec
-                    interp_t = np.arange(0, duration, 0.001)
+                    interp_t = np.arange(0., duration, 0.001)
                     interp_branch_vm = np.interp(interp_t, tvec[:], branch_rec[:])
                     interp_spine_vm = np.interp(interp_t, tvec[:], spine_rec[:])
                     left, right = time2index(interp_t, equilibrate-3.0, equilibrate-1.0)
@@ -296,7 +296,7 @@ def plot_AR_vm(rec_file_list, description_list="", title=None):
                             spine_rec = rec
                     j = 0 if stim_loc == 'branch' else 2
                     i = sec_types.index(sec_type)
-                    interp_t = np.arange(0, duration, 0.01)
+                    interp_t = np.arange(0., duration, 0.01)
                     interp_branch_vm = np.interp(interp_t, tvec[:], branch_rec[:])
                     interp_spine_vm = np.interp(interp_t, tvec[:], spine_rec[:])
                     left, right = time2index(interp_t, equilibrate-5.0, duration)
@@ -441,7 +441,7 @@ def plot_Rinp_vm(rec_file_list, description_list="", title=None):
                 sec_type = rec.attrs['type']
                 i = sec_types.index(sec_type)
                 tvec = sim['time']
-                interp_t = np.arange(0, stop, 0.01)
+                interp_t = np.arange(0., stop, 0.01)
                 interp_vm = np.interp(interp_t, tvec[:], rec[:])
                 left, right = time2index(interp_t, start-5.0, stop)
                 interp_t -= interp_t[left] + 5.
@@ -513,7 +513,7 @@ def plot_Rinp_av_vm(rec_file_list, description_list="", title=None):
                         sec_type += '_dist'
                 i = sec_types.index(sec_type)
                 tvec = sim['time']
-                interp_t = np.arange(0, stop, 0.01)
+                interp_t = np.arange(0., stop, 0.01)
                 interp_vm = np.interp(interp_t, tvec[:], rec[:])
                 left, right = time2index(interp_t, start-3.0, start-1.0)
                 baseline = np.average(interp_vm[left:right])
@@ -645,7 +645,7 @@ def plot_EPSP_attenuation(rec_file_list, description_list="", title=None):
                 distances[input_loc].append(sim['rec']['3'].attrs['branch_distance'])
                 for rec in sim['rec'].itervalues():
                     rec_loc = rec.attrs['description']
-                    interp_t = np.arange(0, duration, 0.001)
+                    interp_t = np.arange(0., duration, 0.001)
                     interp_vm = np.interp(interp_t, tvec[:], rec[:])
                     left, right = time2index(interp_t, equilibrate-3.0, equilibrate-1.0)
                     baseline = np.average(interp_vm[left:right])
@@ -728,7 +728,7 @@ def plot_EPSP_kinetics(rec_file_list, description_list="", title=None):
                 for rec in sim['rec'].itervalues():
                     rec_loc = rec.attrs['description']
                     left, right = time2index(tvec[:], equilibrate-3.0, equilibrate-1.0)
-                    interp_t = np.arange(0, duration, 0.001)
+                    interp_t = np.arange(0., duration, 0.001)
                     baseline = np.average(rec[left:right])
                     interp_vm = np.interp(interp_t, tvec[:], rec[:])
                     start, end = time2index(interp_t, equilibrate, duration)
@@ -842,7 +842,7 @@ def plot_EPSP_av_vm(rec_file_list, description_list="", title=None):
                         input_loc += '_dist'
                 for rec in sim['rec'].itervalues():
                     rec_loc = rec.attrs['description']
-                    interp_t = np.arange(0, duration, 0.001)
+                    interp_t = np.arange(0., duration, 0.001)
                     interp_vm = np.interp(interp_t, tvec[:], rec[:])
                     left, right = time2index(interp_t, equilibrate-3.0, equilibrate-1.0)
                     baseline = np.average(interp_vm[left:right])
@@ -927,7 +927,7 @@ def plot_EPSP_i_attenuation(rec_file_list, description_list="", title=None):
                     rec_loc = rec.attrs['description']
                     if rec_loc == 'branch':
                         distances[input_loc].append(rec.attrs['soma_distance'])
-                    interp_t = np.arange(0, duration, 0.001)
+                    interp_t = np.arange(0., duration, 0.001)
                     interp_vm = np.interp(interp_t, tvec[:], rec[:])
                     left, right = time2index(interp_t, equilibrate-3.0, equilibrate-1.0)
                     baseline = np.average(interp_vm[left:right])
@@ -1010,7 +1010,7 @@ def plot_EPSP_i_kinetics(rec_file_list, description_list="", title=None):
                     rec_loc = rec.attrs['description']
                     if rec_loc == 'branch':
                         distances[input_loc].append(rec.attrs['soma_distance'])
-                    interp_t = np.arange(0, duration, 0.001)
+                    interp_t = np.arange(0., duration, 0.001)
                     interp_vm = np.interp(interp_t, tvec[:], rec[:])
                     left, right = time2index(interp_t, equilibrate-3.0, equilibrate-1.0)
                     baseline = np.average(interp_vm[left:right])
@@ -1112,7 +1112,7 @@ def plot_EPSP_i_vm(rec_file_list, description_list="", title=None):
                 for rec in sim['rec'].itervalues():
                     rec_loc = rec.attrs['description']
                     j = rec_locs.index(rec_loc)
-                    interp_t = np.arange(0, duration, 0.01)
+                    interp_t = np.arange(0., duration, 0.01)
                     interp_vm = np.interp(interp_t, tvec[:], rec[:])
                     left, right = time2index(interp_t, equilibrate-5., equilibrate+50.)
                     interp_t -= interp_t[left] + 5.
@@ -1186,7 +1186,7 @@ def plot_EPSP_i_av_vm(rec_file_list, description_list="", title=None):
                 for rec in sim['rec'].itervalues():
                     rec_loc = rec.attrs['description']
                     j = rec_locs.index(rec_loc)
-                    interp_t = np.arange(0, duration, 0.01)
+                    interp_t = np.arange(0., duration, 0.01)
                     interp_vm = np.interp(interp_t, tvec[:], rec[:])
                     left, right = time2index(interp_t, equilibrate-5., equilibrate+50.)
                     interp_t -= interp_t[left] + 5.
@@ -2519,7 +2519,8 @@ def process_patterned_input_simulation(rec_filename, title, dt=0.02):
         plt.show()
         plt.close()
     rec_t = np.arange(0., track_duration, dt)
-    spikes_removed = get_removed_spikes_alt(rec_filename, plot=0)
+    #spikes_removed = get_removed_spikes_alt(rec_filename, plot=0)
+    spikes_removed = get_removed_spikes(rec_filename, plot=0)
     # down_sample traces to 2 kHz after clipping spikes for theta and ramp filtering
     down_dt = 0.5
     down_t = np.arange(0., track_duration, down_dt)
@@ -2655,7 +2656,7 @@ def plot_patterned_input_individual_trial_traces(rec_t, vm_array, theta_traces, 
         plt.close()
 
 
-def plot_vm_distribution(rec_filenames, key_list=['modinh0', 'modinh1', 'modinh2'], i_bounds=[0., 1800., 3600., 5400.],
+def plot_vm_distribution(rec_filenames, key_list=None, i_bounds=[0., 1800., 3600., 5400.],
                          dt=0.02, bin_width=0.2, svg_title=None):
     """
     Given a set of simulation files, collapse all the trials for a given condition into a single occupancy distribution
@@ -2670,8 +2671,12 @@ def plot_vm_distribution(rec_filenames, key_list=['modinh0', 'modinh1', 'modinh2
     :param bin_width: float, in mV, determines number of bins
     :param svg_title: str
     """
+    remember_font_size = mpl.rcParams['font.size']
+    mpl.rcParams['font.size'] = 8
     trial_array = {}
     vm_array = {}
+    if key_list is None:
+        key_list = ['modinh0', 'modinh1', 'modinh2']
     for condition in key_list:
         #trial_array[condition] = get_removed_spikes(rec_filenames[condition], plot=0)
         spikes_removed_interp, trial_array[condition] = get_removed_spikes_nangaps(rec_filenames[condition])
@@ -2700,36 +2705,156 @@ def plot_vm_distribution(rec_filenames, key_list=['modinh0', 'modinh1', 'modinh2
     for condition in vm_array:
         num_bins = int((np.max(vm_array[condition]) - np.min(vm_array[condition])) / bin_width)
         hist[condition], edges[condition] = np.histogram(vm_array[condition], density=True, bins=num_bins)
-        hist[condition] *= bin_width
-    colors = ['c', 'k', 'g', 'r']
+        hist[condition] *= bin_width * 100.
+        edges[condition] = edges[condition][1:]
+    colors = ['k', 'grey', 'orange', 'y']
     fig, axes = plt.subplots(1)
     for i, (condition, title) in enumerate(zip([key_list[3], key_list[4]], ['Out of Field', 'In Field'])):
-        axes.plot(edges[condition][1:], hist[condition], color=colors[i], label=title)
+        axes.plot(edges[condition], hist[condition], color=colors[i], label=title)
     clean_axes(axes)
-    axes.set_xlabel('Voltage (mV)', fontsize=20)
-    axes.set_ylabel('Normalized Probability', fontsize=20)
-    axes.set_ylim(0., 0.07)
+    axes.set_xlabel('Voltage (mV)', fontsize=8)
+    axes.set_ylabel('Probability (%)', fontsize=8)
+    axes.set_ylim(0., 7.)
     axes.set_xlim(-70., -45.)
-    axes.set_title('Control', fontsize=20)
-    plt.legend(loc='best', frameon=False, framealpha=0.5, fontsize=20)
+    axes.set_title('Control', fontsize=8)
+    plt.legend(loc='best', frameon=False, framealpha=0.5, fontsize=8)
     if svg_title is not None:
-        plt.savefig(data_dir+svg_title+'-Control.svg', format='svg')
+        fig = plt.gcf()
+        fig.set_size_inches(1.74, 1.43)
+        fig.savefig(data_dir+svg_title+' - Vm Distributions - Control.svg', format='svg')
     plt.show()
     plt.close()
     fig, axes = plt.subplots(1)
     for i, (condition, title) in enumerate(zip([key_list[1], key_list[2]], ['Out of Field', 'In Field'])):
-        axes.plot(edges[condition][1:], hist[condition], color=colors[i+2], label=title)
+        axes.plot(edges[condition], hist[condition], color=colors[i+2], label=title)
     clean_axes(axes)
-    axes.set_xlabel('Voltage (mV)', fontsize=20)
-    axes.set_ylabel('Normalized Probability', fontsize=20)
-    axes.set_ylim(0., 0.07)
+    axes.set_xlabel('Voltage (mV)', fontsize=8)
+    axes.set_ylabel('Probability (%)', fontsize=8)
+    axes.set_ylim(0., 7.)
     axes.set_xlim(-70., -45.)
-    axes.set_title('Reduced Inhibition', fontsize=20)
-    plt.legend(loc='best', frameon=False, framealpha=0.5, fontsize=20)
+    axes.set_title('Reduced Inhibition', fontsize=8)
+    plt.legend(loc='best', frameon=False, framealpha=0.5, fontsize=8)
     if svg_title is not None:
-        plt.savefig(data_dir+svg_title+'-ModInh.svg', format='svg')
+        fig = plt.gcf()
+        fig.set_size_inches(1.74, 1.43)
+        fig.savefig(data_dir+svg_title+' - Vm Distributions - ModInh.svg', format='svg')
     plt.show()
     plt.close()
+    fig, axes = plt.subplots(1)
+    for i, (condition, title) in enumerate(zip([key_list[3], key_list[4], key_list[1], key_list[2]],
+                                               ['Control - Out', 'Control - In', 'Reduced Inhibition - Out',
+                                                'Reduced Inhibition - In'])):
+        axes.plot(edges[condition], hist[condition], color=colors[i], label=title)
+    clean_axes(axes)
+    axes.set_xlabel('Voltage (mV)', fontsize=8)
+    axes.set_ylabel('Probability (%)', fontsize=8)
+    axes.set_ylim(0., 7.)
+    axes.set_xlim(-70., -45.)
+    axes.set_title('Simulated Vm Distributions', fontsize=8)
+    plt.legend(loc='best', frameon=False, framealpha=0.5, fontsize=8)
+    if svg_title is not None:
+        fig = plt.gcf()
+        fig.set_size_inches(1.74, 1.43)
+        fig.savefig(data_dir + svg_title + ' - Vm Distributions - All.svg', format='svg')
+    plt.show()
+    plt.close()
+    mpl.rcParams['font.size'] = remember_font_size
+    for condition in hist:
+        test = np.where(np.array(hist[condition]) <= 0.02 * np.max(hist[condition]))[0]
+        print condition, 'start:', edges[condition][test[0]], 'end:', edges[condition][test[-1]]
+    return hist, edges
+
+
+def plot_patterned_input_sim_summary(rec_t, mean_theta_envelope, binned_t,  mean_binned_var, mean_ramp, mean_output,
+                                     key_list=None, titles=None, baseline_range=[0., 600.], dt=0.02, svg_title=None):
+    """
+    Expects the output of process_patterned_input_simulation.
+    Produces summary plots for ramp, variance, theta, and firing rate.
+    :param rec_t: array
+    :param mean_theta_envelope: array
+    :param binned_t: array
+    :param mean_binned_var: array
+    :param mean_ramp: array
+    :param mean_output: array
+    :param key_list: list of str
+    :param titles: list of str
+    :param baseline_range: list of float
+    :param dt: float
+    :param svg_title: str
+    """
+    remember_font_size = mpl.rcParams['font.size']
+    mpl.rcParams['font.size'] = 8
+    if key_list is None:
+        key_list = ['modinh0', 'modinh1', 'modinh2']
+    if titles is None:
+        titles = ['Control', 'Reduced Inhib - In field', 'Reduced Inhib - Out of field']
+    colors = ['k', 'r', 'g']
+    fig, axes = plt.subplots(1)
+    baseline = np.mean(mean_ramp[key_list[0]][int(baseline_range[0]/dt):int(baseline_range[1]/dt)])
+    for i, (condition, title) in enumerate(zip([key_list[0], key_list[2], key_list[1]], titles)):
+        axes.plot(rec_t, np.subtract(mean_ramp[condition], baseline), color=colors[i], label=title)
+    clean_axes(axes)
+    axes.set_xlabel('Time (ms)', fontsize=8)
+    axes.set_ylabel('DVm (mV)', fontsize=8)
+    axes.set_ylim(-0.8, 9.)
+    axes.set_xlim(0., 7500.)
+    axes.set_xticks([0., 1500., 3000., 4500., 6000., 7500.])
+    plt.legend(loc='best', frameon=False, framealpha=0.5, fontsize=8)
+    axes.tick_params(direction='out')
+    if svg_title is not None:
+        fig.set_size_inches(2.11, 1.10)
+        fig.savefig(data_dir+svg_title+' - Summary - Ramp.svg', format='svg')
+    plt.show()
+    plt.close()
+    fig, axes = plt.subplots(1)
+    for i, (condition, title) in enumerate(zip([key_list[0], key_list[2], key_list[1]], titles)):
+        axes.plot(rec_t, mean_output[condition], color=colors[i], label=title)
+    clean_axes(axes)
+    axes.set_xlabel('Time (ms)', fontsize=8)
+    axes.set_ylabel('Firing rate (Hz)', fontsize=8)
+    axes.set_ylim(0., 45.)
+    axes.set_xlim(0., 7500.)
+    axes.set_xticks([0., 1500., 3000., 4500., 6000., 7500.])
+    plt.legend(loc='best', frameon=False, framealpha=0.5, fontsize=8)
+    axes.tick_params(direction='out')
+    if svg_title is not None:
+        fig.set_size_inches(2.11, 1.10)
+        fig.savefig(data_dir + svg_title + ' - Summary - Rate.svg', format='svg')
+    plt.show()
+    plt.close()
+    fig, axes = plt.subplots(1)
+    for i, (condition, title) in enumerate(zip([key_list[0], key_list[2], key_list[1]], titles)):
+        axes.plot(rec_t, mean_theta_envelope[condition], color=colors[i], label=title)
+    clean_axes(axes)
+    axes.set_xlabel('Time (ms)', fontsize=8)
+    axes.set_ylabel('Thetaintra (mV)', fontsize=8)
+    axes.set_ylim(0., 2.5)
+    axes.set_xlim(0., 7500.)
+    axes.set_xticks([0., 1500., 3000., 4500., 6000., 7500.])
+    plt.legend(loc='best', frameon=False, framealpha=0.5, fontsize=8)
+    axes.tick_params(direction='out')
+    if svg_title is not None:
+        fig.set_size_inches(2.11, 1.10)
+        fig.savefig(data_dir + svg_title + ' - Summary - Theta.svg', format='svg')
+    plt.show()
+    plt.close()
+    fig, axes = plt.subplots(1)
+    for i, (condition, title) in enumerate(zip([key_list[0], key_list[2], key_list[1]], titles)):
+        axes.plot(binned_t[condition], mean_binned_var[condition], color=colors[i], label=title)
+    clean_axes(axes)
+    axes.set_xlabel('Time (ms)', fontsize=8)
+    axes.set_ylabel('Variance (mV2)', fontsize=8)
+    axes.set_ylim(0., 8.)
+    axes.set_xlim(0., 7500.)
+    axes.set_xticks([0., 1500., 3000., 4500., 6000., 7500.])
+    plt.legend(loc='best', frameon=False, framealpha=0.5, fontsize=8)
+    axes.tick_params(direction='out')
+    if svg_title is not None:
+        fig.set_size_inches(2.11, 1.10)
+        fig.savefig(data_dir + svg_title + ' - Summary - Variance.svg', format='svg')
+    plt.show()
+    plt.close()
+    mpl.rcParams['font.size'] = remember_font_size
 
 
 def plot_phase_precession(t_array, phase_array, title, fit_start=1500., fit_end=3000., display_start=0.,

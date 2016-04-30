@@ -570,7 +570,7 @@ def get_Rinp(tvec, vec, start, stop, amp):
     :return: tuple of float
     """
 
-    interp_t = np.arange(0, stop, 0.01)
+    interp_t = np.arange(0., stop, 0.01)
     interp_vm = np.interp(interp_t, tvec, vec)
     left, right = time2index(interp_t, start-3., start-1.)
     baseline = np.average(interp_vm[left:right])
@@ -716,7 +716,7 @@ def get_expected_EPSP(sim_file, group_index, equilibrate, duration, dt=0.02):
     """
     sim = sim_file[str(group_index)]
     t = sim['time'][:]
-    interp_t = np.arange(0, duration, dt)
+    interp_t = np.arange(0., duration, dt)
     left, right = time2index(interp_t, equilibrate-3., equilibrate-1.)
     start, stop = time2index(interp_t, equilibrate-2., duration)
     trace_dict = {}
@@ -766,7 +766,7 @@ def get_expected_vs_actual(expected_sim_file, actual_sim_file, expected_index_ma
     actual = {}
     for sim in [actual_sim_file[key] for key in sorted_actual_sim_keys]:
         t = sim['time'][:]
-        interp_t = np.arange(0, duration, dt)
+        interp_t = np.arange(0., duration, dt)
         left, right = time2index(interp_t, equilibrate-3., equilibrate-1.)
         start, stop = time2index(interp_t, equilibrate-2., duration)
         for rec in sim['rec'].itervalues():
@@ -941,7 +941,7 @@ def get_smoothed_firing_rate(train, t, bin_dur=50., bin_step=10., dt=0.1):
     return rate
 
 
-def get_removed_spikes(rec_filename, before=1.6, after=6., dt=0.02, th=20., plot=1):
+def get_removed_spikes(rec_filename, before=1.6, after=6., dt=0.02, th=10., plot=1):
     """
 
     :param rec_filename: str
@@ -1098,7 +1098,66 @@ def get_removed_spikes_alt(rec_filename, before=1.6, after=5., dt=0.02, th=10., 
     return removed
 
 
-def get_removed_spikes_nangaps(rec_filename, before=0.2, after=5., dt=0.02, th=20., rec_key='0'):
+def get_removed_spikes_live(vm, t, before=1.6, after=5., dt=0.02, th=10., plot=1):
+    """
+
+    :param vm: array
+    :param t: array
+    :param before: float : time to remove before spike
+    :param after: float : time to remove after spike in case where trough or voltage recovery cannot be used
+    :param dt: float : temporal resolution for interpolation and dvdt
+    :param th: float : slope threshold
+    :param plot: int
+    :return: array
+    """
+    temp_vm = np.array(vm)
+    dvdt = np.gradient(vm, [dt])
+    crossings = np.where(dvdt >= th)[0]
+    if not np.any(crossings):
+        removed = np.array(vm)
+    else:
+        start = 0.
+        i = 0
+        left = max(0, crossings[i] - int(before / dt))
+        previous_vm = temp_vm[left]
+        while i < len(crossings) and start < len(temp_vm):
+            start = crossings[i]
+            left = max(0, crossings[i] - int(before / dt))
+            right = min(crossings[i] + int(after / dt), len(temp_vm) - 1)
+            if not np.isnan(temp_vm[left]):
+                previous_vm = temp_vm[left]
+            recovers = np.where(temp_vm[crossings[i]:] < previous_vm)[0]
+            if np.any(recovers):
+                recovers = crossings[i] + recovers[0]
+            falling = np.where(dvdt[crossings[i]:] < 0.)[0]
+            if np.any(falling):
+                falling = crossings[i] + falling[0]
+                rising = np.where(dvdt[falling:] >= 0.)[0]
+                if np.any(rising):
+                    rising = falling + rising[0]
+            else:
+                rising = []
+            if np.any(rising):
+                right = min(right, rising)
+            # added to remove majority of complex spike:
+            if temp_vm[right] >= -35. and np.any(recovers):
+                right = recovers
+            for j in range(left, right):
+                temp_vm[j] = np.nan
+            i += 1
+            while i < len(crossings) and crossings[i] < right:
+                i += 1
+        not_blank = np.where(~np.isnan(temp_vm))[0]
+        removed = np.interp(t, t[not_blank], temp_vm[not_blank])
+    if plot:
+        plt.plot(t, vm)
+        plt.plot(t, removed)
+        plt.show()
+        plt.close()
+    return removed
+
+
+def get_removed_spikes_nangaps(rec_filename, before=1.6, after=6., dt=0.02, th=10., rec_key='0'):
     """
     Return traces with spikes removed and interpolated, but also traces with spikes replaced with nan to keep track of
     where spike removal occurred.
@@ -1246,6 +1305,9 @@ def get_phase_precession(rec_filename, start_loc=None, end_loc=None, dt=0.02):
     """
 
     :param rec_file_name: str
+    :param start_loc: float
+    :param end_loc: float
+    :param dt: 0.02
     # remember .attrs['phase_offset'] could be inside ['train'] for old files
     """
     with h5py.File(data_dir+rec_filename+'.hdf5', 'r') as f:
@@ -1288,7 +1350,7 @@ def get_phase_precession(rec_filename, start_loc=None, end_loc=None, dt=0.02):
             spike_phases *= 360.
             spike_phase_array.append(spike_phases)
     rec_t = np.arange(0., track_duration, dt)
-    spikes_removed = get_removed_spikes_alt(rec_filename, plot=0)
+    spikes_removed = get_removed_spikes(rec_filename, plot=0)
     # down_sample traces to 2 kHz after clipping spikes for theta filtering
     down_dt = 0.5
     down_rec_t = np.arange(0., track_duration, down_dt)
@@ -1320,6 +1382,66 @@ def get_phase_precession(rec_filename, start_loc=None, end_loc=None, dt=0.02):
         peak_phases *= 360.
         intra_phase_array.append(peak_phases)
     return spike_time_array, spike_phase_array, intra_peak_array, intra_phase_array
+
+
+def get_phase_precession_live(t, vm, spikes=None, time_offset=0., theta_duration = 150., start_loc=None, end_loc=None,
+                              dt=0.02):
+    """
+
+    :param vm: array
+    :param t: array
+    :param phase_offset: float
+    :param theta_duration: float
+    :param start_loc: float
+    :param end_loc: float
+    :param dt: 0.02
+    """
+    if start_loc is None:
+        start_loc = t[0]
+    if end_loc is None:
+        end_loc = t[-1]
+    if spikes is not None:
+        on_track = np.where((spikes >= start_loc) & (spikes <= end_loc))[0]
+        if not np.any(on_track):
+            spike_phases = []
+            spike_times = []
+        else:
+            spike_times = spikes[on_track]
+            spike_times_offset = np.subtract(spike_times, time_offset)
+            spike_phases = np.mod(spike_times_offset, theta_duration)
+            spike_phases /= theta_duration
+            spike_phases *= 360.
+    else:
+        spike_phases = []
+        spike_times = []
+    rec_t = np.arange(t[0], t[-1]+dt, dt)
+    vm = np.interp(rec_t, t, vm)
+    if spikes is not None:
+        spikes_removed = get_removed_spikes_live(vm, rec_t, plot=0)
+    else:
+        spikes_removed = np.array(vm)
+    # down_sample traces to 2 kHz after clipping spikes for theta filtering
+    down_dt = 0.5
+    down_rec_t = np.arange(t[0], t[-1]+down_dt, down_dt)
+    # 2000 ms Hamming window, ~5 - 10 Hz bandpass for theta
+    window_len = min(len(down_rec_t) - 1, int(2000. / down_dt))
+    pad_len = int(window_len / 2.)
+    theta_filter = signal.firwin(window_len, [5., 10.], nyq=1000. / 2. / down_dt, pass_zero=False)
+    down_sampled = np.interp(down_rec_t, rec_t, spikes_removed)
+    padded_trace = np.zeros(len(down_sampled) + window_len)
+    padded_trace[pad_len:-pad_len] = down_sampled
+    padded_trace[:pad_len] = down_sampled[::-1][-pad_len:]
+    padded_trace[-pad_len:] = down_sampled[::-1][:pad_len]
+    filtered = signal.filtfilt(theta_filter, [1.], padded_trace, padlen=pad_len)
+    filtered = filtered[pad_len:-pad_len]
+    intra_theta = np.interp(rec_t, down_rec_t, filtered)
+    peak_locs = signal.argrelmax(intra_theta)[0]
+    intra_peaks = rec_t[peak_locs]
+    intra_peaks_offset = np.subtract(intra_peaks, time_offset)
+    intra_phases = np.mod(intra_peaks_offset, theta_duration)
+    intra_phases /= theta_duration
+    intra_phases *= 360.
+    return rec_t, vm, spikes_removed, intra_theta, spike_times, spike_phases, intra_peaks, intra_phases
 
 
 def get_input_spike_train_phase_precession(rec_filename, index, start_loc=None, end_loc=None, dt=0.02):
@@ -1581,8 +1703,7 @@ def alternative_binned_vm_variance_analysis(rec_filename, dt=0.02):
            mean_binned_var, mean_ramp
 
 
-def get_patterned_input_mean_values(residuals, intra_theta_amp, rate_map, ramp,
-                                    key_list=['modinh0', 'modinh1', 'modinh2'],
+def get_patterned_input_mean_values(residuals, intra_theta_amp, rate_map, ramp, key_list=None,
                                     i_bounds=[0., 1800., 3600., 5400.], peak_bounds=[600., 1200., 4200., 4800.],
                                     dt=0.02):
     """
@@ -1596,7 +1717,9 @@ def get_patterned_input_mean_values(residuals, intra_theta_amp, rate_map, ramp,
     :param peak_bounds: list of float, time points corresponding to 10 "spatial bins" for averaging
     :param dt: float, temporal resolution
     """
-    baseline = np.mean(ramp[key_list[0]][:int(600./dt)])
+    if key_list is None:
+        key_list = ['modinh0', 'modinh1', 'modinh2']
+    baseline = np.mean(ramp[key_list[0]][:int(600. / dt)])
     key_list.extend([key_list[0]+'_out', key_list[0]+'_in'])
     mean_var, mean_theta_amp, mean_rate, mean_ramp = {}, {}, {}, {}
     for source_condition, target_condition in zip([key_list[1], key_list[0]], [key_list[1], key_list[3]]):

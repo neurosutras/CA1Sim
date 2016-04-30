@@ -11,8 +11,7 @@ phases within each theta cycle that each input is active, which will reduce jitt
 """
 morph_filename = 'EB2-late-bifurcation.swc'
 #mech_filename = '020516 altered km2 rinp - ampa nmda_kin5'
-#mech_filename = '042016 nmda_kin2 tuning'
-mech_filename = '042016 interim NMDA_KIN2'
+mech_filename = '043016 Type A - km2_NMDA_KIN5_Pr'
 
 
 if len(sys.argv) > 1:

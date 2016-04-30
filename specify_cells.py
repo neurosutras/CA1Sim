@@ -1490,7 +1490,7 @@ class CA1_Pyr(HocCell):
         for sec_type in ['basal', 'trunk', 'apical', 'tuft']:
             self.reinitialize_subset_mechanisms(sec_type, 'h')
 
-    def set_terminal_branch_na_gradient(self):
+    def set_terminal_branch_na_gradient(self, gmin=0.):
         """
         This is an admittedly ad-hoc procedure to implement a linearly decreasing gradient of sodium channels in
         terminal branches that is not easily accomplished by the general procedures implementing the mechanism
@@ -1499,7 +1499,7 @@ class CA1_Pyr(HocCell):
         na_type = (na_type for na_type in ['nas_kin', 'nat_kin', 'nas', 'nax']
                    if na_type in self.mech_dict['trunk']).next()
         self.set_special_mech_param_linear_gradient(na_type, 'gbar', ['basal', 'apical', 'tuft'],
-                                                    self.is_terminal, 0.01)
+                                                    self.is_terminal, gmin)
 
 
 class Synapse(object):
@@ -1511,7 +1511,7 @@ class Synapse(object):
     they are initialized.
     """
     def __init__(self, cell, node, type_list=None, stochastic=1, loc=0.5, delay=0., weight=1., threshold=-30.,
-                 source=None, source_node=None, source_param='_ref_v', source_loc=0.5):
+                 stochastic_type=None, source=None, source_node=None, source_param=None, source_loc=0.5):
         """
         Design goals: A source (like a spike detector in a presynaptic neuron) can be specified. If not, a VecStim
         object is used a source, which can be played events at specified times using its .play method. If stochastic,
@@ -1526,6 +1526,7 @@ class Synapse(object):
         :param delay: float
         :param weight: float
         :param threshold: float
+        :param stochastic_type: str
         :param source: hoc artificial cell or otherwise hoc object not associated with a section
         :param source_node: :class:'SHocNode' specifies the section containing a range variable to be used as a source
         :param source_param: str
@@ -1541,6 +1542,12 @@ class Synapse(object):
         self._syn = {}
         self.randObj = None
         self._node.synapses.append(self)
+        if source_param is None:
+            source_param = '_ref_v'
+        if stochastic_type is None:
+            self._stochastic_type = 'Pr'
+        else:
+            self._stochastic_type = stochastic_type
         if not source is None:
             self._source = {'object': source}
         elif not source_node is None:
@@ -1554,10 +1561,10 @@ class Synapse(object):
         if self.stochastic:
             self._init_stochastic()
         for target in type_list:
-            syn = getattr(h, target)(self.node.sec(self.loc))
+            syn = getattr(h, target)(self.node.sec(self._loc))
             self._syn[target] = {'target': syn}
             if self.stochastic:
-                self._syn[target]['netcon'] = h.NetCon(self.target('Pr'), syn)
+                self._syn[target]['netcon'] = h.NetCon(self.target(self._stochastic_type), syn)
                 self.netcon(target).delay = delay
                 self.netcon(target).weight[0] = weight
                 self.netcon(target).threshold = threshold
@@ -1577,10 +1584,10 @@ class Synapse(object):
             self.randObj.uniform(0, 1)
         else:  # if this synapse has already been stochastic before, this restarts its random number generator
             self.randObj.seq(self.cell.gid*1e4+1)
-        syn = getattr(h, 'Pr')(self.node.sec(self.loc))
-        self._syn['Pr'] = {'target': syn}
-        self._init_netcon('Pr', delay=0.)
-        self.target('Pr').setRandObjRef(self.randObj)
+        syn = getattr(h, self._stochastic_type)(self.node.sec(self._loc))
+        self._syn[self._stochastic_type] = {'target': syn}
+        self._init_netcon(self._stochastic_type, delay=0.)
+        self.target(self._stochastic_type).setRandObjRef(self.randObj)
 
     def target(self, target):
         """
@@ -1633,7 +1640,7 @@ class Synapse(object):
         else:
             raise KeyError('Synapse type: {} not found at a synapse in {}'.format(target, self._node.name))
 
-    def change_source(self, source=None, node=None, param='_ref_v', loc=0.5):
+    def change_source(self, source=None, node=None, param=None, loc=0.5):
         """
         In order to change the source of a synapse from the default VecStim object to a membrane potential or artificial
         cell, all the netcon objects must be deleted and replaced with new ones. Preserves previously set values for
@@ -1644,6 +1651,8 @@ class Synapse(object):
         :param loc: float
         """
         netcon_dict = {}
+        if param is None:
+            param = '_ref_v'
         for target in self._syn:
             netcon_dict[target] = {}
             netcon_dict[target]['delay'] = self.netcon(target).delay
@@ -1659,13 +1668,13 @@ class Synapse(object):
             del self._source
             self._source = {'object': source}
         if self._stochastic:
-            del self._syn['Pr']['netcon']
-            delay = netcon_dict['Pr']['delay']
-            weight = netcon_dict['Pr']['weight']
-            threshold = netcon_dict['Pr']['threshold']
-            self._init_netcon('Pr', delay=delay, weight=weight, threshold=threshold)
+            del self._syn[self._stochastic_type]['netcon']
+            delay = netcon_dict[self._stochastic_type]['delay']
+            weight = netcon_dict[self._stochastic_type]['weight']
+            threshold = netcon_dict[self._stochastic_type]['threshold']
+            self._init_netcon(self._stochastic_type, delay=delay, weight=weight, threshold=threshold)
         else:
-            for target in (target for target in self._syn if not target == 'Pr'):
+            for target in (target for target in self._syn if not target == self._stochastic_type):
                 del self._syn[target]['netcon']
                 delay = netcon_dict[target]['delay']
                 weight = netcon_dict[target]['weight']
@@ -1689,23 +1698,23 @@ class Synapse(object):
             self._stochastic = value
             if value:
                 self._init_stochastic()
-                for target in (target for target in self._syn if not target == 'Pr'):
+                for target in (target for target in self._syn if not target == self._stochastic_type):
                     delay = self.netcon(target).delay
                     weight = self.netcon(target).weight[0]
                     threshold = self.netcon(target).threshold
                     del self._syn[target]['netcon']
-                    self._syn[target]['netcon'] = h.NetCon(self.target('Pr'), self.target(target))
+                    self._syn[target]['netcon'] = h.NetCon(self.target(self._stochastic_type), self.target(target))
                     self.netcon(target).delay = delay
                     self.netcon(target).weight[0] = weight
                     self.netcon(target).threshold = threshold
             else:
-                for target in (target for target in self._syn if not target == 'Pr'):
+                for target in (target for target in self._syn if not target == self._stochastic_type):
                     delay = self.netcon(target).delay
                     weight = self.netcon(target).weight[0]
                     threshold = self.netcon(target).threshold
                     del self._syn[target]['netcon']
                     self._init_netcon(target, delay=delay, weight=weight, threshold=threshold)
-                del self._syn['Pr']
+                del self._syn[self._stochastic_type]
 
     stochastic = property(get_stochastic, set_stochastic)
 
@@ -1719,11 +1728,11 @@ class Synapse(object):
     def set_delay(self, value):
         """
         Changes the value of the time delay (ms) between spike and activation for all synaptic mechanisms associated
-        with this synapse, except 'Pr', which retains its current value until set manually.
+        with this synapse, except self._stochastic_type, which retains its current value until set manually.
         :param value: int or float
         """
         self._delay = value
-        for target in (target for target in self._syn if not target == 'Pr'):
+        for target in (target for target in self._syn if not target == self._stochastic_type):
             self.netcon(target).delay = value
 
     delay = property(get_delay, set_delay)

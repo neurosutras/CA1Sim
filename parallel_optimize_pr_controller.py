@@ -354,8 +354,29 @@ ISI: 300 Amp: 3.95271220434
 ISI: 10 Amp: 14.9561354643
 ISI: 25 Amp: 10.7479009481
 Parallel simulation took 180 s, Error: 7.9087E+02
-[Num synapses, P0, f, tau_F, d, tau_D]: [73, 0.200, 1.681, 70.735, 0.901, 134.862], unit amp: 3.953, unit slope: -1.124E-01, recovery unit amp: 6\
-.782
+[Num synapses, P0, f, tau_F, d, tau_D]: [73, 0.200, 1.681, 70.735, 0.901, 134.862], unit amp: 3.953,
+unit slope: -1.124E-01, recovery unit amp: 6.782
 Error (average of 2 repeats): 8.1819E+02
 basinhopping step 251: f 818.188 trial_f 818.188 accepted 1  lowest_f 818.188
+
+ISI: 100 Amp: 4.7940516458
+ISI: 50 Amp: 7.77369421587
+ISI: 300 Amp: 3.60205262441
+ISI: 10 Amp: 15.1465510623
+ISI: 25 Amp: 10.5557218108
+Parallel simulation took 180 s, Error: 9.4390E+02
+[Num synapses, P0, f, tau_F, d, tau_D]: [73, 0.200, 1.691, 75.231, 0.884, 133.586], unit amp: 3.602,
+unit slope: -3.838E-02, recovery unit amp: 6.887
+Error (average of 2 repeats): 7.7690E+02
+basinhopping step 428: f 776.901 trial_f 776.901 accepted 1  lowest_f 776.901
+
+ISI: 100 Amp: 5.20237852869
+ISI: 50 Amp: 7.2300326154
+ISI: 300 Amp: 3.47233404636
+ISI: 10 Amp: 15.3370921158
+ISI: 25 Amp: 10.7030822108
+Parallel simulation took 180 s, Error: 9.4555E+02
+[Num synapses, P0, f, tau_F, d, tau_D]: [73, 0.200, 1.762, 71.242, 0.893, 128.929], unit amp: 3.472,
+unit slope: -2.554E-02, recovery unit amp: 7.083
+Error (average of 4 repeats): 9.0985E+02
 """
