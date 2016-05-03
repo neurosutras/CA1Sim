@@ -47,7 +47,7 @@ else:
 
 rec_filename = 'output'+datetime.datetime.today().strftime('%m%d%Y%H%M')+'-pid'+str(os.getpid())+'-seed'+\
                str(synapses_seed)+'-e'+str(num_exc_syns)+'-i'+str(num_inh_syns)+'-mod_inh'+str(mod_inh)+\
-               '-type_A_'+str(mod_weights)+'_'+str(trial_seed)
+               '-no_nmda_'+str(mod_weights)+'_'+str(trial_seed)
 
 
 def get_dynamic_theta_phase_force(phase_ranges, peak_loc, input_field_duration, stim_t, dt):
@@ -234,7 +234,7 @@ stim_dt = 0.02
 dt = 0.02
 v_init = -67.
 
-syn_types = ['AMPA_KIN', NMDA_type]
+syn_types = ['AMPA_KIN']  # , NMDA_type]
 
 local_random = random.Random()
 

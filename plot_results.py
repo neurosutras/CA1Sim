@@ -2759,9 +2759,17 @@ def plot_vm_distribution(rec_filenames, key_list=None, i_bounds=[0., 1800., 3600
     plt.show()
     plt.close()
     mpl.rcParams['font.size'] = remember_font_size
+    span_edges = {}
     for condition in hist:
-        test = np.where(np.array(hist[condition]) <= 0.02 * np.max(hist[condition]))[0]
+        span_edges[condition] = {}
+        test = np.where(np.array(hist[condition]) >= 0.02 * np.max(hist[condition]))[0]
         print condition, 'start:', edges[condition][test[0]], 'end:', edges[condition][test[-1]]
+        span_edges[condition]['start'] = edges[condition][test[0]]
+        span_edges[condition]['end'] = edges[condition][test[-1]]
+    for condition in [key_list[3], key_list[1]]:
+        print condition, 'distance to threshold:', span_edges[condition]['end'] - -52.
+    print 'Control overlap span:', span_edges[key_list[3]]['end'] - span_edges[key_list[4]]['start']
+    print 'Modinh overlap span:', span_edges[key_list[1]]['end'] - span_edges[key_list[2]]['start']
     return hist, edges
 
 
@@ -2782,8 +2790,9 @@ def plot_patterned_input_sim_summary(rec_t, mean_theta_envelope, binned_t,  mean
     :param dt: float
     :param svg_title: str
     """
-    remember_font_size = mpl.rcParams['font.size']
-    mpl.rcParams['font.size'] = 8
+    if svg_title is not None:
+        remember_font_size = mpl.rcParams['font.size']
+        mpl.rcParams['font.size'] = 8
     if key_list is None:
         key_list = ['modinh0', 'modinh1', 'modinh2']
     if titles is None:
@@ -2854,10 +2863,11 @@ def plot_patterned_input_sim_summary(rec_t, mean_theta_envelope, binned_t,  mean
         fig.savefig(data_dir + svg_title + ' - Summary - Variance.svg', format='svg')
     plt.show()
     plt.close()
-    mpl.rcParams['font.size'] = remember_font_size
+    if svg_title is not None:
+        mpl.rcParams['font.size'] = remember_font_size
 
 
-def plot_phase_precession(t_array, phase_array, title, fit_start=1500., fit_end=3000., display_start=0.,
+def plot_phase_precession(t_array, phase_array, title, fit_start=3600., fit_end=5400., display_start=0.,
                           display_end=7500., bin_size=60., num_bins=3, svg_title=None):
     """
 
@@ -2871,10 +2881,14 @@ def plot_phase_precession(t_array, phase_array, title, fit_start=1500., fit_end=
     :param bin_size: float
     :param num_bins: int
     """
+    if svg_title is not None:
+        remember_font_size = mpl.rcParams['font.size']
+        mpl.rcParams['font.size'] = 8
     fig, axes = plt.subplots(1)
     for i, t in enumerate(t_array):
         phases = phase_array[i]
-        axes.scatter(t, phases, color='lightgray')  # colors[i])
+        axes.scatter(t, phases, color='gray', s=0.1)  # colors[i])
+        axes.scatter(t, np.add(phases, 360.), color='gray', s=0.1)  # colors[i])
     binned_times = []
     binned_phases = []
     all_spike_times = []
@@ -2908,19 +2922,31 @@ def plot_phase_precession(t_array, phase_array, title, fit_start=1500., fit_end=
     #fit_t = np.arange(np.min(all_spike_times[indexes]), np.max(all_spike_times[indexes]), 10.)
     #fit_t = np.arange(np.min(binned_times[indexes]), np.max(binned_times[indexes]+window_dur/2.), window_dur)
     fit_t = np.arange(fit_start, fit_end+bin_size, bin_size)
-    axes.plot(binned_times, binned_phases, c='k', linewidth=2.)
-    axes.plot(fit_t, m * fit_t + b, c='r', linewidth=2.)
-    axes.set_ylim(0., 360.)
+    for i in range(1, len(binned_phases[:-1])):
+        if binned_phases[i] < 90.:
+            if np.abs(binned_phases[i] - binned_phases[i+1]) > 180.:
+                binned_phases[i] = binned_phases[i] + 360.
+    axes.plot(binned_times, binned_phases, c='k')  # , linewidth=2.)
+    axes.plot(fit_t, m * fit_t + b, c='r')  # , linewidth=2.)
+    #axes.set_ylim(0., 360.)
+    axes.set_ylim(0., 720.)
+    axes.set_yticks([0., 180., 360., 540., 720.])
     axes.set_xlim(display_start, display_end)
-    axes.set_ylabel('Phase (Degrees)', fontsize=20)
-    axes.set_xlabel('Time (ms)', fontsize=20)
-    axes.set_title('Phase Precession - '+ title, fontsize=20)
+    axes.set_xticks([0., 1500., 3000., 4500., 6000., 7500.])
+    axes.set_xticklabels([0, 1.5, 3, 4.5, 6, 7.5])
+    axes.set_ylabel('Phase (Degrees)')  # , fontsize=20)
+    axes.set_xlabel('Time (s)')  # , fontsize=20)
+    axes.set_title('Phase Precession - '+title, fontsize=mpl.rcParams['font.size'])
     clean_axes(axes)
+    axes.tick_params(direction='out')
     if svg_title is not None:
-        plt.savefig(data_dir+svg_title+'.svg', format='svg')
+        fig.set_size_inches(1.21, 2.)
+        fig.savefig(data_dir+svg_title+' - Precession - '+title+'.svg', format='svg', transparent=True)
     plt.show()
     plt.close()
     print title, abs(m * (fit_end - fit_start))
+    if svg_title is not None:
+        mpl.rcParams['font.size'] = remember_font_size
     return binned_times, binned_phases
 
 

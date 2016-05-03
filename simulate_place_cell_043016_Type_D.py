@@ -212,8 +212,8 @@ excitatory_theta_phase_offset = {}
 excitatory_theta_phase_offset['CA3'] = 165. / 360. * 2. * np.pi  # radians
 excitatory_theta_phase_offset['ECIII'] = 0. / 360. * 2. * np.pi  # radians
 excitatory_stochastic = 1
-inhibitory_manipulation_fraction = {'perisomatic': 0.325, 'axo-axonic': 0.325, 'apical dendritic': 0.325,
-                                    'distal apical dendritic': 0.325, 'tuft feedback': 0.325}
+inhibitory_manipulation_fraction = {'perisomatic': 0.35, 'axo-axonic': 0.35, 'apical dendritic': 0.35,
+                                    'distal apical dendritic': 0.35, 'tuft feedback': 0.35}
 inhibitory_manipulation_duration = 0.6  # Ratio of input_field_duration
 inhibitory_peak_rate = {'perisomatic': 40., 'axo-axonic': 40., 'apical dendritic': 40., 'distal apical dendritic': 40.,
                         'tuft feedforward': 40., 'tuft feedback': 40.}
@@ -293,9 +293,9 @@ sim.parameters['input_field_duration'] = input_field_duration
 sim.parameters['track_length'] = track_length
 sim.parameters['duration'] = duration
 sim.parameters['stim_dt'] = stim_dt
-sim.append_rec(cell, cell.tree.root, description='soma', loc=0.5)
-sim.append_rec(cell, trunk, description='distal_trunk', loc=0.)
+sim.append_rec(cell, cell.tree.root, description='soma', loc=0.)
 sim.append_rec(cell, trunk_bifurcation[0], description='proximal_trunk', loc=1.)
+sim.append_rec(cell, trunk, description='distal_trunk', loc=1.)
 spike_output_vec = h.Vector()
 cell.spike_detector.record(spike_output_vec)
 
@@ -387,14 +387,11 @@ for group in stim_exc_syns:
 # modulate the weights of inputs with peak_locs along this stretch of the track
 modulated_field_center = track_duration * 0.6
 cos_mod_weight = {}
-gmax_vals = {}
 peak_mod_weight = mod_weights
-trough_mod_weight = 0.8
 tuning_amp = (peak_mod_weight - 1.) / 2.
 tuning_offset = tuning_amp + 1.
 
 for group in stim_exc_syns:
-    gmax_vals[group] = []
     this_cos_mod_weight = tuning_amp * np.cos(2. * np.pi / (input_field_duration * 1.2) * (peak_locs[group] -
                                                                         modulated_field_center)) + tuning_offset
     left = np.where(peak_locs[group] >= modulated_field_center - input_field_duration * 1.2 / 2.)[0][0]
@@ -409,9 +406,7 @@ for group in stim_exc_syns:
     peak_locs[group] = map(peak_locs[group].__getitem__, indexes)
     cos_mod_weight[group] = map(cos_mod_weight[group].__getitem__, indexes)
     for i, syn in enumerate(stim_exc_syns[group]):
-        this_gmax = syn.target('AMPA_KIN').gmax
         syn.netcon('AMPA_KIN').weight[0] = cos_mod_weight[group][i]
-        gmax_vals[group].append(this_gmax * cos_mod_weight[group][i])
 
 manipulated_inh_syns = {}
 for group in inhibitory_manipulation_fraction:

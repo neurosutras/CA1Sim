@@ -44,10 +44,11 @@ if len(sys.argv) > 6:
     trial_seed = int(sys.argv[6])
 else:
     trial_seed = 0
+if len(sys.argv) > 7:
+    svg_title = str(sys.argv[7])
+else:
+    svg_title = None
 
-rec_filename = 'output'+datetime.datetime.today().strftime('%m%d%Y%H%M')+'-pid'+str(os.getpid())+'-seed'+\
-               str(synapses_seed)+'-e'+str(num_exc_syns)+'-i'+str(num_inh_syns)+'-mod_inh'+str(mod_inh)+\
-               '-type_A_'+str(mod_weights)+'_'+str(trial_seed)
 
 
 def get_dynamic_theta_phase_force(phase_ranges, peak_loc, input_field_duration, stim_t, dt):
@@ -103,27 +104,17 @@ def run_trial(simiter):
     :param simiter: int
     """
     local_random.seed(simiter)
-    global_phase_offset = local_random.uniform(-np.pi, np.pi)
-    with h5py.File(data_dir+rec_filename+'-working.hdf5', 'a') as f:
-        f.create_group(str(simiter))
-        f[str(simiter)].create_group('train')
-        f[str(simiter)].create_group('inh_train')
-        f[str(simiter)].attrs['phase_offset'] = global_phase_offset / 2. / np.pi * global_theta_cycle_duration
+    global_phase_offset = 0.
     if mod_inh > 0:
         if mod_inh == 1:
             mod_inh_start = int(track_equilibrate / dt)
         elif mod_inh == 2:
             mod_inh_start = int((track_equilibrate + modulated_field_center - 0.3 * input_field_duration) / dt)
-        sim.parameters['mod_inh_start'] = stim_t[mod_inh_start]
         mod_inh_stop = mod_inh_start + int(inhibitory_manipulation_duration * input_field_duration / dt)
-        sim.parameters['mod_inh_stop'] = stim_t[mod_inh_stop]
     index = 0
     for group in stim_exc_syns:
+        exc_stim_forces[group] = []
         for i, syn in enumerate(stim_exc_syns[group]):
-            # the stochastic sequence used for each synapse is unique for each trial,
-            # up to 1000 input spikes per spine
-            if excitatory_stochastic:
-                syn.randObj.seq(rand_exc_seq_locs[group][i]+int(simiter*1e3))
             gauss_force = excitatory_peak_rate[group] * np.exp(-((stim_t - peak_locs[group][i]) / gauss_sigma)**2.)
             if group in excitatory_precession_range:
                 phase_force = get_dynamic_theta_phase_force(excitatory_precession_range[group], peak_locs[group][i],
@@ -140,17 +131,11 @@ def run_trial(simiter):
             theta_force *= excitatory_theta_modulation_depth[group]
             theta_force += 1. - excitatory_theta_modulation_depth[group]
             stim_force = np.multiply(gauss_force, theta_force)
-            train = get_inhom_poisson_spike_times(stim_force, stim_t, dt=stim_dt, generator=local_random)
-            syn.source.play(h.Vector(np.add(train, equilibrate + track_equilibrate)))
-            with h5py.File(data_dir+rec_filename+'-working.hdf5', 'a') as f:
-                f[str(simiter)]['train'].create_dataset(str(index), compression='gzip', compression_opts=9, data=train)
-                f[str(simiter)]['train'][str(index)].attrs['group'] = group
-                f[str(simiter)]['train'][str(index)].attrs['index'] = syn.node.index
-                f[str(simiter)]['train'][str(index)].attrs['type'] = syn.node.parent.parent.type
-                f[str(simiter)]['train'][str(index)].attrs['peak_loc'] = peak_locs[group][i]
+            exc_stim_forces[group].append(stim_force)
             index += 1
     index = 0
     for group in stim_inh_syns:
+        inh_stim_forces[group] = []
         for syn in stim_inh_syns[group]:
             inhibitory_theta_force = np.exp(inhibitory_theta_phase_tuning_factor[group] *
                                  np.cos(inhibitory_theta_phase_offset[group] - 2. * np.pi * stim_t /
@@ -162,33 +147,8 @@ def run_trial(simiter):
             inhibitory_theta_force *= inhibitory_peak_rate[group]
             if mod_inh > 0 and group in inhibitory_manipulation_fraction and syn in manipulated_inh_syns[group]:
                 inhibitory_theta_force[mod_inh_start:mod_inh_stop] = 0.
-            train = get_inhom_poisson_spike_times(inhibitory_theta_force, stim_t, dt=stim_dt,
-                                                  generator=local_random)
-            syn.source.play(h.Vector(np.add(train, equilibrate + track_equilibrate)))
-            with h5py.File(data_dir+rec_filename+'-working.hdf5', 'a') as f:
-                f[str(simiter)]['inh_train'].create_dataset(str(index), compression='gzip', compression_opts=9,
-                                                            data=train)
-                f[str(simiter)]['inh_train'][str(index)].attrs['group'] = group
-                f[str(simiter)]['inh_train'][str(index)].attrs['index'] = syn.node.index
-                f[str(simiter)]['inh_train'][str(index)].attrs['loc'] = syn.loc
-                f[str(simiter)]['inh_train'][str(index)].attrs['type'] = syn.node.type
+            inh_stim_forces[group].append(inhibitory_theta_force)
             index += 1
-    sim.run(v_init)
-    with h5py.File(data_dir+rec_filename+'-working.hdf5', 'a') as f:
-        sim.export_to_file(f, simiter)
-        if excitatory_stochastic:
-            f[str(simiter)].create_group('successes')
-            index = 0
-            for group in stim_exc_syns:
-                for syn in stim_exc_syns[group]:
-                    f[str(simiter)]['successes'].create_dataset(str(index), compression='gzip', compression_opts=9,
-                                data=np.subtract(syn.netcon('AMPA_KIN').get_recordvec().to_python(),
-                                                 equilibrate + track_equilibrate))
-                    index += 1
-        # save the spike output of the cell, removing the equilibration offset
-        f[str(simiter)].create_dataset('output', compression='gzip', compression_opts=9,
-                                    data=np.subtract(cell.spike_detector.get_recordvec().to_python(),
-                                                     equilibrate + track_equilibrate))
 
 
 NMDA_type = 'NMDA_KIN5'
@@ -285,20 +245,6 @@ for sec_type in all_inh_syns:
             if 'GABA_A_KIN' in syn._syn:
                 all_inh_syns[sec_type].append(syn)
 
-sim = QuickSim(duration, cvode=0, dt=0.01)
-sim.parameters['equilibrate'] = equilibrate
-sim.parameters['track_equilibrate'] = track_equilibrate
-sim.parameters['global_theta_cycle_duration'] = global_theta_cycle_duration
-sim.parameters['input_field_duration'] = input_field_duration
-sim.parameters['track_length'] = track_length
-sim.parameters['duration'] = duration
-sim.parameters['stim_dt'] = stim_dt
-sim.append_rec(cell, cell.tree.root, description='soma', loc=0.)
-sim.append_rec(cell, trunk_bifurcation[0], description='proximal_trunk', loc=1.)
-sim.append_rec(cell, trunk, description='distal_trunk', loc=1.)
-spike_output_vec = h.Vector()
-cell.spike_detector.record(spike_output_vec)
-
 # get the fraction of total spines contained in each sec_type
 total_exc_syns = {sec_type: len(all_exc_syns[sec_type]) for sec_type in ['basal', 'trunk', 'apical', 'tuft']}
 fraction_exc_syns = {sec_type: float(total_exc_syns[sec_type]) / float(np.sum(total_exc_syns.values())) for sec_type in
@@ -356,9 +302,7 @@ stim_t = np.arange(-track_equilibrate, track_duration, dt)
 
 gauss_sigma = global_theta_cycle_duration * input_field_width / 3. / np.sqrt(2.)  # contains 99.7% gaussian area
 
-rand_exc_seq_locs = {}
 for group in stim_exc_syns:
-    rand_exc_seq_locs[group] = []
     if stim_exc_syns[group]:
         peak_locs[group] = np.arange(-0.75 * input_field_duration, (0.75 + track_length) * input_field_duration,
                           (1.5 + track_length) * input_field_duration / int(len(stim_exc_syns[group])))
@@ -366,32 +310,18 @@ for group in stim_exc_syns:
 
 for group in stim_exc_syns:
     for syn in stim_exc_syns[group]:
-        #peak_loc = local_random.uniform(-0.75 * input_field_duration, (0.75 + track_length) * input_field_duration)
-        #peak_locs.append(peak_loc)
-        if excitatory_stochastic:
-            success_vec = h.Vector()
-            stim_successes.append(success_vec)
-            syn.netcon('AMPA_KIN').record(success_vec)
-            rand_exc_seq_locs[group].append(syn.randObj.seq())
-        # if syn.node.parent.parent not in [rec['node'] for rec in sim.rec_list]:
-        #    sim.append_rec(cell, syn.node.parent.parent)
-        # sim.append_rec(cell, syn.node, object=syn.target('AMPA_KIN'), param='_ref_i', description='i_AMPA')
-        # sim.append_rec(cell, syn.node, object=syn.target(NMDA_type), param='_ref_i', description='i_NMDA')
-        # remove this synapse from the pool, so that additional "modulated" inputs
-        # can be selected from those that remain
         all_exc_syns[syn.node.parent.parent.type].remove(syn)
-
-# rand_inh_seq_locs = [] will need this when inhibitory synapses become stochastic
-# stim_inh_successes = [] will need this when inhibitory synapses become stochastic
 
 # modulate the weights of inputs with peak_locs along this stretch of the track
 modulated_field_center = track_duration * 0.6
 cos_mod_weight = {}
+gmax_vals = {}
 peak_mod_weight = mod_weights
 tuning_amp = (peak_mod_weight - 1.) / 2.
 tuning_offset = tuning_amp + 1.
 
 for group in stim_exc_syns:
+    gmax_vals[group] = []
     this_cos_mod_weight = tuning_amp * np.cos(2. * np.pi / (input_field_duration * 1.2) * (peak_locs[group] -
                                                                         modulated_field_center)) + tuning_offset
     left = np.where(peak_locs[group] >= modulated_field_center - input_field_duration * 1.2 / 2.)[0][0]
@@ -406,13 +336,37 @@ for group in stim_exc_syns:
     peak_locs[group] = map(peak_locs[group].__getitem__, indexes)
     cos_mod_weight[group] = map(cos_mod_weight[group].__getitem__, indexes)
     for i, syn in enumerate(stim_exc_syns[group]):
+        this_gmax = syn.target('AMPA_KIN').gmax
         syn.netcon('AMPA_KIN').weight[0] = cos_mod_weight[group][i]
+        gmax_vals[group].append(this_gmax * cos_mod_weight[group][i])
 
 manipulated_inh_syns = {}
 for group in inhibitory_manipulation_fraction:
     num_syns = int(len(stim_inh_syns[group]) * inhibitory_manipulation_fraction[group])
     manipulated_inh_syns[group] = local_random.sample(stim_inh_syns[group], num_syns)
 
+exc_stim_forces = {}
+inh_stim_forces = {}
 run_trial(trial_seed)
-if os.path.isfile(data_dir+rec_filename+'-working.hdf5'):
-    os.rename(data_dir+rec_filename+'-working.hdf5', data_dir+rec_filename+'.hdf5')
+
+remember_font_size = mpl.rcParams['font.size']
+mpl.rcParams['font.size'] = 20
+example_CA3_index = np.where((np.array(peak_locs['CA3']) >= 1495.) & (np.array(peak_locs['CA3']) <= 1505.))[0][0]
+fig, axes = plt.subplots(1)
+axes.plot(stim_t, exc_stim_forces['CA3'][example_CA3_index], label='CA3 Excitatory')
+axes.set_ylim(0., 50.)
+axes.set_ylabel('Firing Rate (Hz)')
+axes.set_xlim(0., 3000.)
+axes.set_xticks([0., 500., 1000., 1500., 2000., 2500., 3000.])
+axes.set_xticklabels([0, 0.5, 1, 1.5, 2, 2.5, 3])
+axes.legend(loc='best', frameon=False, framealpha=0.5)
+clean_axes(axes)
+axes.tick_params(direction='out')
+if svg_title is not None:
+    fig.set_size_inches(4.42, 2.88)
+    fig.savefig(data_dir+svg_title+' - CA3 example.svg', format='svg', transparent=True)
+plt.show()
+plt.close()
+
+
+mpl.rcParams['font.size'] = remember_font_size
