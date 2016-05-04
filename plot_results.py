@@ -2796,8 +2796,8 @@ def plot_patterned_input_sim_summary(rec_t, mean_theta_envelope, binned_t,  mean
     if key_list is None:
         key_list = ['modinh0', 'modinh1', 'modinh2']
     if titles is None:
-        titles = ['Control', 'Reduced Inhib - In field', 'Reduced Inhib - Out of field']
-    colors = ['k', 'r', 'g']
+        titles = ['Control', 'Reduced Inhibition - In field', 'Reduced Inhibition - Out of field']
+    colors = ['k', 'orange', 'y']
     fig, axes = plt.subplots(1)
     baseline = np.mean(mean_ramp[key_list[0]][int(baseline_range[0]/dt):int(baseline_range[1]/dt)])
     for i, (condition, title) in enumerate(zip([key_list[0], key_list[2], key_list[1]], titles)):
@@ -2819,11 +2819,12 @@ def plot_patterned_input_sim_summary(rec_t, mean_theta_envelope, binned_t,  mean
     for i, (condition, title) in enumerate(zip([key_list[0], key_list[2], key_list[1]], titles)):
         axes.plot(rec_t, mean_output[condition], color=colors[i], label=title)
     clean_axes(axes)
-    axes.set_xlabel('Time (ms)', fontsize=8)
+    axes.set_xlabel('Time (s)', fontsize=8)
     axes.set_ylabel('Firing rate (Hz)', fontsize=8)
     axes.set_ylim(0., 45.)
     axes.set_xlim(0., 7500.)
     axes.set_xticks([0., 1500., 3000., 4500., 6000., 7500.])
+    axes.set_xticklabels([0, 1.5, 3, 4.5, 6, 7.5])
     plt.legend(loc='best', frameon=False, framealpha=0.5, fontsize=8)
     axes.tick_params(direction='out')
     if svg_title is not None:
@@ -2835,11 +2836,12 @@ def plot_patterned_input_sim_summary(rec_t, mean_theta_envelope, binned_t,  mean
     for i, (condition, title) in enumerate(zip([key_list[0], key_list[2], key_list[1]], titles)):
         axes.plot(rec_t, mean_theta_envelope[condition], color=colors[i], label=title)
     clean_axes(axes)
-    axes.set_xlabel('Time (ms)', fontsize=8)
+    axes.set_xlabel('Time (s)', fontsize=8)
     axes.set_ylabel('Thetaintra (mV)', fontsize=8)
     axes.set_ylim(0., 2.5)
     axes.set_xlim(0., 7500.)
     axes.set_xticks([0., 1500., 3000., 4500., 6000., 7500.])
+    axes.set_xticklabels([0, 1.5, 3, 4.5, 6, 7.5])
     plt.legend(loc='best', frameon=False, framealpha=0.5, fontsize=8)
     axes.tick_params(direction='out')
     if svg_title is not None:
@@ -2851,11 +2853,12 @@ def plot_patterned_input_sim_summary(rec_t, mean_theta_envelope, binned_t,  mean
     for i, (condition, title) in enumerate(zip([key_list[0], key_list[2], key_list[1]], titles)):
         axes.plot(binned_t[condition], mean_binned_var[condition], color=colors[i], label=title)
     clean_axes(axes)
-    axes.set_xlabel('Time (ms)', fontsize=8)
+    axes.set_xlabel('Time (s)', fontsize=8)
     axes.set_ylabel('Variance (mV2)', fontsize=8)
     axes.set_ylim(0., 8.)
     axes.set_xlim(0., 7500.)
     axes.set_xticks([0., 1500., 3000., 4500., 6000., 7500.])
+    axes.set_xticklabels([0, 1.5, 3, 4.5, 6, 7.5])
     plt.legend(loc='best', frameon=False, framealpha=0.5, fontsize=8)
     axes.tick_params(direction='out')
     if svg_title is not None:
