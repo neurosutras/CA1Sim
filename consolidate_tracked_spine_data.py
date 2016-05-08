@@ -102,7 +102,7 @@ with h5py.File(data_dir+target_filename+'.hdf5', 'r') as target_file:
     for target_rec in target_trial['rec'].itervalues():
         if 'description' in target_rec.attrs and target_rec.attrs['description'] == 'spine_vm':
             index_list.append(target_rec.attrs['index'])
-with h5py.File(data_dir+i_AMPA_files[i]+'.hdf5', 'r') as source_file:
+with h5py.File(data_dir+i_AMPA_files[0]+'.hdf5', 'r') as source_file:
     source_trial = source_file.itervalues().next()
     for source_key in source_trial['rec']:
         if ('index' in source_trial['rec'][source_key].attrs) and \
