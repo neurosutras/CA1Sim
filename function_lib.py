@@ -2034,16 +2034,19 @@ def clean_axes(axes):
         axis.get_yaxis().tick_left()
 
 
-def sort_str_list(str_list):
+def sort_str_list(str_list, seperator='_', end=None):
     """
-    Given a list of filenames ending with _int, sort the strings by increasing value of int.
+    Given a list of filenames ending with (separator)int, sort the strings by increasing value of int.
+    If there is a suffix at the end of the filename, provide it so it can be ignored.
     :param str_list: list of str
     :return: list of str
     """
     indexes = range(len(str_list))
     values = []
     for this_str in str_list:
-        this_value = int(this_str.split('_')[-1])
+        if end is not None:
+            this_str = this_str.split(end)[0]
+        this_value = int(this_str.split(seperator)[-1])
         values.append(this_value)
     indexes.sort(key=values.__getitem__)
     sorted_str_list = map(str_list.__getitem__, indexes)
