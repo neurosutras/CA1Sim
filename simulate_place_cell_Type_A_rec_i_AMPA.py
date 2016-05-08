@@ -4,10 +4,14 @@ from plot_results import *
 import random
 import sys
 """
+In this version of the simulation, phase precession of CA3 inputs is implemented using the method from Chadwick et al.,
+Elife, 2015, which uses a circular gaussian with a phase sensitivity factor that effectively compresses the range of
+phases within each theta cycle that each input is active, which will reduce jitter across within-cycle input sequences.
 
 """
 morph_filename = 'EB2-late-bifurcation.swc'
-mech_filename = '020516 altered km2 rinp - ampa nmda_kin5'
+#mech_filename = '020516 altered km2 rinp - ampa nmda_kin5'
+mech_filename = '043016 Type A - km2_NMDA_KIN5_Pr'
 
 
 if len(sys.argv) > 1:
@@ -28,16 +32,69 @@ if len(sys.argv) > 4:
     mod_inh = int(sys.argv[4])
 else:
     mod_inh = 0
+# the synaptic AMPAR conductances at in-field inputs will be multiplied by a factor that follows an asymmetric kernel
+# with this value at the peak of the field
+if len(sys.argv) > 5:
+    mod_weights = float(sys.argv[5])
+else:
+    mod_weights = 2.5
 # allows parallel computation of multiple trials for the same spines with the same peak_locs, but with different
 # input spike trains and stochastic synapses for each trial
-if len(sys.argv) > 5:
-    trial_seed = int(sys.argv[5])
+if len(sys.argv) > 6:
+    trial_seed = int(sys.argv[6])
 else:
     trial_seed = 0
 
 rec_filename = 'output'+datetime.datetime.today().strftime('%m%d%Y%H%M')+'-pid'+str(os.getpid())+'-seed'+\
                str(synapses_seed)+'-e'+str(num_exc_syns)+'-i'+str(num_inh_syns)+'-mod_inh'+str(mod_inh)+\
-               '-i_GABA_'+str(trial_seed)
+               '-i_AMPA_'+str(mod_weights)+'_'+str(trial_seed)
+
+
+def get_dynamic_theta_phase_force(phase_ranges, peak_loc, input_field_duration, stim_t, dt):
+    """
+    Expects a list of tuples containing times and phases relative to peak_loc and the non-modulated phase preference
+    (zero degrees). Returns a waveform of phase vs time.
+    :param phase_ranges: list of tuple (ms, degrees)
+    :param peak_loc:
+    :param input_field_duration:
+    :param stim_t:
+    :param dt:
+    :return: :class: 'np.array'
+    """
+    start_phase_val = phase_ranges[0][1] * 2. * np.pi / 360.  # convert degrees to radians
+    end_phase_val = phase_ranges[-1][1] * 2. * np.pi / 360.  # convert degrees to radians
+    phase_force = np.ones_like(stim_t) * start_phase_val
+    phase_gradient = np.array([])
+    for i in range(len(phase_ranges)-1):
+        t0 = phase_ranges[i][0]
+        t1 = phase_ranges[i+1][0]
+        phase0 = phase_ranges[i][1] * 2. * np.pi / 360.  # convert degrees to radians
+        phase1 = phase_ranges[i+1][1] * 2. * np.pi / 360.
+        del_t = t1 - t0
+        del_phase = phase1 - phase0
+        if abs(del_phase) > 0.:
+            del_phase = del_phase / del_t * dt
+            this_range_piece = np.arange(phase0, phase1, del_phase)
+        else:
+            this_range_piece = np.ones(del_t / dt) * phase0
+        phase_gradient = np.append(phase_gradient, this_range_piece)
+    if stim_t[0] <= peak_loc-input_field_duration*0.5 <= stim_t[-1]:
+        phase_start = np.where(peak_loc-input_field_duration*0.5 >= stim_t)[0]
+        if np.any(phase_start):
+            phase_start = phase_start[-1]
+            phase_end = min(len(stim_t), phase_start+len(phase_gradient))
+            phase_force[:phase_start] = start_phase_val
+            phase_force[phase_start:phase_end] = phase_gradient[:phase_end-phase_start]
+            phase_force[phase_end:] = end_phase_val
+    elif stim_t[0] <= peak_loc+input_field_duration*0.5 <= stim_t[-1]:
+        phase_end = np.where(peak_loc+input_field_duration*0.5 >= stim_t)[0]
+        if np.any(phase_end):
+            phase_end = phase_end[-1]
+            phase_start = max(0, phase_end-len(phase_gradient))
+            phase_force[:phase_start] = start_phase_val
+            phase_force[phase_start:phase_end] = phase_gradient[-(phase_end-phase_start):]
+            phase_force[phase_end:] = end_phase_val
+    return phase_force
 
 
 def run_trial(simiter):
@@ -62,23 +119,26 @@ def run_trial(simiter):
         sim.parameters['mod_inh_stop'] = stim_t[mod_inh_stop]
     index = 0
     for group in stim_exc_syns:
-        excitatory_theta_amp = excitatory_theta_modulation_depth[group] / 2.
-        excitatory_theta_offset = 1. - excitatory_theta_amp
         for i, syn in enumerate(stim_exc_syns[group]):
             # the stochastic sequence used for each synapse is unique for each trial,
             # up to 1000 input spikes per spine
             if excitatory_stochastic:
                 syn.randObj.seq(rand_exc_seq_locs[group][i]+int(simiter*1e3))
-            gauss_force = excitatory_peak_rate * np.exp(-((stim_t - peak_locs[group][i]) / gauss_sigma)**2.)
-            if group == 'ECIII':
-                theta_force = excitatory_theta_offset + excitatory_theta_amp * np.cos(2. * np.pi /
-                                        global_theta_cycle_duration * stim_t - global_phase_offset -
-                                        excitatory_theta_phase_offset['ECIII'])
+            gauss_force = excitatory_peak_rate[group] * np.exp(-((stim_t - peak_locs[group][i]) / gauss_sigma)**2.)
+            if group in excitatory_precession_range:
+                phase_force = get_dynamic_theta_phase_force(excitatory_precession_range[group], peak_locs[group][i],
+                                                            input_field_duration, stim_t, stim_dt)
+                theta_force = np.exp(excitatory_theta_phase_tuning_factor[group] * np.cos(phase_force +
+                                        excitatory_theta_phase_offset[group] - 2. * np.pi * stim_t /
+                                        global_theta_cycle_duration + global_phase_offset))
             else:
-                unit_phase_offset = peak_locs[group][i] * theta_compression_factor
-                theta_force = excitatory_theta_offset + excitatory_theta_amp * np.cos(2. * np.pi /
-                                        unit_theta_cycle_duration * (stim_t - unit_phase_offset) -
-                                        global_phase_offset - excitatory_theta_phase_offset['CA3'])
+                theta_force = np.exp(excitatory_theta_phase_tuning_factor[group] *
+                                 np.cos(excitatory_theta_phase_offset[group] - 2. * np.pi * stim_t /
+                                        global_theta_cycle_duration + global_phase_offset))
+            theta_force -= np.min(theta_force)
+            theta_force /= np.max(theta_force)
+            theta_force *= excitatory_theta_modulation_depth[group]
+            theta_force += 1. - excitatory_theta_modulation_depth[group]
             stim_force = np.multiply(gauss_force, theta_force)
             train = get_inhom_poisson_spike_times(stim_force, stim_t, dt=stim_dt, generator=local_random)
             syn.source.play(h.Vector(np.add(train, equilibrate + track_equilibrate)))
@@ -91,13 +151,15 @@ def run_trial(simiter):
             index += 1
     index = 0
     for group in stim_inh_syns:
-        inhibitory_theta_amp = inhibitory_peak_rate[group] * inhibitory_theta_modulation_depth[group] / 2.
-        inhibitory_theta_offset = inhibitory_peak_rate[group] - inhibitory_theta_amp
-        inhibitory_phase_offset = inhibitory_theta_phase_offset[group]
         for syn in stim_inh_syns[group]:
-            inhibitory_theta_force = inhibitory_theta_offset + inhibitory_theta_amp * np.cos(2. * np.pi /
-                                                global_theta_cycle_duration * stim_t - global_phase_offset -
-                                                inhibitory_phase_offset)
+            inhibitory_theta_force = np.exp(inhibitory_theta_phase_tuning_factor[group] *
+                                 np.cos(inhibitory_theta_phase_offset[group] - 2. * np.pi * stim_t /
+                                        global_theta_cycle_duration + global_phase_offset))
+            inhibitory_theta_force -= np.min(inhibitory_theta_force)
+            inhibitory_theta_force /= np.max(inhibitory_theta_force)
+            inhibitory_theta_force *= inhibitory_theta_modulation_depth[group]
+            inhibitory_theta_force += 1. - inhibitory_theta_modulation_depth[group]
+            inhibitory_theta_force *= inhibitory_peak_rate[group]
             if mod_inh > 0 and group in inhibitory_manipulation_fraction and syn in manipulated_inh_syns[group]:
                 inhibitory_theta_force[mod_inh_start:mod_inh_stop] = 0.
             train = get_inhom_poisson_spike_times(inhibitory_theta_force, stim_t, dt=stim_dt,
@@ -134,36 +196,39 @@ NMDA_type = 'NMDA_KIN5'
 equilibrate = 250.  # time to steady-state
 global_theta_cycle_duration = 150.  # (ms)
 input_field_width = 20  # (theta cycles per 6 standard deviations)
-excitatory_phase_extent = 450.  # (degrees)
-# Geissler...Buzsaki, PNAS 2010
-unit_theta_cycle_duration = global_theta_cycle_duration * input_field_width / (input_field_width +
-                                                                               (excitatory_phase_extent / 360.))
 input_field_duration = input_field_width * global_theta_cycle_duration
 track_length = 2.5  # field widths
 track_duration = track_length * input_field_duration
 track_equilibrate = 2. * global_theta_cycle_duration
 duration = equilibrate + track_equilibrate + track_duration  # input_field_duration
-excitatory_peak_rate = 40.
-excitatory_theta_modulation_depth = {'CA3': 0.75, 'ECIII': 0.7}
-theta_compression_factor = 1. - unit_theta_cycle_duration / global_theta_cycle_duration
+excitatory_peak_rate = {'CA3': 40., 'ECIII': 40.}
+excitatory_theta_modulation_depth = {'CA3': 0.7, 'ECIII': 0.7}
+# From Chadwick et al., ELife 2015
+excitatory_theta_phase_tuning_factor = {'CA3': 0.8, 'ECIII': 0.8}
+excitatory_precession_range = {}
+excitatory_precession_range['CA3'] = [(-input_field_duration*0.5, 180.), (-input_field_duration*0.35, 180.),
+                                      (input_field_duration*0.35, -180.), (input_field_duration*0.5, -180.)]  # (ms, degrees)
 excitatory_theta_phase_offset = {}
 excitatory_theta_phase_offset['CA3'] = 165. / 360. * 2. * np.pi  # radians
 excitatory_theta_phase_offset['ECIII'] = 0. / 360. * 2. * np.pi  # radians
 excitatory_stochastic = 1
-inhibitory_manipulation_fraction = {'perisomatic': 0.35, 'axo-axonic': 0.35, 'apical dendritic': 0.35,
-                                    'tuft feedback': 0.35}
+inhibitory_manipulation_fraction = {'perisomatic': 0.325, 'axo-axonic': 0.325, 'apical dendritic': 0.325,
+                                    'distal apical dendritic': 0.325, 'tuft feedback': 0.325}
 inhibitory_manipulation_duration = 0.6  # Ratio of input_field_duration
 inhibitory_peak_rate = {'perisomatic': 40., 'axo-axonic': 40., 'apical dendritic': 40., 'distal apical dendritic': 40.,
                         'tuft feedforward': 40., 'tuft feedback': 40.}
 inhibitory_theta_modulation_depth = {'perisomatic': 0.5, 'axo-axonic': 0.5, 'apical dendritic': 0.5,
                                      'distal apical dendritic': 0.5, 'tuft feedforward': 0.5, 'tuft feedback': 0.5}
+inhibitory_theta_phase_tuning_factor = {'perisomatic': 0.6, 'axo-axonic': 0.6, 'apical dendritic': 0.6,
+                                     'distal apical dendritic': 0.6, 'tuft feedforward': 0.6, 'tuft feedback': 0.6}
+inhibitory_precession_range = {}
 inhibitory_theta_phase_offset = {}
-inhibitory_theta_phase_offset['perisomatic'] = 145. / 360. * 2. * np.pi  # Like PV+ Basket
-inhibitory_theta_phase_offset['axo-axonic'] = 70. / 360. * 2. * np.pi  # Vargas et al., ELife, 2014
-inhibitory_theta_phase_offset['apical dendritic'] = 210. / 360. * 2. * np.pi  # Like PYR-layer Bistratified
+inhibitory_theta_phase_offset['perisomatic'] = 135. / 360. * 2. * np.pi  # Like PV+ Basket
+inhibitory_theta_phase_offset['axo-axonic'] = 45. / 360. * 2. * np.pi  # Vargas et al., ELife, 2014
+inhibitory_theta_phase_offset['apical dendritic'] = 200. / 360. * 2. * np.pi  # Like PYR-layer Bistratified
 inhibitory_theta_phase_offset['distal apical dendritic'] = 180. / 360. * 2. * np.pi  # Like SR/SLM Border Cells
 inhibitory_theta_phase_offset['tuft feedforward'] = 340. / 360. * 2. * np.pi  # Like Neurogliaform
-inhibitory_theta_phase_offset['tuft feedback'] = 210. / 360. * 2. * np.pi  # Like SST+ O-LM
+inhibitory_theta_phase_offset['tuft feedback'] = 200. / 360. * 2. * np.pi  # Like SST+ O-LM
 
 stim_dt = 0.02
 dt = 0.02
@@ -177,7 +242,7 @@ local_random = random.Random()
 local_random.seed(synapses_seed)
 
 cell = CA1_Pyr(morph_filename, mech_filename, full_spines=True)
-cell.set_terminal_branch_nas_gradient()
+cell.set_terminal_branch_na_gradient()
 cell.insert_inhibitory_synapses_in_subset()
 
 trunk_bifurcation = [trunk for trunk in cell.trunk if cell.is_bifurcation(trunk, 'trunk')]
@@ -228,9 +293,9 @@ sim.parameters['input_field_duration'] = input_field_duration
 sim.parameters['track_length'] = track_length
 sim.parameters['duration'] = duration
 sim.parameters['stim_dt'] = stim_dt
-sim.append_rec(cell, cell.tree.root, description='soma', loc=0.5)
-sim.append_rec(cell, trunk, description='distal_trunk', loc=0.)
+sim.append_rec(cell, cell.tree.root, description='soma', loc=0.)
 sim.append_rec(cell, trunk_bifurcation[0], description='proximal_trunk', loc=1.)
+sim.append_rec(cell, trunk, description='distal_trunk', loc=1.)
 spike_output_vec = h.Vector()
 cell.spike_detector.record(spike_output_vec)
 
@@ -269,7 +334,7 @@ for sec_type in all_inh_syns:
             if distance <= 50.:
                 group = 'perisomatic'
             elif distance <= 150.:
-                group = 'apical dendritic'
+                group = local_random.choice(['apical dendritic', 'apical dendritic', 'distal apical dendritic'])
             else:
                 group = local_random.choice(['apical dendritic', 'distal apical dendritic', 'distal apical dendritic'])
         elif syn.node.type == 'basal':
@@ -280,13 +345,12 @@ for sec_type in all_inh_syns:
         elif syn.node.type == 'apical':
             distance = cell.get_distance_to_node(cell.tree.root, cell.get_dendrite_origin(syn.node), loc=1.)
             if distance <= 150.:
-                group = 'apical dendritic'
+                group = local_random.choice(['apical dendritic', 'apical dendritic', 'distal apical dendritic'])
             else:
                 group = local_random.choice(['apical dendritic', 'distal apical dendritic', 'distal apical dendritic'])
         elif syn.node.type == 'ais':
             group = 'axo-axonic'
         stim_inh_syns[group].append(syn)
-        sim.append_rec(cell, syn.node, object=syn.target('GABA_A_KIN'), param='_ref_i', description='i_GABA')
 
 stim_t = np.arange(-track_equilibrate, track_duration, dt)
 
@@ -311,7 +375,7 @@ for group in stim_exc_syns:
             rand_exc_seq_locs[group].append(syn.randObj.seq())
         # if syn.node.parent.parent not in [rec['node'] for rec in sim.rec_list]:
         #    sim.append_rec(cell, syn.node.parent.parent)
-        # sim.append_rec(cell, syn.node, object=syn.target('AMPA_KIN'), param='_ref_i', description='i_AMPA')
+        sim.append_rec(cell, syn.node, object=syn.target('AMPA_KIN'), param='_ref_i', description='i_AMPA')
         # sim.append_rec(cell, syn.node, object=syn.target(NMDA_type), param='_ref_i', description='i_NMDA')
         # remove this synapse from the pool, so that additional "modulated" inputs
         # can be selected from those that remain
@@ -323,28 +387,17 @@ for group in stim_exc_syns:
 # modulate the weights of inputs with peak_locs along this stretch of the track
 modulated_field_center = track_duration * 0.6
 cos_mod_weight = {}
-peak_mod_weight = 2.5
-trough_mod_weight = 0.8
-tuning_amp1 = (peak_mod_weight - trough_mod_weight) / 2.
-tuning_offset1 = tuning_amp1 + trough_mod_weight
-tuning_amp2 = (peak_mod_weight - 1.) / 2.
-tuning_offset2 = tuning_amp2 + 1.
+peak_mod_weight = mod_weights
+tuning_amp = (peak_mod_weight - 1.) / 2.
+tuning_offset = tuning_amp + 1.
 
 for group in stim_exc_syns:
-    cos_mod_weight1 = tuning_amp1 * np.cos(2. * np.pi / (input_field_duration * 1.2) * (peak_locs[group] -
-                                                                                       modulated_field_center)) + \
-                      tuning_offset1
-    cos_mod_weight2 = tuning_amp2 * np.cos(2. * np.pi / (input_field_duration * 1.2) * (peak_locs[group] -
-                                                                                        modulated_field_center)) + \
-                      tuning_offset2
-    left = np.where((cos_mod_weight1 < 1.) & (peak_locs[group] < modulated_field_center -
-                    input_field_duration * 1.2 / 2.) & (peak_locs[group] > modulated_field_center -
-                    input_field_duration))[0][0]
+    this_cos_mod_weight = tuning_amp * np.cos(2. * np.pi / (input_field_duration * 1.2) * (peak_locs[group] -
+                                                                        modulated_field_center)) + tuning_offset
+    left = np.where(peak_locs[group] >= modulated_field_center - input_field_duration * 1.2 / 2.)[0][0]
     right = np.where(peak_locs[group] > modulated_field_center + input_field_duration * 1.2 / 2.)[0][0]
-    center = np.where(peak_locs[group] > modulated_field_center)[0][0]
-    cos_mod_weight[group] = np.array(cos_mod_weight1)
+    cos_mod_weight[group] = np.array(this_cos_mod_weight)
     cos_mod_weight[group][:left] = 1.
-    cos_mod_weight[group][center:right] = cos_mod_weight2[center:right]
     cos_mod_weight[group][right:] = 1.
     peak_locs[group] = list(peak_locs[group])
     cos_mod_weight[group] = list(cos_mod_weight[group])

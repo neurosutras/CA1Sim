@@ -1585,7 +1585,7 @@ def get_patterned_input_component_traces(rec_filename, dt=0.02):
             vm = vm[start:]
             vm_array.append(vm)
     rec_t = np.arange(0., track_duration, dt)
-    spikes_removed = get_removed_spikes_alt(rec_filename, plot=0)
+    spikes_removed = get_removed_spikes(rec_filename, plot=0)
     # down_sample traces to 2 kHz after clipping spikes for theta and ramp filtering
     down_dt = 0.5
     down_t = np.arange(0., track_duration, down_dt)
@@ -1747,6 +1747,33 @@ def get_patterned_input_mean_values(residuals, intra_theta_amp, rate_map, ramp, 
         print title
         for condition in key_list[1:]:
             print condition, parameter[condition]
+
+
+def get_i_syn_mean_values(parameter_array, parameter_title, key_list=None, peak_bounds=[600., 1200., 4200., 4800.],
+                          dt=0.02):
+    """
+
+    :param parameter_array: dict of np.array
+    :param paramter_title: str: meant to be in ['i_AMPA', 'i_NMDA', 'i_GABA', 'E:I Ratio']
+    :param key_list: list of str
+    :param peak_bounds: list of float, time points corresponding to 10 "spatial bins" for averaging
+    :param dt: float, temporal resolution
+    """
+    if key_list is None:
+        key_list = ['modinh0', 'modinh1', 'modinh2']
+    key_list.extend([key_list[0] + '_out', key_list[0] + '_in'])
+    mean_val = {}
+    print parameter_title+':'
+    for source_condition, target_condition in zip([key_list[1], key_list[0]], [key_list[1], key_list[3]]):
+        start = int(peak_bounds[0] / dt)
+        end = int(peak_bounds[1] / dt)
+        mean_val[target_condition] = np.mean(parameter_array[source_condition][start:end])
+        print target_condition+': ', mean_val[target_condition]
+    for source_condition, target_condition in zip([key_list[2], key_list[0]], [key_list[2], key_list[4]]):
+        start = int(peak_bounds[2] / dt)
+        end = int(peak_bounds[3] / dt)
+        mean_val[target_condition] = np.mean(parameter_array[source_condition][start:end])
+        print target_condition + ': ', mean_val[target_condition]
 
 
 def compress_i_syn_rec_files(rec_filelist, rec_description_list=['i_AMPA', 'i_NMDA', 'i_GABA'],

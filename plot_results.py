@@ -2642,16 +2642,16 @@ def plot_patterned_input_individual_trial_traces(rec_t, vm_array, theta_traces, 
         axes[0].plot(rec_t, vm_array[i], color='k', label='Soma Vm')
         axes[0].set_axis_off()
         label_handles.append(mlines.Line2D([], [], color='k', label='Soma Vm'))
-        axes[1].plot(rec_t, ramp_traces[i], color='r', label='Ramp (<3 Hz)')
+        axes[1].plot(rec_t, ramp_traces[i], color='r', label='Ramp (<2 Hz)')
         axes[1].set_axis_off()
-        label_handles.append(mlines.Line2D([], [], color='r', label='Ramp (<3 Hz)'))
-        axes[2].plot(rec_t, theta_traces[i], color='c', label='Intracellular Theta (5-10 Hz)')
-        label_handles.append(mlines.Line2D([], [], color='c', label='Intracellular Theta (5-10 Hz)'))
+        label_handles.append(mlines.Line2D([], [], color='r', label='Ramp (<2 Hz)'))
+        axes[2].plot(rec_t, theta_traces[i], color='c', label='Thetaintra (5-10 Hz)')
+        label_handles.append(mlines.Line2D([], [], color='c', label='Thetaintra (5-10 Hz)'))
         axes[2].set_xlim(0., 7500.)
         axes[2].set_ylim(-67., 30.)
         if svg_title is not None:
-            axes[1].legend(handles=label_handles, loc='best', frameon=False, framealpha=0.5)
-            plt.savefig(data_dir+svg_title+str(i)+'.svg', format='svg')
+            # axes[1].legend(handles=label_handles, loc='best', frameon=False, framealpha=0.5)
+            plt.savefig(data_dir+svg_title+str(i)+'.svg', format='svg', transparent=True)
         plt.show()
         plt.close()
 
@@ -2709,7 +2709,7 @@ def plot_vm_distribution(rec_filenames, key_list=None, i_bounds=[0., 1800., 3600
         edges[condition] = edges[condition][1:]
     colors = ['k', 'grey', 'orange', 'y']
     fig, axes = plt.subplots(1)
-    for i, (condition, title) in enumerate(zip([key_list[3], key_list[4]], ['Out of Field', 'In Field'])):
+    for i, (condition, title) in enumerate(zip([key_list[3], key_list[4]], ['Out of field', 'In field'])):
         axes.plot(edges[condition], hist[condition], color=colors[i], label=title)
     clean_axes(axes)
     axes.set_xlabel('Voltage (mV)', fontsize=8)
@@ -2717,45 +2717,45 @@ def plot_vm_distribution(rec_filenames, key_list=None, i_bounds=[0., 1800., 3600
     axes.set_ylim(0., 7.)
     axes.set_xlim(-70., -45.)
     axes.set_title('Control', fontsize=8)
+    axes.tick_params(direction='out')
     plt.legend(loc='best', frameon=False, framealpha=0.5, fontsize=8)
     if svg_title is not None:
-        fig = plt.gcf()
         fig.set_size_inches(1.74, 1.43)
-        fig.savefig(data_dir+svg_title+' - Vm Distributions - Control.svg', format='svg')
+        fig.savefig(data_dir+svg_title+' - Vm Distributions - Control.svg', format='svg', transparent=True)
     plt.show()
     plt.close()
     fig, axes = plt.subplots(1)
-    for i, (condition, title) in enumerate(zip([key_list[1], key_list[2]], ['Out of Field', 'In Field'])):
+    for i, (condition, title) in enumerate(zip([key_list[1], key_list[2]], ['Out of field', 'In field'])):
         axes.plot(edges[condition], hist[condition], color=colors[i+2], label=title)
     clean_axes(axes)
     axes.set_xlabel('Voltage (mV)', fontsize=8)
     axes.set_ylabel('Probability (%)', fontsize=8)
     axes.set_ylim(0., 7.)
     axes.set_xlim(-70., -45.)
-    axes.set_title('Reduced Inhibition', fontsize=8)
+    axes.set_title('Reduced inhibition', fontsize=8)
+    axes.tick_params(direction='out')
     plt.legend(loc='best', frameon=False, framealpha=0.5, fontsize=8)
     if svg_title is not None:
-        fig = plt.gcf()
         fig.set_size_inches(1.74, 1.43)
-        fig.savefig(data_dir+svg_title+' - Vm Distributions - ModInh.svg', format='svg')
+        fig.savefig(data_dir+svg_title+' - Vm Distributions - ModInh.svg', format='svg', transparent=True)
     plt.show()
     plt.close()
     fig, axes = plt.subplots(1)
     for i, (condition, title) in enumerate(zip([key_list[3], key_list[4], key_list[1], key_list[2]],
-                                               ['Control - Out', 'Control - In', 'Reduced Inhibition - Out',
-                                                'Reduced Inhibition - In'])):
+                                               ['Control - Out', 'Control - In', 'Reduced inhibition - Out',
+                                                'Reduced inhibition - In'])):
         axes.plot(edges[condition], hist[condition], color=colors[i], label=title)
     clean_axes(axes)
     axes.set_xlabel('Voltage (mV)', fontsize=8)
     axes.set_ylabel('Probability (%)', fontsize=8)
-    axes.set_ylim(0., 7.)
+    axes.set_ylim(0., 7.5)
     axes.set_xlim(-70., -45.)
     axes.set_title('Simulated Vm Distributions', fontsize=8)
+    axes.tick_params(direction='out')
     plt.legend(loc='best', frameon=False, framealpha=0.5, fontsize=8)
     if svg_title is not None:
-        fig = plt.gcf()
-        fig.set_size_inches(1.74, 1.43)
-        fig.savefig(data_dir + svg_title + ' - Vm Distributions - All.svg', format='svg')
+        fig.set_size_inches(1.945, 1.16)
+        fig.savefig(data_dir + svg_title + ' - Vm Distributions - All.svg', format='svg', transparent=True)
     plt.show()
     plt.close()
     mpl.rcParams['font.size'] = remember_font_size
@@ -2792,78 +2792,80 @@ def plot_patterned_input_sim_summary(rec_t, mean_theta_envelope, binned_t,  mean
     """
     if svg_title is not None:
         remember_font_size = mpl.rcParams['font.size']
-        mpl.rcParams['font.size'] = 8
+        mpl.rcParams['font.size'] = 20
     if key_list is None:
         key_list = ['modinh0', 'modinh1', 'modinh2']
     if titles is None:
-        titles = ['Control', 'Reduced Inhibition - In field', 'Reduced Inhibition - Out of field']
-    colors = ['k', 'orange', 'y']
+        titles = ['Control', 'Reduced inhibition - In field', 'Reduced inhibition - Out of field']
+    colors = ['k', 'y', 'orange']
     fig, axes = plt.subplots(1)
     baseline = np.mean(mean_ramp[key_list[0]][int(baseline_range[0]/dt):int(baseline_range[1]/dt)])
     for i, (condition, title) in enumerate(zip([key_list[0], key_list[2], key_list[1]], titles)):
         axes.plot(rec_t, np.subtract(mean_ramp[condition], baseline), color=colors[i], label=title)
     clean_axes(axes)
-    axes.set_xlabel('Time (ms)', fontsize=8)
-    axes.set_ylabel('DVm (mV)', fontsize=8)
+    axes.set_xlabel('Time (s)')
+    axes.set_ylabel('DVm (mV)')
     axes.set_ylim(-0.8, 9.)
     axes.set_xlim(0., 7500.)
     axes.set_xticks([0., 1500., 3000., 4500., 6000., 7500.])
-    plt.legend(loc='best', frameon=False, framealpha=0.5, fontsize=8)
+    axes.set_xticklabels([0, 1.5, 3, 4.5, 6, 7.5])
     axes.tick_params(direction='out')
+    plt.legend(loc='best', frameon=False, framealpha=0.5, fontsize=mpl.rcParams['font.size'])
     if svg_title is not None:
-        fig.set_size_inches(2.11, 1.10)
-        fig.savefig(data_dir+svg_title+' - Summary - Ramp.svg', format='svg')
+        fig.set_size_inches(4.403, 3.631)
+        fig.savefig(data_dir+svg_title+' - Summary - Ramp.svg', format='svg', transparent=True)
     plt.show()
     plt.close()
     fig, axes = plt.subplots(1)
     for i, (condition, title) in enumerate(zip([key_list[0], key_list[2], key_list[1]], titles)):
         axes.plot(rec_t, mean_output[condition], color=colors[i], label=title)
     clean_axes(axes)
-    axes.set_xlabel('Time (s)', fontsize=8)
-    axes.set_ylabel('Firing rate (Hz)', fontsize=8)
+    axes.set_xlabel('Time (s)')
+    axes.set_ylabel('Firing rate (Hz)')
     axes.set_ylim(0., 45.)
     axes.set_xlim(0., 7500.)
     axes.set_xticks([0., 1500., 3000., 4500., 6000., 7500.])
     axes.set_xticklabels([0, 1.5, 3, 4.5, 6, 7.5])
-    plt.legend(loc='best', frameon=False, framealpha=0.5, fontsize=8)
+    # plt.legend(loc='best', frameon=False, framealpha=0.5, fontsize=mpl.rcParams['font.size'])
     axes.tick_params(direction='out')
     if svg_title is not None:
-        fig.set_size_inches(2.11, 1.10)
-        fig.savefig(data_dir + svg_title + ' - Summary - Rate.svg', format='svg')
+        fig.set_size_inches(4.403, 3.631)
+        fig.savefig(data_dir + svg_title + ' - Summary - Rate.svg', format='svg', transparent=True)
     plt.show()
     plt.close()
     fig, axes = plt.subplots(1)
     for i, (condition, title) in enumerate(zip([key_list[0], key_list[2], key_list[1]], titles)):
         axes.plot(rec_t, mean_theta_envelope[condition], color=colors[i], label=title)
     clean_axes(axes)
-    axes.set_xlabel('Time (s)', fontsize=8)
-    axes.set_ylabel('Thetaintra (mV)', fontsize=8)
+    axes.set_xlabel('Time (s)')
+    axes.set_ylabel('Thetaintra (mV)')
     axes.set_ylim(0., 2.5)
     axes.set_xlim(0., 7500.)
     axes.set_xticks([0., 1500., 3000., 4500., 6000., 7500.])
     axes.set_xticklabels([0, 1.5, 3, 4.5, 6, 7.5])
-    plt.legend(loc='best', frameon=False, framealpha=0.5, fontsize=8)
+    # plt.legend(loc='best', frameon=False, framealpha=0.5, fontsize=mpl.rcParams['font.size'])
     axes.tick_params(direction='out')
     if svg_title is not None:
-        fig.set_size_inches(2.11, 1.10)
-        fig.savefig(data_dir + svg_title + ' - Summary - Theta.svg', format='svg')
+        fig.set_size_inches(4.403, 3.631)
+        fig.savefig(data_dir + svg_title + ' - Summary - Theta.svg', format='svg', transparent=True)
     plt.show()
     plt.close()
+    mpl.rcParams['font.size'] = 8
     fig, axes = plt.subplots(1)
     for i, (condition, title) in enumerate(zip([key_list[0], key_list[2], key_list[1]], titles)):
         axes.plot(binned_t[condition], mean_binned_var[condition], color=colors[i], label=title)
     clean_axes(axes)
     axes.set_xlabel('Time (s)', fontsize=8)
     axes.set_ylabel('Variance (mV2)', fontsize=8)
-    axes.set_ylim(0., 8.)
+    axes.set_ylim(0., 7.)
     axes.set_xlim(0., 7500.)
     axes.set_xticks([0., 1500., 3000., 4500., 6000., 7500.])
     axes.set_xticklabels([0, 1.5, 3, 4.5, 6, 7.5])
-    plt.legend(loc='best', frameon=False, framealpha=0.5, fontsize=8)
+    plt.legend(loc='best', frameon=False, framealpha=0.5, fontsize=mpl.rcParams['font.size'])
     axes.tick_params(direction='out')
     if svg_title is not None:
-        fig.set_size_inches(2.11, 1.10)
-        fig.savefig(data_dir + svg_title + ' - Summary - Variance.svg', format='svg')
+        fig.set_size_inches(1.95, 1.16)
+        fig.savefig(data_dir + svg_title + ' - Summary - Variance.svg', format='svg', transparent=True)
     plt.show()
     plt.close()
     if svg_title is not None:
@@ -3178,46 +3180,61 @@ def plot_patterned_input_i_syn_summary(rec_filename_array, svg_title=None):
     :param rec_filename_array:
     :param svg_title: str
     """
+    if svg_title is not None:
+        remember_font_size = mpl.rcParams['font.size']
+        mpl.rcParams['font.size'] = 20
     i_syn_dict = {'i_AMPA': {}, 'i_NMDA': {}, 'i_GABA': {}, 'ratio': {}}
     for syn_type in rec_filename_array:
         for condition in ['modinh0', 'modinh1', 'modinh2']:
             rec_t, i_syn_mean_dict, i_syn_mean_low_pass_dict = \
                 process_i_syn_rec(rec_filename_array[syn_type][condition])
             i_syn_dict[syn_type][condition] = i_syn_mean_low_pass_dict[syn_type]
-    fig, axes = plt.subplots(1,3, sharey=True, sharex=True)
-    for i, condition in enumerate(['modinh0', 'modinh1', 'modinh2']):
-        axes[i].plot(rec_t, i_syn_dict['i_AMPA'][condition], c='k', label='i_AMPA', linewidth=2)
-        axes[i].plot(rec_t, i_syn_dict['i_NMDA'][condition], c='r', label='i_NMDA', linewidth=2)
-        axes[i].plot(rec_t, i_syn_dict['i_GABA'][condition], c='c', label='i_GABA_A', linewidth=2)
-    plt.xlim(0., rec_t[-1])
-    axes[0].set_ylabel('Current (nA)', fontsize=20)
-    axes[1].set_xlabel('Time (ms)', fontsize=20)
-    axes[0].set_title('Control', fontsize=20)
-    axes[1].set_title('Reduced Inhibition\nOut of Field', fontsize=20)
-    axes[2].set_title('Reduced Inhibition\nIn Field', fontsize=20)
-    axes[0].legend(loc='center left', bbox_to_anchor=(0.15, 0.6), frameon=False, framealpha=0.5, fontsize=20)
-    clean_axes(axes)
-    if svg_title is not None:
-        plt.savefig(data_dir+svg_title+' - synaptic currents.svg', format='svg')
-    plt.show()
-    plt.close()
+    colors = ['k', 'y', 'orange']
+    for group in ['i_AMPA', 'i_NMDA', 'i_GABA']:
+        fig, axes = plt.subplots(1)
+        for i, (condition, title) in enumerate(zip(['modinh0', 'modinh2', 'modinh1'], ['Control',
+                                            'Reduced inhibition - In field', 'Reduced inhibition - Out of field'])):
+            axes.plot(rec_t, i_syn_dict[group][condition], c=colors[i], label=title, linewidth=2)
+        clean_axes(axes)
+        axes.set_xlabel('Time (s)')
+        axes.set_ylabel('Current (nA)')
+        axes.set_xlim(0., 7500.)
+        axes.set_xticks([0., 1500., 3000., 4500., 6000., 7500.])
+        axes.set_xticklabels([0, 1.5, 3, 4.5, 6, 7.5])
+        axes.tick_params(direction='out')
+        axes.set_title(group, fontsize=mpl.rcParams['font.size'])
+        # plt.legend(loc='best', frameon=False, framealpha=0.5)
+        if group == 'i_GABA':
+            axes.set_ylim(0., 1.)
+        else:
+            axes.set_ylim(-1., 0.)
+        if svg_title is not None:
+            fig.set_size_inches(4.403, 3.631)
+            fig.savefig(data_dir+svg_title+' - '+group+'.svg', format='svg', transparent=True)
+        plt.show()
+        plt.close()
     for condition in ['modinh0', 'modinh1', 'modinh2']:
         i_syn_dict['ratio'][condition] = np.divide(np.abs(np.add(i_syn_dict['i_AMPA'][condition],
                                                                  i_syn_dict['i_NMDA'][condition])),
                                                    i_syn_dict['i_GABA'][condition])
-    fig, axes = plt.subplots(1,3, sharey=True, sharex=True)
-    for i, condition in enumerate(['modinh0', 'modinh1', 'modinh2']):
-        axes[i].plot(rec_t, i_syn_dict['ratio'][condition], c='b', label='E:I Ratio', linewidth=2)
-    plt.xlim(0., rec_t[-1])
-    axes[0].set_ylabel('E:I Ratio', fontsize=20)
-    axes[1].set_xlabel('Time (ms)', fontsize=20)
-    axes[0].set_title('Control', fontsize=20)
-    axes[1].set_title('Reduced Inhibition\nOut of Field', fontsize=20)
-    axes[2].set_title('Reduced Inhibition\nIn Field', fontsize=20)
-    axes[0].legend(loc='center left', bbox_to_anchor=(0.15, 0.6), frameon=False, framealpha=0.5, fontsize=20)
+    fig, axes = plt.subplots(1)
+    for i, (condition, title) in enumerate(zip(['modinh0', 'modinh2', 'modinh1'], ['Control',
+                                    'Reduced inhibition - In field', 'Reduced inhibition - Out of field'])):
+        axes.plot(rec_t, i_syn_dict['ratio'][condition], c=colors[i], label=title, linewidth=2)
     clean_axes(axes)
+    axes.set_xlabel('Time (s)')
+    axes.set_ylabel('E:I Ratio')
+    axes.set_xlim(0., 7500.)
+    axes.set_xticks([0., 1500., 3000., 4500., 6000., 7500.])
+    axes.set_xticklabels([0, 1.5, 3, 4.5, 6, 7.5])
+    axes.tick_params(direction='out')
+    # plt.legend(loc='best', frameon=False, framealpha=0.5)
     if svg_title is not None:
-        plt.savefig(data_dir+svg_title+' - E_I ratio.svg', format='svg')
+        fig.set_size_inches(4.403, 3.631)
+        fig.savefig(data_dir+svg_title+' - E_I ratio.svg', format='svg', transparent=True)
     plt.show()
     plt.close()
-
+    if svg_title is not None:
+        mpl.rcParams['font.size'] = remember_font_size
+    for group in i_syn_dict:
+        get_i_syn_mean_values(i_syn_dict[group], group)
