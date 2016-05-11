@@ -17,11 +17,11 @@ mech_filename = '043016 Type A - km2_NMDA_KIN5_Pr'
 if len(sys.argv) > 1:
     synapses_seed = int(sys.argv[1])
 else:
-    synapses_seed = 1
+    synapses_seed = 0
 if len(sys.argv) > 2:
     num_exc_syns = int(sys.argv[2])
 else:
-    num_exc_syns = 3000
+    num_exc_syns = 3200
 if len(sys.argv) > 3:
     num_inh_syns = int(sys.argv[3])
 else:
@@ -142,7 +142,7 @@ def run_trial(simiter):
             inhibitory_theta_force *= inhibitory_peak_rate[group]
             if mod_inh > 0 and group in inhibitory_manipulation_fraction and syn in manipulated_inh_syns[group]:
                 inhibitory_theta_force[mod_inh_start:mod_inh_stop] = 0.
-                inh_stim_forces[group].append(inhibitory_theta_force)
+            inh_stim_forces[group].append(inhibitory_theta_force)
             index += 1
 
 
@@ -321,23 +321,7 @@ for group in stim_exc_syns:
 
 for group in stim_exc_syns:
     for syn in stim_exc_syns[group]:
-        #peak_loc = local_random.uniform(-0.75 * input_field_duration, (0.75 + track_length) * input_field_duration)
-        #peak_locs.append(peak_loc)
-        if excitatory_stochastic:
-            success_vec = h.Vector()
-            stim_successes.append(success_vec)
-            syn.netcon('AMPA_KIN').record(success_vec)
-            rand_exc_seq_locs[group].append(syn.randObj.seq())
-        # if syn.node.parent.parent not in [rec['node'] for rec in sim.rec_list]:
-        #    sim.append_rec(cell, syn.node.parent.parent)
-        # sim.append_rec(cell, syn.node, object=syn.target('AMPA_KIN'), param='_ref_i', description='i_AMPA')
-        # sim.append_rec(cell, syn.node, object=syn.target(NMDA_type), param='_ref_i', description='i_NMDA')
-        # remove this synapse from the pool, so that additional "modulated" inputs
-        # can be selected from those that remain
         all_exc_syns[syn.node.parent.parent.type].remove(syn)
-
-# rand_inh_seq_locs = [] will need this when inhibitory synapses become stochastic
-# stim_inh_successes = [] will need this when inhibitory synapses become stochastic
 
 # modulate the weights of inputs with peak_locs along this stretch of the track
 modulated_field_center = track_duration * 0.6
@@ -347,21 +331,12 @@ tuning_amp = (peak_mod_weight - 1.) / 2.
 tuning_offset = tuning_amp + 1.
 
 for group in stim_exc_syns:
-    this_cos_mod_weight = tuning_amp * np.cos(2. * np.pi / (input_field_duration * 1.2) * (peak_locs[group] -
+    cos_mod_weight[group] = tuning_amp * np.cos(2. * np.pi / (input_field_duration * 1.2) * (peak_locs[group] -
                                                                         modulated_field_center)) + tuning_offset
-    left = np.where(peak_locs[group] >= modulated_field_center - input_field_duration * 1.2 / 2.)[0][0]
-    right = np.where(peak_locs[group] > modulated_field_center + input_field_duration * 1.2 / 2.)[0][0]
-    cos_mod_weight[group] = np.array(this_cos_mod_weight)
-    cos_mod_weight[group][:left] = 1.
-    cos_mod_weight[group][right:] = 1.
-    peak_locs[group] = list(peak_locs[group])
-    cos_mod_weight[group] = list(cos_mod_weight[group])
-    indexes = range(len(peak_locs[group]))
-    local_random.shuffle(indexes)
-    peak_locs[group] = map(peak_locs[group].__getitem__, indexes)
-    cos_mod_weight[group] = map(cos_mod_weight[group].__getitem__, indexes)
-    for i, syn in enumerate(stim_exc_syns[group]):
-        syn.netcon('AMPA_KIN').weight[0] = cos_mod_weight[group][i]
+    before = np.where(peak_locs[group] < modulated_field_center - input_field_duration * 1.2 / 2.)[0]
+    after = np.where(peak_locs[group] > modulated_field_center + input_field_duration * 1.2 / 2.)[0]
+    cos_mod_weight[group][before] = 1.
+    cos_mod_weight[group][after] = 1.
 
 manipulated_inh_syns = {}
 for group in inhibitory_manipulation_fraction:
@@ -373,7 +348,10 @@ inh_stim_forces = {}
 run_trial(trial_seed)
 filter_t = np.arange(0., 150., stim_dt)
 ampa_forces = {}
+ampa_forces_sum = {}
 gaba_forces = {}
+gaba_forces_sum = {}
+
 ampa_filter = np.exp(-filter_t/3.) - np.exp(-filter_t/.1)
 ampa_filter /= np.sum(ampa_filter)
 ampa_conversion_factor = 0.000002
@@ -392,3 +370,27 @@ for group in inh_stim_forces:
         this_force = stim_force * gaba_conversion_factor
         this_force = np.convolve(this_force, gaba_filter)[:len(stim_t)]
         gaba_forces[group].append(this_force)
+ampa_forces_sum['all'] = np.zeros_like(stim_t)
+for group in ampa_forces:
+    ampa_forces_sum[group] = np.sum(ampa_forces[group], axis=0)
+    ampa_forces_sum['all'] = np.add(ampa_forces_sum['all'], ampa_forces_sum[group])
+gaba_forces_sum['all'] = np.zeros_like(stim_t)
+for group in gaba_forces:
+    gaba_forces_sum[group] = np.sum(gaba_forces[group], axis=0)
+    gaba_forces_sum['all'] = np.add(gaba_forces_sum['all'], gaba_forces_sum[group])
+vm, spikes_removed, intra_theta, spike_times, spike_phases, intra_peaks, intra_phases = {}, {}, {}, {}, {}, {}, {}
+for parameter in vm, spikes_removed, intra_theta, spike_times, spike_phases, intra_peaks, intra_phases:
+    parameter['exc'] = {}
+    parameter['inh'] = {}
+group = 'exc'
+condition = 'CA3'
+rec_t, vm[group][condition], spikes_removed[group][condition], intra_theta[group][condition], \
+    spike_times[group][condition], spike_phases[group][condition], intra_peaks[group][condition], \
+    intra_phases[group][condition] = get_phase_precession_live(stim_t, ampa_forces_sum['CA3'],
+                                                               start_loc=0., end_loc=7500.)
+plt.plot(stim_t, ampa_forces_sum['CA3'])
+plt.show()
+plt.close()
+plt.plot(intra_peaks[group][condition], intra_phases[group][condition])
+plt.show()
+plt.close()

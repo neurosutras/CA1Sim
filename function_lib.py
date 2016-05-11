@@ -1754,7 +1754,7 @@ def get_i_syn_mean_values(parameter_array, parameter_title, key_list=None, peak_
     """
 
     :param parameter_array: dict of np.array
-    :param paramter_title: str: meant to be in ['i_AMPA', 'i_NMDA', 'i_GABA', 'E:I Ratio']
+    :param parameter_title: str: meant to be in ['i_AMPA', 'i_NMDA', 'i_GABA', 'E:I Ratio']
     :param key_list: list of str
     :param peak_bounds: list of float, time points corresponding to 10 "spatial bins" for averaging
     :param dt: float, temporal resolution
@@ -1838,12 +1838,18 @@ def process_i_syn_rec(rec_filename, description_list=['i_AMPA', 'i_NMDA', 'i_GAB
         down_t = np.arange(0., track_duration, down_dt)
         # 2000 ms Hamming window, ~3 Hz low-pass filter
         window_len = int(2000./down_dt)
-        ramp_filter = signal.firwin(window_len, 3., nyq=1000./2./down_dt)
+        pad_len = int(window_len / 2.)
+        ramp_filter = signal.firwin(window_len, 2., nyq=1000. / 2. / down_dt)
         group_low_pass_dict = {key: [] for key in group_dict}
         for key in group_dict:
             for group in group_dict[key]:
                 down_sampled = np.interp(down_t, rec_t, group)
-                filtered = signal.filtfilt(ramp_filter, [1.], down_sampled, padtype='even', padlen=window_len)
+                padded_trace = np.zeros(len(down_sampled) + window_len)
+                padded_trace[pad_len:-pad_len] = down_sampled
+                padded_trace[:pad_len] = down_sampled[::-1][-pad_len:]
+                padded_trace[-pad_len:] = down_sampled[::-1][:pad_len]
+                filtered = signal.filtfilt(ramp_filter, [1.], padded_trace, padlen=pad_len)
+                filtered = filtered[pad_len:-pad_len]
                 up_sampled = np.interp(rec_t, down_t, filtered)
                 group_low_pass_dict[key].append(up_sampled)
         group_mean_low_pass_dict = {}
@@ -2074,20 +2080,24 @@ def error_power_func(p, x, y):
     return np.sum((y - fit_power_func(p, x)) ** 2.)
 
 
-def plot_waveform_phase_vs_time(t, x, cycle_duration=150., time_offset=0., start_loc=1500., end_loc=3000.):
+def get_waveform_phase_vs_time(t, x=None, cycle_duration=150., time_offset=0., start_loc=1500., end_loc=3000.):
     """
-
-    :param :
+    Given either a spike train (t alone), or a timecourse and waveform, remove a phase offset and report the times and
+    phases of either spikes or peaks.
+    :param t: array
+    :param x: array
+    :param cycle_duration: float
+    :param time_offset: float
+    :param start_loc: float
+    :param end_loc: float
     """
-    phase_array = []
-    peak_array = []
-    peak_locs = signal.argrelmax(x)[0]
-    peak_times = t[peak_locs]
-    peak_array.append(peak_times)
+    if x is not None:
+        peak_locs = signal.argrelmax(x)[0]
+        peak_times = t[peak_locs]
+    else:
+        peak_times = t
     peak_times = np.subtract(peak_times, time_offset)
     peak_phases = np.mod(peak_times, cycle_duration)
     peak_phases /= cycle_duration
     peak_phases *= 360.
-    phase_array.append(peak_phases)
-    #plot_phase_precession(peak_array, phase_array, 'waveform', start_loc, end_loc)
     return peak_times, peak_phases

@@ -2873,7 +2873,7 @@ def plot_patterned_input_sim_summary(rec_t, mean_theta_envelope, binned_t,  mean
 
 
 def plot_phase_precession(t_array, phase_array, title, fit_start=3600., fit_end=5400., display_start=0.,
-                          display_end=7500., bin_size=60., num_bins=3, svg_title=None):
+                          display_end=7500., bin_size=60., num_bins=3, svg_title=None, plot=True, adjust=True):
     """
 
     :param t_array: list of np.array
@@ -2885,6 +2885,9 @@ def plot_phase_precession(t_array, phase_array, title, fit_start=3600., fit_end=
     :param display_end: float
     :param bin_size: float
     :param num_bins: int
+    :param svg_title: str
+    :param plot: bool
+    :param adjust: bool
     """
     if svg_title is not None:
         remember_font_size = mpl.rcParams['font.size']
@@ -2900,7 +2903,7 @@ def plot_phase_precession(t_array, phase_array, title, fit_start=3600., fit_end=
     all_spike_phases = []
     window_dur = float(num_bins) * bin_size
     start = display_start
-    while start < display_end:
+    while start + window_dur < display_end:
         index_array = [np.where((spike_times >= start) & (spike_times < start + window_dur))[0] for spike_times in
                                                                                                         t_array]
         spike_times = []
@@ -2927,10 +2930,11 @@ def plot_phase_precession(t_array, phase_array, title, fit_start=3600., fit_end=
     #fit_t = np.arange(np.min(all_spike_times[indexes]), np.max(all_spike_times[indexes]), 10.)
     #fit_t = np.arange(np.min(binned_times[indexes]), np.max(binned_times[indexes]+window_dur/2.), window_dur)
     fit_t = np.arange(fit_start, fit_end+bin_size, bin_size)
-    for i in range(1, len(binned_phases[:-1])):
-        if binned_phases[i] < 90.:
-            if np.abs(binned_phases[i] - binned_phases[i+1]) > 180.:
-                binned_phases[i] = binned_phases[i] + 360.
+    if adjust:
+        for i in range(1, len(binned_phases[:-1])):
+            if binned_phases[i] < 90.:
+                if np.abs(binned_phases[i] - binned_phases[i+1]) > 180.:
+                    binned_phases[i] = binned_phases[i] + 360.
     axes.plot(binned_times, binned_phases, c='k')  # , linewidth=2.)
     axes.plot(fit_t, m * fit_t + b, c='r')  # , linewidth=2.)
     #axes.set_ylim(0., 360.)
@@ -2938,7 +2942,8 @@ def plot_phase_precession(t_array, phase_array, title, fit_start=3600., fit_end=
     axes.set_yticks([0., 180., 360., 540., 720.])
     axes.set_xlim(display_start, display_end)
     axes.set_xticks([0., 1500., 3000., 4500., 6000., 7500.])
-    axes.set_xticklabels([0, 1.5, 3, 4.5, 6, 7.5])
+    if svg_title is not None:
+        axes.set_xticklabels([0, 1.5, 3, 4.5, 6, 7.5])
     axes.set_ylabel('Phase (Degrees)')  # , fontsize=20)
     axes.set_xlabel('Time (s)')  # , fontsize=20)
     axes.set_title('Phase Precession - '+title, fontsize=mpl.rcParams['font.size'])
@@ -2947,7 +2952,8 @@ def plot_phase_precession(t_array, phase_array, title, fit_start=3600., fit_end=
     if svg_title is not None:
         fig.set_size_inches(1.21, 2.)
         fig.savefig(data_dir+svg_title+' - Precession - '+title+'.svg', format='svg', transparent=True)
-    plt.show()
+    if plot:
+        plt.show()
     plt.close()
     print title, abs(m * (fit_end - fit_start))
     if svg_title is not None:
@@ -3184,11 +3190,11 @@ def plot_patterned_input_i_syn_summary(rec_filename_array, svg_title=None):
         remember_font_size = mpl.rcParams['font.size']
         mpl.rcParams['font.size'] = 20
     i_syn_dict = {'i_AMPA': {}, 'i_NMDA': {}, 'i_GABA': {}, 'ratio': {}}
-    for syn_type in rec_filename_array:
-        for condition in ['modinh0', 'modinh1', 'modinh2']:
-            rec_t, i_syn_mean_dict, i_syn_mean_low_pass_dict = \
-                process_i_syn_rec(rec_filename_array[syn_type][condition])
-            i_syn_dict[syn_type][condition] = i_syn_mean_low_pass_dict[syn_type]
+    for condition in ['modinh0', 'modinh1', 'modinh2']:
+        for rec_filename in rec_filename_array[condition]:
+            rec_t, i_syn_mean_dict, i_syn_mean_low_pass_dict = process_i_syn_rec(rec_filename)
+            for syn_type in i_syn_mean_low_pass_dict:
+                i_syn_dict[syn_type][condition] = i_syn_mean_low_pass_dict[syn_type]
     colors = ['k', 'y', 'orange']
     for group in ['i_AMPA', 'i_NMDA', 'i_GABA']:
         fig, axes = plt.subplots(1)
