@@ -1,7 +1,7 @@
 from plot_results import *
 import random
 
-svg_title = '050916 - compare density distributions'
+svg_title = '051116' #  - compare density distributions'
 #svg_title = None
 
 saved_parameters, ampa_forces, bin_centers, density, weights, intra_peaks, intra_phases = {}, {}, {}, {}, {}, {}, {}
@@ -190,7 +190,6 @@ with h5py.File(data_dir+'output050316 - cell107 - e3200-i500-type_A_0-inh0 - 10 
         if 1495. <= peak_loc <= 1505.:
             single_train = trial['train'][key][:]
             break
-    """
     for trial in f.itervalues():
         time_offset = trial.attrs['phase_offset']
         for condition in ['train', 'successes']:
@@ -217,7 +216,7 @@ if svg_title is not None:
     fig.savefig(data_dir+svg_title+' - CA3 Spike Failures.svg', format='svg', transparent=True)
 plt.show()
 plt.close()
-"""
+
 
 class Pr(object):
     """
@@ -263,6 +262,7 @@ class Pr(object):
             self.D0 *= self.d
         self.tlast = stim_time
 
+"""
 thisPr = Pr()
 for spike in single_train:
     thisPr.stim(spike)
@@ -284,6 +284,7 @@ if svg_title is not None:
     fig.savefig(data_dir+svg_title+' - CA3 Example Pr.svg', format='svg', transparent=True)
 plt.show()
 plt.close()
+"""
 
 if svg_title is not None:
     mpl.rcParams['font.size'] = remember_font_size

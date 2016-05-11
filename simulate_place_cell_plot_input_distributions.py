@@ -32,8 +32,8 @@ if len(sys.argv) > 4:
     mod_inh = int(sys.argv[4])
 else:
     mod_inh = 0
-# the synaptic AMPAR conductances at in-field inputs will be multiplied by a factor that follows an asymmetric kernel
-# with this value at the peak of the field
+# the synaptic AMPAR conductances at in-field inputs are multiplied by a factor with this value at the peak of the
+# field, and decays with cosine spatial modulation away from the field
 if len(sys.argv) > 5:
     mod_weights = float(sys.argv[5])
 else:

@@ -11,7 +11,7 @@ phases within each theta cycle that each input is active, which will reduce jitt
 """
 morph_filename = 'EB2-late-bifurcation.swc'
 #mech_filename = '020516 altered km2 rinp - ampa nmda_kin5'
-mech_filename = '043016 Type D - km_orig_NMDA_KIN2_Pr2'
+mech_filename = '043016 Type A - km2_NMDA_KIN5_Pr'
 
 
 if len(sys.argv) > 1:
@@ -47,7 +47,7 @@ else:
 
 rec_filename = 'output'+datetime.datetime.today().strftime('%m%d%Y%H%M')+'-pid'+str(os.getpid())+'-seed'+\
                str(synapses_seed)+'-e'+str(num_exc_syns)+'-i'+str(num_inh_syns)+'-mod_inh'+str(mod_inh)+\
-               '-no_nmda_D_'+str(mod_weights)+'_'+str(trial_seed)
+               '-r_inp_'+str(mod_weights)+'_'+str(trial_seed)
 
 
 def get_dynamic_theta_phase_force(phase_ranges, peak_loc, input_field_duration, stim_t, dt):
@@ -124,8 +124,7 @@ def run_trial(simiter):
             # up to 1000 input spikes per spine
             if excitatory_stochastic:
                 syn.randObj.seq(rand_exc_seq_locs[group][i]+int(simiter*1e3))
-            gauss_force = (excitatory_peak_rate[group] - excitatory_background_rate[group]) * \
-                          np.exp(-((stim_t - peak_locs[group][i]) / gauss_sigma)**2.)
+            gauss_force = excitatory_peak_rate[group] * np.exp(-((stim_t - peak_locs[group][i]) / gauss_sigma)**2.)
             if group in excitatory_precession_range:
                 phase_force = get_dynamic_theta_phase_force(excitatory_precession_range[group], peak_locs[group][i],
                                                             input_field_duration, stim_t, stim_dt)
@@ -141,8 +140,6 @@ def run_trial(simiter):
             theta_force *= excitatory_theta_modulation_depth[group]
             theta_force += 1. - excitatory_theta_modulation_depth[group]
             stim_force = np.multiply(gauss_force, theta_force)
-            # add nonspecific background noise
-            stim_force += excitatory_background_rate[group]
             train = get_inhom_poisson_spike_times(stim_force, stim_t, dt=stim_dt, generator=local_random)
             syn.source.play(h.Vector(np.add(train, equilibrate + track_equilibrate)))
             with h5py.File(data_dir+rec_filename+'-working.hdf5', 'a') as f:
@@ -151,26 +148,6 @@ def run_trial(simiter):
                 f[str(simiter)]['train'][str(index)].attrs['index'] = syn.node.index
                 f[str(simiter)]['train'][str(index)].attrs['type'] = syn.node.parent.parent.type
                 f[str(simiter)]['train'][str(index)].attrs['peak_loc'] = peak_locs[group][i]
-            index += 1
-    # add nonspecific background noise to all remaining synapses
-    for sec_type in all_exc_syns:
-        group = 'ECIII' if sec_type == 'tuft' else 'CA3'
-        start_index = len(stim_exc_syns[group])
-        for i, syn in enumerate(all_exc_syns[sec_type]):
-            # the stochastic sequence used for each synapse is unique for each trial,
-            # up to 1000 input spikes per spine
-            if excitatory_stochastic:
-                syn.randObj.seq(rand_exc_seq_locs[group][i+start_index] + int(simiter * 1e3))
-            stim_force = np.ones_like(stim_t) * excitatory_background_rate[group]
-            train = get_inhom_poisson_spike_times(stim_force, stim_t, dt=stim_dt, generator=local_random)
-            syn.source.play(h.Vector(np.add(train, equilibrate + track_equilibrate)))
-            with h5py.File(data_dir + rec_filename + '-working.hdf5', 'a') as f:
-                f[str(simiter)]['train'].create_dataset(str(index), compression='gzip', compression_opts=9, data=train)
-                f[str(simiter)]['train'][str(index)].attrs['group'] = group
-                f[str(simiter)]['train'][str(index)].attrs['index'] = syn.node.index
-                f[str(simiter)]['train'][str(index)].attrs['type'] = sec_type
-                # give these inputs a peak_loc far off the track
-                f[str(simiter)]['train'][str(index)].attrs['peak_loc'] = track_duration * 2.
             index += 1
     index = 0
     for group in stim_inh_syns:
@@ -199,10 +176,6 @@ def run_trial(simiter):
     sim.run(v_init)
     with h5py.File(data_dir+rec_filename+'-working.hdf5', 'a') as f:
         sim.export_to_file(f, simiter)
-        # save the spike output of the cell, removing the equilibration offset
-        f[str(simiter)].create_dataset('output', compression='gzip', compression_opts=9,
-                                       data=np.subtract(cell.spike_detector.get_recordvec().to_python(),
-                                                        equilibrate + track_equilibrate))
         if excitatory_stochastic:
             f[str(simiter)].create_group('successes')
             index = 0
@@ -212,15 +185,13 @@ def run_trial(simiter):
                                 data=np.subtract(syn.netcon('AMPA_KIN').get_recordvec().to_python(),
                                                  equilibrate + track_equilibrate))
                     index += 1
-            for sec_type in all_exc_syns:
-                for syn in all_exc_syns[sec_type]:
-                    f[str(simiter)]['successes'].create_dataset(str(index), compression='gzip', compression_opts=9,
-                                data=np.subtract(syn.netcon('AMPA_KIN').get_recordvec().to_python(),
-                                                equilibrate + track_equilibrate))
-                    index += 1
+        # save the spike output of the cell, removing the equilibration offset
+        f[str(simiter)].create_dataset('output', compression='gzip', compression_opts=9,
+                                    data=np.subtract(cell.spike_detector.get_recordvec().to_python(),
+                                                     equilibrate + track_equilibrate))
 
 
-NMDA_type = 'NMDA_KIN2'
+NMDA_type = 'NMDA_KIN5'
 
 equilibrate = 250.  # time to steady-state
 global_theta_cycle_duration = 150.  # (ms)
@@ -231,19 +202,18 @@ track_duration = track_length * input_field_duration
 track_equilibrate = 2. * global_theta_cycle_duration
 duration = equilibrate + track_equilibrate + track_duration  # input_field_duration
 excitatory_peak_rate = {'CA3': 40., 'ECIII': 40.}
-excitatory_background_rate = {'CA3': 0.1, 'ECIII': 0.1}
 excitatory_theta_modulation_depth = {'CA3': 0.7, 'ECIII': 0.7}
 # From Chadwick et al., ELife 2015
 excitatory_theta_phase_tuning_factor = {'CA3': 0.8, 'ECIII': 0.8}
-excitatory_precession_range = {}  # (ms, degrees)
+excitatory_precession_range = {}
 excitatory_precession_range['CA3'] = [(-input_field_duration*0.5, 180.), (-input_field_duration*0.35, 180.),
-                                      (input_field_duration*0.35, -180.), (input_field_duration*0.5, -180.)]
-excitatory_theta_phase_offset = {}  # radians
-excitatory_theta_phase_offset['CA3'] = 165. / 360. * 2. * np.pi
-excitatory_theta_phase_offset['ECIII'] = 0. / 360. * 2. * np.pi
+                                      (input_field_duration*0.35, -180.), (input_field_duration*0.5, -180.)]  # (ms, degrees)
+excitatory_theta_phase_offset = {}
+excitatory_theta_phase_offset['CA3'] = 165. / 360. * 2. * np.pi  # radians
+excitatory_theta_phase_offset['ECIII'] = 0. / 360. * 2. * np.pi  # radians
 excitatory_stochastic = 1
-inhibitory_manipulation_fraction = {'perisomatic': 0.35, 'axo-axonic': 0.35, 'apical dendritic': 0.35,
-                                    'distal apical dendritic': 0.35, 'tuft feedback': 0.35}
+inhibitory_manipulation_fraction = {'perisomatic': 0.325, 'axo-axonic': 0.325, 'apical dendritic': 0.325,
+                                    'distal apical dendritic': 0.325, 'tuft feedback': 0.325}
 inhibitory_manipulation_duration = 0.6  # Ratio of input_field_duration
 inhibitory_peak_rate = {'perisomatic': 40., 'axo-axonic': 40., 'apical dendritic': 40., 'distal apical dendritic': 40.,
                         'tuft feedforward': 40., 'tuft feedback': 40.}
@@ -264,7 +234,7 @@ stim_dt = 0.02
 dt = 0.02
 v_init = -67.
 
-syn_types = ['AMPA_KIN']  # , NMDA_type]
+syn_types = ['AMPA_KIN', NMDA_type]
 
 local_random = random.Random()
 
@@ -298,13 +268,13 @@ peak_locs = {'CA3': [], 'ECIII': []}
 if 'trunk' not in all_exc_syns:
     for node in cell.trunk:
         for spine in node.spines:
-            syn = Synapse(cell, spine, syn_types, stochastic=excitatory_stochastic, stochastic_type='Pr2')
+            syn = Synapse(cell, spine, syn_types, stochastic=excitatory_stochastic)
 
 # place synapses in every spine
 for sec_type in all_exc_syns:
     for node in cell.get_nodes_of_subtype(sec_type):
         for spine in node.spines:
-            syn = Synapse(cell, spine, syn_types, stochastic=excitatory_stochastic, stochastic_type='Pr2')
+            syn = Synapse(cell, spine, syn_types, stochastic=excitatory_stochastic)
             all_exc_syns[sec_type].append(syn)
 cell.init_synaptic_mechanisms()
 
@@ -384,6 +354,35 @@ for sec_type in all_inh_syns:
 
 stim_t = np.arange(-track_equilibrate, track_duration, dt)
 
+# input resistance probe, oscillating hyperpolarizing somatic current injection
+
+r_inp_probe_amp = -0.1  # nA
+r_inp_probe_duration = 40.  # ms
+r_inp_stim = []
+r_inp_stim_t = []
+r_inp_stim.append(0.)
+r_inp_stim_t.append(0.)
+r_inp_probe_start = equilibrate + track_equilibrate
+while r_inp_probe_start + r_inp_probe_duration + dt < duration:
+    r_inp_stim.append(0.)
+    r_inp_stim_t.append(r_inp_probe_start)
+    r_inp_stim.append(r_inp_probe_amp)
+    r_inp_stim_t.append(r_inp_probe_start + dt)
+    r_inp_stim.append(r_inp_probe_amp)
+    r_inp_stim_t.append(r_inp_probe_start + r_inp_probe_duration)
+    r_inp_stim.append(0.)
+    r_inp_stim_t.append(r_inp_probe_start + r_inp_probe_duration + dt)
+    r_inp_probe_start += 2 * r_inp_probe_duration
+r_inp_stim.append(0.)
+r_inp_stim_t.append(duration)
+r_inp_stim_t_vec = h.Vector(r_inp_stim_t)
+r_inp_stim_vector = h.Vector(r_inp_stim)
+sim.append_stim(cell, cell.tree.root, 0., 0., 0., duration)
+sim.parameters['r_inp_probe_duration'] = r_inp_probe_duration
+sim.parameters['r_inp_probe_amp'] = r_inp_probe_amp
+r_inp_stim_vector.play(sim.stim_list[0]['stim']._ref_amp, r_inp_stim_t_vec, 1)  # makes continuous vector out of list of
+                                                                                # discrete times
+
 gauss_sigma = global_theta_cycle_duration * input_field_width / 3. / np.sqrt(2.)  # contains 99.7% gaussian area
 
 rand_exc_seq_locs = {}
@@ -410,15 +409,6 @@ for group in stim_exc_syns:
         # remove this synapse from the pool, so that additional "modulated" inputs
         # can be selected from those that remain
         all_exc_syns[syn.node.parent.parent.type].remove(syn)
-
-for sec_type in all_exc_syns:
-    group = 'ECIII' if sec_type == 'tuft' else 'CA3'
-    for syn in all_exc_syns[sec_type]:
-        if excitatory_stochastic:
-            success_vec = h.Vector()
-            stim_successes.append(success_vec)
-            syn.netcon('AMPA_KIN').record(success_vec)
-            rand_exc_seq_locs[group].append(syn.randObj.seq())
 
 # rand_inh_seq_locs = [] will need this when inhibitory synapses become stochastic
 # stim_inh_successes = [] will need this when inhibitory synapses become stochastic

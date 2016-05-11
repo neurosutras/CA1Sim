@@ -2096,8 +2096,7 @@ def get_waveform_phase_vs_time(t, x=None, cycle_duration=150., time_offset=0., s
         peak_times = t[peak_locs]
     else:
         peak_times = t
-    peak_times = np.subtract(peak_times, time_offset)
-    peak_phases = np.mod(peak_times, cycle_duration)
+    peak_phases = np.mod(np.subtract(peak_times, time_offset), cycle_duration)
     peak_phases /= cycle_duration
     peak_phases *= 360.
     return peak_times, peak_phases
