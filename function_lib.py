@@ -562,22 +562,22 @@ def get_Rinp(tvec, vec, start, stop, amp):
     """
     Calculate peak and steady-state input resistance from a step current injection. For waveform current injections, the
     peak but not the steady-state will have meaning.
-    :param tvec:
-    :param vec:
-    :param start:
-    :param stop:
-    :param amp:
+    :param tvec: array
+    :param vec: array
+    :param start: float
+    :param stop: float
+    :param amp: float
     :return: tuple of float
     """
 
     interp_t = np.arange(0., stop, 0.01)
     interp_vm = np.interp(interp_t, tvec, vec)
     left, right = time2index(interp_t, start-3., start-1.)
-    baseline = np.average(interp_vm[left:right])
+    baseline = np.mean(interp_vm[left:right])
     temp_vec = np.abs(interp_vm - baseline)
     peak = np.max(temp_vec[right:])
     left, right = time2index(interp_t, stop-3., stop-1.)
-    plateau = np.average(temp_vec[left:right])
+    plateau = np.mean(temp_vec[left:right])
     return baseline, peak/abs(amp), plateau/abs(amp)
 
 

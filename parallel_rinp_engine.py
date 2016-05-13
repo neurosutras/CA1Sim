@@ -37,6 +37,7 @@ amp = -0.15
 v_init = -67.
 
 cell = CA1_Pyr(morph_filename, mech_filename, full_spines=True)
+cell.zero_na()
 
 nodes = cell.soma+cell.basal+cell.trunk+cell.apical+cell.tuft
 
