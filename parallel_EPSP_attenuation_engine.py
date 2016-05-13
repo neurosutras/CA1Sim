@@ -6,19 +6,11 @@ import os
 Builds a cell locally so each engine is ready to receive jobs one at a time, specified by an index corresponding to
 which synapse to stimulate (coarse sampling of the full set of spines).
 """
-#morph_filename = 'EB1-early-bifurcation.swc'
-morph_filename = 'EB2-late-bifurcation.swc'
 
-# exponential ampar conductance gradient applied to trunk; inheritance applied to apical and tuft; constant basal
-#mech_filename = '043015 pas_exp_scale kdr ka_scale ih_sig_scale ampar_exp_scale - EB2'
-#mech_filename = '071715 rebalanced na_kap_kdr_pas_h - EB2 - spines'
-#mech_filename = '080615 rebalanced na_ka ampa nmda - EB2'
-#mech_filename = '102915 interim dendritic excitability'
-#mech_filename = '103015 interim dendritic excitability ampa'
-mech_filename = '103115 interim dendritic excitability ampa nmda_kin3'
+morph_filename = 'EB2-late-bifurcation.swc'
+mech_filename = '043016 Type A - km2_NMDA_KIN5_Pr'
 
 rec_filename = 'output'+datetime.datetime.today().strftime('%m%d%Y%H%M')+'-pid'+str(os.getpid())
-
 
 
 def offset_vm(node, loc, index):
@@ -86,10 +78,9 @@ def stimulate_single_synapse(syn_index):
 equilibrate = 250.  # time to steady-state
 duration = 450.
 v_init = -67.
-#syn_type = 'AMPA_KIN'
-NMDA_type = 'NMDA_KIN3'  # 'NMDA_Mg'
-syn_types = ['AMPA_KIN', NMDA_type]
-#syn_types = ['AMPA_KIN']
+NMDA_type = 'NMDA_KIN5'
+#syn_types = ['AMPA_KIN', NMDA_type]
+syn_types = ['AMPA_KIN']
 local_random = random.Random()
 i_holding = 0.
 
@@ -97,7 +88,7 @@ syn_list = []
 cell = CA1_Pyr(morph_filename, mech_filename, full_spines=True)
 
 cell.zero_na()
-cell.zero_h()
+#cell.zero_h()
 
 local_random.seed(0)
 for branch in cell.basal+cell.trunk+cell.apical+cell.tuft:
@@ -124,7 +115,7 @@ cell.init_synaptic_mechanisms()
 sim = QuickSim(duration)  # , verbose=False)
 sim.parameters['equilibrate'] = equilibrate
 sim.parameters['duration'] = duration
-sim.append_rec(cell, cell.tree.root, description='soma')
+sim.append_rec(cell, cell.tree.root, loc=0., description='soma')
 
 # look for a trunk bifurcation
 trunk_bifurcation = [trunk for trunk in cell.trunk if cell.is_bifurcation(trunk, 'trunk')]

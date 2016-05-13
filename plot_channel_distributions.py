@@ -188,6 +188,8 @@ plot_sum_mech_param_distribution(cell, [('kap', 'gkabar'), ('kad', 'gkabar')],
                                  param_label='A-type K conductance gradient', svg_title='051316 - cell107')
 plot_synaptic_param_distribution(cell, 'AMPA_KIN', 'gmax', scale_factor=1000.*AMPAR_Po, yunits='nS',
                                  param_label='Synaptic AMPAR gradient', svg_title='051316 - cell107')
+"""
 plot_rinp_figure('043016 Type A - km2_NMDA_KIN5_Pr - Rinp', '051316 - cell107')
 """
-plot_bAP_attenuation_figure('output051320161344-pid22913_bAP', '051316 - cell107')
+plot_bAP_attenuation_figure('output051320161518-pid24213_bAP', '051316 - cell107')
+"""

@@ -12,8 +12,9 @@ Assumes a controller is already running in another process with:
 ipcluster start -n num_cores
 """
 filename_suffix = ' - epsp attenuation'
-condition = ' nmda no_ih'
-new_rec_filename = parallel_EPSP_attenuation_engine.mech_filename+condition+filename_suffix
+#condition = ' nmda no_ih'
+#new_rec_filename = parallel_EPSP_attenuation_engine.mech_filename+condition+filename_suffix
+new_rec_filename = parallel_EPSP_attenuation_engine.mech_filename+filename_suffix
 
 num_syns = len(parallel_EPSP_attenuation_engine.syn_list)
 
@@ -39,9 +40,9 @@ while not result.ready():
             print lines[-2]
     sys.stdout.flush()
 print 'Parallel execution took: %.3f s' % (time.time()-start_time)
-rec_file_list = dv['rec_filename']
+rec_file_list = [filename for filename in dv['rec_filename'] if os.path.isfile(data_dir+filename+'.hdf5')]
 combine_output_files(rec_file_list, new_rec_filename)
 for filename in rec_file_list:
     os.remove(data_dir+filename+'.hdf5')
 #plot_EPSP_attenuation(new_rec_filename)
-plot_EPSP_kinetics(new_rec_filename)
+#plot_EPSP_kinetics(new_rec_filename)
