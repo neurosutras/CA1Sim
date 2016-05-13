@@ -7,12 +7,8 @@ Builds a cell locally so each engine is ready to receive jobs one at a time, spe
 which synapse to stimulate (coarse sampling of the full set of spines).
 """
 
-#morph_filename = 'EB1-early-bifurcation.swc'
 morph_filename = 'EB2-late-bifurcation.swc'
-
-#mech_filename = '042015 soma_pas spines - EB2'
-#mech_filename = '042015 soma_pas kdr ka_scale - adjusted - EB2'
-mech_filename = '042015 pas_ka_scale kdr - EB2'
+mech_filename = '043016 Type A - km2_NMDA_KIN5_Pr'
 
 rec_filename = 'output'+datetime.datetime.today().strftime('%m%d%Y%H%M')+'-pid'+str(os.getpid())
 
@@ -50,15 +46,16 @@ def calculate_single_attenuation_ratio(syn_index):
     return rec_filename
 
 
-equilibrate = 200.  # time to steady-state
+equilibrate = 250.  # time to steady-state
 duration = 250.
-v_init = -77.
+v_init = -67.
 amp = 0.03
 syn_type = 'EPSC'  # 'AMPA_KIN'
 
 spine_syn_list = []
 branch_syn_list = []
 cell = CA1_Pyr(morph_filename, mech_filename, full_spines=True)
+cell.zero_na()
 
 random.seed(0)
 for branch in cell.basal+cell.trunk+cell.apical+cell.tuft:
