@@ -1231,7 +1231,7 @@ def plot_synaptic_parameter(rec_file_list, description_list=None):
                     axes[j][i].scatter(f[sec_type]['distances'][:], f[sec_type][dataset][:],
                                        label=description_list[index], color=colors[index])
                     axes[j][i].set_title(sec_type+' spines')
-                    axes[j][i].set_xlabel('Distance from Soma (um)')
+                    axes[j][i].set_xlabel('Distance to soma (um)')
                     axes[j][i].set_ylabel(f.attrs['syn_type']+': '+dataset+'\n'+f.attrs[dataset])
     plt.legend(loc='best', scatterpoints=1, frameon=False, framealpha=0.5)
     plt.subplots_adjust(hspace=0.4, wspace=0.3, left=0.05, right=0.98, top=0.95, bottom=0.05)
@@ -1240,7 +1240,7 @@ def plot_synaptic_parameter(rec_file_list, description_list=None):
 
 
 def plot_synaptic_param_distribution(cell, syn_type, param_name, scale_factor=1., param_label=None,
-                                 ylabel='Peak Conductance', yunits='uS', svg_title=None):
+                                 ylabel='Peak conductance', yunits='uS', svg_title=None):
     """
     Takes a cell as input rather than a file. No simulation is required, this method just takes a fully specified cell
     and plots the relationship between distance and the specified synaptic parameter for all spines. Used while
@@ -1249,6 +1249,7 @@ def plot_synaptic_param_distribution(cell, syn_type, param_name, scale_factor=1.
     :param syn_type: str
     :param param_name: str
     :param scale_factor: float
+    :param param_label: str
     :param ylabel: str
     :param yunits: str
     :param svg_title: str
@@ -1256,7 +1257,11 @@ def plot_synaptic_param_distribution(cell, syn_type, param_name, scale_factor=1.
     colors = ['k', 'r', 'c', 'y', 'm', 'g', 'b']
     dend_types = ['basal', 'trunk', 'apical', 'tuft']
 
+    if svg_title is not None:
+        remember_font_size = mpl.rcParams['font.size']
+        mpl.rcParams['font.size'] = 20
     fig, axes = plt.subplots(1)
+    maxval, minval = None, None
     for i, sec_type in enumerate(dend_types):
         syn_list = []
         distances = []
@@ -1269,27 +1274,42 @@ def plot_synaptic_param_distribution(cell, syn_type, param_name, scale_factor=1.
             if sec_type == 'basal':
                     distances[-1] *= -1
             param_vals.append(getattr(syn.target(syn_type), param_name) * scale_factor)
-        axes.scatter(distances, param_vals, color=colors[i], label=sec_type)
-    axes.set_xlabel('Distance to Soma (um)', fontsize=20)
-    axes.set_ylabel(ylabel+' ('+yunits+')', fontsize=20)
-    plt.legend(loc='best', scatterpoints=1, frameon=False, framealpha=0.5, fontsize=20)
+        if param_vals:
+            axes.scatter(distances, param_vals, color=colors[i], label=sec_type)
+            if maxval is None:
+                maxval = max(param_vals)
+            else:
+                maxval = max(maxval, max(param_vals))
+            if minval is None:
+                minval = min(param_vals)
+            else:
+                minval = min(minval, min(param_vals))
+    axes.set_ylabel(ylabel + ' (' + yunits + ')')
+    if (maxval is not None) and (minval is not None):
+        buffer = 0.1 * (maxval - minval)
+        axes.set_ylim(minval - buffer, maxval + buffer)
+    axes.set_xlabel('Distance to Soma (um)')
+    axes.set_xlim(-200., 525.)
+    axes.set_xticks([-150., 0., 150., 300., 450.])
+    plt.legend(loc='best', scatterpoints=1, frameon=False, framealpha=0.5, fontsize=mpl.rcParams['font.size'])
     if param_label is not None:
-        plt.title(param_label, fontsize=20)
+        plt.title(param_label, fontsize=mpl.rcParams['font.size'])
     clean_axes(axes)
     if not svg_title is None:
         if param_label is not None:
             svg_title = svg_title+' - '+param_label+'.svg'
         else:
             svg_title = svg_title+' - '+syn_type+'_'+param_name+' distribution.svg'
-        plt.savefig(data_dir+svg_title, format='svg')
-    else:
-        plt.show()
+        fig.set_size_inches(5.27, 4.37)
+        fig.savefig(data_dir+svg_title, format='svg', transparent=True)
+    plt.show()
     plt.close()
-    # print '# spines: ', len(cell.get_nodes_of_subtype('spine_head'))
+    if svg_title is not None:
+        mpl.rcParams['font.size'] = remember_font_size
 
 
-def plot_mech_param_distribution(cell, mech_name, param_name, scale_factor=1., param_label=None,
-                                 ylabel='Conductance Density', yunits='S/cm2', svg_title=None):
+def plot_mech_param_distribution(cell, mech_name, param_name, scale_factor=10000., param_label=None,
+                                 ylabel='Conductance density', yunits='pS/um2', svg_title=None):
     """
     Takes a cell as input rather than a file. No simulation is required, this method just takes a fully specified cell
     and plots the relationship between distance and the specified mechanism parameter for all dendritic segments. Used
@@ -1305,6 +1325,9 @@ def plot_mech_param_distribution(cell, mech_name, param_name, scale_factor=1., p
     colors = ['k', 'r', 'c', 'y', 'm', 'g', 'b']
     dend_types = ['basal', 'trunk', 'apical', 'tuft']
 
+    if svg_title is not None:
+        remember_font_size = mpl.rcParams['font.size']
+        mpl.rcParams['font.size'] = 20
     fig, axes = plt.subplots(1)
     maxval, minval = None, None
     for i, sec_type in enumerate(dend_types):
@@ -1326,28 +1349,32 @@ def plot_mech_param_distribution(cell, mech_name, param_name, scale_factor=1., p
                 minval = min(param_vals)
             else:
                 minval = min(minval, min(param_vals))
-    axes.set_xlabel('Distance to Soma (um)', fontsize=20)
-    axes.set_ylabel(ylabel+' ('+yunits+')', fontsize=20)
+    axes.set_xlabel('Distance to soma (um)')
+    axes.set_xlim(-200., 525.)
+    axes.set_xticks([-150., 0., 150., 300., 450.])
+    axes.set_ylabel(ylabel+' ('+yunits+')')
     if (maxval is not None) and (minval is not None):
         buffer = 0.1 * (maxval - minval)
         axes.set_ylim(minval-buffer, maxval+buffer)
     if param_label is not None:
-        plt.title(param_label, fontsize=20)
-    plt.legend(loc='best', scatterpoints=1, frameon=False, framealpha=0.5, fontsize=20)
+        plt.title(param_label, fontsize=mpl.rcParams['font.size'])
+    plt.legend(loc='best', scatterpoints=1, frameon=False, framealpha=0.5, fontsize=mpl.rcParams['font.size'])
     clean_axes(axes)
     if not svg_title is None:
         if param_label is not None:
             svg_title = svg_title+' - '+param_label+'.svg'
         else:
             svg_title = svg_title+' - '+mech_name+'_'+param_name+' distribution.svg'
-        plt.savefig(data_dir+svg_title, format='svg')
-    else:
-        plt.show()
+        fig.set_size_inches(5.27, 4.37)
+        fig.savefig(data_dir + svg_title, format='svg', transparent=True)
+    plt.show()
     plt.close()
+    if svg_title is not None:
+        mpl.rcParams['font.size'] = remember_font_size
 
 
-def plot_sum_mech_param_distribution(cell, mech_param_list, scale_factor=1., param_label=None,
-                                 ylabel='Conductance Density', yunits='S/cm2', svg_title=None):
+def plot_sum_mech_param_distribution(cell, mech_param_list, scale_factor=10000., param_label=None,
+                                 ylabel='Conductance density', yunits='pS/um2', svg_title=None):
     """
     Takes a cell as input rather than a file. No simulation is required, this method just takes a fully specified cell
     and plots the relationship between distance and the specified mechanism parameter for all dendritic segments. Used
@@ -1362,6 +1389,9 @@ def plot_sum_mech_param_distribution(cell, mech_param_list, scale_factor=1., par
     colors = ['k', 'r', 'c', 'y', 'm', 'g', 'b']
     dend_types = ['basal', 'trunk', 'apical', 'tuft']
 
+    if svg_title is not None:
+        remember_font_size = mpl.rcParams['font.size']
+        mpl.rcParams['font.size'] = 20
     fig, axes = plt.subplots(1)
     maxval, minval = None, None
     for i, sec_type in enumerate(dend_types):
@@ -1390,13 +1420,15 @@ def plot_sum_mech_param_distribution(cell, mech_param_list, scale_factor=1., par
             minval = min(param_vals)
         else:
             minval = min(minval, min(param_vals))
-    axes.set_xlabel('Distance to Soma (um)', fontsize=20)
-    axes.set_ylabel(ylabel+' ('+yunits+')', fontsize=20)
+    axes.set_xlabel('Distance to soma (um)')
+    axes.set_xlim(-200., 525.)
+    axes.set_xticks([-150., 0., 150., 300., 450.])
+    axes.set_ylabel(ylabel+' ('+yunits+')')
     buffer = 0.1 * (maxval - minval)
     axes.set_ylim(minval-buffer, maxval+buffer)
     if param_label is not None:
-        plt.title(param_label, fontsize=20)
-    plt.legend(loc='best', scatterpoints=1, frameon=False, framealpha=0.5, fontsize=20)
+        plt.title(param_label, fontsize=mpl.rcParams['font.size'])
+    plt.legend(loc='best', scatterpoints=1, frameon=False, framealpha=0.5, fontsize=mpl.rcParams['font.size'])
     clean_axes(axes)
     if not svg_title is None:
         if param_label is not None:
@@ -1404,10 +1436,12 @@ def plot_sum_mech_param_distribution(cell, mech_param_list, scale_factor=1., par
         else:
             mech_name, param_name = mech_param_list[0]
             svg_title = svg_title+' - '+mech_name+'_'+param_name+' distribution.svg'
-        plt.savefig(data_dir+svg_title, format='svg')
-    else:
-        plt.show()
+        fig.set_size_inches(5.27, 4.37)
+        fig.savefig(data_dir + svg_title, format='svg', transparent=True)
+    plt.show()
     plt.close()
+    if svg_title is not None:
+        mpl.rcParams['font.size'] = remember_font_size
 
 
 def plot_expected_vs_actual_from_raw(expected_filename, actual_file_list, description_list="", location_list=None,
@@ -3109,16 +3143,25 @@ def get_spike_delay_vs_distance_simple_axon_model(rec_filename):
     return distances, delays
 
 
-def plot_patterned_input_binned_rinp(t_dict, phase_dict, r_inp_dict, key_list=['modinh0', 'modinh1', 'modinh2'],
-                                     t_bounds=[0., 1800., 3600., 5400., 6750.], del_t=180., del_phase=15.):
+def plot_patterned_input_binned_rinp(t_dict, phase_dict, r_inp_dict, key_list=None,
+                                     t_bounds=[0., 1800., 3600., 5400., 7500.], del_t=300., del_phase=15.,
+                                     svg_title=None):
     """
 
     :param t_dict: :class:'np.array', results from appending hypo_ and depo_array outputs of get_patterned_input_r_inp()
     :param phase_dict: :class:'np.array'
     :param r_inp_dict: :class:'np.array'
-    :param control_key: list of str
+    :param key_list: list of str
     :param t_bounds: list of float, time points defining start and end of track and inhibitory manipulation
+    :param del_t: float
+    :param del_phase: float
+    :param svg_title: str
     """
+    if svg_title is not None:
+        remember_font_size = mpl.rcParams['font.size']
+        mpl.rcParams['font.size'] = 8
+    if key_list is None:
+        key_list = ['modinh0', 'modinh1', 'modinh2']
     key_list.extend([key_list[0]+'_out', key_list[0]+'_in'])
     filtered_t_dict, filtered_phase_dict, filtered_r_inp_dict, indexes = {}, {}, {}, {}
     condition = key_list[0]
@@ -3145,14 +3188,14 @@ def plot_patterned_input_binned_rinp(t_dict, phase_dict, r_inp_dict, key_list=['
     binned_t, binned_phase, r_inp_by_t, r_inp_by_phase = {}, {}, {}, {}
     for condition in key_list[:3]:
         binned_t[condition], r_inp_by_t[condition] = [], []
-        for t in np.arange(t_bounds[0], t_bounds[4], del_t):
+        for t in np.arange(t_bounds[0], t_bounds[4]+del_t, del_t):
             indexes = np.where((filtered_t_dict[condition] > t) & (filtered_t_dict[condition] <= t + del_t))[0]
             if np.any(indexes):
                 binned_t[condition].append(np.mean(filtered_t_dict[condition][indexes]))
                 r_inp_by_t[condition].append(np.mean(filtered_r_inp_dict[condition][indexes]))
     for condition in key_list[1:]:
         binned_phase[condition], r_inp_by_phase[condition] = [], []
-        for phase in np.arange(0., 360., del_phase):
+        for phase in np.arange(0., 360.+del_phase, del_phase):
             indexes = np.where((filtered_phase_dict[condition] > phase) &
                                (filtered_phase_dict[condition] <= phase + 30.))[0]
             if np.any(indexes):
@@ -3160,22 +3203,37 @@ def plot_patterned_input_binned_rinp(t_dict, phase_dict, r_inp_dict, key_list=['
                 r_inp_by_phase[condition].append(np.mean(filtered_r_inp_dict[condition][indexes]))
     fig, axes = plt.subplots(1, 2)
     axes[0].plot(binned_t[key_list[0]], r_inp_by_t[key_list[0]], c='k', label='Control')
-    axes[0].plot(binned_t[key_list[1]], r_inp_by_t[key_list[1]], c='r', label='Red. Inh. Out of Field')
-    axes[0].plot(binned_t[key_list[2]], r_inp_by_t[key_list[2]], c='b', label='Red. Inh. In Field')
+    axes[0].plot(binned_t[key_list[1]], r_inp_by_t[key_list[1]], c='orange', label='Reduced inhibition - Out of field')
+    axes[0].plot(binned_t[key_list[2]], r_inp_by_t[key_list[2]], c='y', label='Reduced inhibition - In field')
     axes[0].set_xlabel('Time (ms)')
+    axes[0].set_xlim(0., 7500.)
+    axes[0].set_xticks([0., 1500., 3000., 4500., 6000., 7500.])
+    axes[0].set_xticklabels([0, 1.5, 3, 4.5, 6, 7.5])
     axes[0].set_ylabel('Input Resistance (MOhm)')
-    axes[0].legend(loc='best', frameon=False, framealpha=0.5)
-    axes[1].plot(binned_phase[key_list[3]], r_inp_by_phase[key_list[3]], c='k', label='Control Out of Field')
-    axes[1].plot(binned_phase[key_list[4]], r_inp_by_phase[key_list[4]], c='y', label='Control In Field')
-    axes[1].plot(binned_phase[key_list[1]], r_inp_by_phase[key_list[1]], c='r', label='Red. Inh. Out of Field')
-    axes[1].plot(binned_phase[key_list[2]], r_inp_by_phase[key_list[2]], c='b', label='Red. Inh. In Field')
-    axes[1].set_xlabel('Phase ($^\circ$)')
+    #axes[0].legend(loc='best', frameon=False, framealpha=0.5)
+    axes[1].plot(binned_phase[key_list[3]], r_inp_by_phase[key_list[3]], c='k', label='Control - Out of field')
+    axes[1].plot(binned_phase[key_list[4]], r_inp_by_phase[key_list[4]], c='grey', label='Control - In field')
+    axes[1].plot(binned_phase[key_list[1]], r_inp_by_phase[key_list[1]], c='orange',
+                 label='Reduced inhibition - Out of field')
+    axes[1].plot(binned_phase[key_list[2]], r_inp_by_phase[key_list[2]], c='y', label='Reduced inhibition - In field')
+    axes[1].set_xlabel('Theta phase (o)')
+    axes[1].set_xlim(0., 360.)
+    axes[1].set_xticks([0., 90., 180., 270., 360.])
     axes[1].set_ylabel('Input Resistance (MOhm)')
     axes[1].legend(loc='best', frameon=False, framealpha=0.5)
+    clean_axes(axes)
+    axes[0].tick_params(direction='out')
+    axes[1].tick_params(direction='out')
+    fig.tight_layout()
     for condition in key_list:
         print condition, np.mean(filtered_r_inp_dict[condition])
+    if svg_title is not None:
+        fig.set_size_inches(4., 1.5)
+        fig.savefig(data_dir+svg_title+' - r_inp.svg', format='svg', transparent=True)
     plt.show()
     plt.close()
+    if svg_title is not None:
+        mpl.rcParams['font.size'] = remember_font_size
 
 
 def plot_patterned_input_i_syn_summary(rec_filename_array, svg_title=None):
@@ -3200,7 +3258,7 @@ def plot_patterned_input_i_syn_summary(rec_filename_array, svg_title=None):
         fig, axes = plt.subplots(1)
         for i, (condition, title) in enumerate(zip(['modinh0', 'modinh2', 'modinh1'], ['Control',
                                             'Reduced inhibition - In field', 'Reduced inhibition - Out of field'])):
-            axes.plot(rec_t, i_syn_dict[group][condition], c=colors[i], label=title, linewidth=2)
+            axes.plot(rec_t, i_syn_dict[group][condition], c=colors[i], label=title, linewidth=1)
         clean_axes(axes)
         axes.set_xlabel('Time (s)')
         axes.set_ylabel('Current (nA)')
@@ -3211,9 +3269,9 @@ def plot_patterned_input_i_syn_summary(rec_filename_array, svg_title=None):
         axes.set_title(group, fontsize=mpl.rcParams['font.size'])
         # plt.legend(loc='best', frameon=False, framealpha=0.5)
         if group == 'i_GABA':
-            axes.set_ylim(0., 1.)
+            axes.set_ylim(0., .7)
         else:
-            axes.set_ylim(-1., 0.)
+            axes.set_ylim(-.7, 0.)
         if svg_title is not None:
             fig.set_size_inches(4.403, 3.631)
             fig.savefig(data_dir+svg_title+' - '+group+'.svg', format='svg', transparent=True)
@@ -3229,7 +3287,8 @@ def plot_patterned_input_i_syn_summary(rec_filename_array, svg_title=None):
         axes.plot(rec_t, i_syn_dict['ratio'][condition], c=colors[i], label=title, linewidth=2)
     clean_axes(axes)
     axes.set_xlabel('Time (s)')
-    axes.set_ylabel('E:I Ratio')
+    axes.set_ylabel('E:I ratio')
+    axes.set_ylim(1., 2.8)
     axes.set_xlim(0., 7500.)
     axes.set_xticks([0., 1500., 3000., 4500., 6000., 7500.])
     axes.set_xticklabels([0, 1.5, 3, 4.5, 6, 7.5])

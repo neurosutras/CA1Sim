@@ -6,22 +6,8 @@ Builds a cell locally so each engine is ready to receive jobs one at a time, spe
 which section to simulate (full sampling of sections).
 """
 
-#morph_filename = 'EB1-early-bifurcation.swc'
 morph_filename = 'EB2-late-bifurcation.swc'
-
-#mech_filename = '042215 soma_pas - EB2'
-#mech_filename = '042215 soma_pas spines - EB2'
-#mech_filename = '042215 soma_pas kdr ka_scale - EB2'
-#mech_filename = '042215 soma_pas kdr ka_scale - adjusted - EB2'
-#mech_filename = '042215 pas_exp_scale kdr ka_scale - EB2'
-#mech_filename = '042315 pas_ka_scale kdr - EB2'
-#mech_filename = '042315 pas_exp_scale kdr ka_ih_scale - EB2'
-#mech_filename = '042315 pas_ih_exp_scale kdr ka_scale - EB2'
-#mech_filename = '042415 e_g_pas_ih_exp_scale kdr ka_scale - EB2'
-#mech_filename = '042815 pas_sig_scale kdr ka_scale - EB2'
-#mech_filename = '042915 pas_sig_scale kdr ka_scale - EB2'
-#mech_filename = '043015 pas_exp_scale kdr ka_scale ih_exp_scale - EB2'
-mech_filename = '050715 pas_exp_scale kdr ka_scale ih_sig_scale ampar_exp_scale nmda - EB2'
+mech_filename = '043016 Type A - km2_NMDA_KIN5_Pr'
 
 rec_filename = 'output'+datetime.datetime.today().strftime('%m%d%Y%H%M')+'-pid'+str(os.getpid())
 
@@ -33,8 +19,9 @@ def test_single_section(sec_index):
     """
     start_time = time.time()
     node = nodes[sec_index]
-    sim.modify_rec(0, node=node)
-    sim.modify_stim(0, node=node)
+    loc = 0. if node.type == 'soma' else 0.5
+    sim.modify_rec(0, node=node, loc=loc)
+    sim.modify_stim(0, node=node, loc=loc)
     sim.run(v_init)
     with h5py.File(data_dir+rec_filename+'.hdf5', 'a') as f:
         sim.export_to_file(f, sec_index)
@@ -47,13 +34,12 @@ equilibrate = 250.  # time to steady-state
 stim_dur = 400.
 duration = equilibrate + stim_dur + 100.
 amp = -0.15
-v_init = -67.  # -80.
+v_init = -67.
 
 cell = CA1_Pyr(morph_filename, mech_filename, full_spines=True)
-#cell = CA1_Pyr(morph_filename, mech_filename, full_spines=False)
 
 nodes = cell.soma+cell.basal+cell.trunk+cell.apical+cell.tuft
 
 sim = QuickSim(duration, verbose=False)
-sim.append_rec(cell, cell.tree.root, 0.5)
-sim.append_stim(cell, cell.tree.root, 0.5, amp, equilibrate, stim_dur)
+sim.append_rec(cell, cell.tree.root, 0.)
+sim.append_stim(cell, cell.tree.root, 0., amp, equilibrate, stim_dur)
