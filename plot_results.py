@@ -1288,13 +1288,14 @@ def plot_synaptic_param_distribution(cell, syn_type, param_name, scale_factor=1.
     if (maxval is not None) and (minval is not None):
         buffer = 0.1 * (maxval - minval)
         axes.set_ylim(minval - buffer, maxval + buffer)
-    axes.set_xlabel('Distance to Soma (um)')
+    axes.set_xlabel('Distance to soma (um)')
     axes.set_xlim(-200., 525.)
     axes.set_xticks([-150., 0., 150., 300., 450.])
     plt.legend(loc='best', scatterpoints=1, frameon=False, framealpha=0.5, fontsize=mpl.rcParams['font.size'])
     if param_label is not None:
         plt.title(param_label, fontsize=mpl.rcParams['font.size'])
     clean_axes(axes)
+    axes.tick_params(direction='out')
     if not svg_title is None:
         if param_label is not None:
             svg_title = svg_title+' - '+param_label+'.svg'
@@ -1360,6 +1361,7 @@ def plot_mech_param_distribution(cell, mech_name, param_name, scale_factor=10000
         plt.title(param_label, fontsize=mpl.rcParams['font.size'])
     plt.legend(loc='best', scatterpoints=1, frameon=False, framealpha=0.5, fontsize=mpl.rcParams['font.size'])
     clean_axes(axes)
+    axes.tick_params(direction='out')
     if not svg_title is None:
         if param_label is not None:
             svg_title = svg_title+' - '+param_label+'.svg'
@@ -1430,6 +1432,7 @@ def plot_sum_mech_param_distribution(cell, mech_param_list, scale_factor=10000.,
         plt.title(param_label, fontsize=mpl.rcParams['font.size'])
     plt.legend(loc='best', scatterpoints=1, frameon=False, framealpha=0.5, fontsize=mpl.rcParams['font.size'])
     clean_axes(axes)
+    axes.tick_params(direction='out')
     if not svg_title is None:
         if param_label is not None:
             svg_title = svg_title+' - '+param_label+'.svg'

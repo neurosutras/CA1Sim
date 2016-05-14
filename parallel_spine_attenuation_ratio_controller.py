@@ -41,4 +41,6 @@ while not result.ready():
 print 'Parallel execution took:', time.time()-start_time, 's'
 rec_file_list = [filename for filename in dv['rec_filename'] if os.path.isfile(data_dir+filename+'.hdf5')]
 combine_output_files(rec_file_list, new_rec_filename)
+for filename in rec_file_list:
+    os.remove(data_dir+filename+'.hdf5')
 #plot_AR(new_rec_filename)

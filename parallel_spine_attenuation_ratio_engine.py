@@ -47,7 +47,7 @@ def calculate_single_attenuation_ratio(syn_index):
 
 
 equilibrate = 250.  # time to steady-state
-duration = 250.
+duration = 350.
 v_init = -67.
 amp = 0.03
 syn_type = 'EPSC'  # 'AMPA_KIN'
