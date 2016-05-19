@@ -1399,11 +1399,13 @@ class CA1_Pyr(HocCell):
         head.sec.diam = 0.5
         self._init_cable(head)
 
-    def insert_inhibitory_synapses_in_subset(self, sec_type_list=['soma', 'ais', 'basal', 'trunk', 'apical', 'tuft']):
+    def insert_inhibitory_synapses_in_subset(self, sec_type_list=None):
         """
 
         :param sec_type_list: str
         """
+        if sec_type_list is None:
+            sec_type_list = ['soma', 'ais', 'basal', 'trunk', 'apical', 'tuft']
         densities = {'soma': 2.857,  # 4.285,
                      'ais': 0.53,
                      'trunk': {'min': 0.3022, 'max': 0.0627,

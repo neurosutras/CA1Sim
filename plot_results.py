@@ -3147,7 +3147,7 @@ def get_spike_delay_vs_distance_simple_axon_model(rec_filename):
 
 
 def plot_patterned_input_binned_rinp(t_dict, phase_dict, r_inp_dict, key_list=None,
-                                     t_bounds=[0., 1800., 3600., 5400., 7500.], del_t=300., del_phase=15.,
+                                     t_bounds=[0., 1800., 3600., 5400., 7500.], del_t=300., del_phase=36., plot=1,
                                      svg_title=None):
     """
 
@@ -3158,51 +3158,57 @@ def plot_patterned_input_binned_rinp(t_dict, phase_dict, r_inp_dict, key_list=No
     :param t_bounds: list of float, time points defining start and end of track and inhibitory manipulation
     :param del_t: float
     :param del_phase: float
+    :param plot: int in [0, 1]
     :param svg_title: str
+    :return tuple of array: binned_phase, r_inp_by_phase
     """
     if svg_title is not None:
         remember_font_size = mpl.rcParams['font.size']
         mpl.rcParams['font.size'] = 8
     if key_list is None:
         key_list = ['modinh0', 'modinh1', 'modinh2']
-    key_list.extend([key_list[0]+'_out', key_list[0]+'_in'])
+    key_list.extend([key_list[0]+'_out', key_list[0]+'_in', 'modinh_all'])
     filtered_t_dict, filtered_phase_dict, filtered_r_inp_dict, indexes = {}, {}, {}, {}
     condition = key_list[0]
     indexes[condition] = np.where(r_inp_dict[condition] > 0.)[0]
     condition = key_list[1]
-    indexes[condition] = np.where((r_inp_dict[condition] > 0.) & (t_dict[condition] > t_bounds[0]) &
-                                  (t_dict[condition] <= t_bounds[1]))[0]
+    indexes[condition] = np.where((r_inp_dict[condition] > 0.) & (t_dict[condition] >= t_bounds[0]) &
+                                  (t_dict[condition] < t_bounds[1]))[0]
     condition = key_list[2]
-    indexes[condition] = np.where((r_inp_dict[condition] > 0.) & (t_dict[condition] > t_bounds[2]) &
-                                  (t_dict[condition] <= t_bounds[3]))[0]
+    indexes[condition] = np.where((r_inp_dict[condition] > 0.) & (t_dict[condition] >= t_bounds[2]) &
+                                  (t_dict[condition] < t_bounds[3]))[0]
     condition = key_list[0]
-    indexes[key_list[3]] = np.where((r_inp_dict[condition] > 0.) & (t_dict[condition] > t_bounds[0]) &
-                                  (t_dict[condition] <= t_bounds[1]))[0]
-    indexes[key_list[4]] = np.where((r_inp_dict[condition] > 0.) & (t_dict[condition] > t_bounds[2]) &
-                                  (t_dict[condition] <= t_bounds[3]))[0]
+    indexes[key_list[3]] = np.where((r_inp_dict[condition] > 0.) & (t_dict[condition] >= t_bounds[0]) &
+                                  (t_dict[condition] < t_bounds[1]))[0]
+    indexes[key_list[4]] = np.where((r_inp_dict[condition] > 0.) & (t_dict[condition] >= t_bounds[2]) &
+                                  (t_dict[condition] < t_bounds[3]))[0]
     for condition in key_list[:3]:
         filtered_t_dict[condition] = t_dict[condition][indexes[condition]]
         filtered_phase_dict[condition] = phase_dict[condition][indexes[condition]]
         filtered_r_inp_dict[condition] = r_inp_dict[condition][indexes[condition]]
-    for condition in key_list[3:]:
+    condition = key_list[5]
+    filtered_t_dict[condition] = np.append(filtered_t_dict[key_list[1]], filtered_t_dict[key_list[2]])
+    filtered_phase_dict[condition] = np.append(filtered_phase_dict[key_list[1]], filtered_phase_dict[key_list[2]])
+    filtered_r_inp_dict[condition] = np.append(filtered_r_inp_dict[key_list[1]], filtered_r_inp_dict[key_list[2]])
+    for condition in key_list[3:5]:
         filtered_t_dict[condition] = t_dict[key_list[0]][indexes[condition]]
         filtered_phase_dict[condition] = phase_dict[key_list[0]][indexes[condition]]
         filtered_r_inp_dict[condition] = r_inp_dict[key_list[0]][indexes[condition]]
     binned_t, binned_phase, r_inp_by_t, r_inp_by_phase = {}, {}, {}, {}
     for condition in key_list[:3]:
         binned_t[condition], r_inp_by_t[condition] = [], []
-        for t in np.arange(t_bounds[0], t_bounds[4]+del_t, del_t):
-            indexes = np.where((filtered_t_dict[condition] > t) & (filtered_t_dict[condition] <= t + del_t))[0]
+        for t in np.arange(t_bounds[0], t_bounds[4], del_t):
+            indexes = np.where((filtered_t_dict[condition] >= t) & (filtered_t_dict[condition] < t + del_t))[0]
             if np.any(indexes):
-                binned_t[condition].append(np.mean(filtered_t_dict[condition][indexes]))
+                binned_t[condition].append(t + del_t / 2.)
                 r_inp_by_t[condition].append(np.mean(filtered_r_inp_dict[condition][indexes]))
-    for condition in key_list[1:]:
+    for condition in key_list:
         binned_phase[condition], r_inp_by_phase[condition] = [], []
-        for phase in np.arange(0., 360.+del_phase, del_phase):
-            indexes = np.where((filtered_phase_dict[condition] > phase) &
-                               (filtered_phase_dict[condition] <= phase + 30.))[0]
+        for phase in np.arange(0., 360., del_phase):
+            indexes = np.where((filtered_phase_dict[condition] >= phase) &
+                               (filtered_phase_dict[condition] < phase + del_phase))[0]
             if np.any(indexes):
-                binned_phase[condition].append(np.mean(filtered_phase_dict[condition][indexes]))
+                binned_phase[condition].append(phase + del_phase / 2.)
                 r_inp_by_phase[condition].append(np.mean(filtered_r_inp_dict[condition][indexes]))
     fig, axes = plt.subplots(1, 2)
     axes[0].plot(binned_t[key_list[0]], r_inp_by_t[key_list[0]], c='k', label='Control')
@@ -3213,26 +3219,85 @@ def plot_patterned_input_binned_rinp(t_dict, phase_dict, r_inp_dict, key_list=No
     axes[0].set_xticks([0., 1500., 3000., 4500., 6000., 7500.])
     axes[0].set_xticklabels([0, 1.5, 3, 4.5, 6, 7.5])
     axes[0].set_ylabel('Input Resistance (MOhm)')
-    #axes[0].legend(loc='best', frameon=False, framealpha=0.5)
+    axes[0].legend(loc='best', frameon=False, framealpha=0.5, fontsize=mpl.rcParams['font.size'])
+    """
     axes[1].plot(binned_phase[key_list[3]], r_inp_by_phase[key_list[3]], c='k', label='Control - Out of field')
     axes[1].plot(binned_phase[key_list[4]], r_inp_by_phase[key_list[4]], c='grey', label='Control - In field')
     axes[1].plot(binned_phase[key_list[1]], r_inp_by_phase[key_list[1]], c='orange',
                  label='Reduced inhibition - Out of field')
     axes[1].plot(binned_phase[key_list[2]], r_inp_by_phase[key_list[2]], c='y', label='Reduced inhibition - In field')
+    """
+    axes[1].plot(np.append(binned_phase[key_list[0]], np.add(binned_phase[key_list[0]], 360.)),
+                 np.append(r_inp_by_phase[key_list[0]], r_inp_by_phase[key_list[0]]), c='k', label='Control')
+    axes[1].plot(np.append(binned_phase[key_list[5]], np.add(binned_phase[key_list[5]], 360.)),
+                 np.append(r_inp_by_phase[key_list[5]], r_inp_by_phase[key_list[5]]), c='orange',
+                 label='Reduced inhibition')
     axes[1].set_xlabel('Theta phase (o)')
-    axes[1].set_xlim(0., 360.)
-    axes[1].set_xticks([0., 90., 180., 270., 360.])
+    axes[1].set_xlim(0., 720.)
+    axes[1].set_xticks([0., 180., 360., 540., 720.])
     axes[1].set_ylabel('Input Resistance (MOhm)')
-    axes[1].legend(loc='best', frameon=False, framealpha=0.5)
+    axes[1].legend(loc='best', frameon=False, framealpha=0.5, fontsize=mpl.rcParams['font.size'])
     clean_axes(axes)
     axes[0].tick_params(direction='out')
     axes[1].tick_params(direction='out')
-    fig.tight_layout()
+    fig.subplots_adjust(wspace=0.6)
     for condition in key_list:
         print condition, np.mean(filtered_r_inp_dict[condition])
     if svg_title is not None:
-        fig.set_size_inches(4., 1.5)
+        fig.set_size_inches(4.2, 1.5)
         fig.savefig(data_dir+svg_title+' - r_inp.svg', format='svg', transparent=True)
+    if plot:
+        plt.show()
+    plt.close()
+    if svg_title is not None:
+        mpl.rcParams['font.size'] = remember_font_size
+    return binned_phase, r_inp_by_phase
+
+
+def plot_somatic_rinp(saved_param_file, seed_list=None, svg_title=None):
+    """
+
+    :param saved_param_file: str: .pkl file containing t_array, phase_array, r_inp_array with output from multiple seeds
+    :param svg_title: str
+    """
+    if svg_title is not None:
+        remember_font_size = mpl.rcParams['font.size']
+        mpl.rcParams['font.size'] = 8
+    if seed_list is None:
+        seed_list = range(5)
+    saved_parameters = read_from_pkl(data_dir+saved_param_file+'.pkl')
+    [t_array, phase_array, r_inp_array] = saved_parameters
+    r_inp_by_phase = {}
+    for seed in seed_list:
+        binned_phase, r_inp_by_phase[seed] = plot_patterned_input_binned_rinp(t_array[seed], phase_array[seed],
+                                                                              r_inp_array[seed], plot=0)
+    r_inp_by_phase['mean'] = {'modinh0': [], 'modinh_all': []}
+    for i in range(len(binned_phase['modinh0'])):
+        for condition in r_inp_by_phase['mean']:
+            val = np.mean([r_inp_by_phase[seed][condition][i] for seed in seed_list])
+            r_inp_by_phase['mean'][condition].append(val)
+    fig, axes = plt.subplots(1)
+    for seed in seed_list:
+        axes.plot(np.append(binned_phase['modinh0'], np.add(binned_phase['modinh0'], 360.)),
+                  np.append(r_inp_by_phase[seed]['modinh0'], r_inp_by_phase[seed]['modinh0']), color='grey')
+        axes.plot(np.append(binned_phase['modinh0'], np.add(binned_phase['modinh0'], 360.)),
+                  np.append(r_inp_by_phase[seed]['modinh_all'], r_inp_by_phase[seed]['modinh_all']), color='y')
+    axes.plot(np.append(binned_phase['modinh0'], np.add(binned_phase['modinh0'], 360.)),
+              np.append(r_inp_by_phase['mean']['modinh0'], r_inp_by_phase['mean']['modinh0']), color='k',
+              label='Control')
+    axes.plot(np.append(binned_phase['modinh0'], np.add(binned_phase['modinh0'], 360.)),
+              np.append(r_inp_by_phase['mean']['modinh_all'], r_inp_by_phase['mean']['modinh_all']), color='orange',
+              label='Reduced inhibition')
+    axes.set_xlabel('Theta phase (o)')
+    axes.set_xlim(0., 720.)
+    axes.set_xticks([0., 180., 360., 540., 720.])
+    axes.set_ylabel('Input Resistance (MOhm)')
+    axes.legend(loc='best', frameon=False, framealpha=0.5, fontsize=mpl.rcParams['font.size'])
+    clean_axes(axes)
+    axes.tick_params(direction='out')
+    if svg_title is not None:
+        fig.set_size_inches(2.6, 1.5)
+        fig.savefig(data_dir + svg_title + ' - r_inp.svg', format='svg', transparent=True)
     plt.show()
     plt.close()
     if svg_title is not None:

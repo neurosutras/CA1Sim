@@ -57,7 +57,7 @@ ENDCOMMENT
 
 NEURON {
 	POINT_PROCESS GABA_A_KIN
-	RANGE Cmax, Cdur, kon, koff, CC, CO, Beta, Alpha, Erev, gmax, g
+	RANGE Cmax, Cdur, kon, koff, CC, CO, Beta, Alpha, Erev, gmax, g, Ro
 	NONSPECIFIC_CURRENT i
 }
 UNITS {

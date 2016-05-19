@@ -355,7 +355,7 @@ def plot_spine_attenuation_ratio_figure(rec_filename, svg_title=None, dt=0.01):
     maxval, minval = None, None
     with h5py.File(data_dir+rec_filename+'.hdf5', 'r') as f:
         trial = f.itervalues().next()
-        amp = trial.attrs['amp']
+        # amp = trial.attrs['amp']
         equilibrate = trial.attrs['equilibrate']
         duration = trial.attrs['duration']
         t = np.arange(0., duration, dt)
@@ -370,35 +370,33 @@ def plot_spine_attenuation_ratio_figure(rec_filename, svg_title=None, dt=0.01):
         for index in index_dict.itervalues():
             spine_stim = f[index['spine']]['rec']
             spine_tvec = f[index['spine']]['time']
-            branch_stim = f[index['branch']]['rec']
-            branch_tvec = f[index['branch']]['time']
             for rec in spine_stim.itervalues():
                 if rec.attrs['description'] == 'branch':
                     branch_rec = rec
                     sec_type = rec.attrs['type']
                 elif rec.attrs['description'] == 'spine':
                     spine_rec = rec
-                distances[sec_type].append(spine_rec.attrs['soma_distance'])
-                if sec_type == 'basal':
-                    distances[sec_type][-1] *= -1
-                branch_vm = np.interp(t, spine_tvec[:], branch_rec[:])
-                spine_vm = np.interp(t, spine_tvec[:], spine_rec[:])
-                left, right = time2index(t, equilibrate - 3.0, equilibrate - 1.0)
-                baseline_branch = np.mean(branch_vm[left:right])
-                baseline_spine = np.mean(spine_vm[left:right])
-                left, right = time2index(t, equilibrate, duration)
-                peak_branch = np.max(branch_vm[left:right]) - baseline_branch
-                peak_spine = np.max(spine_vm[left:right]) - baseline_spine
-                this_ratio = peak_spine / peak_branch
-                ratio[sec_type].append(this_ratio)
-                if maxval is None:
-                    maxval = this_ratio
-                else:
-                    maxval = max(maxval, this_ratio)
-                if minval is None:
-                    minval = this_ratio
-                else:
-                    minval = min(minval, this_ratio)
+            distances[sec_type].append(spine_rec.attrs['soma_distance'])
+            if sec_type == 'basal':
+                distances[sec_type][-1] *= -1
+            branch_vm = np.interp(t, spine_tvec[:], branch_rec[:])
+            spine_vm = np.interp(t, spine_tvec[:], spine_rec[:])
+            left, right = time2index(t, equilibrate - 3.0, equilibrate - 1.0)
+            baseline_branch = np.mean(branch_vm[left:right])
+            baseline_spine = np.mean(spine_vm[left:right])
+            left, right = time2index(t, equilibrate, duration)
+            peak_branch = np.max(branch_vm[left:right]) - baseline_branch
+            peak_spine = np.max(spine_vm[left:right]) - baseline_spine
+            this_ratio = peak_spine / peak_branch
+            ratio[sec_type].append(this_ratio)
+            if maxval is None:
+                maxval = this_ratio
+            else:
+                maxval = max(maxval, this_ratio)
+            if minval is None:
+                minval = this_ratio
+            else:
+                minval = min(minval, this_ratio)
     for i, sec_type in enumerate(sec_types):
         axes.scatter(distances[sec_type], ratio[sec_type], label=sec_type, color=colors[i])
     axes.set_xlabel('Distance to soma (um)')

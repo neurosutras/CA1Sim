@@ -60,7 +60,7 @@ ENDCOMMENT
 
 NEURON {
 	POINT_PROCESS NMDA_KIN5
-	RANGE Cmax, Cdur, kon, koff, CC, CO, Beta, Alpha, Erev, Kd, gamma, mg, gmax, g, B, kin_scale
+	RANGE Cmax, Cdur, kon, koff, CC, CO, Beta, Alpha, Erev, Kd, gamma, mg, gmax, g, B, kin_scale, Ro
 	NONSPECIFIC_CURRENT i
 }
 UNITS {
