@@ -385,7 +385,7 @@ for group in stim_exc_syns:
 
 # modulate the number and density of inputs with peak_locs along this stretch of the track
 modulated_field_center = track_duration * 0.6
-mod_density = 1.98
+mod_density = 1.90
 compression_factor = 0.15
 peak_loc_choices = {}
 peak_loc_probabilities = {}
