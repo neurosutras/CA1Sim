@@ -162,8 +162,15 @@ def run_trial(simiter):
             inhibitory_theta_force *= inhibitory_peak_rate[group]
             stim_force = np.multiply(inhibitory_theta_force, cos_mod_inh)
             if mod_inh > 0 and group in inhibitory_manipulation_fraction and syn in manipulated_inh_syns[group]:
-                stim_force[mod_inh_start:mod_inh_stop] = 0.
-            train = get_inhom_poisson_spike_times(stim_force, stim_t, dt=stim_dt, generator=local_random)
+                if mod_inh == 3:
+                    train = []
+                else:
+                    stim_force[mod_inh_start:mod_inh_stop] = 0.
+                    train = get_inhom_poisson_spike_times(stim_force, stim_t, dt=stim_dt,
+                                                          generator=local_random)
+            else:
+                train = get_inhom_poisson_spike_times(stim_force, stim_t, dt=stim_dt,
+                                                      generator=local_random)
             syn.source.play(h.Vector(np.add(train, equilibrate + track_equilibrate)))
             with h5py.File(data_dir+rec_filename+'-working.hdf5', 'a') as f:
                 f[str(simiter)]['inh_train'].create_dataset(str(index), compression='gzip', compression_opts=9,
