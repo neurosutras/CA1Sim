@@ -120,7 +120,7 @@ def run_trial(simiter):
             mod_inh_start = 0
             mod_inh_stop = len(stim_t)
         sim.parameters['mod_inh_start'] = stim_t[mod_inh_start]
-        sim.parameters['mod_inh_stop'] = stim_t[mod_inh_stop]
+        sim.parameters['mod_inh_stop'] = stim_t[mod_inh_stop-1]
     index = 0
     for group in stim_exc_syns:
         for i, syn in enumerate(stim_exc_syns[group]):
