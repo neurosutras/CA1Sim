@@ -112,10 +112,14 @@ def run_trial(simiter):
     if mod_inh > 0:
         if mod_inh == 1:
             mod_inh_start = int(track_equilibrate / dt)
+            mod_inh_stop = mod_inh_start + int(inhibitory_manipulation_duration * input_field_duration / dt)
         elif mod_inh == 2:
             mod_inh_start = int((track_equilibrate + modulated_field_center - 0.3 * input_field_duration) / dt)
+            mod_inh_stop = mod_inh_start + int(inhibitory_manipulation_duration * input_field_duration / dt)
+        elif mod_inh == 3:
+            mod_inh_start = 0
+            mod_inh_stop = len(stim_t)
         sim.parameters['mod_inh_start'] = stim_t[mod_inh_start]
-        mod_inh_stop = mod_inh_start + int(inhibitory_manipulation_duration * input_field_duration / dt)
         sim.parameters['mod_inh_stop'] = stim_t[mod_inh_stop]
     index = 0
     for group in stim_exc_syns:
@@ -161,9 +165,15 @@ def run_trial(simiter):
             inhibitory_theta_force += 1. - inhibitory_theta_modulation_depth[group]
             inhibitory_theta_force *= inhibitory_peak_rate[group]
             if mod_inh > 0 and group in inhibitory_manipulation_fraction and syn in manipulated_inh_syns[group]:
-                inhibitory_theta_force[mod_inh_start:mod_inh_stop] = 0.
-            train = get_inhom_poisson_spike_times(inhibitory_theta_force, stim_t, dt=stim_dt,
-                                                  generator=local_random)
+                if mod_inh == 3:
+                    train = []
+                else:
+                    inhibitory_theta_force[mod_inh_start:mod_inh_stop] = 0.
+                    train = get_inhom_poisson_spike_times(inhibitory_theta_force, stim_t, dt=stim_dt,
+                                                          generator=local_random)
+            else:
+                train = get_inhom_poisson_spike_times(inhibitory_theta_force, stim_t, dt=stim_dt,
+                                                      generator=local_random)
             syn.source.play(h.Vector(np.add(train, equilibrate + track_equilibrate)))
             with h5py.File(data_dir+rec_filename+'-working.hdf5', 'a') as f:
                 f[str(simiter)]['inh_train'].create_dataset(str(index), compression='gzip', compression_opts=9,

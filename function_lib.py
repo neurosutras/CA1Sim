@@ -2100,3 +2100,30 @@ def get_waveform_phase_vs_time(t, x=None, cycle_duration=150., time_offset=0., s
     peak_phases /= cycle_duration
     peak_phases *= 360.
     return peak_times, peak_phases
+
+
+def low_pass_filter(source, freq, duration, dt):
+    """
+    Filters the source waveform at the provided frequency.
+    :param source: array
+    :param freq: float
+    :param duration: float
+    :param dt: float
+    :return: np.array: filtered source
+    """
+    t = np.arange(0., duration, dt)
+    down_dt = 0.5
+    down_t = np.arange(0., duration, down_dt)
+    # 2000 ms Hamming window
+    window_len = int(2000. / down_dt)
+    pad_len = int(window_len / 2.)
+    lp_filter = signal.firwin(window_len, freq, nyq=1000. / 2. / down_dt)
+    down_sampled = np.interp(down_t, t, source)
+    padded_trace = np.zeros(len(down_sampled) + window_len)
+    padded_trace[pad_len:-pad_len] = down_sampled
+    padded_trace[:pad_len] = down_sampled[::-1][-pad_len:]
+    padded_trace[-pad_len:] = down_sampled[::-1][:pad_len]
+    filtered = signal.filtfilt(lp_filter, [1.], padded_trace, padlen=pad_len)
+    filtered = filtered[pad_len:-pad_len]
+    up_sampled = np.interp(t, down_t, filtered)
+    return up_sampled

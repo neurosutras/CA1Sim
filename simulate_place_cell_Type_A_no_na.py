@@ -118,7 +118,7 @@ def run_trial(simiter):
             mod_inh_stop = mod_inh_start + int(inhibitory_manipulation_duration * input_field_duration / dt)
         elif mod_inh == 3:
             mod_inh_start = 0
-            mod_inh_stop = len(stim_t) - 1
+            mod_inh_stop = len(stim_t)
         sim.parameters['mod_inh_start'] = stim_t[mod_inh_start]
         sim.parameters['mod_inh_stop'] = stim_t[mod_inh_stop]
     index = 0
