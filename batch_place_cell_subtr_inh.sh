@@ -1,16 +1,6 @@
 #!/bin/bash
 #cd $HOME/PycharmProjects/NEURON/
 cd $HOME/CA1Sim
-qsub -N job_060216_e3200_i500_subtr_0_shape1.0_inh0_0 -l d_rt=36000 -b y -cwd -V 'python simulate_place_cell_subtr_inh_shape_inh.py 0 3200 500 0 1.0 0'
-qsub -N job_060216_e3200_i500_subtr_0_shape1.0_inh0_1 -l d_rt=36000 -b y -cwd -V 'python simulate_place_cell_subtr_inh_shape_inh.py 0 3200 500 0 1.0 1'
-qsub -N job_060216_e3200_i500_subtr_0_shape1.0_inh0_2 -l d_rt=36000 -b y -cwd -V 'python simulate_place_cell_subtr_inh_shape_inh.py 0 3200 500 0 1.0 2'
-qsub -N job_060216_e3200_i500_subtr_0_shape1.0_inh0_3 -l d_rt=36000 -b y -cwd -V 'python simulate_place_cell_subtr_inh_shape_inh.py 0 3200 500 0 1.0 3'
-qsub -N job_060216_e3200_i500_subtr_0_shape1.0_inh0_4 -l d_rt=36000 -b y -cwd -V 'python simulate_place_cell_subtr_inh_shape_inh.py 0 3200 500 0 1.0 4'
-qsub -N job_060216_e3200_i500_subtr_0_shape1.0_inh0_5 -l d_rt=36000 -b y -cwd -V 'python simulate_place_cell_subtr_inh_shape_inh.py 0 3200 500 0 1.0 5'
-qsub -N job_060216_e3200_i500_subtr_0_shape1.0_inh0_6 -l d_rt=36000 -b y -cwd -V 'python simulate_place_cell_subtr_inh_shape_inh.py 0 3200 500 0 1.0 6'
-qsub -N job_060216_e3200_i500_subtr_0_shape1.0_inh0_7 -l d_rt=36000 -b y -cwd -V 'python simulate_place_cell_subtr_inh_shape_inh.py 0 3200 500 0 1.0 7'
-qsub -N job_060216_e3200_i500_subtr_0_shape1.0_inh0_8 -l d_rt=36000 -b y -cwd -V 'python simulate_place_cell_subtr_inh_shape_inh.py 0 3200 500 0 1.0 8'
-qsub -N job_060216_e3200_i500_subtr_0_shape1.0_inh0_9 -l d_rt=36000 -b y -cwd -V 'python simulate_place_cell_subtr_inh_shape_inh.py 0 3200 500 0 1.0 9'
 qsub -N job_060216_e3200_i500_subtr_0_shape1.0_inh3_20 -l d_rt=36000 -b y -cwd -V 'python simulate_place_cell_subtr_inh_shape_inh.py 0 3200 500 3 1.0 20'
 qsub -N job_060216_e3200_i500_subtr_0_shape1.0_inh3_21 -l d_rt=36000 -b y -cwd -V 'python simulate_place_cell_subtr_inh_shape_inh.py 0 3200 500 3 1.0 21'
 qsub -N job_060216_e3200_i500_subtr_0_shape1.0_inh3_22 -l d_rt=36000 -b y -cwd -V 'python simulate_place_cell_subtr_inh_shape_inh.py 0 3200 500 3 1.0 22'
