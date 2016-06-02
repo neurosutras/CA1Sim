@@ -166,15 +166,12 @@ def run_trial(simiter):
             inhibitory_theta_force *= inhibitory_peak_rate[group]
             stim_force = np.multiply(inhibitory_theta_force, cos_mod_inh)
             if mod_inh > 0 and group in inhibitory_manipulation_offset:
-                if mod_inh == 3:
-                    train = []
-                else:
-                    stim_force[mod_inh_start:mod_inh_stop] -= inhibitory_manipulation_offset[group]
-                    stim_force[mod_inh_start:mod_inh_stop] = \
-                        np.maximum(stim_force[mod_inh_start:mod_inh_stop],
-                                   np.zeros_like(stim_force[mod_inh_start:mod_inh_stop]))
-                    train = get_inhom_poisson_spike_times(stim_force, stim_t, dt=stim_dt,
-                                                          generator=local_random)
+                stim_force[mod_inh_start:mod_inh_stop] -= inhibitory_manipulation_offset[group]
+                stim_force[mod_inh_start:mod_inh_stop] = \
+                    np.maximum(stim_force[mod_inh_start:mod_inh_stop],
+                               np.zeros_like(stim_force[mod_inh_start:mod_inh_stop]))
+                train = get_inhom_poisson_spike_times(stim_force, stim_t, dt=stim_dt,
+                                                      generator=local_random)
             else:
                 train = get_inhom_poisson_spike_times(stim_force, stim_t, dt=stim_dt,
                                                       generator=local_random)
