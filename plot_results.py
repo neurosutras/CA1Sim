@@ -2910,7 +2910,7 @@ def plot_patterned_input_sim_summary(rec_t, mean_theta_envelope, binned_t,  mean
 
 
 def plot_phase_precession(t_array, phase_array, title, fit_start=3600., fit_end=5400., display_start=0.,
-                          display_end=7500., bin_size=60., num_bins=3, svg_title=None, plot=True, adjust=True):
+                          display_end=7500., bin_size=60., num_bins=5, svg_title=None, plot=True, adjust=True):
     """
 
     :param t_array: list of np.array

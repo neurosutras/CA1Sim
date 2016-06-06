@@ -25,7 +25,7 @@ else:
 if len(sys.argv) > 3:
     num_inh_syns = int(sys.argv[3])
 else:
-    num_inh_syns = 500
+    num_inh_syns = 600
 # whether to modulate the firing rate of all inhibitory inputs (0 = no, 1 = out of field at track start, 2 = in field, 
 # 3 = entire length of track)
 if len(sys.argv) > 4:
@@ -155,26 +155,27 @@ def run_trial(simiter):
             index += 1
     index = 0
     for group in stim_inh_syns:
+        inh_peak_rate = 2. * inhibitory_mean_rate[group] / (2. - inhibitory_theta_modulation_depth[group])
+        inhibitory_theta_force = np.exp(inhibitory_theta_phase_tuning_factor[group] *
+                                        np.cos(inhibitory_theta_phase_offset[group] - 2. * np.pi * stim_t /
+                                               global_theta_cycle_duration + global_phase_offset))
+        inhibitory_theta_force -= np.min(inhibitory_theta_force)
+        inhibitory_theta_force /= np.max(inhibitory_theta_force)
+        inhibitory_theta_force *= inhibitory_theta_modulation_depth[group]
+        inhibitory_theta_force += 1. - inhibitory_theta_modulation_depth[group]
+        inhibitory_theta_force *= inh_peak_rate
+        inh_mean_rate_waveform = np.multiply(cos_mod_inh, inhibitory_mean_rate[group])
         for syn in stim_inh_syns[group]:
-            inhibitory_theta_force = np.exp(inhibitory_theta_phase_tuning_factor[group] *
-                                 np.cos(inhibitory_theta_phase_offset[group] - 2. * np.pi * stim_t /
-                                        global_theta_cycle_duration + global_phase_offset))
-            inhibitory_theta_force -= np.min(inhibitory_theta_force)
-            inhibitory_theta_force /= np.max(inhibitory_theta_force)
-            inhibitory_theta_force *= inhibitory_theta_modulation_depth[group]
-            inhibitory_theta_force += 1. - inhibitory_theta_modulation_depth[group]
-            inhibitory_theta_force *= inhibitory_peak_rate[group]
             stim_force = np.multiply(inhibitory_theta_force, cos_mod_inh)
             if mod_inh > 0 and group in inhibitory_manipulation_offset:
-                stim_force[mod_inh_start:mod_inh_stop] -= inhibitory_manipulation_offset[group]
-                stim_force[mod_inh_start:mod_inh_stop] = \
-                    np.maximum(stim_force[mod_inh_start:mod_inh_stop],
-                               np.zeros_like(stim_force[mod_inh_start:mod_inh_stop]))
-                train = get_inhom_poisson_spike_times(stim_force, stim_t, dt=stim_dt,
-                                                      generator=local_random)
-            else:
-                train = get_inhom_poisson_spike_times(stim_force, stim_t, dt=stim_dt,
-                                                      generator=local_random)
+                # inhibitory manipulation subtracts from the mean firing rate, but maintains the same theta modulation
+                # depth
+                mod_inh_multiplier = np.divide(np.subtract(inh_mean_rate_waveform,
+                                                           inhibitory_manipulation_offset[group]),
+                                               inh_mean_rate_waveform)
+                stim_force[mod_inh_start:mod_inh_stop] = np.multiply(stim_force[mod_inh_start:mod_inh_stop],
+                                                                     mod_inh_multiplier[mod_inh_start:mod_inh_stop])
+            train = get_inhom_poisson_spike_times(stim_force, stim_t, dt=stim_dt, generator=local_random)
             syn.source.play(h.Vector(np.add(train, equilibrate + track_equilibrate)))
             with h5py.File(data_dir+rec_filename+'-working.hdf5', 'a') as f:
                 f[str(simiter)]['inh_train'].create_dataset(str(index), compression='gzip', compression_opts=9,
@@ -223,11 +224,11 @@ excitatory_theta_phase_offset = {}
 excitatory_theta_phase_offset['CA3'] = 165. / 360. * 2. * np.pi  # radians
 excitatory_theta_phase_offset['ECIII'] = 0. / 360. * 2. * np.pi  # radians
 excitatory_stochastic = 1
-inhibitory_manipulation_offset = {'perisomatic': 10., 'axo-axonic': 10., 'apical dendritic': 10.,
-                                    'distal apical dendritic': 10., 'tuft feedback': 10.}
+inhibitory_manipulation_offset = {'perisomatic': 9., 'axo-axonic': 9., 'apical dendritic': 9.,
+                                    'distal apical dendritic': 9., 'tuft feedback': 9.}
 inhibitory_manipulation_duration = 0.6  # Ratio of input_field_duration
-inhibitory_peak_rate = {'perisomatic': 40., 'axo-axonic': 40., 'apical dendritic': 40., 'distal apical dendritic': 40.,
-                        'tuft feedforward': 40., 'tuft feedback': 40.}
+inhibitory_mean_rate = {'perisomatic': 25., 'axo-axonic': 25., 'apical dendritic': 25., 'distal apical dendritic': 25.,
+                        'tuft feedforward': 25., 'tuft feedback': 25.}
 inhibitory_theta_modulation_depth = {'perisomatic': 0.5, 'axo-axonic': 0.5, 'apical dendritic': 0.5,
                                      'distal apical dendritic': 0.5, 'tuft feedforward': 0.5, 'tuft feedback': 0.5}
 inhibitory_theta_phase_tuning_factor = {'perisomatic': 0.6, 'axo-axonic': 0.6, 'apical dendritic': 0.6,

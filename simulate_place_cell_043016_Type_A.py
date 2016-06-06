@@ -17,11 +17,11 @@ mech_filename = '043016 Type A - km2_NMDA_KIN5_Pr'
 if len(sys.argv) > 1:
     synapses_seed = int(sys.argv[1])
 else:
-    synapses_seed = 1
+    synapses_seed = 0
 if len(sys.argv) > 2:
     num_exc_syns = int(sys.argv[2])
 else:
-    num_exc_syns = 3000
+    num_exc_syns = 3200
 if len(sys.argv) > 3:
     num_inh_syns = int(sys.argv[3])
 else:
@@ -112,11 +112,15 @@ def run_trial(simiter):
     if mod_inh > 0:
         if mod_inh == 1:
             mod_inh_start = int(track_equilibrate / dt)
+            mod_inh_stop = mod_inh_start + int(inhibitory_manipulation_duration * input_field_duration / dt)
         elif mod_inh == 2:
             mod_inh_start = int((track_equilibrate + modulated_field_center - 0.3 * input_field_duration) / dt)
+            mod_inh_stop = mod_inh_start + int(inhibitory_manipulation_duration * input_field_duration / dt)
+        elif mod_inh == 3:
+            mod_inh_start = 0
+            mod_inh_stop = len(stim_t)
         sim.parameters['mod_inh_start'] = stim_t[mod_inh_start]
-        mod_inh_stop = mod_inh_start + int(inhibitory_manipulation_duration * input_field_duration / dt)
-        sim.parameters['mod_inh_stop'] = stim_t[mod_inh_stop]
+        sim.parameters['mod_inh_stop'] = stim_t[mod_inh_stop-1]
     index = 0
     for group in stim_exc_syns:
         for i, syn in enumerate(stim_exc_syns[group]):
@@ -162,8 +166,7 @@ def run_trial(simiter):
             inhibitory_theta_force *= inhibitory_peak_rate[group]
             if mod_inh > 0 and group in inhibitory_manipulation_fraction and syn in manipulated_inh_syns[group]:
                 inhibitory_theta_force[mod_inh_start:mod_inh_stop] = 0.
-            train = get_inhom_poisson_spike_times(inhibitory_theta_force, stim_t, dt=stim_dt,
-                                                  generator=local_random)
+            train = get_inhom_poisson_spike_times(inhibitory_theta_force, stim_t, dt=stim_dt, generator=local_random)
             syn.source.play(h.Vector(np.add(train, equilibrate + track_equilibrate)))
             with h5py.File(data_dir+rec_filename+'-working.hdf5', 'a') as f:
                 f[str(simiter)]['inh_train'].create_dataset(str(index), compression='gzip', compression_opts=9,
