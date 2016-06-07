@@ -25,9 +25,9 @@ else:
 if len(sys.argv) > 3:
     num_inh_syns = int(sys.argv[3])
 else:
-    num_inh_syns = 500
-# whether to modulate the peak rate of all inhibitory inputs (0 = no, 1 = out of field at track start, 2 = in field)
-# input_field_width)
+    num_inh_syns = 600
+# whether to modulate the firing rate of all inhibitory inputs (0 = no, 1 = out of field at track start, 2 = in field, 
+# 3 = entire length of track)
 if len(sys.argv) > 4:
     mod_inh = int(sys.argv[4])
 else:
@@ -109,7 +109,7 @@ def run_trial(simiter):
             mod_inh_stop = mod_inh_start + int(inhibitory_manipulation_duration * input_field_duration / dt)
         elif mod_inh == 3:
             mod_inh_start = 0
-            mod_inh_stop = len(stim_t)  # - 1
+            mod_inh_stop = len(stim_t)
     index = 0
     for group in stim_exc_syns:
         exc_stim_forces[group] = []
@@ -135,22 +135,27 @@ def run_trial(simiter):
     index = 0
     for group in stim_inh_syns:
         inh_stim_forces[group] = []
+        inh_peak_rate = 2. * inhibitory_mean_rate[group] / (2. - inhibitory_theta_modulation_depth[group])
+        inhibitory_theta_force = np.exp(inhibitory_theta_phase_tuning_factor[group] *
+                                        np.cos(inhibitory_theta_phase_offset[group] - 2. * np.pi * stim_t /
+                                               global_theta_cycle_duration + global_phase_offset))
+        inhibitory_theta_force -= np.min(inhibitory_theta_force)
+        inhibitory_theta_force /= np.max(inhibitory_theta_force)
+        inhibitory_theta_force *= inhibitory_theta_modulation_depth[group]
+        inhibitory_theta_force += 1. - inhibitory_theta_modulation_depth[group]
+        inhibitory_theta_force *= inh_peak_rate
+        inh_mean_rate_waveform = np.multiply(cos_mod_inh, inhibitory_mean_rate[group])
         for syn in stim_inh_syns[group]:
-            inhibitory_theta_force = np.exp(inhibitory_theta_phase_tuning_factor[group] *
-                                 np.cos(inhibitory_theta_phase_offset[group] - 2. * np.pi * stim_t /
-                                        global_theta_cycle_duration + global_phase_offset))
-            inhibitory_theta_force -= np.min(inhibitory_theta_force)
-            inhibitory_theta_force /= np.max(inhibitory_theta_force)
-            inhibitory_theta_force *= inhibitory_theta_modulation_depth[group]
-            inhibitory_theta_force += 1. - inhibitory_theta_modulation_depth[group]
-            inhibitory_theta_force *= inhibitory_peak_rate[group]
-            stim_force = cos_mod_inh * np.mean(inhibitory_theta_force)  # mean of theta modulation
-            if mod_inh > 0 and group in inhibitory_manipulation_fraction and syn in manipulated_inh_syns[group]:
-                if not mod_inh == 3:
-                    stim_force[mod_inh_start:mod_inh_stop] = 0.
-                    inh_stim_forces[group].append(stim_force)
-            else:
-                inh_stim_forces[group].append(stim_force)
+            stim_force = np.multiply(inhibitory_theta_force, cos_mod_inh)
+            if mod_inh > 0 and group in inhibitory_manipulation_offset:
+                # inhibitory manipulation subtracts from the mean firing rate, but maintains the same theta modulation
+                # depth
+                mod_inh_multiplier = np.divide(np.subtract(inh_mean_rate_waveform,
+                                                           inhibitory_manipulation_offset[group]),
+                                               inh_mean_rate_waveform)
+                stim_force[mod_inh_start:mod_inh_stop] = np.multiply(stim_force[mod_inh_start:mod_inh_stop],
+                                                                     mod_inh_multiplier[mod_inh_start:mod_inh_stop])
+            inh_stim_forces[group].append(stim_force)
             index += 1
 
 
@@ -162,7 +167,7 @@ input_field_width = 20  # (theta cycles per 6 standard deviations)
 input_field_duration = input_field_width * global_theta_cycle_duration
 track_length = 2.5  # field widths
 track_duration = track_length * input_field_duration
-track_equilibrate = 2. * global_theta_cycle_duration
+track_equilibrate = 5. * global_theta_cycle_duration # 2. * global_theta_cycle_duration
 duration = equilibrate + track_equilibrate + track_duration  # input_field_duration
 excitatory_peak_rate = {'CA3': 40., 'ECIII': 40.}
 excitatory_theta_modulation_depth = {'CA3': 0.7, 'ECIII': 0.7}
@@ -175,11 +180,11 @@ excitatory_theta_phase_offset = {}
 excitatory_theta_phase_offset['CA3'] = 165. / 360. * 2. * np.pi  # radians
 excitatory_theta_phase_offset['ECIII'] = 0. / 360. * 2. * np.pi  # radians
 excitatory_stochastic = 1
-inhibitory_manipulation_fraction = {'perisomatic': 0.325, 'axo-axonic': 0.325, 'apical dendritic': 0.325,
-                                    'distal apical dendritic': 0.325, 'tuft feedback': 0.325}
+inhibitory_manipulation_offset = {'perisomatic': 9., 'axo-axonic': 9., 'apical dendritic': 9.,
+                                    'distal apical dendritic': 9., 'tuft feedback': 9.}
 inhibitory_manipulation_duration = 0.6  # Ratio of input_field_duration
-inhibitory_peak_rate = {'perisomatic': 40., 'axo-axonic': 40., 'apical dendritic': 40., 'distal apical dendritic': 40.,
-                        'tuft feedforward': 40., 'tuft feedback': 40.}
+inhibitory_mean_rate = {'perisomatic': 25., 'axo-axonic': 25., 'apical dendritic': 25., 'distal apical dendritic': 25.,
+                        'tuft feedforward': 25., 'tuft feedback': 25.}
 inhibitory_theta_modulation_depth = {'perisomatic': 0.5, 'axo-axonic': 0.5, 'apical dendritic': 0.5,
                                      'distal apical dendritic': 0.5, 'tuft feedforward': 0.5, 'tuft feedback': 0.5}
 inhibitory_theta_phase_tuning_factor = {'perisomatic': 0.6, 'axo-axonic': 0.6, 'apical dendritic': 0.6,
@@ -329,11 +334,6 @@ for group in stim_exc_syns:
     cos_mod_weight[group][before] = 1.
     cos_mod_weight[group][after] = 1.
 
-manipulated_inh_syns = {}
-for group in inhibitory_manipulation_fraction:
-    num_syns = int(len(stim_inh_syns[group]) * inhibitory_manipulation_fraction[group])
-    manipulated_inh_syns[group] = local_random.sample(stim_inh_syns[group], num_syns)
-
 inh_tuning_amp = (shape_inh - 1.) / 2.
 inh_tuning_offset = inh_tuning_amp + 1.
 left = np.where(stim_t >= modulated_field_center - input_field_duration * 1.2 / 2.)[0][0]
@@ -384,35 +384,19 @@ for group in ampa_forces:
 filtered = low_pass_filter(ampa_forces_sum['all'][start:-start], 2., track_duration, stim_dt)
 ampa_forces_sum['all'] = filtered
 
-"""
-for group in exc_stim_forces:
-    ampa_forces[group] = []
-    for i, stim_force in enumerate(exc_stim_forces[group]):
-        this_force = stim_force * cos_mod_weight[group][i] * ampa_conversion_factor
-        this_force = np.convolve(this_force, ampa_filter)[:len(stim_t)]
-        filtered = low_pass_filter(this_force[start:], 2., track_duration, stim_dt)
-        ampa_forces[group].append(filtered)
-for group in inh_stim_forces:
-    gaba_forces[group] = []
-    for i, stim_force in enumerate(inh_stim_forces[group]):
-        this_force = stim_force * gaba_conversion_factor
-        this_force = np.convolve(this_force, gaba_filter)[:len(stim_t)]
-        gaba_forces[group].append(this_force[start:])
-ampa_forces_sum['all'] = np.zeros_like(t)
-for group in ampa_forces:
-    ampa_forces_sum[group] = np.sum(ampa_forces[group], axis=0)
-    ampa_forces_sum['all'] = np.add(ampa_forces_sum['all'], ampa_forces_sum[group])
-"""
-
 gaba_forces_sum['all'] = np.zeros_like(stim_t)
 for group in gaba_forces:
     gaba_forces_sum[group] = np.sum(gaba_forces[group], axis=0)
     gaba_forces_sum['all'] = np.add(gaba_forces_sum['all'], gaba_forces_sum[group])
+filtered = low_pass_filter(gaba_forces_sum['all'], 2., track_duration+2.*track_equilibrate, stim_dt)
+gaba_forces_sum['all'] = filtered[start:-start]
+#filtered = low_pass_filter(gaba_forces_sum['all'][start:-start], 2., track_duration, stim_dt)
+#gaba_forces_sum['all'] = filtered
 
 plt.plot(t, ampa_forces_sum['all'])
 plt.show()
 plt.close()
 
-plt.plot(t, gaba_forces_sum['all'][start:-start])
+plt.plot(t, gaba_forces_sum['all'])
 plt.show()
 plt.close()

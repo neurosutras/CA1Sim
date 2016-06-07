@@ -430,35 +430,17 @@ for group in ampa_forces:
 filtered = low_pass_filter(ampa_forces_sum['all'][start:-start], 2., track_duration, stim_dt)
 ampa_forces_sum['all'] = filtered
 
-"""
-for group in exc_stim_forces:
-    ampa_forces[group] = []
-    for i, stim_force in enumerate(exc_stim_forces[group]):
-        this_force = stim_force * cos_mod_weight[group][i] * ampa_conversion_factor
-        this_force = np.convolve(this_force, ampa_filter)[:len(stim_t)]
-        filtered = low_pass_filter(this_force[start:], 2., track_duration, stim_dt)
-        ampa_forces[group].append(filtered)
-for group in inh_stim_forces:
-    gaba_forces[group] = []
-    for i, stim_force in enumerate(inh_stim_forces[group]):
-        this_force = stim_force * gaba_conversion_factor
-        this_force = np.convolve(this_force, gaba_filter)[:len(stim_t)]
-        gaba_forces[group].append(this_force[start:])
-ampa_forces_sum['all'] = np.zeros_like(t)
-for group in ampa_forces:
-    ampa_forces_sum[group] = np.sum(ampa_forces[group], axis=0)
-    ampa_forces_sum['all'] = np.add(ampa_forces_sum['all'], ampa_forces_sum[group])
-"""
-
 gaba_forces_sum['all'] = np.zeros_like(stim_t)
 for group in gaba_forces:
     gaba_forces_sum[group] = np.sum(gaba_forces[group], axis=0)
     gaba_forces_sum['all'] = np.add(gaba_forces_sum['all'], gaba_forces_sum[group])
+filtered = low_pass_filter(gaba_forces_sum['all'][start:-start], 2., track_duration, stim_dt)
+gaba_forces_sum['all'] = filtered
 
 plt.plot(t, ampa_forces_sum['all'])
 plt.show()
 plt.close()
 
-plt.plot(t, gaba_forces_sum['all'][start:-start])
+plt.plot(t, gaba_forces_sum['all'])
 plt.show()
 plt.close()

@@ -1,10 +1,14 @@
 from plot_results import *
 
-svg_title = '052516'
+svg_title = '060716'
 #svg_title = None
 track_equilibrate = 300.
 track_duration = 7500.
 dt = 0.1
+
+if svg_title is not None:
+    remember_font_size = mpl.rcParams['font.size']
+    mpl.rcParams['font.size'] = 8
 
 t = np.arange(0., track_duration, dt)
 offset = int(track_equilibrate/dt)
@@ -12,6 +16,7 @@ offset = int(track_equilibrate/dt)
 peak_locs, ampa_forces, ampa_forces_sum, gaba_forces_sum = {}, {}, {}, {}
 # length of ampa_forces is 2.*track_equilibrate + track_duration (extra padding is for filtering)
 # length of ampa_forces_sum is track_duration (pre-filtered)
+"""
 for filename, condition in zip(['052416 - E_I distributions - biased density',
                                 '052416 - E_I distributions - uniform density'], ['biased', 'uniform']):
     peak_locs[condition], ampa_forces[condition], ampa_forces_sum[condition] = read_from_pkl(data_dir+filename+'.pkl')
@@ -21,22 +26,19 @@ filtered = low_pass_filter(ampa_forces['uniform'][np.where((np.array(peak_locs['
                            2.*track_equilibrate+track_duration, dt)
 unit_baseline = np.max(filtered)
 population_baseline = np.mean(ampa_forces_sum['uniform'][int(600./dt):int(1200./dt)])
+"""
 
-# length of gaba_forces is track_equilibrate + track_duration
-for filename, condition in zip(['052416 - E_I distributions - uniform inhibition0',
-                                '052416 - E_I distributions - uniform inhibition3',
-                                '052416 - E_I distributions - increased inhibition0',
-                                '052416 - E_I distributions - increased inhibition3',
-                                '052416 - E_I distributions - decreased inhibition0',
-                                '052416 - E_I distributions - decreased inhibition3'],
+# length of gaba_forces is track_duration
+for filename, condition in zip(['060716 - E_I distributions - subtr0_shape_inh1.0_modinh0',
+                                '060716 - E_I distributions - subtr0_shape_inh1.0_modinh3',
+                                '060716 - E_I distributions - subtr50_shape_inh0.5_modinh0',
+                                '060716 - E_I distributions - subtr50_shape_inh0.5_modinh3',
+                                '060716 - E_I distributions - subtr40_shape_inh2.0_modinh0',
+                                '060716 - E_I distributions - subtr40_shape_inh2.0_modinh3'],
                                ['uniform0', 'uniform3', 'increased0', 'increased3', 'decreased0', 'decreased3']):
     gaba_forces_sum[condition] = read_from_pkl(data_dir+filename+'.pkl')
 
 gaba_baseline = np.mean(gaba_forces_sum['uniform0'][int(600./dt):int(1200./dt)])
-
-if svg_title is not None:
-    remember_font_size = mpl.rcParams['font.size']
-    mpl.rcParams['font.size'] = 8
 
 """
 fig, axes = plt.subplots(1)
@@ -123,16 +125,16 @@ if svg_title is not None:
     fig.savefig(data_dir+svg_title+' - biased E - total input.svg', format='svg', transparent=True)
 plt.show()
 plt.close()
-
+"""
 for (control, reduced), title in zip([('uniform0', 'uniform3'), ('increased0', 'increased3'),
                                       ('decreased0', 'decreased3')], ['Uniform inhibition',
                                                                       'Increased inhibition in field',
                                                                       'Decreased inhibition in field']):
     fig, axes = plt.subplots(1)
-    axes.plot(t, gaba_forces_sum[control][offset:]/gaba_baseline, c='k', label='Control')
-    axes.plot(t, gaba_forces_sum[reduced][offset:]/gaba_baseline, c='orange', label='Reduced inhibition')
+    axes.plot(t, gaba_forces_sum[control]/gaba_baseline, c='k', label='Control')
+    axes.plot(t, gaba_forces_sum[reduced]/gaba_baseline, c='orange', label='Reduced inhibition')
     axes.set_ylim(0., 2.5)
-    axes.set_ylabel('Normalized Conductance')
+    axes.set_ylabel('Normalized conductance')
     axes.set_xlim(0., 7500.)
     axes.set_xlabel('Time (s)')
     axes.set_xticks([0., 1500., 3000., 4500., 6000., 7500.])
@@ -146,17 +148,21 @@ for (control, reduced), title in zip([('uniform0', 'uniform3'), ('increased0', '
         fig.savefig(data_dir+svg_title+' - I distribution - '+title+'.svg', format='svg', transparent=True)
     plt.show()
     plt.close()
-"""
 
+
+"""
 dt = 0.02
 rec_filenames, residuals, mean_theta_envelope, scatter_vm_mean, scatter_vm_var, binned_t, mean_binned_vm, \
 mean_binned_var, mean_ramp, mean_output = {}, {}, {}, {}, {}, {}, {}, {}, {}, {}
 
-for rec_filename, group in zip(['052516 - cell 127 - saved parameters', '052516 - cell 128 - saved parameters',
-                                '052516 - cell 129 - saved parameters', '052516 - cell 130 - saved parameters',
-                                '052516 - cell 138 - saved parameters', '052516 - cell 139 - saved parameters'],
+for rec_filename, group in zip(['060716 - cell140 - subtr_inh0_shape_inh1.0 - saved parameters',
+                                '060716 - cell128 - subtr_inh50_shape_inh0.5 - saved parameters',
+                                '060716 - cell129 - subtr_inh40_shape_inh2.0 - saved parameters',
+                                '060716 - cell130 - subtr_inh60_density_shape_inh1.0 - saved parameters',
+                                '060716 - cell139 - subtr_inh80_density_shape_inh0.5 - saved parameters',
+                                '060716 - cell138 - subtr_inh70_density_shape_inh2.0 - saved parameters'],
                                ['shape_inh1.0', 'shape_inh0.5', 'shape_inh2.0', 'density_shape_inh1.0',
-                                'density_shape_inh2.0', 'density_shape_inh0.5']):
+                                'density_shape_inh0.5', 'density_shape_inh2.0']):
     rec_filenames[group], rec_t, residuals[group], mean_theta_envelope[group], scatter_vm_mean[group], \
     scatter_vm_var[group], binned_t[group], mean_binned_vm[group], mean_binned_var[group], mean_ramp[group], \
     mean_output[group] = read_from_pkl(data_dir+rec_filename+'.pkl')
@@ -167,7 +173,7 @@ for group in ['shape_inh1.0', 'shape_inh0.5', 'shape_inh2.0', 'density_shape_inh
     fig, axes = plt.subplots(1)
     axes.plot(rec_t, np.subtract(mean_ramp[group]['modinh0'], baseline), color='k')
     axes.plot(rec_t, np.subtract(mean_ramp[group]['modinh3'], baseline), color='orange')
-    axes.set_ylim(-0.8, 14.)
+    axes.set_ylim(-0.8, 16.5)
     axes.set_ylabel('DVm (mV)')
     axes.set_xlim(0., 7500.)
     axes.set_xlabel('Time (s)')
@@ -182,6 +188,7 @@ for group in ['shape_inh1.0', 'shape_inh0.5', 'shape_inh2.0', 'density_shape_inh
         fig.savefig(data_dir + svg_title + ' - no_na ramp - ' + group + '.svg', format='svg', transparent=True)
     plt.show()
     plt.close()
+"""
 
 if svg_title is not None:
     mpl.rcParams['font.size'] = remember_font_size
