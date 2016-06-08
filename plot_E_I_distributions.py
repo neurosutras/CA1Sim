@@ -35,7 +35,7 @@ for filename, condition in zip(['060716 - E_I distributions - subtr0_shape_inh1.
                                 '060716 - E_I distributions - subtr50_shape_inh0.5_modinh3',
                                 '060716 - E_I distributions - subtr40_shape_inh2.0_modinh0',
                                 '060716 - E_I distributions - subtr40_shape_inh2.0_modinh3'],
-                               ['uniform0', 'uniform3', 'increased0', 'increased3', 'decreased0', 'decreased3']):
+                               ['uniform0', 'uniform3', 'decreased0', 'decreased3', 'increased0', 'increased3']):
     gaba_forces_sum[condition] = read_from_pkl(data_dir+filename+'.pkl')
 
 gaba_baseline = np.mean(gaba_forces_sum['uniform0'][int(600./dt):int(1200./dt)])
