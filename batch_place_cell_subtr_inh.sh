@@ -80,4 +80,4 @@ qsub -N job2_060816_e3200_i600_subtr4_shape1.0_inh0_125 -l d_rt=36000 -b y -cwd 
 qsub -N job2_060816_e3200_i600_subtr4_shape1.0_inh0_126 -l d_rt=36000 -b y -cwd -V 'python simulate_place_cell_subtr_inh_shape_inh.py 4 3200 600 0 1.0 126'
 qsub -N job2_060816_e3200_i600_subtr4_shape1.0_inh0_127 -l d_rt=36000 -b y -cwd -V 'python simulate_place_cell_subtr_inh_shape_inh.py 4 3200 600 0 1.0 127'
 qsub -N job2_060816_e3200_i600_subtr4_shape1.0_inh0_128 -l d_rt=36000 -b y -cwd -V 'python simulate_place_cell_subtr_inh_shape_inh.py 4 3200 600 0 1.0 128'
-qsub -N job2_060816_e3200_i600_subtr4_shape1.0_inh0_129 -l d_rt=36000 -b y -cwd -V 'python simulate_place_cell_subtr_inh_shape_inh.py 4 3200 600 0 1.0 129'
+qsub -N job2_060916_e3200_i600_subtr4_shape1.0_inh0_129 -m e -M milsteina@janelia.hhmi.org -l d_rt=36000 -b y -cwd -V 'python simulate_place_cell_subtr_inh_shape_inh.py 4 3200 600 0 1.0 129'
