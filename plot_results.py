@@ -2909,6 +2909,128 @@ def plot_patterned_input_sim_summary(rec_t, mean_theta_envelope, binned_t,  mean
         mpl.rcParams['font.size'] = remember_font_size
 
 
+def plot_place_field_summmary_across_cells(rec_t, mean_theta_envelope, binned_t, mean_binned_var, mean_ramp,
+                                           mean_output, key_list=None, titles=None, baseline_range=[0., 600.],
+                                           dt=0.02, svg_title=None):
+    """
+    Expects the output of process_patterned_input_simulation.
+    Produces summary plots for ramp, variance, theta, and firing rate.
+    :param rec_t: array
+    :param mean_theta_envelope: array
+    :param binned_t: array
+    :param mean_binned_var: array
+    :param mean_ramp: array
+    :param mean_output: array
+    :param key_list: list of str
+    :param titles: list of str
+    :param baseline_range: list of float
+    :param dt: float
+    :param svg_title: str
+    """
+    if svg_title is not None:
+        remember_font_size = mpl.rcParams['font.size']
+        mpl.rcParams['font.size'] = 8
+    if key_list is None:
+        key_list = ['modinh0', 'modinh3']
+    if titles is None:
+        titles = ['Control', 'Reduced inhibition']
+    colors = [('k', 'grey'), ('orange', 'orange')]
+    """
+    fig, axes = plt.subplots(1)
+    baseline = np.mean(mean_ramp['mean'][key_list[0]][int(baseline_range[0]/dt):int(baseline_range[1]/dt)])
+    for i, (condition, title) in enumerate(zip(key_list, titles)):
+        this_mean = np.subtract(mean_ramp['mean'][condition], baseline)
+        this_variance = mean_ramp['var'][condition]
+        axes.plot(rec_t, np.subtract(this_mean, this_variance), color=colors[i][1])
+        axes.plot(rec_t, np.add(this_mean, this_variance), color=colors[i][1])
+        axes.plot(rec_t, this_mean, color=colors[i][0], label=title)
+        #axes.fill_between(rec_t, np.subtract(this_ramp, this_variance), np.add(this_ramp, this_variance),
+        #                  color=colors[i][1])
+    clean_axes(axes)
+    axes.set_xlabel('Time (s)')
+    axes.set_ylabel('DVm (mV)')
+    axes.set_ylim(-0.8, 10.)
+    axes.set_xlim(0., 7500.)
+    axes.set_xticks([0., 1500., 3000., 4500., 6000., 7500.])
+    axes.set_xticklabels([0, 1.5, 3, 4.5, 6, 7.5])
+    axes.tick_params(direction='out')
+    # plt.legend(loc='best', frameon=False, framealpha=0.5, fontsize=mpl.rcParams['font.size'])
+    if svg_title is not None:
+        fig.set_size_inches(1.1458, 1.2169)
+        fig.savefig(data_dir+svg_title+' - Summary - Ramp.svg', format='svg', transparent=True)
+    plt.show()
+    plt.close()
+    """
+    fig, axes = plt.subplots(1)
+    for i, (condition, title) in enumerate(zip(key_list, titles)):
+        this_mean = mean_output['mean'][condition]
+        this_variance = mean_output['var'][condition]
+        axes.plot(rec_t, np.subtract(this_mean, this_variance), color=colors[i][1])
+        axes.plot(rec_t, np.add(this_mean, this_variance), color=colors[i][1])
+        axes.plot(rec_t, this_mean, color=colors[i][0], label=title)
+    clean_axes(axes)
+    axes.set_xlabel('Time (s)')
+    axes.set_ylabel('Firing rate (Hz)')
+    axes.set_ylim(-5., 60.)
+    axes.set_xlim(0., 7500.)
+    axes.set_xticks([0., 1500., 3000., 4500., 6000., 7500.])
+    axes.set_xticklabels([0, 1.5, 3, 4.5, 6, 7.5])
+    # plt.legend(loc='best', frameon=False, framealpha=0.5, fontsize=mpl.rcParams['font.size'])
+    axes.tick_params(direction='out')
+    if svg_title is not None:
+        fig.set_size_inches(1.1458, 1.2169)
+        fig.savefig(data_dir + svg_title + ' - Summary - Rate.svg', format='svg', transparent=True)
+    plt.show()
+    plt.close()
+    """
+    fig, axes = plt.subplots(1)
+    for i, (condition, title) in enumerate(zip(key_list, titles)):
+        this_mean = mean_theta_envelope['mean'][condition]
+        this_variance = mean_theta_envelope['var'][condition]
+        axes.plot(rec_t, np.subtract(this_mean, this_variance), color=colors[i][1])
+        axes.plot(rec_t, np.add(this_mean, this_variance), color=colors[i][1])
+        axes.plot(rec_t, this_mean, color=colors[i][0], label=title)
+    clean_axes(axes)
+    axes.set_xlabel('Time (s)')
+    axes.set_ylabel('Thetaintra (mV)')
+    axes.set_ylim(0., 3.)
+    axes.set_xlim(0., 7500.)
+    axes.set_xticks([0., 1500., 3000., 4500., 6000., 7500.])
+    axes.set_xticklabels([0, 1.5, 3, 4.5, 6, 7.5])
+    # plt.legend(loc='best', frameon=False, framealpha=0.5, fontsize=mpl.rcParams['font.size'])
+    axes.tick_params(direction='out')
+    if svg_title is not None:
+        fig.set_size_inches(1.1458, 1.2169)
+        fig.savefig(data_dir + svg_title + ' - Summary - Theta.svg', format='svg', transparent=True)
+    plt.show()
+    plt.close()
+
+    fig, axes = plt.subplots(1)
+    for i, (condition, title) in enumerate(zip(key_list, titles)):
+        this_mean = mean_binned_var['mean'][condition]
+        this_variance = mean_binned_var['var'][condition]
+        axes.plot(binned_t['mean'][condition], np.subtract(this_mean, this_variance), color=colors[i][1])
+        axes.plot(binned_t['mean'][condition], np.add(this_mean, this_variance), color=colors[i][1])
+        axes.plot(binned_t['mean'][condition], this_mean, color=colors[i][0], label=title)
+    clean_axes(axes)
+    axes.set_xlabel('Time (s)', fontsize=8)
+    axes.set_ylabel('Variance (mV2)', fontsize=8)
+    axes.set_ylim(0., 7.)
+    axes.set_xlim(0., 7500.)
+    axes.set_xticks([0., 1500., 3000., 4500., 6000., 7500.])
+    axes.set_xticklabels([0, 1.5, 3, 4.5, 6, 7.5])
+    # plt.legend(loc='best', frameon=False, framealpha=0.5, fontsize=mpl.rcParams['font.size'])
+    axes.tick_params(direction='out')
+    if svg_title is not None:
+        fig.set_size_inches(1.1458, 1.2169)
+        fig.savefig(data_dir + svg_title + ' - Summary - Variance.svg', format='svg', transparent=True)
+    plt.show()
+    plt.close()
+    """
+    if svg_title is not None:
+        mpl.rcParams['font.size'] = remember_font_size
+
+
 def plot_phase_precession(t_array, phase_array, title, fit_start=3600., fit_end=5400., display_start=0.,
                           display_end=7500., bin_size=60., num_bins=5, svg_title=None, plot=True, adjust=True):
     """

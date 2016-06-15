@@ -32,3 +32,5 @@ qsub -pe batch 4 -N job_060916_e3200_i600_i_AMPA_4_subtr_inh0_122 -l d_rt=36000 
 qsub -pe batch 4 -N job_060916_e3200_i600_i_AMPA_4_subtr_inh0_124 -l d_rt=36000 -b y -cwd -V 'python simulate_place_cell_subtr_inh_rec_i_syn.py 4 3200 600 0 AMPA 124'
 qsub -pe batch 4 -N job_060916_e3200_i600_i_NMDA_4_subtr_inh0_127 -l d_rt=36000 -b y -cwd -V 'python simulate_place_cell_subtr_inh_rec_i_syn.py 4 3200 600 0 NMDA 127'
 qsub -pe batch 4 -N job_060916_e3200_i600_i_NMDA_4_subtr_inh0_129 -l d_rt=36000 -b y -cwd -V 'python simulate_place_cell_subtr_inh_rec_i_syn.py 4 3200 600 0 NMDA 129'
+
+qsub -pe batch 4 -N job_061516_e3200_i600_i_AMPA_2_subtr_inh3_85 -m e -M milsteina@janelia.hhmi.org -l d_rt=36000 -b y -cwd -V 'python simulate_place_cell_subtr_inh_rec_i_syn.py 2 3200 600 3 AMPA 85'
