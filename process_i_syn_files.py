@@ -71,7 +71,7 @@ file_list['i_AMPA'][2]['modinh3'] = ['output060820161303-pid17744-seed2-e3200-i6
  'output060820161303-pid3527-seed2-e3200-i600-subtr_mod_inh3-i_AMPA_82',
  'output060920161651-pid8053-seed2-e3200-i600-subtr_mod_inh3-i_AMPA_83',
  'output060920161651-pid97232-seed2-e3200-i600-subtr_mod_inh3-i_AMPA_84',
- 'output060820161303-pid12407-seed2-e3200-i600-subtr_mod_inh3-i_AMPA_85',
+ 'output061520161622-pid34558-seed2-e3200-i600-subtr_mod_inh3-i_AMPA_85',
  'output060920161651-pid39565-seed2-e3200-i600-subtr_mod_inh3-i_AMPA_86',
  'output060820161303-pid12408-seed2-e3200-i600-subtr_mod_inh3-i_AMPA_87',
  'output060820161303-pid12410-seed2-e3200-i600-subtr_mod_inh3-i_AMPA_88',
