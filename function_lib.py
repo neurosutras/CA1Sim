@@ -1687,7 +1687,7 @@ def alternative_binned_vm_variance_analysis(rec_filename, dt=0.02):
     binned_t = []
     bin_duration = 3. * spatial_bin
     interval = int(bin_duration / dt)
-    for j in range(0, int(track_duration / bin_duration) - 1):
+    for j in range(0, int(track_duration / bin_duration)):
         binned_t.append(j * bin_duration + bin_duration / 2.)
         for i, residual in enumerate(residuals_interp):
             binned_variance[i].append(np.var(residual[j * interval:(j + 1) * interval]))

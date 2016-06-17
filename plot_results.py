@@ -2486,6 +2486,8 @@ def process_patterned_input_simulation(rec_filename, title, dt=0.02):
 
     :param rec_file_name: str
     :param title: str
+    :param dt: float
+    :return: list of array
     # remember .attrs['phase_offset'] could be inside ['train'] for old files
     """
     with h5py.File(data_dir+rec_filename+'.hdf5', 'r') as f:
@@ -2613,7 +2615,7 @@ def process_patterned_input_simulation(rec_filename, title, dt=0.02):
     binned_t = []
     bin_duration = 3. * spatial_bin
     interval = int(bin_duration / dt)
-    for j in range(0, int(track_duration / bin_duration) - 1):
+    for j in range(0, int(track_duration / bin_duration)):
         binned_t.append(j * bin_duration + bin_duration / 2.)
         for i, residual in enumerate(residuals):
             binned_variance[i].append(np.var(residual[j * interval:(j + 1) * interval]))
@@ -2654,6 +2656,90 @@ def process_patterned_input_simulation(rec_filename, title, dt=0.02):
     plt.close()
     return rec_t, residuals, mean_theta_envelope, scatter_vm_mean, scatter_vm_var, binned_t, mean_binned_vm, \
            mean_binned_var, mean_ramp, mean_output
+
+
+def process_patterned_input_simulation_fix_bins(rec_filename, title, dt=0.02):
+    """
+
+    :param rec_file_name: str
+    :param title: str
+    :param dt: float
+    :return: array
+    # remember .attrs['phase_offset'] could be inside ['train'] for old files
+    """
+    with h5py.File(data_dir+rec_filename+'.hdf5', 'r') as f:
+        sim = f.itervalues().next()
+        equilibrate = sim.attrs['equilibrate']
+        track_equilibrate = sim.attrs['track_equilibrate']
+        track_length = sim.attrs['track_length']
+        input_field_duration = sim.attrs['input_field_duration']
+        duration = sim.attrs['duration']
+        stim_dt = sim.attrs['stim_dt']
+        bins = int((1.5 + track_length) * input_field_duration / 20.)
+        track_duration = duration - equilibrate - track_equilibrate
+        stim_t = np.arange(-track_equilibrate, track_duration, stim_dt)
+        start = int(track_equilibrate/stim_dt)
+        spatial_bin = input_field_duration/50.
+    rec_t = np.arange(0., track_duration, dt)
+    #spikes_removed = get_removed_spikes_alt(rec_filename, plot=0)
+    spikes_removed = get_removed_spikes(rec_filename, plot=0)
+    # down_sample traces to 2 kHz after clipping spikes for theta and ramp filtering
+    down_dt = 0.5
+    down_t = np.arange(0., track_duration, down_dt)
+    # 2000 ms Hamming window, ~2 Hz low-pass for ramp, ~5 - 10 Hz bandpass for theta, ~0.2 Hz low-pass for residuals
+    window_len = int(2000. / down_dt)
+    pad_len = int(window_len / 2.)
+    theta_filter = signal.firwin(window_len, [5., 10.], nyq=1000. / 2. / down_dt, pass_zero=False)
+    ramp_filter = signal.firwin(window_len, 2., nyq=1000. / 2. / down_dt)
+    slow_vm_filter = signal.firwin(window_len, .2, nyq=1000. / 2. / down_dt)
+    theta_traces = []
+    theta_removed = []
+    ramp_traces = []
+    slow_vm_traces = []
+    residuals = []
+    intra_psd = []
+    theta_envelopes = []
+    for trace in spikes_removed:
+        down_sampled = np.interp(down_t, rec_t, trace)
+        padded_trace = np.zeros(len(down_sampled) + window_len)
+        padded_trace[pad_len:-pad_len] = down_sampled
+        padded_trace[:pad_len] = down_sampled[::-1][-pad_len:]
+        padded_trace[-pad_len:] = down_sampled[::-1][:pad_len]
+        filtered = signal.filtfilt(theta_filter, [1.], padded_trace, padlen=pad_len)
+        this_theta_envelope = np.abs(signal.hilbert(filtered))
+        filtered = filtered[pad_len:-pad_len]
+        up_sampled = np.interp(rec_t, down_t, filtered)
+        theta_traces.append(up_sampled)
+        this_theta_removed = trace - up_sampled
+        theta_removed.append(this_theta_removed)
+        this_theta_envelope = this_theta_envelope[pad_len:-pad_len]
+        up_sampled = np.interp(rec_t, down_t, this_theta_envelope)
+        theta_envelopes.append(up_sampled)
+        filtered = signal.filtfilt(ramp_filter, [1.], padded_trace, padlen=pad_len)
+        filtered = filtered[pad_len:-pad_len]
+        up_sampled = np.interp(rec_t, down_t, filtered)
+        ramp_traces.append(up_sampled)
+        filtered = signal.filtfilt(slow_vm_filter, [1.], padded_trace, padlen=pad_len)
+        filtered = filtered[pad_len:-pad_len]
+        up_sampled = np.interp(rec_t, down_t, filtered)
+        slow_vm_traces.append(up_sampled)
+        this_residual = this_theta_removed - up_sampled
+        residuals.append(this_residual)
+    binned_mean = [[] for i in range(len(residuals))]
+    binned_variance = [[] for i in range(len(residuals))]
+    binned_t = []
+    bin_duration = 3. * spatial_bin
+    interval = int(bin_duration / dt)
+    for j in range(0, int(track_duration / bin_duration)):
+        binned_t.append(j * bin_duration + bin_duration / 2.)
+        for i, residual in enumerate(residuals):
+            binned_variance[i].append(np.var(residual[j * interval:(j + 1) * interval]))
+            binned_mean[i].append(np.mean(theta_removed[i][j * interval:(j + 1) * interval]))
+    mean_binned_vm = np.mean(binned_mean, axis=0)
+    mean_binned_var = np.mean(binned_variance, axis=0)
+    scatter_vm_mean = np.array(binned_mean).flatten()
+    scatter_vm_var = np.array(binned_variance).flatten()
+    return scatter_vm_mean, scatter_vm_var, binned_t, mean_binned_vm, mean_binned_var
 
 
 def plot_patterned_input_individual_trial_traces(rec_t, vm_array, theta_traces, ramp_traces, index=None,
@@ -2910,23 +2996,26 @@ def plot_patterned_input_sim_summary(rec_t, mean_theta_envelope, binned_t,  mean
 
 
 def plot_place_field_summmary_across_cells(rec_t, mean_theta_envelope, binned_t, mean_binned_var, mean_ramp,
-                                           mean_output, key_list=None, titles=None, baseline_range=[0., 600.],
-                                           dt=0.02, svg_title=None):
+                                           mean_output, groups=None, key_list=None, titles=None,
+                                           baseline_range=[0., 600.], dt=0.02, svg_title=None):
     """
     Expects the output of process_patterned_input_simulation.
-    Produces summary plots for ramp, variance, theta, and firing rate.
+    Produces summary plots for ramp, variance, theta, and firing rate depicting mean and SEM across cells.
     :param rec_t: array
     :param mean_theta_envelope: array
     :param binned_t: array
     :param mean_binned_var: array
     :param mean_ramp: array
     :param mean_output: array
+    :param groups: list of dict keys
     :param key_list: list of str
     :param titles: list of str
     :param baseline_range: list of float
     :param dt: float
     :param svg_title: str
     """
+    if groups is None:
+        groups = mean_theta_envelope.keys()
     if svg_title is not None:
         remember_font_size = mpl.rcParams['font.size']
         mpl.rcParams['font.size'] = 8
@@ -2935,16 +3024,22 @@ def plot_place_field_summmary_across_cells(rec_t, mean_theta_envelope, binned_t,
     if titles is None:
         titles = ['Control', 'Reduced inhibition']
     colors = [('k', 'grey'), ('orange', 'orange')]
-    """
+    for parameter in mean_theta_envelope, binned_t, mean_binned_var, mean_ramp, mean_output:
+        parameter['mean'], parameter['var'] = {}, {}
+        for condition in key_list:
+            parameter['mean'][condition] = np.mean([parameter[group][condition] for group in groups], axis=0)
+            parameter['var'][condition] = np.var([parameter[group][condition] for group in groups], axis=0)
+
     fig, axes = plt.subplots(1)
     baseline = np.mean(mean_ramp['mean'][key_list[0]][int(baseline_range[0]/dt):int(baseline_range[1]/dt)])
     for i, (condition, title) in enumerate(zip(key_list, titles)):
         this_mean = np.subtract(mean_ramp['mean'][condition], baseline)
         this_variance = mean_ramp['var'][condition]
-        axes.plot(rec_t, np.subtract(this_mean, this_variance), color=colors[i][1])
-        axes.plot(rec_t, np.add(this_mean, this_variance), color=colors[i][1])
+        this_SEM = np.divide(np.sqrt(this_variance), np.sqrt(float(len(groups))))
+        axes.plot(rec_t, np.subtract(this_mean, this_SEM), color=colors[i][1])
+        axes.plot(rec_t, np.add(this_mean, this_SEM), color=colors[i][1])
         axes.plot(rec_t, this_mean, color=colors[i][0], label=title)
-        #axes.fill_between(rec_t, np.subtract(this_ramp, this_variance), np.add(this_ramp, this_variance),
+        #axes.fill_between(rec_t, np.subtract(this_mean, this_SEM), np.add(this_mean, this_SEM),
         #                  color=colors[i][1])
     clean_axes(axes)
     axes.set_xlabel('Time (s)')
@@ -2956,39 +3051,18 @@ def plot_place_field_summmary_across_cells(rec_t, mean_theta_envelope, binned_t,
     axes.tick_params(direction='out')
     # plt.legend(loc='best', frameon=False, framealpha=0.5, fontsize=mpl.rcParams['font.size'])
     if svg_title is not None:
-        fig.set_size_inches(1.1458, 1.2169)
+        fig.set_size_inches(1.3198, 1.2169)
         fig.savefig(data_dir+svg_title+' - Summary - Ramp.svg', format='svg', transparent=True)
     plt.show()
     plt.close()
-    """
-    fig, axes = plt.subplots(1)
-    for i, (condition, title) in enumerate(zip(key_list, titles)):
-        this_mean = mean_output['mean'][condition]
-        this_variance = mean_output['var'][condition]
-        axes.plot(rec_t, np.subtract(this_mean, this_variance), color=colors[i][1])
-        axes.plot(rec_t, np.add(this_mean, this_variance), color=colors[i][1])
-        axes.plot(rec_t, this_mean, color=colors[i][0], label=title)
-    clean_axes(axes)
-    axes.set_xlabel('Time (s)')
-    axes.set_ylabel('Firing rate (Hz)')
-    axes.set_ylim(-5., 60.)
-    axes.set_xlim(0., 7500.)
-    axes.set_xticks([0., 1500., 3000., 4500., 6000., 7500.])
-    axes.set_xticklabels([0, 1.5, 3, 4.5, 6, 7.5])
-    # plt.legend(loc='best', frameon=False, framealpha=0.5, fontsize=mpl.rcParams['font.size'])
-    axes.tick_params(direction='out')
-    if svg_title is not None:
-        fig.set_size_inches(1.1458, 1.2169)
-        fig.savefig(data_dir + svg_title + ' - Summary - Rate.svg', format='svg', transparent=True)
-    plt.show()
-    plt.close()
-    """
+
     fig, axes = plt.subplots(1)
     for i, (condition, title) in enumerate(zip(key_list, titles)):
         this_mean = mean_theta_envelope['mean'][condition]
         this_variance = mean_theta_envelope['var'][condition]
-        axes.plot(rec_t, np.subtract(this_mean, this_variance), color=colors[i][1])
-        axes.plot(rec_t, np.add(this_mean, this_variance), color=colors[i][1])
+        this_SEM = np.divide(np.sqrt(this_variance), np.sqrt(float(len(groups))))
+        axes.plot(rec_t, np.subtract(this_mean, this_SEM), color=colors[i][1])
+        axes.plot(rec_t, np.add(this_mean, this_SEM), color=colors[i][1])
         axes.plot(rec_t, this_mean, color=colors[i][0], label=title)
     clean_axes(axes)
     axes.set_xlabel('Time (s)')
@@ -3000,8 +3074,33 @@ def plot_place_field_summmary_across_cells(rec_t, mean_theta_envelope, binned_t,
     # plt.legend(loc='best', frameon=False, framealpha=0.5, fontsize=mpl.rcParams['font.size'])
     axes.tick_params(direction='out')
     if svg_title is not None:
-        fig.set_size_inches(1.1458, 1.2169)
+        fig.set_size_inches(1.3198, 1.2169)
         fig.savefig(data_dir + svg_title + ' - Summary - Theta.svg', format='svg', transparent=True)
+    plt.show()
+    plt.close()
+    """
+    fig, axes = plt.subplots(1)
+    for i, (condition, title) in enumerate(zip(key_list, titles)):
+        this_mean = mean_output['mean'][condition]
+        this_variance = mean_output['var'][condition]
+        this_SEM = np.divide(np.sqrt(this_variance), np.sqrt(float(len(groups))))
+        axes.plot(rec_t, np.subtract(this_mean, this_SEM), color=colors[i][1])
+        axes.plot(rec_t, np.add(this_mean, this_SEM), color=colors[i][1])
+        # axes.fill_between(rec_t, np.subtract(this_mean, this_SEM), np.add(this_mean, this_SEM),
+        #                  color=colors[i][1])
+        axes.plot(rec_t, this_mean, color=colors[i][0], label=title)
+    clean_axes(axes)
+    axes.set_xlabel('Time (s)')
+    axes.set_ylabel('Firing rate (Hz)')
+    axes.set_ylim(-3., 40.)
+    axes.set_xlim(0., 7500.)
+    axes.set_xticks([0., 1500., 3000., 4500., 6000., 7500.])
+    axes.set_xticklabels([0, 1.5, 3, 4.5, 6, 7.5])
+    # plt.legend(loc='best', frameon=False, framealpha=0.5, fontsize=mpl.rcParams['font.size'])
+    axes.tick_params(direction='out')
+    if svg_title is not None:
+        fig.set_size_inches(1.3198, 1.2169)
+        fig.savefig(data_dir + svg_title + ' - Summary - Rate.svg', format='svg', transparent=True)
     plt.show()
     plt.close()
 
@@ -3009,8 +3108,11 @@ def plot_place_field_summmary_across_cells(rec_t, mean_theta_envelope, binned_t,
     for i, (condition, title) in enumerate(zip(key_list, titles)):
         this_mean = mean_binned_var['mean'][condition]
         this_variance = mean_binned_var['var'][condition]
-        axes.plot(binned_t['mean'][condition], np.subtract(this_mean, this_variance), color=colors[i][1])
-        axes.plot(binned_t['mean'][condition], np.add(this_mean, this_variance), color=colors[i][1])
+        this_SEM = np.divide(np.sqrt(this_variance), np.sqrt(float(len(groups))))
+        axes.plot(binned_t['mean'][condition], np.subtract(this_mean, this_SEM), color=colors[i][1])
+        axes.plot(binned_t['mean'][condition], np.add(this_mean, this_SEM), color=colors[i][1])
+        #axes.fill_between(binned_t['mean'][condition], np.subtract(this_mean, this_SEM), np.add(this_mean, this_SEM),
+        #                  color=colors[i][1])
         axes.plot(binned_t['mean'][condition], this_mean, color=colors[i][0], label=title)
     clean_axes(axes)
     axes.set_xlabel('Time (s)', fontsize=8)
@@ -3022,7 +3124,7 @@ def plot_place_field_summmary_across_cells(rec_t, mean_theta_envelope, binned_t,
     # plt.legend(loc='best', frameon=False, framealpha=0.5, fontsize=mpl.rcParams['font.size'])
     axes.tick_params(direction='out')
     if svg_title is not None:
-        fig.set_size_inches(1.1458, 1.2169)
+        fig.set_size_inches(1.3198, 1.2169)
         fig.savefig(data_dir + svg_title + ' - Summary - Variance.svg', format='svg', transparent=True)
     plt.show()
     plt.close()
@@ -3493,3 +3595,81 @@ def plot_patterned_input_i_syn_summary(rec_filename_array, svg_title=None):
         mpl.rcParams['font.size'] = remember_font_size
     for group in i_syn_dict:
         get_i_syn_mean_values(i_syn_dict[group], group)
+
+
+def plot_place_field_i_syn_across_cells(rec_filename_array, groups=None, svg_title=None):
+    """
+    Expects a nested dictionary of rec_filenames {'i_AMPA', 'i_NMDA', 'i_GABA': {seed or group id: {'modinh0',
+    'modinh3'}}}. Generates 4 plots (3 synaptic currents, and E:I Ratio) depicting the mean and SEM across cells.
+    :param rec_filename_array:
+    :param groups: list of dict keys
+    :param svg_title: str
+    """
+    if svg_title is not None:
+        remember_font_size = mpl.rcParams['font.size']
+        mpl.rcParams['font.size'] = 8
+    if groups is None:
+        groups = rec_filename_array['i_AMPA'].keys()
+    i_syn_dict = {}
+    for key in ['i_AMPA', 'i_NMDA', 'i_GABA', 'ratio']:
+        i_syn_dict[key] = {}
+        for group in groups:
+            i_syn_dict[key][group] = {}
+    for syn_type in rec_filename_array:
+        for group in groups:
+            for condition in ['modinh0', 'modinh3']:
+                rec_filename = rec_filename_array[syn_type][group][condition]
+                rec_t, i_syn_mean_dict, i_syn_mean_low_pass_dict = process_i_syn_rec(rec_filename)
+                i_syn_dict[syn_type][group][condition] = i_syn_mean_low_pass_dict[syn_type]
+    for group in groups:
+        for condition in ['modinh0', 'modinh3']:
+            i_syn_dict['ratio'][group][condition] = np.divide(np.abs(np.add(i_syn_dict['i_AMPA'][group][condition],
+                                                                            i_syn_dict['i_NMDA'][group][condition])),
+                                                              i_syn_dict['i_GABA'][group][condition])
+    for key in ['i_AMPA', 'i_NMDA', 'i_GABA', 'ratio']:
+        i_syn_dict[key]['mean'] = {}
+        i_syn_dict[key]['var'] = {}
+        for condition in ['modinh0', 'modinh3']:
+            i_syn_dict[key]['mean'][condition] = np.mean([i_syn_dict[key][group][condition] for group in groups],
+                                                         axis=0)
+            i_syn_dict[key]['var'][condition] = np.var([i_syn_dict[key][group][condition] for group in groups], axis=0)
+    colors = [('k', 'grey'), ('orange', 'orange')]
+    for key in ['i_AMPA', 'i_NMDA', 'i_GABA', 'ratio']:
+        fig, axes = plt.subplots(1)
+        for i, (condition, title) in enumerate(zip(['modinh0', 'modinh3'], ['Control', 'Reduced inhibition'])):
+            this_mean = i_syn_dict[key]['mean'][condition]
+            this_variance = i_syn_dict[key]['var'][condition]
+            this_SEM = np.divide(np.sqrt(this_variance), np.sqrt(float(len(groups))))
+            axes.plot(rec_t, np.subtract(this_mean, this_SEM), color=colors[i][1])
+            axes.plot(rec_t, np.add(this_mean, this_SEM), color=colors[i][1])
+            axes.plot(rec_t, this_mean, color=colors[i][0], label=title)
+        clean_axes(axes)
+        axes.set_xlabel('Time (s)')
+        axes.set_ylabel('Current (nA)')
+        axes.set_xlim(0., 7500.)
+        axes.set_xticks([0., 1500., 3000., 4500., 6000., 7500.])
+        axes.set_xticklabels([0, 1.5, 3, 4.5, 6, 7.5])
+        axes.tick_params(direction='out')
+        plt.legend(loc='best', frameon=False, framealpha=0.5, fontsize=mpl.rcParams['font.size'])
+        if key == 'ratio':
+            axes.set_ylim(1., 2.8)
+            axes.set_title('E:I ratio', fontsize=mpl.rcParams['font.size'])
+            axes.set_ylabel('Ratio')
+        else:
+            if key == 'i_GABA':
+                axes.set_ylim(0., .7)
+            else:
+                axes.set_ylim(-.7, 0.)
+            axes.set_title(key, fontsize=mpl.rcParams['font.size'])
+        if svg_title is not None:
+            fig.set_size_inches(1.3198, 1.2169)
+            fig.savefig(data_dir+svg_title+' - i_syn - '+key+'.svg', format='svg', transparent=True)
+        plt.show()
+        plt.close()
+    if svg_title is not None:
+        mpl.rcParams['font.size'] = remember_font_size
+    for group in groups:
+        print group, ':'
+        for key in i_syn_dict:
+            i_syn_dict[key][group]['modinh3_out'] = copy.deepcopy(i_syn_dict[key][group]['modinh3'])
+            get_i_syn_mean_values(i_syn_dict[key][group], key, ['modinh0', 'modinh3_out', 'modinh3'])

@@ -1,9 +1,10 @@
 from plot_results import *
 import random
 
-svg_title = '051116' #  - compare density distributions'
+svg_title = '061616' #  - compare density distributions'
 #svg_title = None
 
+"""
 saved_parameters, ampa_forces, bin_centers, density, weights, intra_peaks, intra_phases = {}, {}, {}, {}, {}, {}, {}
 filenames = {'uniform': '050916 - uniform density - predict precession parameters.pkl',
              'biased': '050916 - biased density - predict precession parameters.pkl'}
@@ -11,7 +12,7 @@ for condition in filenames:
     saved_parameters[condition] = read_from_pkl(data_dir+filenames[condition])
     stim_t, ampa_forces[condition], bin_centers[condition], density[condition], weights[condition], \
         intra_peaks[condition], intra_phases[condition] = saved_parameters[condition]
-
+"""
 if svg_title is not None:
     remember_font_size = mpl.rcParams['font.size']
     mpl.rcParams['font.size'] = 8
@@ -175,9 +176,10 @@ for i, condition in enumerate(['exc', 'inh_all']):
                     transparent=True)
     plt.show()
     plt.close()
-"""
+
 if svg_title is not None:
     mpl.rcParams['font.size'] = 20
+
 
 for condition in ['train', 'successes']:
     peak_times[condition] = []
@@ -214,6 +216,52 @@ if svg_title is not None:
     #fig.set_size_inches(2.05, 1.40)
     fig.set_size_inches(4.42, 2.98)
     fig.savefig(data_dir+svg_title+' - CA3 Spike Failures.svg', format='svg', transparent=True)
+plt.show()
+plt.close()
+"""
+
+for condition in ['CA3', 'peri-som']:
+    peak_times[condition] = []
+    peak_phases[condition] = []
+
+with h5py.File(data_dir+'output060716 - cell141 - e3200-i600-subtr_inh_0-inh0 - 10 trials.hdf5', 'r') as f:
+    trial = f.itervalues().next()
+    for exc_key in trial['train']:
+        peak_loc = trial['train'][exc_key].attrs['peak_loc']
+        if 1495. <= peak_loc <= 1505.:
+            single_train = trial['train'][exc_key][:]
+            break
+    for inh_key in trial['inh_train']:
+        if trial['inh_train'][inh_key].attrs['group'] == 'perisomatic':
+            break
+    for trial in f.itervalues():
+        time_offset = trial.attrs['phase_offset']
+        peak_time_array, peak_phase_array = get_waveform_phase_vs_time(trial['train'][exc_key][:],
+                                                                       time_offset=time_offset)
+        peak_times['CA3'].extend(peak_time_array)
+        peak_phases['CA3'].extend(peak_phase_array)
+        peak_time_array, peak_phase_array = get_waveform_phase_vs_time(trial['inh_train'][inh_key][:],
+                                                                       time_offset=time_offset)
+        peak_times['peri-som'].extend(peak_time_array)
+        peak_phases['peri-som'].extend(peak_phase_array)
+fig, axes = plt.subplots(1)
+axes.scatter(peak_times['CA3'], peak_phases['CA3'], label='CA3 excitatory', color='c', zorder=1, s=0.1)
+axes.scatter(peak_times['peri-som'], peak_phases['peri-som'], label='Peri-som inhibitory', color='purple', zorder=0,
+             s=0.1)
+axes.set_ylim(0., 360.)
+axes.set_yticks([0., 90., 180., 270., 360.])
+axes.set_ylabel('Theta phase (o)')
+axes.set_xlim(0., 3000.)
+axes.set_xlabel('Time (s)')
+axes.set_xticks([0., 500., 1000., 1500., 2000., 2500., 3000.])
+axes.set_xticklabels([0, 0.5, 1, 1.5, 2, 2.5, 3])
+axes.legend(loc='best', frameon=False, framealpha=0.5, fontsize=mpl.rcParams['font.size'], scatterpoints=1)
+clean_axes(axes)
+axes.tick_params(direction='out')
+if svg_title is not None:
+    #fig.set_size_inches(2.05, 1.40)
+    fig.set_size_inches(1.368, 0.907)
+    fig.savefig(data_dir+svg_title+' - example spike trains.svg', format='svg', transparent=True)
 plt.show()
 plt.close()
 
