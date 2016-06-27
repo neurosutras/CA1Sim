@@ -1,7 +1,7 @@
 from plot_results import *
 import random
 
-svg_title = '061616' #  - compare density distributions'
+svg_title = '062116' #  - compare density distributions'
 #svg_title = None
 
 """
@@ -260,7 +260,8 @@ clean_axes(axes)
 axes.tick_params(direction='out')
 if svg_title is not None:
     #fig.set_size_inches(2.05, 1.40)
-    fig.set_size_inches(1.368, 0.907)
+    #fig.set_size_inches(1.368, 0.907)
+    fig.set_size_inches(1.3198, 1.2169)
     fig.savefig(data_dir+svg_title+' - example spike trains.svg', format='svg', transparent=True)
 plt.show()
 plt.close()

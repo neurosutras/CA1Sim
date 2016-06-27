@@ -2,7 +2,7 @@ from plot_results import *
 from specify_cells import *
 
 morph_filename = 'EB2-late-bifurcation.swc'
-mech_filename = '020516 altered km2 rinp - ampa'
+mech_filename = '043016 Type A - km2_NMDA_KIN5_Pr'
 
 equilibrate = 250.  # time to steady-state
 duration = 400.

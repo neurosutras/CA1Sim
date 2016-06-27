@@ -2510,9 +2510,7 @@ def process_patterned_input_simulation(rec_filename, title, dt=0.02):
             exc_input_sum = None
             for key, train in sim['train'].iteritems():
                 this_train = np.array(train)
-                if len(this_train) > 0:
-                    for i in range(len(this_train) - 1):
-                        intervals.append(this_train[i+1] - this_train[i])
+                intervals.extend(np.diff(this_train))
                 this_exc_rate = get_binned_firing_rate(this_train, stim_t)
                 if exc_input_sum is None:
                     exc_input_sum = np.array(this_exc_rate)
@@ -2531,7 +2529,7 @@ def process_patterned_input_simulation(rec_filename, title, dt=0.02):
         right = np.where(pop_freq >= 11.)[0][0]
         pop_psd /= np.max(pop_psd[left:right])
         mean_output = np.mean(output, axis=0)
-        plt.hist(intervals, bins=int(max(intervals)/3.), normed=True)
+        plt.hist(intervals, bins=int((max(intervals) - min(intervals)) / 3.), normed=True)
         plt.xlim(0., 200.)
         plt.ylabel('Probability')
         plt.xlabel('Inter-Spike Interval (ms)')
@@ -2658,6 +2656,176 @@ def process_patterned_input_simulation(rec_filename, title, dt=0.02):
            mean_binned_var, mean_ramp, mean_output
 
 
+def process_patterned_input_simulation_single_compartment(rec_filename, title, dt=0.1):
+    """
+
+    :param rec_file_name: str
+    :param title: str
+    :param dt: float
+    :return: list of array
+    # remember .attrs['phase_offset'] could be inside ['train'] for old files
+    """
+    with h5py.File(data_dir+rec_filename+'.hdf5', 'r') as f:
+        sim = f.itervalues().next()
+        equilibrate = sim.attrs['equilibrate']
+        track_equilibrate = sim.attrs['track_equilibrate']
+        track_length = sim.attrs['track_length']
+        input_field_duration = sim.attrs['input_field_duration']
+        duration = sim.attrs['duration']
+        stim_dt = sim.attrs['stim_dt']
+        bins = int((1.5 + track_length) * input_field_duration / 20.)
+        track_duration = duration - equilibrate - track_equilibrate
+        stim_t = np.arange(-track_equilibrate, track_duration, stim_dt)
+        start = int(track_equilibrate/stim_dt)
+        spatial_bin = input_field_duration/50.
+        intervals = []
+        pop_input = []
+        for sim in f.itervalues():
+            exc_input_sum = None
+            for key, train in sim['train'].iteritems():
+                this_train = np.array(train)
+                intervals.extend(np.diff(this_train))
+                this_exc_rate = get_binned_firing_rate(this_train, stim_t)
+                if exc_input_sum is None:
+                    exc_input_sum = np.array(this_exc_rate)
+                else:
+                    exc_input_sum = np.add(exc_input_sum, this_exc_rate)
+            pop_input.append(exc_input_sum)
+        pop_psd = []
+        for this_pop_input in pop_input:
+            pop_freq, this_pop_psd = signal.periodogram(this_pop_input, 1000./stim_dt)
+            pop_psd.append(this_pop_psd)
+        pop_psd = np.mean(pop_psd, axis=0)
+        left = np.where(pop_freq >= 4.)[0][0]
+        right = np.where(pop_freq >= 11.)[0][0]
+        pop_psd /= np.max(pop_psd[left:right])
+        plt.hist(intervals, bins=int((max(intervals)-min(intervals))/3.), normed=True)
+        plt.xlim(0., 200.)
+        plt.ylabel('Probability')
+        plt.xlabel('Inter-Spike Interval (ms)')
+        plt.title('Distribution of Input Inter-Spike Intervals - '+title)
+        plt.show()
+        plt.close()
+        peak_locs = [sim.attrs['peak_loc'] for sim in f.itervalues().next()['train'].itervalues()]
+        plt.hist(peak_locs, bins=bins)
+        plt.xlabel('Time (ms)')
+        plt.ylabel('Count (20 ms Bins)')
+        plt.title('Distribution of Input Peak Locations - '+title)
+        plt.xlim((np.min(peak_locs), np.max(peak_locs)))
+        plt.show()
+        plt.close()
+        for sim in f.itervalues():
+            t = np.arange(0., duration, dt)
+            vm = np.interp(t, sim['time'], sim['rec']['0'])
+            start = int((equilibrate + track_equilibrate)/dt)
+            plt.plot(np.subtract(t[start:], equilibrate + track_equilibrate), vm[start:])
+            plt.xlabel('Time (ms)')
+            plt.ylabel('Voltage (mV)')
+            plt.title('Somatic Vm - '+title)
+            plt.ylim((-70., -50.))
+        plt.show()
+        plt.close()
+    rec_t = np.arange(0., track_duration, dt)
+    #spikes_removed = get_removed_spikes_alt(rec_filename, plot=0)
+    spikes_removed = get_removed_spikes(rec_filename, plot=0, dt=0.1)
+    # down_sample traces to 2 kHz after clipping spikes for theta and ramp filtering
+    down_dt = 0.5
+    down_t = np.arange(0., track_duration, down_dt)
+    # 2000 ms Hamming window, ~2 Hz low-pass for ramp, ~5 - 10 Hz bandpass for theta, ~0.2 Hz low-pass for residuals
+    window_len = int(2000. / down_dt)
+    pad_len = int(window_len / 2.)
+    theta_filter = signal.firwin(window_len, [5., 10.], nyq=1000. / 2. / down_dt, pass_zero=False)
+    ramp_filter = signal.firwin(window_len, 2., nyq=1000. / 2. / down_dt)
+    slow_vm_filter = signal.firwin(window_len, .2, nyq=1000. / 2. / down_dt)
+    theta_traces = []
+    theta_removed = []
+    ramp_traces = []
+    slow_vm_traces = []
+    residuals = []
+    intra_psd = []
+    theta_envelopes = []
+    for trace in spikes_removed:
+        intra_freq, this_intra_psd = signal.periodogram(trace, 1000. / dt)
+        intra_psd.append(this_intra_psd)
+        down_sampled = np.interp(down_t, rec_t, trace)
+        padded_trace = np.zeros(len(down_sampled) + window_len)
+        padded_trace[pad_len:-pad_len] = down_sampled
+        padded_trace[:pad_len] = down_sampled[::-1][-pad_len:]
+        padded_trace[-pad_len:] = down_sampled[::-1][:pad_len]
+        filtered = signal.filtfilt(theta_filter, [1.], padded_trace, padlen=pad_len)
+        this_theta_envelope = np.abs(signal.hilbert(filtered))
+        filtered = filtered[pad_len:-pad_len]
+        up_sampled = np.interp(rec_t, down_t, filtered)
+        theta_traces.append(up_sampled)
+        this_theta_removed = trace - up_sampled
+        theta_removed.append(this_theta_removed)
+        this_theta_envelope = this_theta_envelope[pad_len:-pad_len]
+        up_sampled = np.interp(rec_t, down_t, this_theta_envelope)
+        theta_envelopes.append(up_sampled)
+        filtered = signal.filtfilt(ramp_filter, [1.], padded_trace, padlen=pad_len)
+        filtered = filtered[pad_len:-pad_len]
+        up_sampled = np.interp(rec_t, down_t, filtered)
+        ramp_traces.append(up_sampled)
+        filtered = signal.filtfilt(slow_vm_filter, [1.], padded_trace, padlen=pad_len)
+        filtered = filtered[pad_len:-pad_len]
+        up_sampled = np.interp(rec_t, down_t, filtered)
+        slow_vm_traces.append(up_sampled)
+        this_residual = this_theta_removed - up_sampled
+        residuals.append(this_residual)
+    intra_psd = np.mean(intra_psd, axis=0)
+    left = np.where(intra_freq >= 4.)[0][0]
+    right = np.where(intra_freq >= 11.)[0][0]
+    intra_psd /= np.max(intra_psd[left:right])
+    # mean_across_trials = np.mean(theta_removed, axis=0)
+    # variance_across_trials = np.var(theta_removed, axis=0)
+    binned_mean = [[] for i in range(len(residuals))]
+    binned_variance = [[] for i in range(len(residuals))]
+    binned_t = []
+    bin_duration = 3. * spatial_bin
+    interval = int(bin_duration / dt)
+    for j in range(0, int(track_duration / bin_duration)):
+        binned_t.append(j * bin_duration + bin_duration / 2.)
+        for i, residual in enumerate(residuals):
+            binned_variance[i].append(np.var(residual[j * interval:(j + 1) * interval]))
+            binned_mean[i].append(np.mean(theta_removed[i][j * interval:(j + 1) * interval]))
+    mean_theta_envelope = np.mean(theta_envelopes, axis=0)
+    mean_ramp = np.mean(ramp_traces, axis=0)
+    mean_binned_vm = np.mean(binned_mean, axis=0)
+    mean_binned_var = np.mean(binned_variance, axis=0)
+    scatter_vm_mean = np.array(binned_mean).flatten()
+    scatter_vm_var = np.array(binned_variance).flatten()
+    print 'Mean Theta Envelope for %s: %.2f' % (title, np.mean(mean_theta_envelope))
+    plt.plot(binned_t, mean_binned_vm)
+    plt.xlabel('Time - 180 ms bins')
+    plt.ylabel('Voltage (mV)')
+    plt.title('Somatic Vm Mean - Across Trials - ' + title)
+    plt.show()
+    plt.close()
+    plt.plot(binned_t, mean_binned_var)
+    plt.xlabel('Time (ms)')
+    plt.ylabel('Vm Variance (mV' + r'$^2$' + ')')
+    plt.title('Somatic Vm Variance - Across Trials - ' + title)
+    plt.show()
+    plt.close()
+    plt.scatter(scatter_vm_mean, scatter_vm_var)
+    plt.xlabel('Mean Vm (mV)')
+    plt.ylabel('Vm Variance (mV' + r'$^2$' + ')')
+    plt.title('Mean - Variance Analysis - ' + title)
+    plt.show()
+    plt.close()
+    plt.plot(pop_freq, pop_psd, label='Total Population Input Spikes')
+    plt.plot(intra_freq, intra_psd, label='Single Cell Intracellular Vm')
+    plt.xlim(4., 11.)
+    plt.xlabel('Frequency (Hz)')
+    plt.ylabel('Normalized Power Density')
+    plt.title('Power Spectral Density - ' + title)
+    plt.legend(loc='best')
+    plt.show()
+    plt.close()
+    return rec_t, residuals, mean_theta_envelope, scatter_vm_mean, scatter_vm_var, binned_t, mean_binned_vm, \
+           mean_binned_var, mean_ramp
+
+
 def process_patterned_input_simulation_fix_bins(rec_filename, title, dt=0.02):
     """
 
@@ -2754,29 +2922,36 @@ def plot_patterned_input_individual_trial_traces(rec_t, vm_array, theta_traces, 
     :param index: int
     :param svg_title: str
     """
+    if svg_title is not None:
+        remember_font_size = mpl.rcParams['font.size']
+        mpl.rcParams['font.size'] = 8
     if index is not None:
         index_range = [index]
     else:
         index_range = range(len(vm_array))
     for i in index_range:
         fig, axes = plt.subplots(3, sharey=True, sharex=True)
-        clean_axes(axes)
         label_handles = []
-        axes[0].plot(rec_t, vm_array[i], color='k', label='Soma Vm')
+        axes[0].plot(rec_t, vm_array[i], color='k', label='Raw Vm')
         axes[0].set_axis_off()
-        label_handles.append(mlines.Line2D([], [], color='k', label='Soma Vm'))
-        axes[1].plot(rec_t, ramp_traces[i], color='r', label='Ramp (<2 Hz)')
+        label_handles.append(mlines.Line2D([], [], color='k', label='Raw Vm'))
+        axes[1].plot(rec_t, ramp_traces[i], color='r', label='Subthreshold Vm')
         axes[1].set_axis_off()
-        label_handles.append(mlines.Line2D([], [], color='r', label='Ramp (<2 Hz)'))
-        axes[2].plot(rec_t, theta_traces[i], color='c', label='Thetaintra (5-10 Hz)')
-        label_handles.append(mlines.Line2D([], [], color='c', label='Thetaintra (5-10 Hz)'))
+        label_handles.append(mlines.Line2D([], [], color='r', label='Subthreshold Vm'))
+        axes[2].plot(rec_t, theta_traces[i], color='c', label='Theta Vm')
+        label_handles.append(mlines.Line2D([], [], color='c', label='Theta Vm'))
         axes[2].set_xlim(0., 7500.)
         axes[2].set_ylim(-67., 30.)
+        clean_axes(axes)
         if svg_title is not None:
-            # axes[1].legend(handles=label_handles, loc='best', frameon=False, framealpha=0.5)
-            plt.savefig(data_dir+svg_title+str(i)+'.svg', format='svg', transparent=True)
+            #axes[1].legend(handles=label_handles, loc='best', frameon=False, framealpha=0.5,
+            # fontsize=mpl.rcParams['font.size'])
+            fig.set_size_inches(2.7696, 3.1506)
+            fig.savefig(data_dir+svg_title+str(i)+' - example traces.svg', format='svg', transparent=True)
         plt.show()
         plt.close()
+        if svg_title is not None:
+            mpl.rcParams['font.size'] = remember_font_size
 
 
 def plot_vm_distribution(rec_filenames, key_list=None, i_bounds=[0., 1800., 3600., 5400.],
@@ -2835,15 +3010,17 @@ def plot_vm_distribution(rec_filenames, key_list=None, i_bounds=[0., 1800., 3600
     for i, (condition, title) in enumerate(zip([key_list[3], key_list[4]], ['Out of field', 'In field'])):
         axes.plot(edges[condition], hist[condition], color=colors[i], label=title)
     clean_axes(axes)
-    axes.set_xlabel('Voltage (mV)', fontsize=8)
-    axes.set_ylabel('Probability (%)', fontsize=8)
+    axes.set_xlabel('Vm (mV)')
+    axes.set_ylabel('Probability (%)')
     axes.set_ylim(0., 7.)
+    axes.set_yticks([0., 2., 4., 6.])
     axes.set_xlim(-70., -45.)
-    axes.set_title('Control', fontsize=8)
+    axes.set_title('Control', fontsize=mpl.rcParams['font.size'])
     axes.tick_params(direction='out')
-    plt.legend(loc='best', frameon=False, framealpha=0.5, fontsize=8)
+    plt.legend(loc='best', frameon=False, framealpha=0.5, fontsize=mpl.rcParams['font.size'])
     if svg_title is not None:
-        fig.set_size_inches(1.74, 1.43)
+        fig.set_size_inches(1.3198, 1.2169)
+        #fig.set_size_inches(1.74, 1.43)
         fig.savefig(data_dir+svg_title+' - Vm Distributions - Control.svg', format='svg', transparent=True)
     plt.show()
     plt.close()
@@ -2851,15 +3028,17 @@ def plot_vm_distribution(rec_filenames, key_list=None, i_bounds=[0., 1800., 3600
     for i, (condition, title) in enumerate(zip([key_list[1], key_list[2]], ['Out of field', 'In field'])):
         axes.plot(edges[condition], hist[condition], color=colors[i+2], label=title)
     clean_axes(axes)
-    axes.set_xlabel('Voltage (mV)', fontsize=8)
-    axes.set_ylabel('Probability (%)', fontsize=8)
+    axes.set_xlabel('Vm (mV)')
+    axes.set_ylabel('Probability (%)')
     axes.set_ylim(0., 7.)
+    axes.set_yticks([0., 2., 4., 6.])
     axes.set_xlim(-70., -45.)
-    axes.set_title('Reduced inhibition', fontsize=8)
+    axes.set_title('Reduced inhibition', fontsize=mpl.rcParams['font.size'])
     axes.tick_params(direction='out')
     plt.legend(loc='best', frameon=False, framealpha=0.5, fontsize=8)
     if svg_title is not None:
-        fig.set_size_inches(1.74, 1.43)
+        #fig.set_size_inches(1.74, 1.43)
+        fig.set_size_inches(1.3198, 1.2169)
         fig.savefig(data_dir+svg_title+' - Vm Distributions - ModInh.svg', format='svg', transparent=True)
     plt.show()
     plt.close()
@@ -2869,15 +3048,18 @@ def plot_vm_distribution(rec_filenames, key_list=None, i_bounds=[0., 1800., 3600
                                                 'Reduced inhibition - In'])):
         axes.plot(edges[condition], hist[condition], color=colors[i], label=title)
     clean_axes(axes)
-    axes.set_xlabel('Voltage (mV)', fontsize=8)
-    axes.set_ylabel('Probability (%)', fontsize=8)
-    axes.set_ylim(0., 7.5)
+    axes.set_xlabel('Vm (mV)')
+    axes.set_ylabel('Probability (%)')
+    axes.set_ylim(0., 7.)
+    axes.set_yticks([0., 2., 4., 6.])
     axes.set_xlim(-70., -45.)
-    axes.set_title('Simulated Vm Distributions', fontsize=8)
+    axes.set_xticks([-70., -60., -50.])
+    #axes.set_title('Simulated Vm Distributions', fontsize=8)
     axes.tick_params(direction='out')
-    plt.legend(loc='best', frameon=False, framealpha=0.5, fontsize=8)
+    plt.legend(loc='best', frameon=False, framealpha=0.5, fontsize=mpl.rcParams['font.size'])
     if svg_title is not None:
-        fig.set_size_inches(1.945, 1.16)
+        #fig.set_size_inches(1.945, 1.16)
+        fig.set_size_inches(1.3198, 1.2169)
         fig.savefig(data_dir + svg_title + ' - Vm Distributions - All.svg', format='svg', transparent=True)
     plt.show()
     plt.close()
@@ -3103,7 +3285,7 @@ def plot_place_field_summmary_across_cells(rec_t, mean_theta_envelope, binned_t,
         fig.savefig(data_dir + svg_title + ' - Summary - Rate.svg', format='svg', transparent=True)
     plt.show()
     plt.close()
-
+    """
     fig, axes = plt.subplots(1)
     for i, (condition, title) in enumerate(zip(key_list, titles)):
         this_mean = mean_binned_var['mean'][condition]
@@ -3128,7 +3310,7 @@ def plot_place_field_summmary_across_cells(rec_t, mean_theta_envelope, binned_t,
         fig.savefig(data_dir + svg_title + ' - Summary - Variance.svg', format='svg', transparent=True)
     plt.show()
     plt.close()
-    """
+
     if svg_title is not None:
         mpl.rcParams['font.size'] = remember_font_size
 
@@ -3220,6 +3402,113 @@ def plot_phase_precession(t_array, phase_array, title, fit_start=3600., fit_end=
     if svg_title is not None:
         mpl.rcParams['font.size'] = remember_font_size
     return binned_times, binned_phases
+
+
+def plot_phase_precession_paired(rec_filenames, conditions=None, titles=None, fit_start=2700., fit_end=6300.,
+                                 display_start=0., display_end=7500., bin_size=60., num_bins=5, svg_title=None,
+                                 plot=True, adjust=True):
+    """
+    :param rec_filenames: list of str
+    :param conditions: list of str
+    :param titles: list of str
+    :param fit_start: float
+    :param fit_end: float
+    :param display_start: float
+    :param display_end: float
+    :param bin_size: float
+    :param num_bins: int
+    :param svg_title: str
+    :param plot: bool
+    :param adjust: bool
+    """
+    if svg_title is not None:
+        remember_font_size = mpl.rcParams['font.size']
+        mpl.rcParams['font.size'] = 8
+    if conditions is None:
+        conditions = ['modinh0', 'modinh3']
+    if titles is None:
+        titles = ['Control', 'Reduced inhibition']
+    spike_times, spike_phases, intra_peaks, intra_phases, binned_spike_times, binned_spike_phases, binned_intra_peaks, \
+        binned_intra_phases = {}, {}, {}, {}, {}, {}, {}, {}
+    for condition in conditions:
+        spike_times[condition], spike_phases[condition], intra_peaks[condition], intra_phases[condition] = \
+            get_phase_precession(rec_filenames[condition])
+        binned_spike_times[condition], binned_spike_phases[condition], binned_intra_peaks[condition], \
+            binned_intra_phases[condition] = [], [], [], []
+    window_dur = float(num_bins) * bin_size
+    orig_fit_start = fit_start
+    orig_fit_end = fit_end
+    for (event_times, event_phases), (binned_event_times, binned_event_phases), param_type in \
+            zip([(spike_times, spike_phases),
+                 (intra_peaks, intra_phases)],
+                [(binned_spike_times, binned_spike_phases), (binned_intra_peaks, binned_intra_phases)],
+                ['Spikes', 'Intra']):
+        consistent = False
+        fit_start = orig_fit_start
+        fit_end = orig_fit_end
+        for condition, title in zip(conditions, titles):
+            fig, axes = plt.subplots(1)
+            for trial in range(len(event_times[condition])):
+                axes.scatter(event_times[condition][trial], event_phases[condition][trial], color='gray', s=0.1)
+            start = display_start
+            while start + window_dur <= display_end:
+                event_time_buffer = []
+                event_phase_buffer = []
+                for trial in range(len(event_times[condition])):
+                    indexes = np.where((np.array(event_times[condition][trial]) >= start) &
+                                       (np.array(event_times[condition][trial]) < start + window_dur))[0]
+                    event_time_buffer.extend(event_times[condition][trial][indexes])
+                    event_phase_buffer.extend(event_phases[condition][trial][indexes])
+                if np.any(event_time_buffer):
+                    binned_event_times[condition].append(start+window_dur/2.)
+                    binned_event_phases[condition].append(stats.circmean(event_phase_buffer, high=360.,
+                                                                         low=0.))
+                start += window_dur
+            binned_event_times[condition] = np.array(binned_event_times[condition])
+            binned_event_phases[condition] = np.array(binned_event_phases[condition])
+            if not consistent:  # choose fit_start and fit_end based on control spikes, then use for other conditions
+                indexes = np.where((binned_event_times[condition] > fit_start) &
+                                   (binned_event_times[condition] < fit_end))[0]
+                start_index = np.where(binned_event_phases[condition] ==
+                                       np.max(binned_event_phases[condition][indexes]))[0][0]
+                end_index = np.where(binned_event_phases[condition] ==
+                                       np.min(binned_event_phases[condition][indexes]))[0][0]
+                fit_start = binned_event_times[condition][start_index] - window_dur / 2.
+                fit_end = binned_event_times[condition][end_index] + window_dur / 2.
+                consistent = True
+            indexes = np.where((binned_event_times[condition] > fit_start) &
+                               (binned_event_times[condition] < fit_end))[0]
+            m, b = np.polyfit(binned_event_times[condition][indexes], binned_event_phases[condition][indexes], 1)
+            fit_t = np.arange(fit_start + window_dur / 2., fit_end, bin_size)
+            if adjust:
+                for i in range(1, len(binned_event_phases[condition][:-1])):
+                    if binned_event_phases[condition][i] < 90.:
+                        if np.abs(binned_event_phases[condition][i] - binned_event_phases[condition][i+1]) > 180.:
+                            binned_event_phases[condition][i] = binned_event_phases[condition][i] + 360.
+            axes.plot(binned_event_times[condition], binned_event_phases[condition], c='k')
+            axes.plot(fit_t, m * fit_t + b, c='r')
+            axes.set_ylim(0., 360.)
+            axes.set_yticks([0., 180., 360.])
+            axes.set_xlim(display_start, display_end)
+            axes.set_xticks([0., 1500., 3000., 4500., 6000., 7500.])
+            if svg_title is not None:
+                axes.set_xticklabels([0, 1.5, 3, 4.5, 6, 7.5])
+            axes.set_ylabel('Theta phase (o)')
+            axes.set_xlabel('Time (s)')
+            axes.set_title('Phase precession - '+param_type+' '+title, fontsize=mpl.rcParams['font.size'])
+            clean_axes(axes)
+            axes.tick_params(direction='out')
+            if svg_title is not None:
+                fig.set_size_inches(1.1859, 1.035)
+                fig.savefig(data_dir+svg_title+' - Precession - '+param_type+' '+condition+'.svg', format='svg',
+                            transparent=True)
+            if plot:
+                plt.show()
+            plt.close()
+            print param_type, condition, abs(m * (fit_end - fit_start - window_dur))
+    if svg_title is not None:
+        mpl.rcParams['font.size'] = remember_font_size
+    return binned_spike_times, binned_spike_phases, binned_intra_peaks, binned_intra_phases
 
 
 def plot_phase_precession_sliding(t_array, phase_array, title, fit_start=3660., fit_end=5400., display_start=0.,
@@ -3633,39 +3922,61 @@ def plot_place_field_i_syn_across_cells(rec_filename_array, groups=None, svg_tit
             i_syn_dict[key]['mean'][condition] = np.mean([i_syn_dict[key][group][condition] for group in groups],
                                                          axis=0)
             i_syn_dict[key]['var'][condition] = np.var([i_syn_dict[key][group][condition] for group in groups], axis=0)
-    colors = [('k', 'grey'), ('orange', 'orange')]
-    for key in ['i_AMPA', 'i_NMDA', 'i_GABA', 'ratio']:
+
+    colors = [('c', 'c'), ('k', 'grey'), ('purple', 'purple')]
+    for condition, title in zip(['modinh0', 'modinh3'], ['Control', 'Reduced inhibition']):
         fig, axes = plt.subplots(1)
-        for i, (condition, title) in enumerate(zip(['modinh0', 'modinh3'], ['Control', 'Reduced inhibition'])):
+        for i, key in enumerate(['i_AMPA', 'i_NMDA', 'i_GABA']):
             this_mean = i_syn_dict[key]['mean'][condition]
             this_variance = i_syn_dict[key]['var'][condition]
             this_SEM = np.divide(np.sqrt(this_variance), np.sqrt(float(len(groups))))
             axes.plot(rec_t, np.subtract(this_mean, this_SEM), color=colors[i][1])
             axes.plot(rec_t, np.add(this_mean, this_SEM), color=colors[i][1])
-            axes.plot(rec_t, this_mean, color=colors[i][0], label=title)
+            axes.plot(rec_t, this_mean, color=colors[i][0], label=key)
         clean_axes(axes)
         axes.set_xlabel('Time (s)')
         axes.set_ylabel('Current (nA)')
+        axes.set_ylim(-0.7, 0.7)
+        axes.set_yticks([-0.6, -0.3, 0., 0.3, 0.6])
         axes.set_xlim(0., 7500.)
         axes.set_xticks([0., 1500., 3000., 4500., 6000., 7500.])
         axes.set_xticklabels([0, 1.5, 3, 4.5, 6, 7.5])
         axes.tick_params(direction='out')
         plt.legend(loc='best', frameon=False, framealpha=0.5, fontsize=mpl.rcParams['font.size'])
-        if key == 'ratio':
-            axes.set_ylim(1., 2.8)
-            axes.set_title('E:I ratio', fontsize=mpl.rcParams['font.size'])
-            axes.set_ylabel('Ratio')
-        else:
-            if key == 'i_GABA':
-                axes.set_ylim(0., .7)
-            else:
-                axes.set_ylim(-.7, 0.)
-            axes.set_title(key, fontsize=mpl.rcParams['font.size'])
+        axes.set_title(title, fontsize=mpl.rcParams['font.size'])
         if svg_title is not None:
             fig.set_size_inches(1.3198, 1.2169)
-            fig.savefig(data_dir+svg_title+' - i_syn - '+key+'.svg', format='svg', transparent=True)
+            fig.savefig(data_dir+svg_title+' - i_syn - '+condition+'.svg', format='svg', transparent=True)
         plt.show()
         plt.close()
+
+    key = 'ratio'
+    colors = [('k', 'grey'), ('orange', 'orange')]
+    fig, axes = plt.subplots(1)
+    for i, (condition, title) in enumerate(zip(['modinh0', 'modinh3'], ['Control', 'Reduced inhibition'])):
+        this_mean = i_syn_dict[key]['mean'][condition]
+        this_variance = i_syn_dict[key]['var'][condition]
+        this_SEM = np.divide(np.sqrt(this_variance), np.sqrt(float(len(groups))))
+        axes.plot(rec_t, np.subtract(this_mean, this_SEM), color=colors[i][1])
+        axes.plot(rec_t, np.add(this_mean, this_SEM), color=colors[i][1])
+        axes.plot(rec_t, this_mean, color=colors[i][0], label=title)
+    clean_axes(axes)
+    axes.set_xlabel('Time (s)')
+    axes.set_ylabel('Ratio')
+    axes.set_ylim(1., 2.8)
+    axes.set_yticks([1.0, 1.25, 1.5, 1.75, 2.0, 2.25, 2.5, 2.75])
+    axes.set_xlim(0., 7500.)
+    axes.set_xticks([0., 1500., 3000., 4500., 6000., 7500.])
+    axes.set_xticklabels([0, 1.5, 3, 4.5, 6, 7.5])
+    axes.tick_params(direction='out')
+    axes.set_title('E:I ratio', fontsize=mpl.rcParams['font.size'])
+    plt.legend(loc='best', frameon=False, framealpha=0.5, fontsize=mpl.rcParams['font.size'])
+    if svg_title is not None:
+        fig.set_size_inches(1.3198, 1.2169)
+        fig.savefig(data_dir + svg_title + ' - i_syn - ' + key + '.svg', format='svg', transparent=True)
+    plt.show()
+    plt.close()
+
     if svg_title is not None:
         mpl.rcParams['font.size'] = remember_font_size
     for group in groups:
