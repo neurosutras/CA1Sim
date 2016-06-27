@@ -280,7 +280,7 @@ local_np_random.seed(synapses_seed)
 
 cell = SingleCompartment()
 
-syn_count = read_from_pkl(data_dir+'022216 syn count.pkl')
+syn_count = read_from_pkl(data_dir+'062216 syn count.pkl')
 all_exc_syns = syn_count['exc']
 all_inh_syns = syn_count['inh']
 fraction_exc_syns = {group: float(all_exc_syns[group]) / float(np.sum(all_exc_syns.values())) for group in all_exc_syns}
