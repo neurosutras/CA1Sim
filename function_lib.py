@@ -1055,7 +1055,7 @@ def get_removed_spikes(rec_filename, before=1.6, after=6., dt=0.02, th=10., plot
     return removed
 
 
-def get_removed_spikes_alt(rec_filename, before=1.6, after=5., dt=0.02, th=10., plot=1, rec_key='0'):
+def get_removed_spikes_alt(rec_filename, before=1.6, after=6., dt=0.02, th=10., plot=1, rec_key='0'):
     """
 
     :param rec_filename: str
@@ -1131,7 +1131,7 @@ def get_removed_spikes_alt(rec_filename, before=1.6, after=5., dt=0.02, th=10., 
     return removed
 
 
-def get_removed_spikes_live(vm, t, before=1.6, after=5., dt=0.02, th=10., plot=1):
+def get_removed_spikes_live(vm, t, before=1.6, after=6., dt=0.02, th=10., plot=1):
     """
 
     :param vm: array
@@ -1156,7 +1156,6 @@ def get_removed_spikes_live(vm, t, before=1.6, after=5., dt=0.02, th=10., plot=1
         while i < len(crossings) and start < len(temp_vm):
             start = crossings[i]
             left = max(0, crossings[i] - int(before / dt))
-            right = min(crossings[i] + int(after / dt), len(temp_vm) - 1)
             if not np.isnan(temp_vm[left]):
                 previous_vm = temp_vm[left]
             recovers = np.where(temp_vm[crossings[i]:] < previous_vm)[0]
@@ -1170,10 +1169,17 @@ def get_removed_spikes_live(vm, t, before=1.6, after=5., dt=0.02, th=10., plot=1
                     rising = falling + rising[0]
             else:
                 rising = []
-            if np.any(rising):
-                right = min(right, rising)
+            if np.any(recovers):
+                if np.any(rising):
+                    right = min(recovers, rising)
+                else:
+                    right = recovers
+            elif np.any(rising):
+                right = rising
+            else:
+                right = min(crossings[i] + int(after/dt), len(temp_vm)-1)
             # added to remove majority of complex spike:
-            if temp_vm[right] >= -35. and np.any(recovers):
+            if temp_vm[right] >= -45. and np.any(recovers):
                 right = recovers
             for j in range(left, right):
                 temp_vm[j] = np.nan
@@ -1618,7 +1624,7 @@ def get_patterned_input_component_traces(rec_filename, dt=0.02):
             vm = vm[start:]
             vm_array.append(vm)
     rec_t = np.arange(0., track_duration, dt)
-    spikes_removed = get_removed_spikes(rec_filename, plot=0)
+    spikes_removed = get_removed_spikes(rec_filename, plot=0, dt=dt)
     # down_sample traces to 2 kHz after clipping spikes for theta and ramp filtering
     down_dt = 0.5
     down_t = np.arange(0., track_duration, down_dt)

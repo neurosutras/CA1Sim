@@ -8,7 +8,8 @@ import scipy.stats as stats
 
 mpl.rcParams['svg.fonttype'] = 'none'
 mpl.rcParams['font.size'] = 18.  # 18.
-mpl.rcParams['font.sans-serif'] = 'Arial'
+#mpl.rcParams['font.sans-serif'] = 'Arial'
+mpl.rcParams['font.sans-serif'] = 'Calibri'
 mpl.rcParams['text.usetex'] = False
 """
 mpl.rcParams['axes.labelsize'] = 'larger'
@@ -2726,8 +2727,7 @@ def process_patterned_input_simulation_single_compartment(rec_filename, title, d
         plt.show()
         plt.close()
     rec_t = np.arange(0., track_duration, dt)
-    #spikes_removed = get_removed_spikes_alt(rec_filename, plot=0)
-    spikes_removed = get_removed_spikes(rec_filename, plot=0, dt=0.1)
+    spikes_removed = get_removed_spikes(rec_filename, plot=0, dt=dt)
     # down_sample traces to 2 kHz after clipping spikes for theta and ramp filtering
     down_dt = 0.5
     down_t = np.arange(0., track_duration, down_dt)
@@ -2823,7 +2823,7 @@ def process_patterned_input_simulation_single_compartment(rec_filename, title, d
     plt.show()
     plt.close()
     return rec_t, residuals, mean_theta_envelope, scatter_vm_mean, scatter_vm_var, binned_t, mean_binned_vm, \
-           mean_binned_var, mean_ramp
+           mean_binned_var, mean_ramp, np.zeros_like(mean_ramp)
 
 
 def process_patterned_input_simulation_fix_bins(rec_filename, title, dt=0.02):

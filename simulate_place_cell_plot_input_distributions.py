@@ -200,8 +200,8 @@ inhibitory_theta_phase_offset['distal apical dendritic'] = 180. / 360. * 2. * np
 inhibitory_theta_phase_offset['tuft feedforward'] = 340. / 360. * 2. * np.pi  # Like Neurogliaform
 inhibitory_theta_phase_offset['tuft feedback'] = 200. / 360. * 2. * np.pi  # Like SST+ O-LM
 
-stim_dt = 0.02
-dt = 0.02
+stim_dt = 0.1
+dt = 0.1
 v_init = -67.
 
 syn_types = ['AMPA_KIN', NMDA_type]
@@ -356,10 +356,9 @@ run_trial(trial_seed)
 
 remember_font_size = mpl.rcParams['font.size']
 mpl.rcParams['font.size'] = 8
-"""
+
 example_CA3_index = np.where((np.array(peak_locs['CA3']) >= 1495.) & (np.array(peak_locs['CA3']) <= 1505.))[0][0]
 fig, axes = plt.subplots(1)
-axes.plot(stim_t, inh_stim_forces['perisomatic'][0], label='Peri-som inhibitory', color='purple')
 axes.plot(stim_t, exc_stim_forces['CA3'][example_CA3_index], label='CA3 excitatory', color='c')
 axes.set_ylim(0., 50.)
 axes.set_yticks([0., 10., 20., 30., 40., 50.])
@@ -372,17 +371,18 @@ axes.legend(loc='best', frameon=False, framealpha=0.5, fontsize=mpl.rcParams['fo
 clean_axes(axes)
 axes.tick_params(direction='out')
 if svg_title is not None:
-    #fig.set_size_inches(1.368, 0.907)
-    fig.set_size_inches(1.3198, 1.2169)
-    fig.savefig(data_dir+svg_title+' - example input rates.svg', format='svg', transparent=True)
+    # fig.set_size_inches(1.368, 0.907)
+    # fig.set_size_inches(1.3198, 1.2169)
+    fig.set_size_inches(2.05, 1.40)
+    fig.savefig(data_dir+svg_title+' - example CA3 rate.svg', format='svg', transparent=True)
 plt.show()
 plt.close()
 
-
 fig, axes = plt.subplots(1)
-axes.plot(stim_t, inh_stim_forces['perisomatic'][0], label='Peri-som Inhibitory')
+axes.plot(stim_t, inh_stim_forces['perisomatic'][0], label='Peri-som inhibitory', color='purple')
 axes.set_ylim(0., 50.)
-axes.set_ylabel('Firing Rate (Hz)')
+axes.set_yticks([0., 10., 20., 30., 40., 50.])
+axes.set_ylabel('Firing rate (Hz)')
 axes.set_xlim(0., 3000.)
 axes.set_xlabel('Time (s)')
 axes.set_xticks([0., 500., 1000., 1500., 2000., 2500., 3000.])
@@ -391,8 +391,10 @@ axes.legend(loc='best', frameon=False, framealpha=0.5, fontsize=mpl.rcParams['fo
 clean_axes(axes)
 axes.tick_params(direction='out')
 if svg_title is not None:
-    fig.set_size_inches(4.42, 2.98)
-    fig.savefig(data_dir+svg_title+' - Peri-som example.svg', format='svg', transparent=True)
+    # fig.set_size_inches(1.368, 0.907)
+    # fig.set_size_inches(1.3198, 1.2169)
+    fig.set_size_inches(2.05, 1.40)
+    fig.savefig(data_dir+svg_title+' - example perisom inh rate.svg', format='svg', transparent=True)
 plt.show()
 plt.close()
 """
@@ -430,7 +432,7 @@ if svg_title is not None:
 plt.show()
 plt.close()
 
-"""
+
 fig, axes = plt.subplots(1)
 axes.plot(bin_centers, rolling_mean, label='Synaptic Weight Distribution', color='k')
 axes.set_ylim(0., 1.5)
