@@ -260,8 +260,8 @@ inhibitory_theta_phase_offset['distal apical dendritic'] = 180. / 360. * 2. * np
 inhibitory_theta_phase_offset['tuft feedforward'] = 340. / 360. * 2. * np.pi  # Like Neurogliaform
 inhibitory_theta_phase_offset['tuft feedback'] = 200. / 360. * 2. * np.pi  # Like SST+ O-LM
 
-stim_dt = 0.1
-dt = 0.1
+stim_dt = 0.02
+dt = 0.02
 v_init = -67.
 
 syn_types = ['AMPA_KIN', NMDA_type]
