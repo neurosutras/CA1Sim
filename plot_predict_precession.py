@@ -1,8 +1,12 @@
 from plot_results import *
 import random
 
-svg_title = '062116' #  - compare density distributions'
+svg_title = '071216' #  - compare density distributions'
 #svg_title = None
+
+if svg_title is not None:
+    remember_font_size = mpl.rcParams['font.size']
+    mpl.rcParams['font.size'] = 8
 
 """
 saved_parameters, ampa_forces, bin_centers, density, weights, intra_peaks, intra_phases = {}, {}, {}, {}, {}, {}, {}
@@ -12,12 +16,7 @@ for condition in filenames:
     saved_parameters[condition] = read_from_pkl(data_dir+filenames[condition])
     stim_t, ampa_forces[condition], bin_centers[condition], density[condition], weights[condition], \
         intra_peaks[condition], intra_phases[condition] = saved_parameters[condition]
-"""
-if svg_title is not None:
-    remember_font_size = mpl.rcParams['font.size']
-    mpl.rcParams['font.size'] = 8
 
-"""
 colors = ['r', 'k']
 fig, axes = plt.subplots(1)
 for i, (condition, title) in enumerate(zip(['biased', 'uniform'], ['Biased input density', 'Uniform input density'])):
@@ -219,7 +218,7 @@ if svg_title is not None:
 plt.show()
 plt.close()
 """
-
+"""
 for condition in ['CA3', 'peri-som']:
     peak_times[condition] = []
     peak_phases[condition] = []
@@ -265,6 +264,12 @@ if svg_title is not None:
     fig.savefig(data_dir+svg_title+' - example spike trains.svg', format='svg', transparent=True)
 plt.show()
 plt.close()
+"""
+
+filename = ''
+saved_parameters = read_from_pkl(data_dir+filename)
+stim_t, ampa_forces, peak_locs, intra_peaks, intra_phases = saved_parameters
+
 
 
 class Pr(object):

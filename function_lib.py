@@ -1424,7 +1424,7 @@ def get_phase_precession(rec_filename, start_loc=None, end_loc=None, dt=0.02):
 
 
 def get_phase_precession_live(t, vm, spikes=None, time_offset=0., theta_duration = 150., start_loc=None, end_loc=None,
-                              dt=0.02):
+                              dt=0.02, adjust=False):
     """
 
     :param vm: array
@@ -1480,6 +1480,12 @@ def get_phase_precession_live(t, vm, spikes=None, time_offset=0., theta_duration
     intra_phases = np.mod(intra_peaks_offset, theta_duration)
     intra_phases /= theta_duration
     intra_phases *= 360.
+    if adjust:
+        for i in range(1, len(intra_phases)):
+            if (intra_phases[i]-intra_phases[i-1] > 90.) and (intra_phases[i-1] < 180.):
+                intra_phases[i] -= 360.
+            elif (intra_phases[i] - intra_phases[i - 1]) < -90. and (intra_phases[i - 1] > 180.):
+                intra_phases[i] += 360.
     return rec_t, vm, spikes_removed, intra_theta, spike_times, spike_phases, intra_peaks, intra_phases
 
 

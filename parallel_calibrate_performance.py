@@ -52,7 +52,7 @@ def split_simulation(piece_index):
     return simiter
 
 if __name__ == '__main__':
-    from IPython.parallel import Client
+    from ipyparallel import Client
     from IPython.display import clear_output
     from plot_results import *
     import sys

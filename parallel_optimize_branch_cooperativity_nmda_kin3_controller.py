@@ -1,5 +1,5 @@
 __author__ = 'Aaron D. Milstein'
-from IPython.parallel import Client
+from ipyparallel import Client
 from IPython.display import clear_output
 from plot_results import *
 import sys

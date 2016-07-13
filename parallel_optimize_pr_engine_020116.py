@@ -2,7 +2,7 @@ __author__ = 'Aaron D. Milstein'
 from specify_cells import *
 import random
 import os
-from IPython.parallel.util import interactive
+from ipyparallel import interactive
 """
 Builds a cell locally so each engine is ready to receive jobs one at a time, specified by an index corresponding to
 which synapse to optimize (coarse sampling of the full set of spines).

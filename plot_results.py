@@ -3679,43 +3679,30 @@ def plot_patterned_input_binned_rinp(t_dict, phase_dict, r_inp_dict, key_list=No
         remember_font_size = mpl.rcParams['font.size']
         mpl.rcParams['font.size'] = 8
     if key_list is None:
-        key_list = ['modinh0', 'modinh1', 'modinh2']
-    key_list.extend([key_list[0]+'_out', key_list[0]+'_in', 'modinh_all'])
+        key_list = ['modinh0', 'modinh3']
+    key_list.extend([key_list[0]+'_in', key_list[0]+'_out', key_list[1]+'_in', key_list[1]+'_out'])
     filtered_t_dict, filtered_phase_dict, filtered_r_inp_dict, indexes = {}, {}, {}, {}
-    condition = key_list[0]
-    indexes[condition] = np.where(r_inp_dict[condition] > 0.)[0]
-    condition = key_list[1]
-    indexes[condition] = np.where((r_inp_dict[condition] > 0.) & (t_dict[condition] >= t_bounds[0]) &
-                                  (t_dict[condition] < t_bounds[1]))[0]
-    condition = key_list[2]
-    indexes[condition] = np.where((r_inp_dict[condition] > 0.) & (t_dict[condition] >= t_bounds[2]) &
-                                  (t_dict[condition] < t_bounds[3]))[0]
-    condition = key_list[0]
-    indexes[key_list[3]] = np.where((r_inp_dict[condition] > 0.) & (t_dict[condition] >= t_bounds[0]) &
-                                  (t_dict[condition] < t_bounds[1]))[0]
-    indexes[key_list[4]] = np.where((r_inp_dict[condition] > 0.) & (t_dict[condition] >= t_bounds[2]) &
-                                  (t_dict[condition] < t_bounds[3]))[0]
-    for condition in key_list[:3]:
-        filtered_t_dict[condition] = t_dict[condition][indexes[condition]]
-        filtered_phase_dict[condition] = phase_dict[condition][indexes[condition]]
-        filtered_r_inp_dict[condition] = r_inp_dict[condition][indexes[condition]]
-    condition = key_list[5]
-    filtered_t_dict[condition] = np.append(filtered_t_dict[key_list[1]], filtered_t_dict[key_list[2]])
-    filtered_phase_dict[condition] = np.append(filtered_phase_dict[key_list[1]], filtered_phase_dict[key_list[2]])
-    filtered_r_inp_dict[condition] = np.append(filtered_r_inp_dict[key_list[1]], filtered_r_inp_dict[key_list[2]])
-    for condition in key_list[3:5]:
-        filtered_t_dict[condition] = t_dict[key_list[0]][indexes[condition]]
-        filtered_phase_dict[condition] = phase_dict[key_list[0]][indexes[condition]]
-        filtered_r_inp_dict[condition] = r_inp_dict[key_list[0]][indexes[condition]]
+    for i in [0, 1]:
+        condition = key_list[i]
+        indexes[condition] = np.where(r_inp_dict[condition] > 0.)[0]
+    for target, source in [(key_list[i], key_list[j]) for (i, j) in zip([2, 4], [0, 1])]:
+        indexes[target] = np.where((r_inp_dict[source] > 0.) & (t_dict[source] >= t_bounds[2]) &
+                                      (t_dict[source] < t_bounds[3]))[0]
+    for target, source in [(key_list[i], key_list[j]) for (i, j) in zip([3, 5], [0, 1])]:
+        indexes[target] = np.where((r_inp_dict[source] > 0.) & (t_dict[source] >= t_bounds[0]) &
+                                  (t_dict[source] < t_bounds[1]))[0]
+    for target, source in [(key_list[i], key_list[j]) for (i, j) in zip(range(len(key_list)), [0, 1, 0, 0, 1, 1])]:
+        filtered_t_dict[target] = t_dict[source][indexes[target]]
+        filtered_phase_dict[target] = phase_dict[source][indexes[target]]
+        filtered_r_inp_dict[target] = r_inp_dict[source][indexes[target]]
     binned_t, binned_phase, r_inp_by_t, r_inp_by_phase = {}, {}, {}, {}
-    for condition in key_list[:3]:
+    for condition in key_list:
         binned_t[condition], r_inp_by_t[condition] = [], []
         for t in np.arange(t_bounds[0], t_bounds[4], del_t):
             indexes = np.where((filtered_t_dict[condition] >= t) & (filtered_t_dict[condition] < t + del_t))[0]
             if np.any(indexes):
                 binned_t[condition].append(t + del_t / 2.)
                 r_inp_by_t[condition].append(np.mean(filtered_r_inp_dict[condition][indexes]))
-    for condition in key_list:
         binned_phase[condition], r_inp_by_phase[condition] = [], []
         for phase in np.arange(0., 360., del_phase):
             indexes = np.where((filtered_phase_dict[condition] >= phase) &
@@ -3725,8 +3712,7 @@ def plot_patterned_input_binned_rinp(t_dict, phase_dict, r_inp_dict, key_list=No
                 r_inp_by_phase[condition].append(np.mean(filtered_r_inp_dict[condition][indexes]))
     fig, axes = plt.subplots(1, 2)
     axes[0].plot(binned_t[key_list[0]], r_inp_by_t[key_list[0]], c='k', label='Control')
-    axes[0].plot(binned_t[key_list[1]], r_inp_by_t[key_list[1]], c='orange', label='Reduced inhibition - Out of field')
-    axes[0].plot(binned_t[key_list[2]], r_inp_by_t[key_list[2]], c='y', label='Reduced inhibition - In field')
+    axes[0].plot(binned_t[key_list[1]], r_inp_by_t[key_list[1]], c='orange', label='Reduced inhibition')
     axes[0].set_xlabel('Time (ms)')
     axes[0].set_xlim(0., 7500.)
     axes[0].set_xticks([0., 1500., 3000., 4500., 6000., 7500.])
@@ -3740,14 +3726,11 @@ def plot_patterned_input_binned_rinp(t_dict, phase_dict, r_inp_dict, key_list=No
                  label='Reduced inhibition - Out of field')
     axes[1].plot(binned_phase[key_list[2]], r_inp_by_phase[key_list[2]], c='y', label='Reduced inhibition - In field')
     """
-    axes[1].plot(np.append(binned_phase[key_list[0]], np.add(binned_phase[key_list[0]], 360.)),
-                 np.append(r_inp_by_phase[key_list[0]], r_inp_by_phase[key_list[0]]), c='k', label='Control')
-    axes[1].plot(np.append(binned_phase[key_list[5]], np.add(binned_phase[key_list[5]], 360.)),
-                 np.append(r_inp_by_phase[key_list[5]], r_inp_by_phase[key_list[5]]), c='orange',
-                 label='Reduced inhibition')
+    axes[1].plot(binned_phase[key_list[0]], r_inp_by_phase[key_list[0]], c='k', label='Control')
+    axes[1].plot(binned_phase[key_list[1]], r_inp_by_phase[key_list[1]], c='orange', label='Reduced inhibition')
     axes[1].set_xlabel('Theta phase (o)')
-    axes[1].set_xlim(0., 720.)
-    axes[1].set_xticks([0., 180., 360., 540., 720.])
+    axes[1].set_xlim(0., 360.)
+    axes[1].set_xticks([0., 90., 180., 270., 360.])
     axes[1].set_ylabel('Input Resistance (MOhm)')
     axes[1].legend(loc='best', frameon=False, framealpha=0.5, fontsize=mpl.rcParams['font.size'])
     clean_axes(axes)
@@ -3764,10 +3747,10 @@ def plot_patterned_input_binned_rinp(t_dict, phase_dict, r_inp_dict, key_list=No
     plt.close()
     if svg_title is not None:
         mpl.rcParams['font.size'] = remember_font_size
-    return binned_phase, r_inp_by_phase
+    return binned_phase, r_inp_by_phase, binned_t, r_inp_by_t
 
 
-def plot_somatic_rinp(saved_param_file, seed_list=None, svg_title=None):
+def plot_somatic_rinp_across_cells(t_array, phase_array, r_inp_array, svg_title=None):
     """
 
     :param saved_param_file: str: .pkl file containing t_array, phase_array, r_inp_array with output from multiple seeds
@@ -3776,31 +3759,31 @@ def plot_somatic_rinp(saved_param_file, seed_list=None, svg_title=None):
     if svg_title is not None:
         remember_font_size = mpl.rcParams['font.size']
         mpl.rcParams['font.size'] = 8
-    if seed_list is None:
-        seed_list = range(5)
-    saved_parameters = read_from_pkl(data_dir+saved_param_file+'.pkl')
-    [t_array, phase_array, r_inp_array] = saved_parameters
-    r_inp_by_phase = {}
-    for seed in seed_list:
-        binned_phase, r_inp_by_phase[seed] = plot_patterned_input_binned_rinp(t_array[seed], phase_array[seed],
-                                                                              r_inp_array[seed], plot=0)
-    r_inp_by_phase['mean'] = {'modinh0': [], 'modinh_all': []}
+    r_inp_by_phase, binned_t, r_inp_by_t = {}, {}, {}
+    for seed in t_array:
+        binned_phase, r_inp_by_phase[seed], binned_t[seed], r_inp_by_t[seed] = \
+            plot_patterned_input_binned_rinp(t_array[seed], phase_array[seed], r_inp_array[seed], plot=0)
+    r_inp_by_phase['mean'] = {'modinh0': [], 'modinh3': []}
+    r_inp_by_phase['var'] = {}
     for i in range(len(binned_phase['modinh0'])):
         for condition in r_inp_by_phase['mean']:
-            val = np.mean([r_inp_by_phase[seed][condition][i] for seed in seed_list])
+            val = np.mean([r_inp_by_phase[seed][condition][i] for seed in t_array])
             r_inp_by_phase['mean'][condition].append(val)
+    for condition in ['modinh0', 'modinh3']:
+        binned_phase[condition] = np.append(binned_phase[condition], np.add(binned_phase[condition], 360.))
+        r_inp_by_phase['mean'][condition] = np.append(r_inp_by_phase['mean'][condition],
+                                                      r_inp_by_phase['mean'][condition])
+        r_inp_by_phase['var'][condition] = np.var([r_inp_by_phase[seed][condition] for seed in t_array], axis=0)
+        r_inp_by_phase['var'][condition] = np.append(r_inp_by_phase['var'][condition],
+                                                      r_inp_by_phase['var'][condition])
     fig, axes = plt.subplots(1)
-    for seed in seed_list:
-        axes.plot(np.append(binned_phase['modinh0'], np.add(binned_phase['modinh0'], 360.)),
-                  np.append(r_inp_by_phase[seed]['modinh0'], r_inp_by_phase[seed]['modinh0']), color='grey')
-        axes.plot(np.append(binned_phase['modinh0'], np.add(binned_phase['modinh0'], 360.)),
-                  np.append(r_inp_by_phase[seed]['modinh_all'], r_inp_by_phase[seed]['modinh_all']), color='y')
-    axes.plot(np.append(binned_phase['modinh0'], np.add(binned_phase['modinh0'], 360.)),
-              np.append(r_inp_by_phase['mean']['modinh0'], r_inp_by_phase['mean']['modinh0']), color='k',
-              label='Control')
-    axes.plot(np.append(binned_phase['modinh0'], np.add(binned_phase['modinh0'], 360.)),
-              np.append(r_inp_by_phase['mean']['modinh_all'], r_inp_by_phase['mean']['modinh_all']), color='orange',
-              label='Reduced inhibition')
+    colors = [('k', 'grey'), ('orange', 'orange')]
+    for i, (condition, title) in enumerate(zip(['modinh0', 'modinh3'], ['Control', 'Reduced inhibition'])):
+        axes.plot(binned_phase[condition], r_inp_by_phase['mean'][condition], color=colors[i][0], label=title)
+        axes.plot(binned_phase[condition], np.add(r_inp_by_phase['mean'][condition],
+                                                  r_inp_by_phase['var'][condition]), color=colors[i][1])
+        axes.plot(binned_phase[condition], np.subtract(r_inp_by_phase['mean'][condition],
+                                                  r_inp_by_phase['var'][condition]), color=colors[i][1])
     axes.set_xlabel('Theta phase (o)')
     axes.set_xlim(0., 720.)
     axes.set_xticks([0., 180., 360., 540., 720.])
@@ -3809,7 +3792,7 @@ def plot_somatic_rinp(saved_param_file, seed_list=None, svg_title=None):
     clean_axes(axes)
     axes.tick_params(direction='out')
     if svg_title is not None:
-        fig.set_size_inches(2.6, 1.5)
+        fig.set_size_inches(2.6, 1.2169)
         fig.savefig(data_dir + svg_title + ' - r_inp.svg', format='svg', transparent=True)
     plt.show()
     plt.close()

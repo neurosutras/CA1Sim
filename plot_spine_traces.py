@@ -119,3 +119,44 @@ for loc in ['out', 'in']:
 if svg_title is not None:
     mpl.rcParams['font.size'] = remember_font_size
 f.close()
+
+"""
+rec_filename = 'output070416 - cell141 - e3200-i0-subtr0_inh0 - 10 trials'
+f = h5py.File(data_dir+rec_filename+'.hdf5', 'r')
+trial = f['3']
+equilibrate = trial.attrs['equilibrate']
+track_equilibrate = trial.attrs['track_equilibrate']
+duration = trial.attrs['duration']
+track_duration = duration - equilibrate - track_equilibrate
+dt = 0.02
+t = np.arange(0., duration, 0.02)
+start = int((equilibrate+track_equilibrate)/dt)
+
+vm = np.interp(t, trial['time'], trial['rec']['0'])
+vm = vm[start:]
+t = t[start:]
+t -= t[0]
+
+if svg_title is not None:
+    remember_font_size = mpl.rcParams['font.size']
+    mpl.rcParams['font.size'] = 8
+fig, axes = plt.subplots(1)
+axes.plot(t, vm, color='k')
+clean_axes(axes)
+axes.tick_params(direction='out')
+#axes.spines['bottom'].set_visible(False)
+axes.set_ylim(-70., 40.)
+axes.set_ylabel('Vm (mV)')
+axes.set_xlim(0., 7500.)
+axes.set_xticks([0., 1500., 3000., 4500., 6000., 7500.])
+axes.set_xticklabels([0, 1.5, 3, 4.5, 6, 7.5])
+axes.set_xlabel('Time (s)')
+if svg_title is not None:
+    fig.set_size_inches(3.55, 1.39)
+    fig.savefig(data_dir + svg_title + ' - traces.svg', format='svg', transparent=True)
+plt.show()
+plt.close()
+if svg_title is not None:
+    mpl.rcParams['font.size'] = remember_font_size
+f.close()
+"""
