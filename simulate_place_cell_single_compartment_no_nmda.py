@@ -51,7 +51,7 @@ class SingleCompartment(HocCell):
         self.random.seed(self.gid)  # This cell will always have the same spine and GABA_A synapse locations as long as
                                     # they are inserted in the same order
         self.initialize_compartment()
-        # target R_inp = 65 MOhm, tau_m = 16 ms
+        # target R_inp = 65 MOhm, tau_m = 18 ms
         self.modify_mech_param('soma', 'cable', 'cm', 62.)
         self.modify_mech_param('soma', 'pas', 'g', 3.371e-3)
         self.modify_mech_param('soma', 'pas', 'e', -67.)

@@ -47,7 +47,7 @@ else:
 
 rec_filename = 'output'+datetime.datetime.today().strftime('%m%d%Y%H%M')+'-pid'+str(os.getpid())+'-seed'+\
                str(synapses_seed)+'-e'+str(num_exc_syns)+'-i'+str(num_inh_syns)+'-subtr_mod_inh'+str(mod_inh)+\
-               '-delta_freq_'+str(mod_weights)+'_'+str(trial_seed)
+               '-delta_freq_no_na'+str(mod_weights)+'_'+str(trial_seed)
 
 
 def get_dynamic_theta_phase_force(phase_ranges, peak_loc, input_field_duration, stim_t, dt):
@@ -272,7 +272,8 @@ local_random = random.Random()
 local_random.seed(synapses_seed)
 
 cell = CA1_Pyr(morph_filename, mech_filename, full_spines=True)
-cell.set_terminal_branch_na_gradient()
+#cell.set_terminal_branch_na_gradient()
+cell.zero_na()
 cell.insert_inhibitory_synapses_in_subset()
 
 trunk_bifurcation = [trunk for trunk in cell.trunk if cell.is_bifurcation(trunk, 'trunk')]

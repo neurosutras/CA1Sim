@@ -2657,6 +2657,143 @@ def process_patterned_input_simulation(rec_filename, title, dt=0.02):
            mean_binned_var, mean_ramp, mean_output
 
 
+def process_patterned_input_simulation_theta_freq(rec_filenames, conditions=None, start=None, win_dur=2100.,
+                                                  theta_dur=None, dt=0.02):
+    """
+    :param rec_file_names: dict of str
+    :param conditions: list of str
+    :param start: dict of {str: float}
+    :param win_dur: float
+    :param theta_dur: dict of {str: float}
+    :param dt: float
+    :return: list of dict of array
+    """
+    if conditions is None:
+        conditions = ['modinh0', 'modinh3']
+    if start is None:
+        start = {'out': 0., 'in': 3450.}
+    if theta_dur is None:
+        theta_dur = {'orig': 150., 'modinh': 145.}
+    IPI, peaks, phases, binned_peaks, binned_phases, mean_theta_env = {}, {}, {}, {}, {}, {}
+    for parameter in IPI, peaks, phases, binned_peaks, binned_phases:
+        for group in ['exc', 'inh', 'intra']:
+            parameter[group] = {}
+    for condition in conditions:
+        rec_filename = rec_filenames[condition]
+        with h5py.File(data_dir+rec_filename+'.hdf5', 'r') as f:
+            sim = f.itervalues().next()
+            equilibrate = sim.attrs['equilibrate']
+            track_equilibrate = sim.attrs['track_equilibrate']
+            track_length = sim.attrs['track_length']
+            input_field_duration = sim.attrs['input_field_duration']
+            duration = sim.attrs['duration']
+            stim_dt = sim.attrs['stim_dt']
+            track_duration = duration - equilibrate - track_equilibrate
+            stim_t = np.arange(-track_equilibrate, track_duration, stim_dt)
+            stim_t_start = int(track_equilibrate/stim_dt)
+            t = stim_t[stim_t_start:] - stim_t[stim_t_start]
+            rec_t = np.arange(0., track_duration, dt)
+            down_dt = 0.5
+            # ~5 - 10 Hz bandpass for theta
+            window_len = int(2000. / down_dt)
+            theta_filter = signal.firwin(window_len, [5., 10.], nyq=1000. / 2. / down_dt, pass_zero=False)
+            time_offset = {'orig': [trial.attrs['phase_offset'] for trial in f.itervalues()]}
+            if 'mod_inh_time_offset' in sim.attrs:
+                time_offset['modinh'] = [trial.attrs['mod_inh_time_offset'] for trial in f.itervalues()]
+            for i, trial in enumerate(f.itervalues()):
+                exc_input_sum = None
+                inh_input_sum = None
+                for key, train in trial['train'].iteritems():
+                    this_exc_rate = get_binned_firing_rate(train[:], stim_t)
+                    if exc_input_sum is None:
+                        exc_input_sum = np.array(this_exc_rate)
+                    else:
+                        exc_input_sum = np.add(exc_input_sum, this_exc_rate)
+                for key, train in trial['inh_train'].iteritems():
+                    this_inh_rate = get_binned_firing_rate(train[:], stim_t)
+                    if inh_input_sum is None:
+                        inh_input_sum = np.array(this_inh_rate)
+                    else:
+                        inh_input_sum = np.add(inh_input_sum, this_inh_rate)
+                for trace, group in zip([exc_input_sum, inh_input_sum], ['exc', 'inh']):
+                    if condition not in peaks[group]:
+                        peaks[group][condition] = {}
+                        phases[group][condition] = {}
+                    theta_trace = general_filter_trace(t, trace[stim_t_start:], filter=theta_filter,
+                                                      duration=track_duration, dt=stim_dt)
+                    for LFP_type in time_offset:
+                        this_peaks, this_phases = get_waveform_phase_vs_time(t, theta_trace,
+                                                                             cycle_duration=theta_dur[LFP_type],
+                                                                             time_offset=time_offset[LFP_type][i])
+                        if LFP_type not in peaks[group][condition]:
+                            peaks[group][condition][LFP_type] = []
+                            phases[group][condition][LFP_type] = []
+                        peaks[group][condition][LFP_type].append(this_peaks)
+                        phases[group][condition][LFP_type].append(this_phases)
+                    for suffix in ['in', 'out']:
+                        label = condition + '_' + suffix
+                        this_indexes = np.where((np.array(this_peaks) >= start[suffix]) &
+                                                (np.array(this_peaks) <= start[suffix] + win_dur))[0]
+                        this_IPI = np.diff(np.array(this_peaks)[this_indexes])
+                        if label not in IPI[group]:
+                            IPI[group][label] = np.array(this_IPI)
+                        else:
+                            IPI[group][label] = np.append(IPI[group][label], this_IPI)
+        spikes_removed = get_removed_spikes(rec_filename, dt=dt, plot=0)
+        theta_env = []
+        group = 'intra'
+        for i, trace in enumerate(spikes_removed):
+            theta_trace = general_filter_trace(rec_t, trace, filter=theta_filter,
+                                               duration=track_duration, dt=dt)
+            this_theta_env = np.abs(signal.hilbert(theta_trace))
+            theta_env.append(this_theta_env)
+            for LFP_type in time_offset:
+                this_peaks, this_phases = get_waveform_phase_vs_time(rec_t, theta_trace,
+                                                                     cycle_duration=theta_dur[LFP_type],
+                                                                     time_offset=time_offset[LFP_type][i])
+                if condition not in peaks[group]:
+                    peaks[group][condition] = {}
+                    phases[group][condition] = {}
+                if LFP_type not in peaks[group][condition]:
+                    peaks[group][condition][LFP_type] = []
+                    phases[group][condition][LFP_type] = []
+                peaks[group][condition][LFP_type].append(this_peaks)
+                phases[group][condition][LFP_type].append(this_phases)
+            for suffix in ['in', 'out']:
+                label = condition + '_' + suffix
+                this_indexes = np.where((np.array(this_peaks) >= start[suffix]) &
+                                        (np.array(this_peaks) <= start[suffix]+win_dur))[0]
+                this_IPI = np.diff(np.array(this_peaks)[this_indexes])
+                if label not in IPI[group]:
+                    IPI[group][label] = np.array(this_IPI)
+                else:
+                    IPI[group][label] = np.append(IPI[group][label], this_IPI)
+        mean_theta_env[condition] = np.mean(theta_env, axis=0)
+    """
+    for group in IPI:
+        for label in IPI[group]:
+            x = IPI[group][label]
+            x = np.divide(1000., x)
+            x = np.sort(x)
+            y = np.array(range(1, len(x)+1))/float(len(x))
+            plt.plot(x, y, label=label)
+        plt.legend(loc='best', frameon=False, framealpha=0.5)
+        plt.title('Theta frequency distribution: '+group)
+        plt.show()
+        plt.close()
+    for group in peaks:
+        for condition in peaks[group]:
+            binned_peaks[group][condition] = {}
+            binned_phases[group][condition] = {}
+            for LFP_type in peaks[group][condition]:
+                binned_peaks[group][condition][LFP_type], binned_phases[group][condition][LFP_type] = \
+                    plot_phase_precession(peaks[group][condition][LFP_type], phases[group][condition][LFP_type],
+                                          group+'_'+condition+'; LFP: '+LFP_type, fit_start=start['in'],
+                                          fit_end=start['in']+win_dur)
+    """
+    return t, rec_t, IPI, peaks, phases, binned_peaks, binned_phases, mean_theta_env
+
+
 def process_patterned_input_simulation_single_compartment(rec_filename, title, dt=0.1):
     """
 

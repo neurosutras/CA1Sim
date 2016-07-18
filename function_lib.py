@@ -1340,7 +1340,7 @@ def get_theta_filtered_traces(rec_filename, dt=0.02):
     return stim_t, pop_exc_theta, pop_inh_theta, rec_t, intra_theta, phase_offsets
 
 
-def get_phase_precession(rec_filename, start_loc=None, end_loc=None, dt=0.02):
+def get_phase_precession(rec_filename, start_loc=None, end_loc=None, theta_duration=None, dt=0.02):
     """
 
     :param rec_file_name: str
@@ -1355,10 +1355,11 @@ def get_phase_precession(rec_filename, start_loc=None, end_loc=None, dt=0.02):
         track_equilibrate = sim.attrs['track_equilibrate']
         duration = sim.attrs['duration']
         track_duration = duration - equilibrate - track_equilibrate
-        if 'global_theta_cycle_duration' in sim.attrs:
-            theta_duration = sim.attrs['global_theta_cycle_duration']
-        else:
-            theta_duration = 150.
+        if theta_duration is None:
+            if 'global_theta_cycle_duration' in sim.attrs:
+                theta_duration = sim.attrs['global_theta_cycle_duration']
+            else:
+                theta_duration = 150.
         if start_loc is None:
             start_loc = 0.
         if end_loc is None:
@@ -2125,7 +2126,7 @@ def error_power_func(p, x, y):
     return np.sum((y - fit_power_func(p, x)) ** 2.)
 
 
-def get_waveform_phase_vs_time(t, x=None, cycle_duration=150., time_offset=0., start_loc=1500., end_loc=3000.):
+def get_waveform_phase_vs_time(t, x=None, cycle_duration=150., time_offset=0.):
     """
     Given either a spike train (t alone), or a timecourse and waveform, remove a phase offset and report the times and
     phases of either spikes or peaks.
@@ -2133,8 +2134,7 @@ def get_waveform_phase_vs_time(t, x=None, cycle_duration=150., time_offset=0., s
     :param x: array
     :param cycle_duration: float
     :param time_offset: float
-    :param start_loc: float
-    :param end_loc: float
+    :return: list of array
     """
     if x is not None:
         peak_locs = signal.argrelmax(x)[0]
@@ -2169,6 +2169,32 @@ def low_pass_filter(source, freq, duration, dt):
     padded_trace[:pad_len] = down_sampled[::-1][-pad_len:]
     padded_trace[-pad_len:] = down_sampled[::-1][:pad_len]
     filtered = signal.filtfilt(lp_filter, [1.], padded_trace, padlen=pad_len)
+    filtered = filtered[pad_len:-pad_len]
+    up_sampled = np.interp(t, down_t, filtered)
+    return up_sampled
+
+
+def general_filter_trace(t, source, filter, duration, dt):
+    """
+    Filters the source waveform at the provided frequency.
+    :param t: array
+    :param source: array
+    :param filter: 'signal.firwin'
+    :param duration: float
+    :param dt: float
+    :return: np.array: filtered source
+    """
+    down_dt = 0.5
+    down_t = np.arange(0., duration, down_dt)
+    # 2000 ms Hamming window
+    window_len = int(2000. / down_dt)
+    pad_len = int(window_len / 2.)
+    down_sampled = np.interp(down_t, t, source)
+    padded_trace = np.zeros(len(down_sampled) + window_len)
+    padded_trace[pad_len:-pad_len] = down_sampled
+    padded_trace[:pad_len] = down_sampled[::-1][-pad_len:]
+    padded_trace[-pad_len:] = down_sampled[::-1][:pad_len]
+    filtered = signal.filtfilt(filter, [1.], padded_trace, padlen=pad_len)
     filtered = filtered[pad_len:-pad_len]
     up_sampled = np.interp(t, down_t, filtered)
     return up_sampled
