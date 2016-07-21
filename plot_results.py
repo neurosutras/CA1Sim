@@ -2657,26 +2657,25 @@ def process_patterned_input_simulation(rec_filename, title, dt=0.02):
            mean_binned_var, mean_ramp, mean_output
 
 
-def process_patterned_input_simulation_theta_freq(rec_filenames, conditions=None, start=None, win_dur=2100.,
-                                                  theta_dur=None, dt=0.02):
+def process_patterned_input_simulation_theta_freq(rec_filenames, conditions=None, theta_dur=None, field_center=4500.,
+                                                  win_dur=1800., dt=0.02):
     """
     :param rec_file_names: dict of str
     :param conditions: list of str
-    :param start: dict of {str: float}
-    :param win_dur: float
     :param theta_dur: dict of {str: float}
+    :param field_center: float
+    :param win_dur: float
     :param dt: float
     :return: list of dict of array
     """
     if conditions is None:
         conditions = ['modinh0', 'modinh3']
-    if start is None:
-        start = {'out': 0., 'in': 3450.}
     if theta_dur is None:
         theta_dur = {'orig': 150., 'modinh': 145.}
-    IPI, peaks, phases, binned_peaks, binned_phases, mean_theta_env = {}, {}, {}, {}, {}, {}
-    for parameter in IPI, peaks, phases, binned_peaks, binned_phases:
-        for group in ['exc', 'inh', 'intra']:
+    peaks, phases, IPI, binned_peaks, binned_phases, binned_t, binned_IPI, theta_env = {}, {}, {}, {}, {}, {}, \
+                                                                                            {}, {}
+    for parameter in peaks, phases, IPI, binned_peaks, binned_phases, binned_t, binned_IPI:
+        for group in ['exc', 'successes', 'inh', 'intra']:
             parameter[group] = {}
     for condition in conditions:
         rec_filename = rec_filenames[condition]
@@ -2684,8 +2683,6 @@ def process_patterned_input_simulation_theta_freq(rec_filenames, conditions=None
             sim = f.itervalues().next()
             equilibrate = sim.attrs['equilibrate']
             track_equilibrate = sim.attrs['track_equilibrate']
-            track_length = sim.attrs['track_length']
-            input_field_duration = sim.attrs['input_field_duration']
             duration = sim.attrs['duration']
             stim_dt = sim.attrs['stim_dt']
             track_duration = duration - equilibrate - track_equilibrate
@@ -2701,97 +2698,130 @@ def process_patterned_input_simulation_theta_freq(rec_filenames, conditions=None
             if 'mod_inh_time_offset' in sim.attrs:
                 time_offset['modinh'] = [trial.attrs['mod_inh_time_offset'] for trial in f.itervalues()]
             for i, trial in enumerate(f.itervalues()):
-                exc_input_sum = None
-                inh_input_sum = None
-                for key, train in trial['train'].iteritems():
-                    this_exc_rate = get_binned_firing_rate(train[:], stim_t)
-                    if exc_input_sum is None:
-                        exc_input_sum = np.array(this_exc_rate)
-                    else:
-                        exc_input_sum = np.add(exc_input_sum, this_exc_rate)
-                for key, train in trial['inh_train'].iteritems():
-                    this_inh_rate = get_binned_firing_rate(train[:], stim_t)
-                    if inh_input_sum is None:
-                        inh_input_sum = np.array(this_inh_rate)
-                    else:
-                        inh_input_sum = np.add(inh_input_sum, this_inh_rate)
-                for trace, group in zip([exc_input_sum, inh_input_sum], ['exc', 'inh']):
-                    if condition not in peaks[group]:
-                        peaks[group][condition] = {}
-                        phases[group][condition] = {}
-                    theta_trace = general_filter_trace(t, trace[stim_t_start:], filter=theta_filter,
-                                                      duration=track_duration, dt=stim_dt)
-                    for LFP_type in time_offset:
-                        this_peaks, this_phases = get_waveform_phase_vs_time(t, theta_trace,
-                                                                             cycle_duration=theta_dur[LFP_type],
-                                                                             time_offset=time_offset[LFP_type][i])
-                        if LFP_type not in peaks[group][condition]:
-                            peaks[group][condition][LFP_type] = []
-                            phases[group][condition][LFP_type] = []
-                        peaks[group][condition][LFP_type].append(this_peaks)
-                        phases[group][condition][LFP_type].append(this_phases)
-                    for suffix in ['in', 'out']:
-                        label = condition + '_' + suffix
-                        this_indexes = np.where((np.array(this_peaks) >= start[suffix]) &
-                                                (np.array(this_peaks) <= start[suffix] + win_dur))[0]
-                        this_IPI = np.diff(np.array(this_peaks)[this_indexes])
-                        if label not in IPI[group]:
-                            IPI[group][label] = np.array(this_IPI)
-                        else:
-                            IPI[group][label] = np.append(IPI[group][label], this_IPI)
+                for group, key in zip(['exc', 'successes', 'inh'], ['train', 'successes', 'inh_train']):
+                    if key in trial:
+                        input_sum = None
+                        for train in trial[key].itervalues():
+                            this_rate = get_binned_firing_rate(train[:], stim_t)
+                            if input_sum is None:
+                                input_sum = np.array(this_rate)
+                            else:
+                                input_sum = np.add(input_sum, this_rate)
+                        if condition not in peaks[group]:
+                            peaks[group][condition] = []
+                            phases[group][condition] = {}
+                            IPI[group][condition] = []
+                        theta_trace = general_filter_trace(t, input_sum[stim_t_start:], filter=theta_filter,
+                                                          duration=track_duration, dt=stim_dt)
+                        for LFP_type in time_offset:
+                            this_peaks, this_phases = get_waveform_phase_vs_time(t, theta_trace,
+                                                                                 cycle_duration=theta_dur[LFP_type],
+                                                                                 time_offset=time_offset[LFP_type][i])
+                            if LFP_type not in phases[group][condition]:
+                                phases[group][condition][LFP_type] = []
+                            if LFP_type == 'orig':
+                                peaks[group][condition].append(this_peaks)
+                                this_IPI = np.diff(this_peaks)
+                                IPI[group][condition].append(this_IPI)
+                            phases[group][condition][LFP_type].append(this_phases)
         spikes_removed = get_removed_spikes(rec_filename, dt=dt, plot=0)
-        theta_env = []
         group = 'intra'
         for i, trace in enumerate(spikes_removed):
+            if condition not in peaks[group]:
+                peaks[group][condition] = []
+                phases[group][condition] = {}
+                IPI[group][condition] = []
+                theta_env[condition] = []
             theta_trace = general_filter_trace(rec_t, trace, filter=theta_filter,
                                                duration=track_duration, dt=dt)
             this_theta_env = np.abs(signal.hilbert(theta_trace))
-            theta_env.append(this_theta_env)
+            theta_env[condition].append(this_theta_env)
             for LFP_type in time_offset:
                 this_peaks, this_phases = get_waveform_phase_vs_time(rec_t, theta_trace,
                                                                      cycle_duration=theta_dur[LFP_type],
                                                                      time_offset=time_offset[LFP_type][i])
-                if condition not in peaks[group]:
-                    peaks[group][condition] = {}
-                    phases[group][condition] = {}
-                if LFP_type not in peaks[group][condition]:
-                    peaks[group][condition][LFP_type] = []
+                if LFP_type not in phases[group][condition]:
                     phases[group][condition][LFP_type] = []
-                peaks[group][condition][LFP_type].append(this_peaks)
+                if LFP_type == 'orig':
+                    peaks[group][condition].append(this_peaks)
+                    this_IPI = np.diff(this_peaks)
+                    IPI[group][condition].append(this_IPI)
                 phases[group][condition][LFP_type].append(this_phases)
-            for suffix in ['in', 'out']:
-                label = condition + '_' + suffix
-                this_indexes = np.where((np.array(this_peaks) >= start[suffix]) &
-                                        (np.array(this_peaks) <= start[suffix]+win_dur))[0]
-                this_IPI = np.diff(np.array(this_peaks)[this_indexes])
-                if label not in IPI[group]:
-                    IPI[group][label] = np.array(this_IPI)
-                else:
-                    IPI[group][label] = np.append(IPI[group][label], this_IPI)
-        mean_theta_env[condition] = np.mean(theta_env, axis=0)
-    """
-    for group in IPI:
-        for label in IPI[group]:
-            x = IPI[group][label]
-            x = np.divide(1000., x)
-            x = np.sort(x)
-            y = np.array(range(1, len(x)+1))/float(len(x))
-            plt.plot(x, y, label=label)
-        plt.legend(loc='best', frameon=False, framealpha=0.5)
-        plt.title('Theta frequency distribution: '+group)
-        plt.show()
-        plt.close()
+    start = field_center - win_dur / 2.
+    end = start + win_dur
     for group in peaks:
         for condition in peaks[group]:
-            binned_peaks[group][condition] = {}
             binned_phases[group][condition] = {}
-            for LFP_type in peaks[group][condition]:
-                binned_peaks[group][condition][LFP_type], binned_phases[group][condition][LFP_type] = \
-                    plot_phase_precession(peaks[group][condition][LFP_type], phases[group][condition][LFP_type],
-                                          group+'_'+condition+'; LFP: '+LFP_type, fit_start=start['in'],
-                                          fit_end=start['in']+win_dur)
+            for LFP_type in phases[group][condition]:
+                binned_peaks[group][condition], binned_phases[group][condition][LFP_type] = \
+                    plot_phase_precession(peaks[group][condition], phases[group][condition][LFP_type],
+                                          group+'_'+condition+'; LFP: '+LFP_type, fit_start=start,
+                                          fit_end=end)
+            binned_t[group][condition], binned_IPI[group][condition] = plot_IPI(peaks[group][condition],
+                                                                                IPI[group][condition],
+                                                                                group+'_'+condition)
+    return t, rec_t, peaks, phases, IPI, binned_peaks, binned_phases, binned_t, binned_IPI, theta_env
+
+
+def plot_IPI(t_array, IPI_array, title, display_start=0., display_end=7500., bin_size=60., num_bins=5, svg_title=None,
+             plot=True):
     """
-    return t, rec_t, IPI, peaks, phases, binned_peaks, binned_phases, mean_theta_env
+
+    :param t_array: array
+    :param IPI_array: array
+    :param title: str
+    :param display_start: float
+    :param display_end: float
+    :param bin_size: float
+    :param num_bins: int
+    :param svg_title: str
+    :param plot: bool
+    :return: list of array
+    """
+    if svg_title is not None:
+        remember_font_size = mpl.rcParams['font.size']
+        mpl.rcParams['font.size'] = 8
+    peaks = []
+    fig, axes = plt.subplots(1)
+    for i, t in enumerate(t_array):
+        this_IPI = IPI_array[i]
+        this_t = [(t[i] + t[i + 1]) / 2. for i in range(len(this_IPI))]
+        peaks.append(np.array(this_t))
+        axes.scatter(this_t, this_IPI, color='gray', s=0.1)
+    binned_t = []
+    binned_IPI = []
+    window_dur = float(num_bins) * bin_size
+    start = display_start
+    while start + window_dur <= display_end:
+        this_IPI_bin = []
+        for i, this_peak in enumerate(peaks):
+            indexes = np.where((this_peak >= start) & (this_peak < start + window_dur))[0]
+            this_IPI_bin.extend(IPI_array[i][indexes])
+        if np.any(this_IPI_bin):
+            binned_t.append(start + window_dur / 2.)  # (np.mean(spike_times))
+            binned_IPI.append(np.mean(this_IPI_bin))
+        start += window_dur
+    binned_t = np.array(binned_t)
+    binned_IPI = np.array(binned_IPI)
+    axes.plot(binned_t, binned_IPI, c='k')  # , linewidth=2.)
+    axes.set_xlim(display_start, display_end)
+    axes.set_xticks([0., 1500., 3000., 4500., 6000., 7500.])
+    if svg_title is not None:
+        axes.set_xticklabels([0, 1.5, 3, 4.5, 6, 7.5])
+    axes.set_ylabel('Theta inter-peak intervals (ms)')
+    axes.set_xlabel('Time (s)')
+    axes.set_title('Theta inter-peak intervals - ' + title, fontsize=mpl.rcParams['font.size'])
+    clean_axes(axes)
+    axes.tick_params(direction='out')
+    if svg_title is not None:
+        fig.set_size_inches(1.21, 2.)
+        fig.savefig(data_dir + svg_title + ' - IPI - ' + title + '.svg', format='svg', transparent=True)
+    if plot:
+        plt.show()
+    plt.close()
+    if svg_title is not None:
+        mpl.rcParams['font.size'] = remember_font_size
+    return binned_t, binned_IPI
 
 
 def process_patterned_input_simulation_single_compartment(rec_filename, title, dt=0.1):
@@ -3483,7 +3513,7 @@ def plot_phase_precession(t_array, phase_array, title, fit_start=3600., fit_end=
     all_spike_phases = []
     window_dur = float(num_bins) * bin_size
     start = display_start
-    while start + window_dur < display_end:
+    while start + window_dur <= display_end:
         index_array = [np.where((spike_times >= start) & (spike_times < start + window_dur))[0] for spike_times in
                                                                                                         t_array]
         spike_times = []
@@ -3594,8 +3624,9 @@ def plot_phase_precession_paired(rec_filenames, conditions=None, titles=None, fi
                 for trial in range(len(event_times[condition])):
                     indexes = np.where((np.array(event_times[condition][trial]) >= start) &
                                        (np.array(event_times[condition][trial]) < start + window_dur))[0]
-                    event_time_buffer.extend(event_times[condition][trial][indexes])
-                    event_phase_buffer.extend(event_phases[condition][trial][indexes])
+                    if np.any(indexes):
+                        event_time_buffer.extend(event_times[condition][trial][indexes])
+                        event_phase_buffer.extend(event_phases[condition][trial][indexes])
                 if np.any(event_time_buffer):
                     binned_event_times[condition].append(start+window_dur/2.)
                     binned_event_phases[condition].append(stats.circmean(event_phase_buffer, high=360.,
@@ -3606,43 +3637,45 @@ def plot_phase_precession_paired(rec_filenames, conditions=None, titles=None, fi
             if not consistent:  # choose fit_start and fit_end based on control spikes, then use for other conditions
                 indexes = np.where((binned_event_times[condition] > fit_start) &
                                    (binned_event_times[condition] < fit_end))[0]
-                start_index = np.where(binned_event_phases[condition] ==
-                                       np.max(binned_event_phases[condition][indexes]))[0][0]
-                end_index = np.where(binned_event_phases[condition] ==
-                                       np.min(binned_event_phases[condition][indexes]))[0][0]
-                fit_start = binned_event_times[condition][start_index] - window_dur / 2.
-                fit_end = binned_event_times[condition][end_index] + window_dur / 2.
+                if np.any(indexes):
+                    start_index = np.where(binned_event_phases[condition] ==
+                                           np.max(binned_event_phases[condition][indexes]))[0][0]
+                    end_index = np.where(binned_event_phases[condition] ==
+                                           np.min(binned_event_phases[condition][indexes]))[0][0]
+                    fit_start = binned_event_times[condition][start_index] - window_dur / 2.
+                    fit_end = binned_event_times[condition][end_index] + window_dur / 2.
                 consistent = True
             indexes = np.where((binned_event_times[condition] > fit_start) &
                                (binned_event_times[condition] < fit_end))[0]
-            m, b = np.polyfit(binned_event_times[condition][indexes], binned_event_phases[condition][indexes], 1)
-            fit_t = np.arange(fit_start + window_dur / 2., fit_end, bin_size)
-            if adjust:
-                for i in range(1, len(binned_event_phases[condition][:-1])):
-                    if binned_event_phases[condition][i] < 90.:
-                        if np.abs(binned_event_phases[condition][i] - binned_event_phases[condition][i+1]) > 180.:
-                            binned_event_phases[condition][i] = binned_event_phases[condition][i] + 360.
-            axes.plot(binned_event_times[condition], binned_event_phases[condition], c='k')
-            axes.plot(fit_t, m * fit_t + b, c='r')
-            axes.set_ylim(0., 360.)
-            axes.set_yticks([0., 180., 360.])
-            axes.set_xlim(display_start, display_end)
-            axes.set_xticks([0., 1500., 3000., 4500., 6000., 7500.])
-            if svg_title is not None:
-                axes.set_xticklabels([0, 1.5, 3, 4.5, 6, 7.5])
-            axes.set_ylabel('Theta phase (o)')
-            axes.set_xlabel('Time (s)')
-            axes.set_title('Phase precession - '+param_type+' '+title, fontsize=mpl.rcParams['font.size'])
-            clean_axes(axes)
-            axes.tick_params(direction='out')
-            if svg_title is not None:
-                fig.set_size_inches(1.1859, 1.035)
-                fig.savefig(data_dir+svg_title+' - Precession - '+param_type+' '+condition+'.svg', format='svg',
-                            transparent=True)
-            if plot:
-                plt.show()
-            plt.close()
-            print param_type, condition, abs(m * (fit_end - fit_start - window_dur))
+            if np.any(indexes):
+                m, b = np.polyfit(binned_event_times[condition][indexes], binned_event_phases[condition][indexes], 1)
+                fit_t = np.arange(fit_start + window_dur / 2., fit_end, bin_size)
+                if adjust:
+                    for i in range(1, len(binned_event_phases[condition][:-1])):
+                        if binned_event_phases[condition][i] < 90.:
+                            if np.abs(binned_event_phases[condition][i] - binned_event_phases[condition][i+1]) > 180.:
+                                binned_event_phases[condition][i] = binned_event_phases[condition][i] + 360.
+                axes.plot(binned_event_times[condition], binned_event_phases[condition], c='k')
+                axes.plot(fit_t, m * fit_t + b, c='r')
+                axes.set_ylim(0., 360.)
+                axes.set_yticks([0., 180., 360.])
+                axes.set_xlim(display_start, display_end)
+                axes.set_xticks([0., 1500., 3000., 4500., 6000., 7500.])
+                if svg_title is not None:
+                    axes.set_xticklabels([0, 1.5, 3, 4.5, 6, 7.5])
+                axes.set_ylabel('Theta phase (o)')
+                axes.set_xlabel('Time (s)')
+                axes.set_title('Phase precession - '+param_type+' '+title, fontsize=mpl.rcParams['font.size'])
+                clean_axes(axes)
+                axes.tick_params(direction='out')
+                if svg_title is not None:
+                    fig.set_size_inches(1.1859, 1.035)
+                    fig.savefig(data_dir+svg_title+' - Precession - '+param_type+' '+condition+'.svg', format='svg',
+                                transparent=True)
+                if plot:
+                    plt.show()
+                plt.close()
+                print param_type, condition, abs(m * (fit_end - fit_start - window_dur))
     if svg_title is not None:
         mpl.rcParams['font.size'] = remember_font_size
     return binned_spike_times, binned_spike_phases, binned_intra_peaks, binned_intra_phases

@@ -2,12 +2,13 @@ I) To install on a local machine:
 
 1) install anaconda python, includes ipython, numpy, matplotlib
 
-2) install neuron for mac from disk image:
-http://www.neuron.yale.edu/ftp/neuron/versions/alpha/nrn-7.4.alpha-1226.x86_64-apple-osx10.7.5.dmg
+2) download neuron from:
+http://www.neuron.yale.edu/ftp/neuron/versions/alpha/nrn-7.4.rel-1390.tar.gz
 
 or install from mercurial
-
-hg clone http://www.neuron.yale.edu/hg/neuron/nrn -r trunk
+cd ~/neuron
+hg clone http://www.neuron.yale.edu/hg/neuron/nrn -r 'Release 7.4'
+hg clone http://www.neuron.yale.edu/hg/neuron/iv
 
 following tips from:
 
@@ -29,30 +30,30 @@ http://btmorph.readthedocs.org/en/latest/readme.html#installation
 
 4) Make sure ~/neuron/nrnenv includes:
 
-export IDIR=/Applications/NEURON-7.3
+export IDIR=/Applications/NEURON-7.4
 export IV=$IDIR/iv
 export N=$IDIR/nrn
 export CPU=x86_64
 export PATH=$IV/$CPU/bin:$N/$CPU/bin:$PATH
 
 
-and ~/bash_profile includes:
+and ~/.bash_profile includes:
 
 export HOME=/Users/milsteina
-export PATH="/Users/milsteina/anaconda/bin:$PATH"
+export PATH="$HOME/anaconda/bin:$PATH"
 export PATH=$HOME/local/bin:$PATH
 source $HOME/neuron/nrnenv
-export PATH="/Applications/NEURON-7.3:$PATH"
+export PATH="/Applications/NEURON-7.4:$PATH"
 export LD_LIBRARY_PATH=$HOME/local/lib/
 export LD_LIBRARY_PATH="$HOME/anaconda/lib:$LD_LIBRARY_PATH"
 export PYTHONHOME="$HOME/anaconda"
-export PYTHONPATH="$PYTHONPATH:/Applications/NEURON-7.3/nrn/lib/python"
+export PYTHONPATH="$PYTHONPATH:/Applications/NEURON-7.4/nrn/lib/python"
 export PYTHONPATH="$PYTHONPATH:$HOME/python_modules/btmorph"
 export PATH="$PYTHONHOME:$PYTHONPATH:$LD_LIBRARY_PATH:$PATH"
 
 5) If error related to libreadline.6.2.dylib :
 
-cd /Applications/NEURON-7.3/nrn/lib/python/neuron/
+cd /Applications/NEURON-7.4/nrn/lib/python/neuron/
 install_name_tool -change libreadline.6.2.dylib $HOME/anaconda/lib/libreadline.6.2.dylib hoc.so
 
 II) To install on a linux cluster:
@@ -86,7 +87,7 @@ export PATH=$N/$CPU/bin:$PATH
 6) Make sure ~/.bash_profile includes:
 
 export PATH=/usr/local/anaconda/bin:$PATH
-export LD_LIBRARY_PATH=$HOME/usr/local/anaconda/lib
+export LD_LIBRARY_PATH=/usr/local/anaconda/lib
 source $HOME/neuron/nrnenv
 export PATH=$HOME/neuron/nrn:$PATH
 export PYTHONHOME=/usr/local/anaconda
@@ -98,8 +99,8 @@ export PATH=$PYTHONHOME:$PYTHONPATH:$LD_LIBRARY_PATH:$PATH
 7) mpi4py is required to use the IPython.parallel framework across cores on more than one node, and it is already installed alongside anaconda on the Janelia cluster.
 In order to use the Intel MPI implementation on the Janelia cluster, make sure the following lines are included in ~/.bashrc
 
-if [ -f /usr/local/INTEL2013.sh ]; then
-  . /usr/local/INTEL2013.sh
+if [ -f /usr/local/INTEL2016.sh ]; then
+  . /usr/local/INTEL2016.sh
 fi
 
 export I_MPI_DEBUG=0

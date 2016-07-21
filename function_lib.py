@@ -2198,3 +2198,5 @@ def general_filter_trace(t, source, filter, duration, dt):
     filtered = filtered[pad_len:-pad_len]
     up_sampled = np.interp(t, down_t, filtered)
     return up_sampled
+
+
