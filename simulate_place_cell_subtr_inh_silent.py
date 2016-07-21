@@ -35,7 +35,7 @@ else:
 # allows parallel computation of multiple trials for the same spines with the same peak_locs, but with different
 # input spike trains and stochastic synapses for each trial
 if len(sys.argv) > 5:
-    trial_seed = int(sys.argv[6])
+    trial_seed = int(sys.argv[5])
 else:
     trial_seed = 0
 
