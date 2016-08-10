@@ -3541,10 +3541,23 @@ def plot_phase_precession(t_array, phase_array, title, fit_start=3600., fit_end=
     #fit_t = np.arange(np.min(binned_times[indexes]), np.max(binned_times[indexes]+window_dur/2.), window_dur)
     fit_t = np.arange(fit_start, fit_end+bin_size, bin_size)
     if adjust:
-        for i in range(1, len(binned_phases[:-1])):
-            if binned_phases[i] < 90.:
-                if np.abs(binned_phases[i] - binned_phases[i+1]) > 180.:
+        for i in range(0, len(binned_phases)):
+            if i == 0:
+                error0 = abs(binned_phases[i + 1] - binned_phases[i])
+                error1 = abs(binned_phases[i + 1] - (binned_phases[i] + 360.))
+                error2 = abs(binned_phases[i + 1] - (binned_phases[i] - 360.))
+                if (error1 < error0) and (error1 < error2):
                     binned_phases[i] = binned_phases[i] + 360.
+                elif error2 < error0:
+                    binned_phases[i] = binned_phases[i] - 360.
+            else:
+                error0 = abs(binned_phases[i] - binned_phases[i - 1])
+                error1 = abs((binned_phases[i] + 360.) - binned_phases[i - 1])
+                error2 = abs((binned_phases[i] - 360.) - binned_phases[i - 1])
+                if (error1 < error0) and (error1 < error2):
+                    binned_phases[i] = binned_phases[i] + 360.
+                elif error2 < error0:
+                    binned_phases[i] = binned_phases[i] - 360.
     axes.plot(binned_times, binned_phases, c='k')  # , linewidth=2.)
     axes.plot(fit_t, m * fit_t + b, c='r')  # , linewidth=2.)
     #axes.set_ylim(0., 360.)

@@ -1,8 +1,8 @@
 from plot_results import *
 import random
 
-svg_title = '071216' #  - compare density distributions'
-#svg_title = None
+svg_title = '072516'  #  - compare density distributions'
+# svg_title = None
 
 if svg_title is not None:
     remember_font_size = mpl.rcParams['font.size']
@@ -56,18 +56,16 @@ plt.show()
 plt.close()
 """
 
-
+# rec_filename = 'output050316 - cell107 - e3200-i500-type_A_0-inh0 - 10 trials'
+rec_filename = 'output060716 - cell141 - e3200-i600-subtr_inh_0-inh0 - 10 trials'
 local_random = random.Random()
+local_random.seed(6)
 peak_times, peak_phases, binned_times, binned_phases = {}, {}, {}, {}
-"""
+
 for parameter in peak_times, peak_phases, binned_times, binned_phases:
-    parameter['signal'] = []
-    parameter['signal_all'] = []
-    parameter['noise'] = []
-    #parameter['inh'] = []
-    parameter['inh_all'] = []
-    parameter['exc'] = []
-with h5py.File(data_dir+'output050316 - cell107 - e3200-i500-type_A_0-inh0 - 10 trials.hdf5', 'r') as f:
+    for condition in ['signal', 'noise', 'inh', 'inh_all', 'exc_all']:
+        parameter[condition] = []
+with h5py.File(data_dir+rec_filename+'.hdf5', 'r') as f:
     trial = f.itervalues().next()
     time_offset = trial.attrs['phase_offset']
     for key in trial['train']:
@@ -76,94 +74,49 @@ with h5py.File(data_dir+'output050316 - cell107 - e3200-i500-type_A_0-inh0 - 10 
                                                                            time_offset=time_offset)
             peak_loc = trial['train'][key].attrs['peak_loc']
             if 4250. <= peak_loc <= 4750.:
-                condition = 'signal'
-                peak_times['signal_all'].extend(peak_time_array)
-                peak_phases['signal_all'].extend(peak_phase_array)
+                if local_random.uniform(0., 1.) <= 0.25:
+                    condition = 'signal'
+                    peak_times[condition].extend(peak_time_array)
+                    peak_phases[condition].extend(peak_phase_array)
             else:
                 condition = 'noise'
-            if local_random.uniform(0., 1.) <= 0.25:
-                peak_times[condition].extend(peak_time_array)
-                peak_phases[condition].extend(peak_phase_array)
-            peak_times['exc'].extend(peak_time_array)
-            peak_phases['exc'].extend(peak_phase_array)
+                if local_random.uniform(0., 1.) <= 0.2:
+                    peak_times[condition].extend(peak_time_array)
+                    peak_phases[condition].extend(peak_phase_array)
+            condition = 'exc_all'
+            peak_times[condition].extend(peak_time_array)
+            peak_phases[condition].extend(peak_phase_array)
+    inh_keys = {}
     for key in trial['inh_train']:
         group = trial['inh_train'][key].attrs['group']
-        #group = 'inh'
-        #if group in ['perisomatic', 'apical dendritic', 'distal apical dendritic']:
+        if group not in inh_keys:
+            inh_keys[group] = []
+        inh_keys[group].append(key)
+        condition = 'inh_all'
         peak_time_array, peak_phase_array = get_waveform_phase_vs_time(trial['inh_train'][key],
                                                                        time_offset=time_offset)
-        if local_random.uniform(0., 1.) <= 0.05:
-            if group not in peak_times:
-                for parameter in peak_times, peak_phases, binned_times, binned_phases:
-                    parameter[group] = []
-            peak_times[group].extend(peak_time_array)
-            peak_phases[group].extend(peak_phase_array)
-        peak_times['inh_all'].extend(peak_time_array)
-        peak_phases['inh_all'].extend(peak_phase_array)
-
-for group in ['exc', 'signal_all', 'inh_all']:
-    binned_times[group], binned_phases[group] = plot_phase_precession([np.array(peak_times[group])],
-                                        [np.array(peak_phases[group])], group, plot=False, adjust=False, num_bins=10)
-
-fig, axes = plt.subplots(1)
-axes.scatter(peak_times['signal'], peak_phases['signal'], s=0.1, color='r', label='Signal', zorder=2)
-axes.scatter(peak_times['noise'], peak_phases['noise'], s=0.1, color='lightgrey', label='Noise', zorder=0)
-axes.plot(binned_times['exc'], binned_phases['exc'], color='k', zorder=1)
-axes.plot(binned_times['signal_all'], binned_phases['signal_all'], color='r', zorder=3)
-axes.set_ylim(0., 360.)
-axes.set_yticks([0., 90., 180., 270., 360.])
-axes.set_ylabel('Theta phase (o)')
-axes.set_xlim(0., 7500.)
-axes.set_xlabel('Time (s)')
-axes.set_xticks([0., 1500., 3000., 4500., 6000., 7500.])
-axes.set_xticklabels([0, 1.5, 3, 4.5, 6, 7.5])
-axes.legend(loc='best', frameon=False, framealpha=0.5, fontsize=mpl.rcParams['font.size'], scatterpoints=1)
-clean_axes(axes)
-axes.tick_params(direction='out')
-if svg_title is not None:
-    #fig.set_size_inches(2.05, 1.40)
-    fig.set_size_inches(1.54, 1.40)
-    fig.savefig(data_dir+svg_title+' - CA3 Population Input Precession.svg', format='svg', transparent=True)
-plt.show()
-plt.close()
-
-fig, axes = plt.subplots(1)
-#axes.scatter(peak_times['inh'], peak_phases['inh'], s=0.01, color='purple', label='Inhibitory inputs', alpha=0.4)
-for group in [group for group in ['perisomatic', 'apical dendritic', 'distal apical dendritic', 'axo-axonic',
-                                  'tuft feedforward', 'tuft feedback'] if group in peak_times]:
-#group = 'inh'
-    axes.scatter(peak_times[group], peak_phases[group], s=0.1, color='purple', label='Inhibitory inputs', alpha=0.2)
-axes.plot(binned_times['inh_all'], binned_phases['inh_all'], color='purple')
-axes.set_ylim(0., 360.)
-axes.set_yticks([0., 90., 180., 270., 360.])
-axes.set_ylabel('Theta phase (o)')
-axes.set_xlim(0., 7500.)
-axes.set_xlabel('Time (s)')
-axes.set_xticks([0., 1500., 3000., 4500., 6000., 7500.])
-axes.set_xticklabels([0, 1.5, 3, 4.5, 6, 7.5])
-axes.legend(loc='best', frameon=False, framealpha=0.5, fontsize=mpl.rcParams['font.size'], scatterpoints=1)
-clean_axes(axes)
-axes.tick_params(direction='out')
-if svg_title is not None:
-    #fig.set_size_inches(2.05, 1.40)
-    fig.set_size_inches(1.54, 1.40)
-    fig.savefig(data_dir+svg_title+' - Inhibitory Input Precession.svg', format='svg', transparent=True)
-plt.show()
-plt.close()
-
+        peak_times[condition].extend(peak_time_array)
+        peak_phases[condition].extend(peak_phase_array)
+    for group in inh_keys:
+        for key in local_random.sample(inh_keys[group], int(0.05*len(inh_keys[group]))):
+            peak_time_array, peak_phase_array = get_waveform_phase_vs_time(trial['inh_train'][key],
+                                                                           time_offset=time_offset)
+            condition = 'inh'
+            peak_times[condition].extend(peak_time_array)
+            peak_phases[condition].extend(peak_phase_array)
+"""
 hist, edges = {}, {}
 colors = ['k', 'purple']
-for i, condition in enumerate(['exc', 'inh_all']):
-    hist[condition], edges[condition] = np.histogram(peak_phases[condition], 24, density=True)
+for i, condition in enumerate(['exc_all', 'inh_all']):
+    hist[condition], edges[condition] = np.histogram(peak_phases[condition], np.arange(0., 375., 15.), density=True)
     fig, axes = plt.subplots(1)
-    axes.plot(hist[condition]*15.*100., edges[condition][1:], color=colors[i])
+    axes.plot(hist[condition]*15.*100., np.add(edges[condition][:-1], 7.5), color=colors[i])
     axes.set_ylim(0., 360.)
     #axes.set_yticks([0., 90., 180., 270., 360.])
     #axes.set_ylabel('Theta phase (o)')
-    axes.set_xlim(3., 6.)
+    axes.set_xlim(2.5, 5.5)
     axes.set_xlabel('Prob. (%)')
-    axes.set_xticks([3., 4.5, 6.])
-    axes.set_xticklabels([3, 4.5, 6])
+    axes.set_xticks([3., 4., 5.])
     #axes.legend(loc='best', frameon=False, framealpha=0.5, fontsize=mpl.rcParams['font.size'], scatterpoints=1)
     clean_axes(axes)
     axes.spines['left'].set_visible(False)
@@ -175,7 +128,65 @@ for i, condition in enumerate(['exc', 'inh_all']):
                     transparent=True)
     plt.show()
     plt.close()
+"""
+for condition in ['exc_all', 'signal', 'inh_all']:
+    binned_times[condition], binned_phases[condition] = plot_phase_precession([np.array(peak_times[condition])],
+                                                                              [np.array(peak_phases[condition])],
+                                                                              condition, plot=False, adjust=True,
+                                                                              num_bins=10)
+    indexes = np.where((np.array(binned_times[condition]) > 2000.) & (np.array(binned_times[condition]) < 7000.))[0]
+    binned_times[condition] = np.array(binned_times[condition][indexes])
+    binned_phases[condition] = np.array(binned_phases[condition][indexes])
 
+fig, axes = plt.subplots(1)
+
+for condition in ['signal', 'noise', 'inh']:
+    indexes = np.where((np.array(peak_times[condition]) > 2000.) & (np.array(peak_times[condition]) < 7000.))[0]
+    peak_times[condition] = np.array(peak_times[condition])[indexes]
+    peak_phases[condition] = np.array(peak_phases[condition])[indexes]
+axes.scatter(peak_times['signal'], peak_phases['signal'], s=0.1, color='r', label='Signal', zorder=2)
+axes.scatter(peak_times['noise'], peak_phases['noise'], s=0.1, color='lightgrey', label='Noise', zorder=0)
+axes.plot(binned_times['exc_all'], binned_phases['exc_all'], color='k', zorder=1)
+axes.plot(binned_times['signal'], binned_phases['signal'], color='r', zorder=3)
+axes.set_ylim(0., 360.)
+axes.set_yticks([0., 90., 180., 270., 360.])
+axes.set_ylabel('Theta phase (o)')
+axes.set_xlim(2000., 7000.)
+axes.set_xlabel('Time (s)')
+axes.set_xticks([2500., 3500., 4500., 5500., 6500.])
+axes.set_xticklabels([-2, -1, 'center', 1, 2])
+#axes.legend(loc='best', frameon=False, framealpha=0.5, fontsize=mpl.rcParams['font.size'], scatterpoints=1)
+clean_axes(axes)
+axes.tick_params(direction='out')
+if svg_title is not None:
+    #fig.set_size_inches(2.05, 1.40)
+    fig.set_size_inches(1.54, 1.40)
+    fig.savefig(data_dir+svg_title+' - CA3 Population Input Precession.svg', format='svg', transparent=True)
+plt.show()
+plt.close()
+
+
+fig, axes = plt.subplots(1)
+axes.scatter(peak_times['inh'], peak_phases['inh'], s=0.1, color='purple', label='Inhibitory inputs')
+axes.plot(binned_times['inh_all'], binned_phases['inh_all'], color='purple')
+axes.set_ylim(0., 360.)
+axes.set_yticks([0., 90., 180., 270., 360.])
+axes.set_ylabel('Theta phase (o)')
+axes.set_xlim(2000., 7000.)
+axes.set_xlabel('Time (s)')
+axes.set_xticks([2500., 3500., 4500., 5500., 6500.])
+axes.set_xticklabels([-2, -1, 'center', 1, 2])
+#axes.legend(loc='best', frameon=False, framealpha=0.5, fontsize=mpl.rcParams['font.size'], scatterpoints=1)
+clean_axes(axes)
+axes.tick_params(direction='out')
+if svg_title is not None:
+    #fig.set_size_inches(2.05, 1.40)
+    fig.set_size_inches(1.54, 1.40)
+    fig.savefig(data_dir+svg_title+' - Inhibitory Input Precession.svg', format='svg', transparent=True)
+plt.show()
+plt.close()
+
+"""
 if svg_title is not None:
     mpl.rcParams['font.size'] = 20
 
@@ -264,13 +275,13 @@ if svg_title is not None:
     fig.savefig(data_dir+svg_title+' - example spike trains.svg', format='svg', transparent=True)
 plt.show()
 plt.close()
-"""
+
 
 filename = ''
 saved_parameters = read_from_pkl(data_dir+filename)
 stim_t, ampa_forces, peak_locs, intra_peaks, intra_phases = saved_parameters
 
-
+"""
 
 class Pr(object):
     """
