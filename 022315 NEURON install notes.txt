@@ -7,7 +7,7 @@ http://www.neuron.yale.edu/ftp/neuron/versions/alpha/nrn-7.4.rel-1390.tar.gz
 
 or install from mercurial
 cd ~/neuron
-hg clone http://www.neuron.yale.edu/hg/neuron/nrn -r 'Release 7.4'
+hg clone http://www.neuron.yale.edu/hg/neuron/nrn -r trunk
 hg clone http://www.neuron.yale.edu/hg/neuron/iv
 
 following tips from:
@@ -54,7 +54,7 @@ export PATH="$PYTHONHOME:$PYTHONPATH:$LD_LIBRARY_PATH:$PATH"
 5) If error related to libreadline.6.2.dylib :
 
 cd /Applications/NEURON-7.4/nrn/lib/python/neuron/
-install_name_tool -change libreadline.6.2.dylib $HOME/anaconda/lib/libreadline.6.2.dylib hoc.so
+install_name_tool -change libreadline.6.2.dylib $HOME/anaconda2/lib/libreadline.6.2.dylib hoc.so
 
 II) To install on a linux cluster:
 

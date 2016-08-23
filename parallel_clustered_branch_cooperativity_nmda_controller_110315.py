@@ -12,7 +12,7 @@ group of spines (actual) to generate input-output plots. Parallel version dynami
 Assumes a controller is already running in another process with:
 ipcluster start -n num_cores
 """
-new_rec_filename = '020616 clustered nmda cooperativity'
+new_rec_filename = '022316 clustered nmda cooperativity'
 
 if len(sys.argv) > 1:
     cluster_id = sys.argv[1]
@@ -24,7 +24,7 @@ dv.clear()
 dv.block = True
 global_start_time = time.time()
 dv.execute('from parallel_clustered_branch_cooperativity_nmda_engine_110315 import *')
-time.sleep(300)
+#time.sleep(300)
 v = c.load_balanced_view()
 
 start_time = time.time()
