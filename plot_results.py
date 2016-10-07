@@ -3936,22 +3936,30 @@ def plot_patterned_input_binned_rinp(t_dict, phase_dict, r_inp_dict, key_list=No
 def plot_somatic_rinp_across_cells(t_array, phase_array, r_inp_array, svg_title=None):
     """
 
-    :param saved_param_file: str: .pkl file containing t_array, phase_array, r_inp_array with output from multiple seeds
+    :param t_array: dict with output from get_patterned_input_r_inp for each of multiple seeds
+    :param phase_array: dict with output from get_patterned_input_r_inp for each of multiple seeds
+    :param r_inp_array: dict with output from get_patterned_input_r_inp for each of multiple seeds
     :param svg_title: str
     """
     if svg_title is not None:
         remember_font_size = mpl.rcParams['font.size']
         mpl.rcParams['font.size'] = 8
-    r_inp_by_phase, binned_t, r_inp_by_t = {}, {}, {}
+    r_inp_by_phase, r_inp_by_t = {}, {}
     for seed in t_array:
-        binned_phase, r_inp_by_phase[seed], binned_t[seed], r_inp_by_t[seed] = \
+        binned_phase, r_inp_by_phase[seed], binned_t, r_inp_by_t[seed] = \
             plot_patterned_input_binned_rinp(t_array[seed], phase_array[seed], r_inp_array[seed], plot=0)
     r_inp_by_phase['mean'] = {'modinh0': [], 'modinh3': []}
     r_inp_by_phase['var'] = {}
+    r_inp_by_t['mean'] = {'modinh0': [], 'modinh3': []}
+    r_inp_by_t['var'] = {}
     for i in range(len(binned_phase['modinh0'])):
         for condition in r_inp_by_phase['mean']:
             val = np.mean([r_inp_by_phase[seed][condition][i] for seed in t_array])
             r_inp_by_phase['mean'][condition].append(val)
+    for i in range(len(binned_t['modinh0'])):
+        for condition in r_inp_by_t['mean']:
+            val = np.mean([r_inp_by_t[seed][condition][i] for seed in t_array])
+            r_inp_by_t['mean'][condition].append(val)
     for condition in ['modinh0', 'modinh3']:
         binned_phase[condition] = np.append(binned_phase[condition], np.add(binned_phase[condition], 360.))
         r_inp_by_phase['mean'][condition] = np.append(r_inp_by_phase['mean'][condition],
@@ -3959,6 +3967,7 @@ def plot_somatic_rinp_across_cells(t_array, phase_array, r_inp_array, svg_title=
         r_inp_by_phase['var'][condition] = np.var([r_inp_by_phase[seed][condition] for seed in t_array], axis=0)
         r_inp_by_phase['var'][condition] = np.append(r_inp_by_phase['var'][condition],
                                                       r_inp_by_phase['var'][condition])
+        r_inp_by_t['var'][condition] = np.var([r_inp_by_t[seed][condition] for seed in t_array], axis=0)
     fig, axes = plt.subplots(1)
     colors = [('k', 'grey'), ('orange', 'orange')]
     for i, (condition, title) in enumerate(zip(['modinh0', 'modinh3'], ['Control', 'Reduced inhibition'])):
@@ -3976,9 +3985,30 @@ def plot_somatic_rinp_across_cells(t_array, phase_array, r_inp_array, svg_title=
     axes.tick_params(direction='out')
     if svg_title is not None:
         fig.set_size_inches(2.6, 1.2169)
-        fig.savefig(data_dir + svg_title + ' - r_inp.svg', format='svg', transparent=True)
+        fig.savefig(data_dir + svg_title + ' - r_inp vs phase.svg', format='svg', transparent=True)
     plt.show()
-    plt.close()
+
+    fig, axes = plt.subplots(1)
+    colors = [('k', 'grey'), ('orange', 'orange')]
+    for i, (condition, title) in enumerate(zip(['modinh0', 'modinh3'], ['Control', 'Reduced inhibition'])):
+        axes.plot(binned_t[condition], r_inp_by_t['mean'][condition], color=colors[i][0], label=title)
+        axes.plot(binned_t[condition], np.add(r_inp_by_t['mean'][condition],
+                                                  r_inp_by_t['var'][condition]), color=colors[i][1])
+        axes.plot(binned_t[condition], np.subtract(r_inp_by_t['mean'][condition],
+                                                       r_inp_by_t['var'][condition]), color=colors[i][1])
+    axes.set_xlabel('Time (s)')
+    axes.set_xlim(0., 7500.)
+    axes.set_xticks([0., 1500., 3000., 4500., 6000., 7500.])
+    axes.set_xticklabels([0, 1.5, 3, 4.5, 6, 7.5])
+    axes.set_ylabel('Input Resistance (MOhm)')
+    axes.legend(loc='best', frameon=False, framealpha=0.5, fontsize=mpl.rcParams['font.size'])
+    clean_axes(axes)
+    axes.tick_params(direction='out')
+    if svg_title is not None:
+        fig.set_size_inches(2.6, 1.2169)
+        fig.savefig(data_dir + svg_title + ' - r_inp vs t.svg', format='svg', transparent=True)
+    plt.show()
+
     if svg_title is not None:
         mpl.rcParams['font.size'] = remember_font_size
 

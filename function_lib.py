@@ -1590,14 +1590,14 @@ def get_patterned_input_r_inp(rec_filename, seperate=False):
             phase_offset = phase_offsets[i]
             start = 0.
             while start + probe_dur < duration:
-                r_inp = (vm[(start + probe_dur) / dt] - vm[start / dt]) / probe_amp
+                r_inp = (vm[int((start + probe_dur) / dt)] - vm[int(start / dt)]) / probe_amp
                 phase = ((start + probe_dur / 2. - phase_offset) % theta_cycle_duration) / theta_cycle_duration * 360.
                 hypo_r_inp_array.append(r_inp)
                 hypo_phase_array.append(phase)
                 hypo_t_array.append(start + probe_dur / 2.)
                 start += probe_dur
                 if start + probe_dur < duration:
-                    r_inp = (vm[(start + probe_dur) / dt] - vm[start / dt]) / (probe_amp * -1.)
+                    r_inp = (vm[int((start + probe_dur) / dt)] - vm[int(start / dt)]) / (probe_amp * -1.)
                     phase = ((start + probe_dur / 2. - phase_offset) % theta_cycle_duration) / theta_cycle_duration \
                                                                                                 * 360.
                     depo_r_inp_array.append(r_inp)
