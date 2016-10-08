@@ -12,6 +12,7 @@ import time
 data_dir = 'data/'
 
 rec_filename = '100716 grid cell waveforms'
+grid_data_filename = '100716 grid data'
 
 start_time = time.time()
 
@@ -23,20 +24,11 @@ else:
 
 grid_data = {}
 
-with h5py.File(data_dir+'100716_grid_yoff.h5', 'r') as f:
-    num_inputs = len(f['dataset0'][:, 0, 0])
-    for i in range(num_inputs):
-        grid_data[i] = {}
-        grid_data[i]['yoff'] = f['dataset0'][i, 0, 0]
-with h5py.File(data_dir+'100716_grid_xoff.h5', 'r') as f:
-    for i in range(num_inputs):
-        grid_data[i]['xoff'] = f['dataset0'][i, 0, 0]
-with h5py.File(data_dir+'100716_grid_theta.h5', 'r') as f:
-    for i in range(num_inputs):
-        grid_data[i]['theta'] = f['dataset0'][i, 0, 0]
-with h5py.File(data_dir+'100716_grid_lambda.h5', 'r') as f:
-    for i in range(num_inputs):
-        grid_data[i]['lambda'] = f['dataset0'][i, 0, 0]
+with h5py.File(data_dir+grid_data_filename+'.hdf5', 'r') as f:
+    for key in f:
+        grid_data[int(key)] = {}
+        for param_name, value in f[key].attrs.iteritems():
+            grid_data[int(key)][param_name] = value
 
 dv = c[:]
 dv.clear()
