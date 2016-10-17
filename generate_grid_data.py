@@ -20,7 +20,7 @@ f:
 
 """
 
-rec_filename = '101416 generated grid data'
+rec_filename = '101716 generated grid data'
 local_random = random.Random()
 local_random.seed(1e12)
 num_modules = 10
