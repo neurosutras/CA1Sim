@@ -1,6 +1,4 @@
 __author__ = 'Aaron D. Milstein'
-import numpy as np
-import matplotlib.pyplot as plt
 import h5py
 from ipyparallel import Client
 from IPython.display import clear_output
@@ -12,7 +10,8 @@ import time
 data_dir = 'data/'
 
 rec_filename = '100716 grid cell waveforms'
-grid_data_filename = '100716 grid data'
+# grid_data_filename = '100716 grid data'
+grid_data_filename = '101716 modified grid data'
 
 start_time = time.time()
 
@@ -36,10 +35,7 @@ dv.block = True
 dv.execute('from analyze_dentate_connectivity_engine import *')
 v = c.load_balanced_view()
 result = v.map_async(analyze_dentate_connectivity_engine.compute_single_rate_map, grid_data.iteritems())
-"""
-result = v.map_async(analyze_dentate_connectivity_engine.compute_single_rate_map, [(i, grid_data[i]) for
-                                                                                   i in range(16)])
-"""
+
 while not result.ready():
     time.sleep(30)
     for stdout in [stdout for stdout in result.stdout if stdout][-len(c):]:

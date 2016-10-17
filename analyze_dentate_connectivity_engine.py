@@ -177,10 +177,11 @@ def compute_single_rate_map((id, grid_cell)):
     """
     start_time = time.time()
     this_grid_waveforms = {}
-    this_grid_waveforms['cont'] = get_1D_rate_map(grid_cell['xoff'], grid_cell['yoff'], grid_cell['lambda'],
+    this_grid_waveforms['cont'] = get_1D_rate_map(grid_cell['x_off'], grid_cell['y_off'], grid_cell['lambda'],
                                              grid_cell['theta'], X, Y, plot=False)
-    this_grid_waveforms['discrete'] = get_1D_rate_map_discrete(grid_cell['xoff'], grid_cell['yoff'], grid_cell['lambda'],
-                                                          grid_cell['theta'], X_low, Y_low, stepwise=False, plot=False)
+    this_grid_waveforms['discrete'] = get_1D_rate_map_discrete(grid_cell['x_off'], grid_cell['y_off'],
+                                                               grid_cell['lambda'], grid_cell['theta'], X_low, Y_low,
+                                                               stepwise=False, plot=False)
     print 'Process:', os.getpid(), 'computed rate maps for grid cell', id, 'in', time.time() - start_time, 's'
 
     return id, this_grid_waveforms
