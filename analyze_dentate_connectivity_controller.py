@@ -9,7 +9,7 @@ import time
 
 data_dir = 'data/'
 
-rec_filename = '100716 grid cell waveforms'
+rec_filename = '101716 grid cell waveforms'
 # grid_data_filename = '100716 grid data'
 grid_data_filename = '101716 modified grid data'
 
