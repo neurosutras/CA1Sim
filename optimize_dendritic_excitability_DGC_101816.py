@@ -21,7 +21,7 @@ Goal is to acheive R_inp = 75, and lower f-I gain.
 
 # morph_filename = 'EB2-late-bifurcation.swc'
 # morph_filename = 'gulyas_pc2b_labeled.swc'
-morph_filename = 'DGC_356550_edited.swc'
+morph_filename = 'DG_GC_355549.swc'
 # mech_filename = '043016 Type A - km2_NMDA_KIN5_Pr'
 
 

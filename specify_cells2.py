@@ -38,13 +38,13 @@ class HocCell(object):
         self.random = np.random.RandomState()
         self.spike_detector = None
 
-    def load_morphology(self, preserve_3D=False):
+    def load_morphology(self, preserve_3d=False):
         """
-        Loads morphology from files provided during initialization. Please execute self.make_standard_soma_and_axon
-        prior with desired dimension parameters prior to executing.
+        Loads morphology from files provided during initialization. self.tree.root must already be defined, for example
+        by creating a standard soma by running self.make_standard_soma_and_axon
         """
         if not self.morph_filename is None:
-            self.load_morphology_from_swc(self.morph_filename, preserve_3D)
+            self.load_morphology_from_swc(self.morph_filename, preserve_3d)
             self.reinit_mechanisms()  # Membrane mechanisms must be reinitialized whenever cable properties (Ra, cm) or
                                       # spatial resolution (nseg) changes.
         elif not self.existing_hoc_cell is None:
@@ -89,7 +89,7 @@ class HocCell(object):
         for node in self.axon:
             self._init_cable(node)
 
-    def load_morphology_from_swc(self, morph_filename, preserve_3D=False):
+    def load_morphology_from_swc(self, morph_filename, preserve_3d=False):
         """
         This method builds an STree2 comprised of SHocNode nodes associated with hoc sections, connects the hoc
         sections, and initializes various parameters: Ra, cm, L, diam, nseg
@@ -97,11 +97,30 @@ class HocCell(object):
         """
         raw_tree = btmorph.STree2()  # import the full tree from an SWC file
         raw_tree.read_SWC_tree_from_file(morph_dir+morph_filename, types=range(10))
+        self.clean_swc_diams(raw_tree.root)
         for child in raw_tree.root.children:
-            if preserve_3D:
-                self.make_3D(child, self.tree.root)
+            if preserve_3d:
+                self.make_3d(child, self.tree.root)
             else:
                 self.make_skeleton(child, self.tree.root)
+
+    def clean_swc_diams(self, parent):
+        """
+        Some .swc files that specify unbranched dendrites with high spatial density of spheres have user errors in the
+        value for the radius. This method does some reality checking and fixes very small spurious radii.
+        :param parent: :class:'SNode2'
+        """
+        threshold = 0.1  # radius (um)
+        for child in parent.children:
+            current_radius = child.get_content()['p3d'].radius
+            if current_radius < threshold:
+                neighbor_radius_list = []
+                neighbor_radius_list.append(parent.get_content()['p3d'].radius)
+                neighbor_radius_list.extend([grandchild.get_content()['p3d'].radius for grandchild in child.children])
+                if np.all(neighbor_radius_list > threshold):
+                    child.get_content()['p3d'].radius = np.mean(neighbor_radius_list)
+                    print 'Replacing diam at point', child.index
+            self.clean_swc_diams(child)
 
     def load_morphology_from_hoc(self, existing_hoc_cell):
         """
@@ -193,9 +212,11 @@ class HocCell(object):
             diam = swc.radius*2.
             length += self.get_node_length_swc(raw_node)
             leaves = len(raw_node.children)
-            # create a new node when encountering 1) branch points, 2) terminal ends, or 3) change in swc_type
-            if leaves > 1 or leaves == 0 or \
-                    (leaves == 1 and not raw_node.children[0].get_content()['p3d'].type == swc_type):
+            # create a new node when encountering 1) branch points, 2) terminal ends, 3) change in swc_type,
+            # or 4) a duplicate node, which is used in some SWC files to indicate a change in layer
+            if (leaves > 1 or leaves == 0 or
+                (leaves == 1 and not raw_node.children[0].get_content()['p3d'].type == swc_type) or
+                (leaves == 1 and np.all(raw_node.children[0].get_content()['p3d'].xyz == swc.xyz))):
                 sec_type = dend_types[1][dend_types[0].index(swc_type)]
                 new_node = self.make_section(sec_type)
                 new_node.sec.L = length
@@ -213,8 +234,8 @@ class HocCell(object):
                     if len(diams) > 2:
                         mean = np.mean(diams)
                         stdev = np.std(diams)
-                        if stdev*2. > 1.:  # If 95% of the values are within 1 um, don't taper
-                            new_node.set_diam_bounds(mean+stdev, mean-stdev)
+                        if stdev*2. > 0.5:  # If 95% of the values are within 0.5 um, don't taper
+                            new_node.set_diam_bounds(mean+stdev*2., mean-stdev*2.)
                             self._init_cable(new_node)
                             if verbose:
                                 print '{} [nseg: {}, diam: ({}:{}), length: {}, parent: {}]'.format(new_node.name,
@@ -225,7 +246,7 @@ class HocCell(object):
                             if verbose:
                                 print '{} [nseg: {}, diam: {}, length: {}, parent: {}]'.format(new_node.name,
                                                                 new_node.sec.nseg, mean, length, new_node.parent.name)
-                    elif abs(diams[0]-diams[1]) > 1.:
+                    elif abs(diams[0]-diams[1]) > 0.5:
                         new_node.set_diam_bounds(diams[0], diams[1])
                         self._init_cable(new_node)
                         if verbose:
@@ -247,8 +268,12 @@ class HocCell(object):
                 else:
                     diams.append(diam)
                 self.make_skeleton(raw_node.children[0], parent, length, diams)
+        # keep climbing down tree until dendrite nodes are encountered
+        else:
+            for child in raw_node.children:
+                self.make_skeleton(child, parent)
 
-    def make_3D(self, raw_node, parent, current_node=None):
+    def make_3d(self, raw_node, parent, current_node=None):
         """
         Following construction of soma and axon nodes of type 'SHocNode' in the tree of type 'STree2', this method
         recursively converts dendritic 'SNode2' nodes into 'SHocNode' nodes, and connects them to the appropriate
@@ -272,18 +297,22 @@ class HocCell(object):
             if current_node is None:
                 current_node = self.make_section(sec_type)
                 current_node.sec.push()
-                if not parent.type == 'soma':
-                    parent_n3d_index = parent.sec.n3d() - 1
-                    h.pt3dadd(parent.sec.x3d(parent_n3d_index), parent.sec.y3d(parent_n3d_index),
-                              parent.sec.z3d(parent_n3d_index), parent.sec.diam3d(parent_n3d_index))
+                # some SWC files contain duplicate xyz points at branch points
+                raw_parent_xyz = raw_node.parent.get_content()['p3d'].xyz
+                if not np.all(raw_parent_xyz == swc.xyz):
+                    h.pt3dadd(raw_parent_xyz[0], raw_parent_xyz[1], raw_parent_xyz[2], swc.radius*2.)
             else:
                 current_node.sec.push()
             h.pt3dadd(swc.xyz[0], swc.xyz[1], swc.xyz[2], swc.radius*2.)
             h.pop_section()
             leaves = len(raw_node.children)
-            # create a new node when encountering 1) branch points, 2) terminal ends, or 3) change in swc_type
-            if leaves > 1 or leaves == 0 or \
-                    (leaves == 1 and not raw_node.children[0].get_content()['p3d'].type == swc_type):
+            # create a new node when encountering 1) branch points, 2) terminal ends, 3) change in swc_type,
+            # or 4) a duplicate node, which is used in some SWC files to indicate a change in layer
+            if (leaves > 1 or leaves == 0 or
+                    (leaves == 1 and not raw_node.children[0].get_content()['p3d'].type == swc_type) or
+                    (leaves == 1 and np.all(swc.xyz == raw_node.children[0].get_content()['p3d'].xyz))):
+                if (leaves ==1 and np.all(swc.xyz == raw_node.children[0].get_content()['p3d'].xyz)):
+                    print 'Encountered duplicate point in ', current_node.name
                 if (self.tree.is_root(parent)) and (sec_type == 'basal'):
                     parent = self.soma[1]
                 current_node.connect(parent)
@@ -296,9 +325,13 @@ class HocCell(object):
                                                                                    current_node.parent.name)
                 # Follow all branches from this fork
                 for child in raw_node.children:
-                    self.make_3D(child, current_node)
+                    self.make_3d(child, current_node)
             else:  # Follow unbranched dendrite
-                self.make_3D(raw_node.children[0], parent, current_node)
+                self.make_3d(raw_node.children[0], parent, current_node)
+        # keep climbing down tree until dendrite nodes are encountered
+        else:
+            for child in raw_node.children:
+                self.make_3d(child, parent)
 
     def get_nodes_of_subtype(self, sec_type):
         """
@@ -1158,21 +1191,21 @@ class HocCell(object):
         :param path: list : :class:'SNode2'
         :return: int or float
         """
-        distance = 0
+        distance = 0.
         for i in range(len(path)-1):
             distance += np.sqrt(np.sum((path[i].get_content()['p3d'].xyz - path[i+1].get_content()['p3d'].xyz)**2.))
         return distance
 
-    def get_node_length_swc(self, node):
+    def get_node_length_swc(self, raw_node):
         """
         Calculates the distance between the center points of an SNode2 node and its parent.
-        :param node: :class:'SNode2'
+        :param raw_node: :class:'SNode2'
         :return: float
         """
-        if not self.tree.is_root(node):
-            return np.sqrt(np.sum((node.get_content()['p3d'].xyz - node.parent.get_content()['p3d'].xyz)**2.))
+        if not raw_node.parent is None:
+            return np.sqrt(np.sum((raw_node.get_content()['p3d'].xyz - raw_node.parent.get_content()['p3d'].xyz)**2.))
         else:
-            return np.sqrt(np.sum(node.get_content()['p3d'].xyz**2.))
+            return 0.
 
     def get_branch_order(self, node):
         """
@@ -1837,12 +1870,22 @@ class CA1_Pyr(HocCell):
     """
 
     """
-    def __init__(self, morph_filename=None, mech_filename=None, gid=0, existing_hoc_cell=None, full_spines=True):
+    def __init__(self, morph_filename=None, mech_filename=None, gid=0, existing_hoc_cell=None, full_spines=True,
+                 preserve_3d=True):
+        """
+
+        :param morph_filename:
+        :param mech_filename:
+        :param gid:
+        :param existing_hoc_cell:
+        :param full_spines:
+        :param preserve_3d:
+        """
         HocCell.__init__(self, morph_filename, mech_filename, gid, existing_hoc_cell)
         self.random.seed(self.gid)  # This cell will always have the same spine and GABA_A synapse locations as long as
                                     # they are inserted in the same order
         self.make_standard_soma_and_axon(soma_length=16., soma_diam=9., ais_length=30.)
-        self.load_morphology(preserve_3D=True)
+        self.load_morphology(preserve_3d=preserve_3d)
         self.generate_excitatory_synapse_locs()
         self.generate_inhibitory_synapse_locs()
         if full_spines:
@@ -2015,16 +2058,26 @@ class DG_GC(HocCell):
     """
 
     """
-    def __init__(self, morph_filename=None, mech_filename=None, gid=0, existing_hoc_cell=None, full_spines=True):
+    def __init__(self, morph_filename=None, mech_filename=None, gid=0, existing_hoc_cell=None, full_spines=True,
+                 preserve_3d=True):
+        """
+
+        :param morph_filename:
+        :param mech_filename:
+        :param gid:
+        :param existing_hoc_cell:
+        :param full_spines:
+        :param preserve_3d:
+        """
         HocCell.__init__(self, morph_filename, mech_filename, gid, existing_hoc_cell)
         self.random.seed(self.gid)  # This cell will always have the same spine and GABA_A synapse locations as long as
                                     # they are inserted in the same order
         self.make_standard_soma_and_axon(soma_length=16., soma_diam=10., ais_length=30.)
-        self.load_morphology(preserve_3D=True)
-        #self.generate_excitatory_synapse_locs()
-        #self.generate_inhibitory_synapse_locs()
-        #if full_spines:
-        #    self.insert_spines()
+        self.load_morphology(preserve_3d=preserve_3d)
+        self.generate_excitatory_synapse_locs()
+        self.generate_inhibitory_synapse_locs()
+        if full_spines:
+            self.insert_spines()
 
     def generate_excitatory_synapse_locs(self, sec_type_list=None):
         """
@@ -2093,16 +2146,6 @@ class DG_GC(HocCell):
             for na_type in (na_type for na_type in ['nas_kin', 'nat_kin', 'nas', 'nax'] if na_type in
                     self.mech_dict[sec_type]):
                 self.modify_mech_param(sec_type, na_type, 'gbar', 0.)
-
-    def zero_h(self):
-        """
-        Set ih conductances to zero in all compartments. Used during parameter optimization.
-        """
-        self.modify_mech_param('soma', 'h', 'ghbar', 0.)
-        self.mech_dict['trunk']['h']['ghbar']['value'] = 0.
-        self.mech_dict['trunk']['h']['ghbar']['slope'] = 0.
-        for sec_type in ['apical']:
-            self.reinitialize_subset_mechanisms(sec_type, 'h')
 
     def set_terminal_branch_na_gradient(self, gmin=0.):
         """

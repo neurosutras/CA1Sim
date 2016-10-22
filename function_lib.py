@@ -313,7 +313,11 @@ class QuickSim(object):
 
     def append_rec(self, cell, node, loc=None, param='_ref_v', object=None, ylabel='Vm', units='mV', description=None):
         rec_dict = {'cell': cell, 'node': node, 'ylabel': ylabel, 'units': units}
-        if not description is None:
+        if description is None:
+            rec_dict['description'] = 'rec'+str(len(self.rec_list))
+        elif description in (rec['description'] for rec in self.rec_list):
+            rec_dict['description'] = description+str(len(self.rec_list))
+        else:
             rec_dict['description'] = description
         rec_dict['vec'] = h.Vector()
         if object is None:
@@ -332,6 +336,17 @@ class QuickSim(object):
                 rec_dict['vec'].record(getattr(object, param))
         rec_dict['loc'] = loc
         self.rec_list.append(rec_dict)
+
+    def get_rec(self, description):
+        """
+        Return the dict corresponding to the item in the rec_dict list with the specified description.
+        :param description: str
+        :return: dict
+        """
+        for rec in self.rec_list:
+            if rec['description'] == description:
+                return rec
+        raise Exception('No recording of that description')
 
     def append_stim(self, cell, node, loc, amp, delay, dur, description='IClamp'):
         stim_dict = {'cell': cell, 'node': node, 'description': description}
