@@ -58,6 +58,8 @@ default_mech_dict = {'ais': {'cable': {'Ra': {'origin': 'soma'}, 'cm': {'origin'
                                 'pas': {'e': {'origin': 'soma'}, 'g': {'origin': 'soma'}}},
                      'axon': {'cable': {'Ra': {'origin': 'soma'}, 'cm': {'origin': 'soma'}},
                               'pas': {'e': {'origin': 'soma'}, 'g': {'origin': 'soma'}}},
+                     'axon_hill': {'cable': {'Ra': {'origin': 'soma'}, 'cm': {'origin': 'soma'}},
+                              'pas': {'e': {'origin': 'soma'}, 'g': {'origin': 'soma'}}},
                      'basal': {'cable': {'Ra': {'origin': 'soma'}, 'cm': {'origin': 'soma'}},
                                'pas': {'e': {'origin': 'soma'}, 'g': {'origin': 'soma'}}},
                      'soma': {'cable': {'Ra': {'value': 150.}, 'cm': {'value': 1.}},
@@ -495,7 +497,15 @@ class Normalized_Step(object):
                     xmax[i] = 0.1 * x0[i]
         self.x0 = x0
         self.x_range = np.subtract(xmax, xmin)
-        self.order_mag = np.abs(np.log10(np.abs(np.divide(xmax, xmin))))
+        self.order_mag = np.ones_like(x0)
+        if not np.any(np.array(xmin) == 0.):
+            self.order_mag = np.abs(np.log10(np.abs(np.divide(xmax, xmin))))
+        else:
+            for i in range(len(x0)):
+                if xmin[i] == 0.:
+                    self.order_mag[i] = int(xmax[i] / 10)
+                else:
+                    self.order_mag[i] = abs(np.log10(abs(xmax[i] / xmin[i])))
         self.log10_range = np.log10(np.add(1., self.x_range))
         self.x_offset = np.subtract(1., xmin)
 

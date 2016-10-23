@@ -101,7 +101,7 @@ def get_dynamic_theta_phase_force(phase_ranges, peak_loc, input_field_duration, 
             del_phase = del_phase / del_t * dt
             this_range_piece = np.arange(phase0, phase1, del_phase)
         else:
-            this_range_piece = np.ones(del_t / dt) * phase0
+            this_range_piece = np.ones(int(del_t / dt)) * phase0
         phase_gradient = np.append(phase_gradient, this_range_piece)
     if stim_t[0] <= peak_loc-input_field_duration*0.5 <= stim_t[-1]:
         phase_start = np.where(peak_loc-input_field_duration*0.5 >= stim_t)[0]

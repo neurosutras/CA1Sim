@@ -13,32 +13,18 @@ morph_filename = 'DG_GC_355549.swc'
 mech_filename = '102016 DG_GC pas no_spines'
 
 
-#x: array (soma.g_pas, trunk.g_pas slope, trunk.g_pas tau)
-x = [1.52E-06, 1.63E-05, 121.9, 150.] # placeholder for optimization parameter, must be pushed to each engine on each iteration
-xmin = [1.0E-7, 1.0E-07, 25.]
-xmax = [2.0E-5, 2.0E-05, 400.]
+#x: array (soma.g_pas, dend.g_pas slope, dend.g_pas tau, dend.g_pas xhalf)
+x = [1.52E-06, 1.63E-05, 121.9, 150.]   # placeholder for optimization parameter,
+                                        # must be pushed to each engine on each iteration
 i_holding = {'soma': 0., 'dend': 0., 'distal_dend': 0.}
-
-
-def check_bounds(x, param_name):
-    """
-    For optimize_polish, based on simplex algorithm, check that the current set of parameters are within the bounds.
-    :param x: array
-    :param param_name: str
-    :return: bool
-    """
-    for i in range(len(x)):
-        if ((xmin[i] is not None and x[i] < xmin[i]) or
-                (xmax[i] is not None and x[i] > xmax[i])):
-            return False
-    return True
 
 
 @interactive
 def offset_vm(description, vm_target=None):
     """
 
-    :param sec_type: str
+    :param description: str
+    :param vm_target: float
     """
     if vm_target is None:
         vm_target = v_init
@@ -48,39 +34,38 @@ def offset_vm(description, vm_target=None):
     rec_dict = sim.get_rec(description)
     sim.modify_stim(1, node=node, loc=loc, amp=0.)
     rec = rec_dict['vec']
-    # stopped editing here 102016
     offset = True
     sim.tstop = equilibrate
     t = np.arange(0., equilibrate, dt)
-    sim.modify_stim(1, amp=i_holding[sec_type])
+    sim.modify_stim(1, amp=i_holding[description])
     sim.run(vm_target)
     vm = np.interp(t, sim.tvec, rec)
     v_rest = np.mean(vm[int((equilibrate - 3.)/dt):int((equilibrate - 1.)/dt)])
     initial_v_rest = v_rest
     if v_rest < vm_target - 0.5:
-        i_holding[sec_type] += 0.01
+        i_holding[description] += 0.01
         while offset:
             if sim.verbose:
-                print 'increasing i_holding to %.3f (%s)' % (i_holding[sec_type], sec_type)
-            sim.modify_stim(1, amp=i_holding[sec_type])
+                print 'increasing i_holding to %.3f (%s)' % (i_holding[description], description)
+            sim.modify_stim(1, amp=i_holding[description])
             sim.run(vm_target)
             vm = np.interp(t, sim.tvec, rec)
             v_rest = np.mean(vm[int((equilibrate - 3.)/dt):int((equilibrate - 1.)/dt)])
             if v_rest < vm_target - 0.5:
-                i_holding[sec_type] += 0.01
+                i_holding[description] += 0.01
             else:
                 offset = False
     elif v_rest > vm_target + 0.5:
-        i_holding[sec_type] -= 0.01
+        i_holding[description] -= 0.01
         while offset:
             if sim.verbose:
-                print 'decreasing i_holding to %.3f (%s)' % (i_holding[sec_type], sec_type)
-            sim.modify_stim(1, amp=i_holding[sec_type])
+                print 'decreasing i_holding to %.3f (%s)' % (i_holding[description], description)
+            sim.modify_stim(1, amp=i_holding[description])
             sim.run(vm_target)
             vm = np.interp(t, sim.tvec, rec)
             v_rest = np.mean(vm[int((equilibrate - 3.)/dt):int((equilibrate - 1.)/dt)])
             if v_rest > vm_target + 0.5:
-                i_holding[sec_type] -= 0.01
+                i_holding[description] -= 0.01
             else:
                 offset = False
     sim.tstop = duration
@@ -91,7 +76,7 @@ def offset_vm(description, vm_target=None):
 def update_pas(x):
     """
 
-    x0 = [2.28e-05, 1.58e-06, 58.4, ]
+    x0 = [2.28e-05, 1.58e-06, 58.4, 200.]
     :param x: array (soma.g_pas, dend.g_pas slope, dend.g_pas tau, dend.g_pas xhalf)
     """
     cell.modify_mech_param('soma', 'pas', 'g', x[0])
@@ -101,7 +86,7 @@ def update_pas(x):
 
 
 @interactive
-def section_pas_error(section):
+def get_Rinp_for_section(section):
     """
     :param section: str
     :return: float
@@ -112,22 +97,15 @@ def section_pas_error(section):
     cell.zero_na()
     update_pas(x)
     offset_vm(section)
-    if section == 'soma':
-        location = 0.
-        sec_type = cell.tree.root
-        dict_index = 0
-    elif section == 'trunk':
-        location = 1.
-        sec_type = trunk
-        dict_index = 1
-    elif section == 'tuft':
-        location = 1.
-        sec_type = tuft
-        dict_index = 2
-    sim.modify_stim(0, node=sec_type, loc=location, amp=amp, dur=stim_dur)
+    loc = rec_locs[section]
+    node = rec_nodes[section]
+    rec = sim.get_rec(section)
+    sim.modify_stim(0, node=node, loc=loc, amp=amp, dur=stim_dur)
     sim.run(v_init)
-    result = dict([(section, get_Rinp(np.array(sim.tvec), np.array(sim.rec_list[dict_index]['vec']), equilibrate, duration, amp)[2])])
-    print 'Process:', os.getpid(), 'finished simulation for %s, Time: %.3f s, Rinp: %.2f' % (section, time.time() - start_time, result.get(section))
+    Rinp = get_Rinp(np.array(sim.tvec), np.array(rec['vec']), equilibrate, duration, amp)[2]
+    result = {section: Rinp}
+    print 'Process:', os.getpid(), 'calculated Rinp for %s in %i s, Rinp: %.2f' % (section, time.time() - start_time,
+                                                                                    Rinp)
     return result
 
 
@@ -139,7 +117,8 @@ amp = 0.3
 th_dvdt = 10.
 v_init = -67.
 v_active = -61.
-spines = False  # True
+# spines = False
+spines = True
 
 cell = DG_GC(morph_filename, full_spines=spines)
 
@@ -161,22 +140,26 @@ index = candidate_diams.index(max(candidate_diams))
 dend = candidate_branches[index]
 dend_loc = candidate_locs[index]
 
-# get a terminal branch > 300 um from the soma
+# get the thickest terminal branch > 300 um from the soma
 candidate_branches = []
-candidate_distances = []
-for branch in cell.apical:
-    distance = cell.get_distance_to_node(cell.tree.root, branch, 0.)
-    if (distance > 300.) & cell.is_terminal(branch):
+candidate_diams = []
+candidate_locs = []
+for branch in (branch for branch in cell.apical if cell.is_terminal(branch)):
+    if ((cell.get_distance_to_node(cell.tree.root, branch, 0.) < 300.) &
+            (cell.get_distance_to_node(cell.tree.root, branch, 1.) > 300.)):
         candidate_branches.append(branch)
-        candidate_distances.append(distance)
-index = candidate_distances.index(max(candidate_distances))
+        for seg in branch.sec:
+            loc = seg.x
+            if cell.get_distance_to_node(cell.tree.root, branch, loc) > 300.:
+                candidate_diams.append(branch.sec(loc).diam)
+                candidate_locs.append(loc)
+                break
+index = candidate_diams.index(max(candidate_diams))
 distal_dend = candidate_branches[index]
-distal_dend_loc = 0.
+distal_dend_loc = candidate_locs[index]
 
 rec_locs = {'soma': 0., 'dend': dend_loc, 'distal_dend': distal_dend_loc}
 rec_nodes = {'soma': cell.tree.root, 'dend': dend, 'distal_dend': distal_dend}
-
-pas_node_keys = {'soma': 'soma', 'dend': 'dend'}
 
 sim = QuickSim(duration)  # , verbose=False)
 sim.append_stim(cell, cell.tree.root, loc=0., amp=0., delay=equilibrate, dur=stim_dur)

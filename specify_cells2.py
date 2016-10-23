@@ -2077,7 +2077,7 @@ class DG_GC(HocCell):
         self.generate_excitatory_synapse_locs()
         self.generate_inhibitory_synapse_locs()
         if full_spines:
-            self.insert_spines()
+            self.insert_spines(sec_type_list=['apical'])
 
     def generate_excitatory_synapse_locs(self, sec_type_list=None):
         """
