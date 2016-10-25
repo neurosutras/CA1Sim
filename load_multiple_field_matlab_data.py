@@ -1,6 +1,7 @@
 __author__ = 'milsteina'
 from plot_results import *
 import scipy.io as io
+import scipy.signal as signal
 import sys
 
 """
@@ -26,28 +27,28 @@ if len(sys.argv) > 2:
 else:
     filename2 = None
 
-
-
-data_dir = 'data/katie/'
+mat_dir = 'katie/'
 
 track_length = 190.
 dx = track_length/100.
 dt = 1./20000.
 
 x = np.arange(0., track_length, dx)
+t_x = np.arange(0., track_length+dx/2., dx)
 
 field = []
 vm = []
+filtered_vm = []
 t = []
 delta_t = []
 mean_delta_t = []
 mean_vel = []
 peak_loc = []
-field.append(io.loadmat(data_dir+filename1+'.mat'))
+field.append(io.loadmat(data_dir+mat_dir+filename1+'.mat'))
 if filename2 is None:
-    field.append(io.loadmat(data_dir+filename1+'b.mat'))
+    field.append(io.loadmat(data_dir+mat_dir+filename1+'b.mat'))
 else:
-    field.append(io.loadmat(data_dir + filename2 + '.mat'))
+    field.append(io.loadmat(data_dir+mat_dir+filename2+'.mat'))
 
 
 def get_delta_t(pos):
@@ -73,9 +74,17 @@ def get_delta_t(pos):
 for this_field in field:
     this_vm = this_field['vm_cell'][:,0]
     this_vm = this_vm[~np.isnan(this_vm)]
-    vm.append(this_vm*1000.)
+    this_vm = this_vm[:len(x)]
+    this_vm *= 1000.
+    vm.append(this_vm)
+    filtered_vm.append(signal.savgol_filter(this_vm, 51, 3))
     this_peak_loc = x[np.where(this_vm == max(this_vm))[0][0]]
     peak_loc.append(this_peak_loc)
+
+if filename2 is None:
+    difference = np.add(np.subtract(filtered_vm[1], filtered_vm[0]), np.min(filtered_vm[0]))
+else:
+    difference = None
 
 for j, this_field in enumerate(field):
     delta_t.append([])
@@ -83,24 +92,27 @@ for j, this_field in enumerate(field):
         this_delta_t = get_delta_t(this_field['pos_cell'][:,i])
         delta_t[-1].append(this_delta_t)
     mean_delta_t.append(np.mean(delta_t[-1], axis=0))
-    t.append(np.cumsum(mean_delta_t[-1]))
+    t.append(np.insert(np.cumsum(mean_delta_t[-1]), 0, 0.))
     mean_vel.append(np.mean(np.divide(dx, mean_delta_t[-1])))
 print 'Mean vel:', mean_vel
 
 fig, axes = plt.subplots(1)
 for i in range(2):
-    axes.plot(x, vm[i][:len(x)], label='Vel: %.1f; Loc: %.1f' % (mean_vel[i], peak_loc[i]))
+    axes.plot(x, vm[i], label='Vel: %.1f; Loc: %.1f' % (mean_vel[i], peak_loc[i]))
+    axes.plot(x, filtered_vm[i])
 axes.set_ylabel('Vm (mV)')
 axes.set_xlabel('Location (cm)')
 axes.set_xlim(0., track_length)
 axes.set_title('Depolarization')
+if difference is not None:
+    axes.plot(x, difference, label='Difference')
 axes.legend(loc='best', frameon=False, framealpha=0.5)
 clean_axes(axes)
 plt.show()
 plt.close()
 
 for i in range(2):
-    plt.plot(t[i], x, label=str(i+1))
+    plt.plot(t[i], t_x, label=str(i+1))
 plt.legend(loc='best', frameon=False, framealpha=0.5)
 plt.show()
 plt.close()

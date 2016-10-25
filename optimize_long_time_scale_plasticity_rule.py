@@ -180,7 +180,7 @@ NMDA_type = 'NMDA_KIN5'
 dt = 0.02  # ms
 dx = run_vel / 1000. * dt  # cm
 equilibrate = 250.  # time to steady-state
-global_theta_cycle_duration = -0.5 * run_vel + 155. # 150.  # (ms)
+global_theta_cycle_duration = 150.  # -0.5 * run_vel + 155.  # (ms)
 input_field_width = 90.  # cm
 input_field_duration = input_field_width * 1000. / run_vel  # ms
 track_length = 180.  # cm
@@ -529,8 +529,8 @@ def build_rule_waveform1(x, field_center, plot=False):
 def calculate_delta_weights(rule_waveform, target_delta_weights, plot=False):
     """
     Given any rule waveform and target_delta_weights, compute the resulting delta_weights (without saturation).
-    :param rule_waveform:
-    :param target_delta_weights:
+    :param rule_waveform: array
+    :param target_delta_weights: array
     :param plot: bool
     :return: delta_weights: array, rule_gain: float
     """
