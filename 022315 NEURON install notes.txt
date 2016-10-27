@@ -71,6 +71,12 @@ tar xvzf nrn-7.4.rel-1324.tar.gz
 http://www.neuron.yale.edu/neuron/download/compile_linux
 
 from the directory containing the unzipped install files:
+
+*
+if cloning from mercurial:
+./build.sh
+*
+
 ./configure --prefix=$HOME/neuron/nrn --without-x --with-paranrn=dynamic --with-nrnpython=dynamic
 make
 make install
@@ -121,7 +127,7 @@ c.IPClusterEngines.work_dir = u'/groups/magee/home/milsteina/CA1Sim/'
 edit the file IPYTHONDIR/profile_mpi/ipengine_config.py
 c.MPI.use = 'mpi4py'
 
-
+9) set the default backend for matplotlib to 'Agg' in the matplotlibrc file so that importing pyplot doesn't cause errors in a system without display capability
 
 
 

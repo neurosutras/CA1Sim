@@ -17,7 +17,9 @@ rec_filename = str(time.strftime('%m%d%Y', time.gmtime()))+'_'+str(time.strftime
 
 # placeholder for optimization parameter, must be pushed to each engine on each iteration
 # x: array (soma.g_pas, dend.g_pas slope, dend.g_pas tau, dend.g_pas xhalf)
-x = [1.52E-06, 1.63E-05, 121.9, 150.]
+# x = [1.52E-06, 1.63E-05, 121.9, 150.]
+x = {}
+x['pas'] = [1.52E-06, 0.]
 
 i_holding = {'soma': 0., 'dend': 0., 'distal_dend': 0.}
 
@@ -76,7 +78,33 @@ def offset_vm(description, vm_target=None):
 
 
 @interactive
-def update_pas(x):
+def update_pas_linear(x):
+    """
+    x0 = [1.52E-06, 0.]
+    :param x: array [soma.g_pas, dend.g_pas slope]
+    """
+    cell.modify_mech_param('soma', 'pas', 'g', x[0])
+    cell.modify_mech_param('apical', 'pas', 'g', origin='soma', slope=x[1])
+    for sec_type in ['basal', 'axon_hill', 'axon', 'ais', 'trunk', 'apical', 'tuft', 'spine_neck', 'spine_head']:
+        cell.reinitialize_subset_mechanisms(sec_type, 'pas')
+
+
+@interactive
+def update_pas_exp(x):
+    """
+
+    x0 = [2.28e-05, 1.58e-06, 58.4]
+    :param x: array [soma.g_pas, dend.g_pas slope, dend.g_pas tau, dend.g_pas xmax]
+    """
+    cell.modify_mech_param('soma', 'pas', 'g', x[0])
+    maxval = x[0] + x[1] * (np.exp(x[3]/x[2]) - 1.)
+    cell.modify_mech_param('apical', 'pas', 'g', origin='soma', slope=x[1], tau=x[2], max=maxval)
+    for sec_type in ['basal', 'axon_hill', 'axon', 'ais', 'trunk', 'apical', 'tuft', 'spine_neck', 'spine_head']:
+        cell.reinitialize_subset_mechanisms(sec_type, 'pas')
+
+
+@interactive
+def update_pas_sigmoid(x):
     """
 
     x0 = [2.28e-05, 1.58e-06, 58.4, 200.]
@@ -100,12 +128,15 @@ def get_Rinp_for_section(section, local_x=None):
     sim.parameters['section'] = section
     sim.parameters['target'] = 'Rinp'
     sim.parameters['optimization'] = 'pas'
+    sim.parameters['description'] = sim_description
     amp = -0.05
     cell.zero_na()
     if local_x is None:
-        update_pas(x)
+        # update_pas_sigmoid(x)
+        update_pas_exp(x)
     else:
-        update_pas(local_x)
+        # update_pas_sigmoid(local_x)
+        update_pas_exp(local_x)
     offset_vm(section)
     loc = rec_locs[section]
     node = rec_nodes[section]
@@ -114,7 +145,7 @@ def get_Rinp_for_section(section, local_x=None):
     sim.run(v_init)
     Rinp = get_Rinp(np.array(sim.tvec), np.array(rec['vec']), equilibrate, duration, amp)[2]
     result = {section: Rinp}
-    print 'Process:', os.getpid(), 'calculated Rinp for %s in %i s, Rinp: %.2f' % (section, time.time() - start_time,
+    print 'Process:', os.getpid(), 'calculated Rinp for %s in %i s, Rinp: %.1f' % (section, time.time() - start_time,
                                                                                     Rinp)
     return result
 
@@ -140,6 +171,11 @@ if len(sys.argv) > 1:
     spines = bool(int(sys.argv[1]))
 else:
     spines = False
+
+if spines:
+    sim_description = 'with_spines'
+else:
+    sim_description = 'no_spines'
 
 cell = DG_GC(morph_filename, full_spines=spines)
 

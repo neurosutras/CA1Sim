@@ -110,8 +110,8 @@ def pas_error(x):
     hist.x_values.append(x)
 
     sec_list = ['soma', 'dend']
-    print 'Process %i using current x: [soma.g_pas, dend.g_pas slope, dend.g_pas tau, dend.g_pas xhalf]: ' \
-          '[%.2E, %.2E, %.1f, %.1f]' % (os.getpid(), x[0], x[1], x[2], x[3])
+    formatted_x = '[' + ', '.join(['%.2E' % xi for xi in x]) + ']'
+    print 'Process %i using current x: %s: %s' % (os.getpid(), str(xlabels['pas']), formatted_x)
     result = v.map_async(parallel_optimize_dendritic_excitability_engine.get_Rinp_for_section, sec_list)
     last_printed = ''
     while not result.ready():
@@ -135,14 +135,13 @@ def pas_error(x):
     hist.error_values.append(Err)
 
     print('Simulation took %.3f s' % (time.time() - start_time))
-    print 'Process %i: [soma.g_pas, dend.g_pas slope, dend.g_pas tau, dend.g_pas xhalf]: [%.2E, %.2E, %.1f, %.1f], ' \
-          'soma R_inp: %.1f, dend R_inp: %.1f' % (os.getpid(), x[0], x[1], x[2], x[3], final_result['soma'],
-                                                  final_result['dend'])
-    print 'Error: %.3E' % Err
+    print 'Process %i: %s: %s; soma R_inp: %.1f, dend R_inp: %.1f; Err: %.3E' % (os.getpid(), str(xlabels['pas']),
+                                                                                 formatted_x, final_result['soma'],
+                                                                                 final_result['dend'], Err)
     return Err
 
 
-def plot_best(x=None):
+def plot_best(x=None, discard=True):
     """
     Run simulations on the engines with the last best set of parameters, have the engines export their results to .hdf5,
     and then read in and plot the results.
@@ -194,6 +193,7 @@ target_range['na_ka'] = {'v_rest': 0.25, 'th_v': .2, 'soma_peak': 2., 'trunk_amp
 
 
 x0 = {}
+xlabels = {}
 xmin = {}
 xmax = {}
 
@@ -207,6 +207,13 @@ if len(sys.argv) > 2:
 else:
     c = Client()
 
+xlabels['pas'] = ['soma.g_pas', 'dend.g_pas slope', 'dend.g_pas tau', 'dend.gpas max_loc']
+x0['pas'] = [8.E-11, 9E-06, 1.00E+02, 3.00E+02]
+xmin['pas'] = [1.0E-13, 1.0E-12, 50., 200.]
+xmax['pas'] = [2.0E-6, 2.0E-04, 500., 500.]
+
+"""
+xlabels['pas'] = ['soma.g_pas', 'dend.g_pas slope', 'dend.g_pas tau', 'dend.gpas xhalf']
 if spines:
     # x0['pas'] = [1.52E-06, 5.63E-04, 67., 220.]
     # x0['pas'] = [1.165e-06, 5.317e-04, 2.07e+02, 2.89e+01]
@@ -220,6 +227,7 @@ else:
     x0['pas'] = [2.80E-08, 5.25E-03, 9.46E+00, 3.58E+02]  # Err: 1.004E-07
     xmin['pas'] = [1.0E-9, 1.0E-07, 5., 25.]
     xmax['pas'] = [2.0E-4, 2.0E-02, 400., 500.]
+"""
 
 # [soma.gkabar, soma.gkdrbar, axon.gkabar_kap factor, axon.gbar_nax factor]
 x0['na_ka_stability'] = [0.0305, 0.0478, 2.97, 2.34]  # Error: 4.2416E+02
@@ -241,7 +249,7 @@ xmin['v_rest'] = [v_init, soma_ek]
 xmax['v_rest'] = [-63., -63.]
 
 explore_niter = 1000  # max number of iterations to run
-polish_niter = 200
+polish_niter = 400
 take_step = Normalized_Step(x0['pas'], xmin['pas'], xmax['pas'])
 minimizer_kwargs = dict(method=null_minimizer)
 
@@ -253,18 +261,18 @@ dv.execute('run parallel_optimize_dendritic_excitability_engine %i' % int(spines
 
 v = c.load_balanced_view()
 
-"""
+
 result = optimize.basinhopping(pas_error, x0['pas'], niter=explore_niter, niter_success=400,
                                disp=True, interval=40, minimizer_kwargs=minimizer_kwargs, take_step=take_step)
 print result
 
 
-polished_result = optimize.minimize(pas_error, result.x, method='Nelder-Mead', options={'ftol': 1e-3,
-                                                    'xtol': 1e-3, 'disp': True, 'maxiter': polish_niter})
+polished_result = optimize.minimize(pas_error, result.x, method='Nelder-Mead', options={'ftol': 1e-5,
+                                                    'disp': True, 'maxiter': polish_niter})
 print polished_result
 
-
-polished_result = optimize.minimize(pas_error, x0['pas'], method='Nelder-Mead', options={'ftol': 1e-3,
-                                                    'xtol': 1e-3, 'disp': True, 'maxiter': polish_niter})
+"""
+polished_result = optimize.minimize(pas_error, x0['pas'], method='Nelder-Mead', options={'ftol': 1e-5', 'disp': True,
+                                                                                         'maxiter': polish_niter})
 print polished_result
 """
