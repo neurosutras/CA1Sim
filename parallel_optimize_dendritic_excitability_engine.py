@@ -132,10 +132,10 @@ def get_Rinp_for_section(section, local_x=None):
     cell.zero_na()
     if local_x is None:
         # update_pas_sigmoid(x)
-        update_pas_exp(x)
+        update_pas_exp(x['pas'])
     else:
         # update_pas_sigmoid(local_x)
-        update_pas_exp(local_x)
+        update_pas_exp(x['pas'])
     offset_vm(section)
     loc = rec_locs[section]
     node = rec_nodes[section]

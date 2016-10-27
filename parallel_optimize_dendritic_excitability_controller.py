@@ -244,6 +244,10 @@ x0['pas'] = [8.E-11, 9E-06, 1.00E+02, 3.00E+02]
 xmin['pas'] = [1.0E-13, 1.0E-12, 50., 200.]
 xmax['pas'] = [2.0E-6, 2.0E-04, 500., 500.]
 
+x0['pas'] = [2.53E-08, 4.30E-07, 5.00E+01, 4.00E+02]
+xmin['pas'] = [1.0E-13, 1.0E-12, 25., 200.]
+xmax['pas'] = [2.0E-6, 2.0E-04, 400., 400.]
+
 """
 xlabels['pas'] = ['soma.g_pas', 'dend.g_pas slope', 'dend.g_pas tau', 'dend.gpas xhalf']
 if spines:
@@ -307,7 +311,6 @@ print polished_result
 """
 
 """
-polished_result = optimize.minimize(pas_error, x0['pas'], method='Nelder-Mead', options={'ftol': 1e-5', 'disp': True,
+polished_result = optimize.minimize(pas_error, x0['pas'], method='Nelder-Mead', options={'ftol': 1e-5, 'disp': True,
                                                                                          'maxiter': polish_niter})
 print polished_result
-"""
