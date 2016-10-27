@@ -2,6 +2,7 @@ __author__ = 'Grace Ng'
 from specify_cells2 import *
 import random
 import os
+import sys
 from ipyparallel import interactive
 """
 Builds a cell locally so each engine is ready to receive jobs one at a time, specified by string corresponding to the
@@ -11,11 +12,13 @@ section type to test R_inp.
 # morph_filename = 'EB2-late-bifurcation.swc'
 morph_filename = 'DG_GC_355549.swc'
 mech_filename = '102016 DG_GC pas no_spines'
+rec_filename = str(time.strftime('%m%d%Y', time.gmtime()))+'_'+str(time.strftime('%H%M%S', time.gmtime()))+\
+               '_pid'+str(os.getpid())+'_sim_output'
 
+# placeholder for optimization parameter, must be pushed to each engine on each iteration
+# x: array (soma.g_pas, dend.g_pas slope, dend.g_pas tau, dend.g_pas xhalf)
+x = [1.52E-06, 1.63E-05, 121.9, 150.]
 
-#x: array (soma.g_pas, dend.g_pas slope, dend.g_pas tau, dend.g_pas xhalf)
-x = [1.52E-06, 1.63E-05, 121.9, 150.]   # placeholder for optimization parameter,
-                                        # must be pushed to each engine on each iteration
 i_holding = {'soma': 0., 'dend': 0., 'distal_dend': 0.}
 
 
@@ -86,16 +89,23 @@ def update_pas(x):
 
 
 @interactive
-def get_Rinp_for_section(section):
+def get_Rinp_for_section(section, local_x=None):
     """
+    Inject a hyperpolarizing step current into the specified section, and return the steady-state input resistance.
     :param section: str
-    :return: float
+    :return: dict: {str: float}
     """
     start_time = time.time()
     sim.tstop = duration
-    amp = -0.15
+    sim.parameters['section'] = section
+    sim.parameters['target'] = 'Rinp'
+    sim.parameters['optimization'] = 'pas'
+    amp = -0.05
     cell.zero_na()
-    update_pas(x)
+    if local_x is None:
+        update_pas(x)
+    else:
+        update_pas(local_x)
     offset_vm(section)
     loc = rec_locs[section]
     node = rec_nodes[section]
@@ -108,6 +118,14 @@ def get_Rinp_for_section(section):
                                                                                     Rinp)
     return result
 
+@interactive
+def export_sim_results():
+    """
+    Export the most recent time and recorded waveforms from the QuickSim object.
+    """
+    with h5py.File(data_dir+rec_filename+'.hdf5', 'w') as f:
+        sim.export_to_file(f)
+
 
 equilibrate = 250.  # time to steady-state
 stim_dur = 500.
@@ -117,8 +135,11 @@ amp = 0.3
 th_dvdt = 10.
 v_init = -67.
 v_active = -61.
-# spines = False
-spines = True
+
+if len(sys.argv) > 1:
+    spines = bool(int(sys.argv[1]))
+else:
+    spines = False
 
 cell = DG_GC(morph_filename, full_spines=spines)
 
@@ -161,12 +182,13 @@ distal_dend_loc = candidate_locs[index]
 rec_locs = {'soma': 0., 'dend': dend_loc, 'distal_dend': distal_dend_loc}
 rec_nodes = {'soma': cell.tree.root, 'dend': dend, 'distal_dend': distal_dend}
 
-sim = QuickSim(duration)  # , verbose=False)
+sim = QuickSim(duration, verbose=False)
 sim.append_stim(cell, cell.tree.root, loc=0., amp=0., delay=equilibrate, dur=stim_dur)
 sim.append_stim(cell, cell.tree.root, loc=0., amp=0., delay=0., dur=duration)
 
 for description, node in rec_nodes.iteritems():
     sim.append_rec(cell, node, loc=rec_locs[description], description=description)
+
 
 """
 axon_seg_locs = [seg.x for seg in cell.axon[2].sec]
