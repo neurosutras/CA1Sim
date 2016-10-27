@@ -373,365 +373,389 @@ for group in stim_exc_syns:
     cos_mod_weight[group][-len(before_track):] += before_track
     cos_mod_weight[group][:len(after_track)] += after_track
     cos_mod_weight[group] += 1.
+
 exc_stim_forces = {}
 inh_stim_forces = {}
 global_phase_offset = 0.  # -2.*np.pi*165./360.
 run_trial(trial_seed, global_phase_offset)
-if False:
 
+
+def get_normalized_expected_depolization(rate_maps, weights):
     """
-    weighted_forces_orig = {}
-    weighted_forces_orig_sum = np.zeros_like(stim_t)
+    Take pre-computed rate maps and weights for a set of inputs. Convolve with an EPSP kernel, sum, normalize, and
+    downsample to 100 spatial bins.
+    :param rate_maps: list of array
+    :param weights: list of float
+    :return: array
+    """
+    group = 'CA3'
+
+
+weighted_forces_orig = {}
+weighted_forces_orig_sum = np.zeros_like(stim_t)
+for group in ['CA3', 'ECIII']:
+    if group not in weighted_forces_orig:
+        weighted_forces_orig[group] = []
+    for i, stim_force in enumerate(exc_stim_forces[group]):
+        weighted_forces_orig[group].append(stim_force * cos_mod_weight[group][i] / 1000.)
+    weighted_forces_orig_sum = np.add(weighted_forces_orig_sum, np.sum(weighted_forces_orig[group], axis=0))
+
+filter_t = np.arange(0., 150., stim_dt)
+ampa_filter = np.exp(-filter_t/3.) - np.exp(-filter_t/.1)
+ampa_filter /= np.sum(ampa_filter)
+gaba_filter = np.exp(-filter_t/9.) - np.exp(-filter_t/.2)
+gaba_filter /= np.sum(gaba_filter)
+weighted_forces = []
+for i, stim_force in enumerate(exc_stim_forces['CA3']):
+    this_force = stim_force * cos_mod_weight['CA3'][i]
+    this_force = np.convolve(this_force, ampa_filter)[:len(stim_t)]
+    weighted_forces.append(this_force)
+
+expected_depolarization = get_normalized_expected_depolization(exc_stim_forces['CA3'], cos_mod_weight['CA3'])
+"""
+
+ref_theta = 0.5 * np.cos(2. * np.pi * stim_t / global_theta_cycle_duration - global_phase_offset) + 1.75
+
+rule_phase_offset = 45. / 360. * 2. * np.pi
+induction_duration = 300.
+
+
+def check_bounds(x, xmin, xmax):
+    """
+    Check that the current set of parameters are within the specified bounds.
+    :param x: array
+    :param xmin: array
+    :param xmax: array
+    :return: bool
+    """
+    for i in range(len(x)):
+        if ((xmin[i] is not None and x[i] < xmin[i]) or
+                (xmax[i] is not None and x[i] > xmax[i])):
+            return False
+    return True
+
+
+def build_rule_waveform0(x, field_center, plot=False):
+    """
+    Construct a normalized rule waveform with the following components:
+    0) phase-dependent rule during current injection
+    :param x: array: [during_depth]
+    :param field_center: float
+    :param plot: bool
+    :return: array
+    """
+    during_depth = x[0]
+    pot_amp = (1. - during_depth) / 2.
+    induction_loc = field_center
+
+    induction_start = induction_loc * 1000. / run_vel
+    rule_theta = pot_amp * np.cos(2. * np.pi * extended_stim_t / global_theta_cycle_duration -
+                                               global_phase_offset - rule_phase_offset) + pot_amp + during_depth
+    rule_waveform = np.zeros_like(extended_stim_t)
+    left = int((track_duration + induction_start) / dt)
+    right = left + int(induction_duration / dt)
+    rule_waveform[left:right] = np.array(rule_theta[left:right])
+    before_rule = np.array(rule_waveform[:int(track_duration / dt)])
+    after_rule = np.array(rule_waveform[int(2. * track_duration / dt):])
+    within_rule = np.array(rule_waveform[int(track_duration / dt):int(2. * track_duration / dt)])
+    rule_waveform = np.zeros_like(stim_t)
+    rule_waveform[int(track_equilibrate / dt):int((track_equilibrate + track_duration) / dt)] = before_rule + \
+                                                                                                after_rule + \
+                                                                                                within_rule
+    if plot:
+        left = int((track_equilibrate + induction_start) / dt)
+        right = left + int(induction_duration / dt)
+        fig, axes = plt.subplots(1)
+        axes.plot(stim_t[left:right] - induction_start, rule_waveform[left:right], label='Plasticity rule')
+        axes.plot(stim_t[left:right] - induction_start, ref_theta[left:right], label='LFP theta')
+        axes.legend(loc='best', frameon=False, framealpha=0.5)
+        axes.set_xlabel('Time (ms)')
+        axes.set_ylabel('Normalized change in synaptic weight')
+        axes.set_ylim([0., 2.5])
+        axes.set_xlim([0., induction_duration])
+        clean_axes(axes)
+        plt.show()
+        plt.close()
+
+    return rule_waveform
+
+
+def build_rule_waveform1(x, field_center, plot=False):
+    """
+    Construct a normalized rule waveform with the following components:
+    0) phase-dependent rule during current injection
+    1) time-dependent potentiation before current injection
+    2) time-dependent potentiation after current injection
+    :param x: array: [during_depth, pre_pot_dur, post_pot_dur]
+    :param field_center: float
+    :param plot: bool
+    :return: array
+    """
+    during_depth = x[0]
+    pre_pot_dur = x[1]
+    post_pot_dur = x[2]
+    pot_amp = (1. - during_depth) / 2.
+    induction_loc = field_center
+
+    induction_start = induction_loc * 1000. / run_vel
+    rule_theta = pot_amp * np.cos(2. * np.pi * extended_stim_t / global_theta_cycle_duration -
+                                               global_phase_offset - rule_phase_offset) + pot_amp + during_depth
+    rule_waveform = np.zeros_like(extended_stim_t)
+
+    left = int((track_duration + induction_start - pre_pot_dur) / dt)
+    right = left + int(pre_pot_dur / dt)
+    pre_pot_phase_offset = 2. * np.pi * ((induction_start - pre_pot_dur) % (pre_pot_dur * 2.)) / (pre_pot_dur * 2.)
+    pre_pot_waveform = during_depth * (0.5 * np.cos(2. * np.pi * extended_stim_t / (pre_pot_dur * 2.) - np.pi -
+                                                    pre_pot_phase_offset) + 0.5)
+    rule_waveform[left:right] = np.array(pre_pot_waveform[left:right])
+    left = right
+    right = left + int(induction_duration / dt)
+    rule_waveform[left:right] = np.array(rule_theta[left:right])
+    left = right
+    right = left + int(post_pot_dur / dt)
+    post_pot_phase_offset = 2. * np.pi * ((induction_start + induction_duration) % (post_pot_dur * 2.)) / \
+                            (post_pot_dur * 2.)
+    post_waveform1 = during_depth * (0.5 * np.cos(2. * np.pi * extended_stim_t / (post_pot_dur * 2.) -
+                                                  post_pot_phase_offset) + 0.5)
+    rule_waveform[left:right] = np.array(post_waveform1[left:right])
+    before_rule = np.array(rule_waveform[:int(track_duration / dt)])
+    after_rule = np.array(rule_waveform[int(2. * track_duration / dt):])
+    within_rule = np.array(rule_waveform[int(track_duration / dt):int(2. * track_duration / dt)])
+    rule_waveform = np.zeros_like(stim_t)
+    rule_waveform[int(track_equilibrate / dt):int((track_equilibrate + track_duration) / dt)] = before_rule + \
+                                                                                                after_rule + \
+                                                                                                within_rule
+    if plot:
+        left = int((track_equilibrate + induction_start - pre_pot_dur) / dt)
+        right = left + int((induction_duration + pre_pot_dur + post_pot_dur) / dt)
+        fig, axes = plt.subplots(1)
+        axes.plot(stim_t[left:right] - induction_start, rule_waveform[left:right], label='Plasticity rule')
+        axes.plot(stim_t[left:right] - induction_start, ref_theta[left:right], label='LFP theta')
+        axes.legend(loc='best', frameon=False, framealpha=0.5)
+        axes.set_xlabel('Time (ms)')
+        axes.set_ylabel('Normalized change in synaptic weight')
+        axes.set_ylim([0., 2.5])
+        axes.set_xlim([-pre_pot_dur, induction_duration+post_pot_dur])
+        clean_axes(axes)
+        plt.show()
+        plt.close()
+
+    return rule_waveform
+
+
+def calculate_delta_weights(rule_waveform, target_delta_weights, plot=False):
+    """
+    Given any rule waveform and target_delta_weights, compute the resulting delta_weights (without saturation).
+    :param rule_waveform: array
+    :param target_delta_weights: array
+    :param plot: bool
+    :return: delta_weights: array, rule_gain: float
+    """
+    delta_weights = np.zeros_like(target_delta_weights)
+    group = 'CA3'
+    for i, stim_force in enumerate(exc_stim_forces[group]):
+        this_force = 0.001 * dt * np.multiply(stim_force, rule_waveform)
+        this_area = np.trapz(this_force, dx=dt)
+        delta_weights[i] = this_area
+    rule_gain = 1.5 / np.max(delta_weights)
+    delta_weights *= rule_gain
+    if plot:
+        fig, axes = plt.subplots(1)
+        axes.scatter(peak_locs['CA3'], target_delta_weights+1., color='k', label='Target weights')
+        axes.scatter(peak_locs['CA3'], delta_weights + 1., color='r', label='Weights from plasticity rule')
+        axes.legend(loc='best', frameon=False, framealpha=0.5)
+        axes.set_xlabel('Location (cm)')
+        axes.set_ylabel('Normalized synaptic weight')
+        axes.set_ylim([0.9, 3.5])
+        axes.set_xlim([0., track_length])
+        clean_axes(axes)
+        plt.show()
+        plt.close()
+    return delta_weights, rule_gain
+
+
+def get_mod_weights(x, field_center, existing_weights, rule_gain):
+    """
+
+    :param x: [pre_induction_pot_dur, post_induction_pot_dur, post_induction_depot_dur, pot_DC, depot_trough]
+    :param field_center: float  # cm
+    :param existing_weights: array
+    :return: spdp_mod_weight, rule_waveform, new_rule_gain: array, array, float
+    """
+    pre_induction_pot_dur = x[0]
+    post_induction_pot_dur = x[1]
+    post_induction_depot_dur = x[2]
+    pot_DC = x[3]
+    depot_trough = x[4]
+    pot_amp = (1. - pot_DC) / 2.
+    induction_loc = field_center
+
+    induction_start = induction_loc * 1000. / run_vel
+    rule_theta = rule_gain * (pot_amp * np.cos(2. * np.pi * extended_stim_t / global_theta_cycle_duration -
+                                               global_phase_offset - rule_phase_offset) + pot_amp + pot_DC)
+    rule_waveform = np.zeros_like(extended_stim_t)
+    left = int((track_duration + induction_start - pre_induction_pot_dur) / dt)
+    right = left + int(pre_induction_pot_dur / dt)
+    pre_phase_offset = 2. * np.pi * ((induction_start - pre_induction_pot_dur) % (pre_induction_pot_dur * 2.)) / \
+                       (pre_induction_pot_dur * 2.)
+    pre_waveform = rule_gain * pot_DC * (0.5 * np.cos(2. * np.pi * extended_stim_t / (pre_induction_pot_dur * 2.) -
+                                                      np.pi - pre_phase_offset) + 0.5)
+    rule_waveform[left:right] = np.array(pre_waveform[left:right])
+    left = right
+    right = left + int(induction_duration / dt)
+    rule_waveform[left:right] = np.array(rule_theta[left:right])
+    left = right
+    right = left + int(post_induction_pot_dur / dt)
+    post_phase_offset1 = 2. * np.pi * ((induction_start + induction_duration) % (post_induction_pot_dur * 2.)) / \
+                         (post_induction_pot_dur * 2.)
+    post_waveform1 = rule_gain * pot_DC * (0.5 * np.cos(2. * np.pi * extended_stim_t /
+                                                        (post_induction_pot_dur * 2.) - post_phase_offset1) + 0.5)
+    rule_waveform[left:right] = np.array(post_waveform1[left:right])
+    left = right
+    right = left + int(post_induction_depot_dur / dt)
+    post_phase_offset2 = 2. * np.pi * ((induction_start + induction_duration + post_induction_pot_dur) %
+                                       post_induction_depot_dur) / post_induction_depot_dur
+    post_waveform2 = rule_gain * (depot_trough * 0.5 * np.cos(2. * np.pi * extended_stim_t /
+                                                              post_induction_depot_dur - post_phase_offset2) -
+                                  depot_trough * 0.5)
+    rule_waveform[left:right] = np.array(post_waveform2[left:right])
+    before_rule = np.array(rule_waveform[:int(track_duration / dt)])
+    after_rule = np.array(rule_waveform[int(2. * track_duration / dt):])
+    within_rule = np.array(rule_waveform[int(track_duration / dt):int(2. * track_duration / dt)])
+    rule_waveform = np.zeros_like(stim_t)
+    rule_waveform[int(track_equilibrate / dt):int((track_equilibrate + track_duration) / dt)] = before_rule + \
+                                                                                                after_rule + \
+                                                                                                within_rule
+    spdp_mod_weight = copy.deepcopy(existing_weights)
     for group in ['CA3', 'ECIII']:
-        if group not in weighted_forces_orig:
-            weighted_forces_orig[group] = []
-        for i, stim_force in enumerate(exc_stim_forces[group]):
-            weighted_forces_orig[group].append(stim_force * cos_mod_weight[group][i] / 1000.)
-        weighted_forces_orig_sum = np.add(weighted_forces_orig_sum, np.sum(weighted_forces_orig[group], axis=0))
-    """
-
-    ref_theta = 0.5 * np.cos(2. * np.pi * stim_t / global_theta_cycle_duration - global_phase_offset) + 1.75
-
-    rule_phase_offset = 45. / 360. * 2. * np.pi
-    induction_duration = 300.
-
-
-    def check_bounds(x, xmin, xmax):
-        """
-        Check that the current set of parameters are within the specified bounds.
-        :param x: array
-        :param xmin: array
-        :param xmax: array
-        :return: bool
-        """
-        for i in range(len(x)):
-            if ((xmin[i] is not None and x[i] < xmin[i]) or
-                    (xmax[i] is not None and x[i] > xmax[i])):
-                return False
-        return True
-
-
-    def build_rule_waveform0(x, field_center, plot=False):
-        """
-        Construct a normalized rule waveform with the following components:
-        0) phase-dependent rule during current injection
-        :param x: array: [during_depth]
-        :param field_center: float
-        :param plot: bool
-        :return: array
-        """
-        during_depth = x[0]
-        pot_amp = (1. - during_depth) / 2.
-        induction_loc = field_center
-
-        induction_start = induction_loc * 1000. / run_vel
-        rule_theta = pot_amp * np.cos(2. * np.pi * extended_stim_t / global_theta_cycle_duration -
-                                                   global_phase_offset - rule_phase_offset) + pot_amp + during_depth
-        rule_waveform = np.zeros_like(extended_stim_t)
-        left = int((track_duration + induction_start) / dt)
-        right = left + int(induction_duration / dt)
-        rule_waveform[left:right] = np.array(rule_theta[left:right])
-        before_rule = np.array(rule_waveform[:int(track_duration / dt)])
-        after_rule = np.array(rule_waveform[int(2. * track_duration / dt):])
-        within_rule = np.array(rule_waveform[int(track_duration / dt):int(2. * track_duration / dt)])
-        rule_waveform = np.zeros_like(stim_t)
-        rule_waveform[int(track_equilibrate / dt):int((track_equilibrate + track_duration) / dt)] = before_rule + \
-                                                                                                    after_rule + \
-                                                                                                    within_rule
-        if plot:
-            left = int((track_equilibrate + induction_start) / dt)
-            right = left + int(induction_duration / dt)
-            fig, axes = plt.subplots(1)
-            axes.plot(stim_t[left:right] - induction_start, rule_waveform[left:right], label='Plasticity rule')
-            axes.plot(stim_t[left:right] - induction_start, ref_theta[left:right], label='LFP theta')
-            axes.legend(loc='best', frameon=False, framealpha=0.5)
-            axes.set_xlabel('Time (ms)')
-            axes.set_ylabel('Normalized change in synaptic weight')
-            axes.set_ylim([0., 2.5])
-            axes.set_xlim([0., induction_duration])
-            clean_axes(axes)
-            plt.show()
-            plt.close()
-
-        return rule_waveform
-
-
-    def build_rule_waveform1(x, field_center, plot=False):
-        """
-        Construct a normalized rule waveform with the following components:
-        0) phase-dependent rule during current injection
-        1) time-dependent potentiation before current injection
-        2) time-dependent potentiation after current injection
-        :param x: array: [during_depth, pre_pot_dur, post_pot_dur]
-        :param field_center: float
-        :param plot: bool
-        :return: array
-        """
-        during_depth = x[0]
-        pre_pot_dur = x[1]
-        post_pot_dur = x[2]
-        pot_amp = (1. - during_depth) / 2.
-        induction_loc = field_center
-
-        induction_start = induction_loc * 1000. / run_vel
-        rule_theta = pot_amp * np.cos(2. * np.pi * extended_stim_t / global_theta_cycle_duration -
-                                                   global_phase_offset - rule_phase_offset) + pot_amp + during_depth
-        rule_waveform = np.zeros_like(extended_stim_t)
-
-        left = int((track_duration + induction_start - pre_pot_dur) / dt)
-        right = left + int(pre_pot_dur / dt)
-        pre_pot_phase_offset = 2. * np.pi * ((induction_start - pre_pot_dur) % (pre_pot_dur * 2.)) / (pre_pot_dur * 2.)
-        pre_pot_waveform = during_depth * (0.5 * np.cos(2. * np.pi * extended_stim_t / (pre_pot_dur * 2.) - np.pi -
-                                                        pre_pot_phase_offset) + 0.5)
-        rule_waveform[left:right] = np.array(pre_pot_waveform[left:right])
-        left = right
-        right = left + int(induction_duration / dt)
-        rule_waveform[left:right] = np.array(rule_theta[left:right])
-        left = right
-        right = left + int(post_pot_dur / dt)
-        post_pot_phase_offset = 2. * np.pi * ((induction_start + induction_duration) % (post_pot_dur * 2.)) / \
-                                (post_pot_dur * 2.)
-        post_waveform1 = during_depth * (0.5 * np.cos(2. * np.pi * extended_stim_t / (post_pot_dur * 2.) -
-                                                      post_pot_phase_offset) + 0.5)
-        rule_waveform[left:right] = np.array(post_waveform1[left:right])
-        before_rule = np.array(rule_waveform[:int(track_duration / dt)])
-        after_rule = np.array(rule_waveform[int(2. * track_duration / dt):])
-        within_rule = np.array(rule_waveform[int(track_duration / dt):int(2. * track_duration / dt)])
-        rule_waveform = np.zeros_like(stim_t)
-        rule_waveform[int(track_equilibrate / dt):int((track_equilibrate + track_duration) / dt)] = before_rule + \
-                                                                                                    after_rule + \
-                                                                                                    within_rule
-        if plot:
-            left = int((track_equilibrate + induction_start - pre_pot_dur) / dt)
-            right = left + int((induction_duration + pre_pot_dur + post_pot_dur) / dt)
-            fig, axes = plt.subplots(1)
-            axes.plot(stim_t[left:right] - induction_start, rule_waveform[left:right], label='Plasticity rule')
-            axes.plot(stim_t[left:right] - induction_start, ref_theta[left:right], label='LFP theta')
-            axes.legend(loc='best', frameon=False, framealpha=0.5)
-            axes.set_xlabel('Time (ms)')
-            axes.set_ylabel('Normalized change in synaptic weight')
-            axes.set_ylim([0., 2.5])
-            axes.set_xlim([-pre_pot_dur, induction_duration+post_pot_dur])
-            clean_axes(axes)
-            plt.show()
-            plt.close()
-
-        return rule_waveform
-
-
-    def calculate_delta_weights(rule_waveform, target_delta_weights, plot=False):
-        """
-        Given any rule waveform and target_delta_weights, compute the resulting delta_weights (without saturation).
-        :param rule_waveform: array
-        :param target_delta_weights: array
-        :param plot: bool
-        :return: delta_weights: array, rule_gain: float
-        """
-        delta_weights = np.zeros_like(target_delta_weights)
-        group = 'CA3'
         for i, stim_force in enumerate(exc_stim_forces[group]):
             this_force = 0.001 * dt * np.multiply(stim_force, rule_waveform)
             this_area = np.trapz(this_force, dx=dt)
-            delta_weights[i] = this_area
-        rule_gain = 1.5 / np.max(delta_weights)
-        delta_weights *= rule_gain
-        if plot:
-            fig, axes = plt.subplots(1)
-            axes.scatter(peak_locs['CA3'], target_delta_weights+1., color='k', label='Target weights')
-            axes.scatter(peak_locs['CA3'], delta_weights + 1., color='r', label='Weights from plasticity rule')
-            axes.legend(loc='best', frameon=False, framealpha=0.5)
-            axes.set_xlabel('Location (cm)')
-            axes.set_ylabel('Normalized synaptic weight')
-            axes.set_ylim([0.9, 3.5])
-            axes.set_xlim([0., track_length])
-            clean_axes(axes)
-            plt.show()
-            plt.close()
-        return delta_weights, rule_gain
+            this_weight = this_area + spdp_mod_weight[group][i]
+            if this_weight < 1.:
+                this_weight = 1.
+            elif this_weight > 3.:
+                this_weight = 3.
+            spdp_mod_weight[group][i] = this_weight
+    rule_gain *= 1.5 / (np.max(spdp_mod_weight['CA3']) - 1.)
+    return spdp_mod_weight, rule_waveform, rule_gain
 
 
-    def get_mod_weights(x, field_center, existing_weights, rule_gain):
-        """
-
-        :param x: [pre_induction_pot_dur, post_induction_pot_dur, post_induction_depot_dur, pot_DC, depot_trough]
-        :param field_center: float  # cm
-        :param existing_weights: array
-        :return: spdp_mod_weight, rule_waveform, new_rule_gain: array, array, float
-        """
-        pre_induction_pot_dur = x[0]
-        post_induction_pot_dur = x[1]
-        post_induction_depot_dur = x[2]
-        pot_DC = x[3]
-        depot_trough = x[4]
-        pot_amp = (1. - pot_DC) / 2.
-        induction_loc = field_center
-
-        induction_start = induction_loc * 1000. / run_vel
-        rule_theta = rule_gain * (pot_amp * np.cos(2. * np.pi * extended_stim_t / global_theta_cycle_duration -
-                                                   global_phase_offset - rule_phase_offset) + pot_amp + pot_DC)
-        rule_waveform = np.zeros_like(extended_stim_t)
-        left = int((track_duration + induction_start - pre_induction_pot_dur) / dt)
-        right = left + int(pre_induction_pot_dur / dt)
-        pre_phase_offset = 2. * np.pi * ((induction_start - pre_induction_pot_dur) % (pre_induction_pot_dur * 2.)) / \
-                           (pre_induction_pot_dur * 2.)
-        pre_waveform = rule_gain * pot_DC * (0.5 * np.cos(2. * np.pi * extended_stim_t / (pre_induction_pot_dur * 2.) -
-                                                          np.pi - pre_phase_offset) + 0.5)
-        rule_waveform[left:right] = np.array(pre_waveform[left:right])
-        left = right
-        right = left + int(induction_duration / dt)
-        rule_waveform[left:right] = np.array(rule_theta[left:right])
-        left = right
-        right = left + int(post_induction_pot_dur / dt)
-        post_phase_offset1 = 2. * np.pi * ((induction_start + induction_duration) % (post_induction_pot_dur * 2.)) / \
-                             (post_induction_pot_dur * 2.)
-        post_waveform1 = rule_gain * pot_DC * (0.5 * np.cos(2. * np.pi * extended_stim_t /
-                                                            (post_induction_pot_dur * 2.) - post_phase_offset1) + 0.5)
-        rule_waveform[left:right] = np.array(post_waveform1[left:right])
-        left = right
-        right = left + int(post_induction_depot_dur / dt)
-        post_phase_offset2 = 2. * np.pi * ((induction_start + induction_duration + post_induction_pot_dur) %
-                                           post_induction_depot_dur) / post_induction_depot_dur
-        post_waveform2 = rule_gain * (depot_trough * 0.5 * np.cos(2. * np.pi * extended_stim_t /
-                                                                  post_induction_depot_dur - post_phase_offset2) -
-                                      depot_trough * 0.5)
-        rule_waveform[left:right] = np.array(post_waveform2[left:right])
-        before_rule = np.array(rule_waveform[:int(track_duration / dt)])
-        after_rule = np.array(rule_waveform[int(2. * track_duration / dt):])
-        within_rule = np.array(rule_waveform[int(track_duration / dt):int(2. * track_duration / dt)])
-        rule_waveform = np.zeros_like(stim_t)
-        rule_waveform[int(track_equilibrate / dt):int((track_equilibrate + track_duration) / dt)] = before_rule + \
-                                                                                                    after_rule + \
-                                                                                                    within_rule
-        spdp_mod_weight = copy.deepcopy(existing_weights)
-        for group in ['CA3', 'ECIII']:
-            for i, stim_force in enumerate(exc_stim_forces[group]):
-                this_force = 0.001 * dt * np.multiply(stim_force, rule_waveform)
-                this_area = np.trapz(this_force, dx=dt)
-                this_weight = this_area + spdp_mod_weight[group][i]
-                if this_weight < 1.:
-                    this_weight = 1.
-                elif this_weight > 3.:
-                    this_weight = 3.
-                spdp_mod_weight[group][i] = this_weight
-        rule_gain *= 1.5 / (np.max(spdp_mod_weight['CA3']) - 1.)
-        return spdp_mod_weight, rule_waveform, rule_gain
-
-
-    def delta_weights_error(x, xmin, xmax, rule_function, target_delta_weights, field_center, plot=False):
-        """
-
-        :param x: array [during_depth, pre_pot_dur, post_pot_dur, depot_dur, depot_depth]
-        :param xmin: array
-        :param xmax: array
-        :param rule_function: callable
-        :param target_delta_weights: array
-        :param field_center: float
-        :param plot: bool
-        :return: float
-        """
-        if not check_bounds(x, xmin, xmax):
-            print 'Aborting: Invalid parameter values.'
-            return 1e9
-        rule_waveform = rule_function(x, field_center, plot)
-        delta_weights, rule_gain = calculate_delta_weights(rule_waveform, target_delta_weights, plot)
-
-        Err = 0.
-        for i in range(len(target_delta_weights)):
-            Err += abs(target_delta_weights[i] - delta_weights[i])
-        Err **= 2.
-
-        hist.x.append(x)
-        hist.Err.append(Err)
-        formatted_x = '[' + ', '.join(['%.2f' % xi for xi in x]) + ']'
-
-        print 'x:', formatted_x, 'Err:', Err, 'Rule gain:', rule_gain
-        return Err
-
-
-    def optimize_polish(x, xmin, xmax, error_function, rule_function, target_delta_weights, field_center, maxfev=None):
-        """
-
-        :param x: array
-        :param xmin: array
-        :param xmax: array
-        :param error_function: callable
-        :param rule_function: callable
-        :param target_delta_weights: array
-        :param field_center: float
-        :param maxfev: int
-        :return: dict
-        """
-        if maxfev is None:
-            maxfev = 200
-
-        result = optimize.minimize(error_function, x, method='Nelder-Mead', options={'ftol': 1e-3,
-                                                        'xtol': 1e-3, 'disp': True, 'maxiter': maxfev},
-                                   args=(xmin, xmax, rule_function, target_delta_weights, field_center))
-        formatted_x = '['+', '.join(['%.2E' % xi for xi in result.x])+']'
-        print 'Process: %i completed optimize_polish after %i iterations with Error: %.4E and x: %s' % (os.getpid(),
-                                                                                result.nit, result.fun, formatted_x)
-        return {'x': result.x, 'Err': result.fun}
-
-
-    def optimize_explore(x, xmin, xmax, error_function, rule_function, target_delta_weights, field_center, maxfev=None):
-        """
-
-        :param x: array
-        :param xmin: array
-        :param xmax: array
-        :param error_function: callable
-        :param rule_function: callable
-        :param target_delta_weights: array
-        :param field_center: float
-        :param maxfev: int
-        :return: dict
-        """
-        if maxfev is None:
-            maxfev = 400
-
-        take_step = Normalized_Step(x, xmin, xmax)
-        minimizer_kwargs = dict(method=null_minimizer, args=(xmin, xmax, rule_function, target_delta_weights, field_center))
-        result = optimize.basinhopping(error_function, x, niter=maxfev, niter_success=maxfev/2,
-                                           disp=True, interval=20, minimizer_kwargs=minimizer_kwargs, take_step=take_step)
-        formatted_x = '['+', '.join(['%.2E' % xi for xi in result.x])+']'
-        print 'Process: %i completed optimize_explore after %i iterations with Error: %.4E and x: %s' % (os.getpid(),
-                                                                                result.nit, result.fun, formatted_x)
-        return {'x': result.x, 'Err': result.fun}
-
-
-    # [pre_induction_pot_dur, post_induction_pot_dur, post_induction_depot_dur, pot_DC, depot_trough]
-    x0 = [1505.6, 1124.6, 564.5, 0.70, 1.94]  # rule gain: 4.15
-    xmin = [750., 750., 500., 0.2, 0.11]
-    xmax = [2250., 2250., 1500., 1., 3.]
-
-    # [during_depth, pre_pot_dur, post_pot_dur, depot_dur, depot_depth]
-
-    # [during_depth]
-    # x0 = [0.7]
-    x0 = [0.0594]
-    xmin0 = [0.]
-    xmax0 = [1.]
-
-    # [during_depth, pre_pot_dur, post_pot_dur]
-    # x1 = [0.7, 1505.6, 1124.6]
-    x1 = [1., 1477., 915.]
-    xmin1 = [0., 750., 750.]
-    xmax1 = [1., 2250., 2250.]
-
+def delta_weights_error(x, xmin, xmax, rule_function, target_delta_weights, field_center, plot=False):
     """
-    # [during_depth]
-    result = optimize_explore(x0, xmin0, xmax0, delta_weights_error, build_rule_waveform0, cos_mod_weight['CA3']-1.,
-                              field_center1)
-    polished_result = optimize_polish(result['x'], xmin0, xmax0, delta_weights_error, build_rule_waveform0,
-                                      cos_mod_weight['CA3']-1., field_center1)
-    delta_weights_error(polished_result['x'], xmin0, xmax0, build_rule_waveform0, cos_mod_weight['CA3']-1., field_center1,
-                        plot=True)
 
-    # [during_depth, pre_pot_dur, post_pot_dur]
-    result = optimize_explore(x1, xmin1, xmax1, delta_weights_error, build_rule_waveform1, cos_mod_weight['CA3']-1.,
-                              field_center1)
-    polished_result = optimize_polish(result['x'], xmin1, xmax1, delta_weights_error, build_rule_waveform1,
-                                      cos_mod_weight['CA3']-1., field_center1)
-    delta_weights_error(polished_result['x'], xmin1, xmax1, build_rule_waveform0, cos_mod_weight['CA3']-1., field_center1,
-                        plot=True)
+    :param x: array [during_depth, pre_pot_dur, post_pot_dur, depot_dur, depot_depth]
+    :param xmin: array
+    :param xmax: array
+    :param rule_function: callable
+    :param target_delta_weights: array
+    :param field_center: float
+    :param plot: bool
+    :return: float
     """
+    if not check_bounds(x, xmin, xmax):
+        print 'Aborting: Invalid parameter values.'
+        return 1e9
+    rule_waveform = rule_function(x, field_center, plot)
+    delta_weights, rule_gain = calculate_delta_weights(rule_waveform, target_delta_weights, plot)
+
+    Err = 0.
+    for i in range(len(target_delta_weights)):
+        Err += abs(target_delta_weights[i] - delta_weights[i])
+    Err **= 2.
+
+    hist.x.append(x)
+    hist.Err.append(Err)
+    formatted_x = '[' + ', '.join(['%.2f' % xi for xi in x]) + ']'
+
+    print 'x:', formatted_x, 'Err:', Err, 'Rule gain:', rule_gain
+    return Err
+
+
+def optimize_polish(x, xmin, xmax, error_function, rule_function, target_delta_weights, field_center, maxfev=None):
+    """
+
+    :param x: array
+    :param xmin: array
+    :param xmax: array
+    :param error_function: callable
+    :param rule_function: callable
+    :param target_delta_weights: array
+    :param field_center: float
+    :param maxfev: int
+    :return: dict
+    """
+    if maxfev is None:
+        maxfev = 200
+
+    result = optimize.minimize(error_function, x, method='Nelder-Mead', options={'ftol': 1e-3,
+                                                    'xtol': 1e-3, 'disp': True, 'maxiter': maxfev},
+                               args=(xmin, xmax, rule_function, target_delta_weights, field_center))
+    formatted_x = '['+', '.join(['%.2E' % xi for xi in result.x])+']'
+    print 'Process: %i completed optimize_polish after %i iterations with Error: %.4E and x: %s' % (os.getpid(),
+                                                                            result.nit, result.fun, formatted_x)
+    return {'x': result.x, 'Err': result.fun}
+
+
+def optimize_explore(x, xmin, xmax, error_function, rule_function, target_delta_weights, field_center, maxfev=None):
+    """
+
+    :param x: array
+    :param xmin: array
+    :param xmax: array
+    :param error_function: callable
+    :param rule_function: callable
+    :param target_delta_weights: array
+    :param field_center: float
+    :param maxfev: int
+    :return: dict
+    """
+    if maxfev is None:
+        maxfev = 400
+
+    take_step = Normalized_Step(x, xmin, xmax)
+    minimizer_kwargs = dict(method=null_minimizer, args=(xmin, xmax, rule_function, target_delta_weights, field_center))
+    result = optimize.basinhopping(error_function, x, niter=maxfev, niter_success=maxfev/2,
+                                       disp=True, interval=20, minimizer_kwargs=minimizer_kwargs, take_step=take_step)
+    formatted_x = '['+', '.join(['%.2E' % xi for xi in result.x])+']'
+    print 'Process: %i completed optimize_explore after %i iterations with Error: %.4E and x: %s' % (os.getpid(),
+                                                                            result.nit, result.fun, formatted_x)
+    return {'x': result.x, 'Err': result.fun}
+
+
+# [pre_induction_pot_dur, post_induction_pot_dur, post_induction_depot_dur, pot_DC, depot_trough]
+x0 = [1505.6, 1124.6, 564.5, 0.70, 1.94]  # rule gain: 4.15
+xmin = [750., 750., 500., 0.2, 0.11]
+xmax = [2250., 2250., 1500., 1., 3.]
+
+# [during_depth, pre_pot_dur, post_pot_dur, depot_dur, depot_depth]
+
+# [during_depth]
+# x0 = [0.7]
+x0 = [0.0594]
+xmin0 = [0.]
+xmax0 = [1.]
+
+# [during_depth, pre_pot_dur, post_pot_dur]
+# x1 = [0.7, 1505.6, 1124.6]
+x1 = [1., 1477., 915.]
+xmin1 = [0., 750., 750.]
+xmax1 = [1., 2250., 2250.]
+
+"""
+# [during_depth]
+result = optimize_explore(x0, xmin0, xmax0, delta_weights_error, build_rule_waveform0, cos_mod_weight['CA3']-1.,
+                          field_center1)
+polished_result = optimize_polish(result['x'], xmin0, xmax0, delta_weights_error, build_rule_waveform0,
+                                  cos_mod_weight['CA3']-1., field_center1)
+delta_weights_error(polished_result['x'], xmin0, xmax0, build_rule_waveform0, cos_mod_weight['CA3']-1., field_center1,
+                    plot=True)
+
+# [during_depth, pre_pot_dur, post_pot_dur]
+result = optimize_explore(x1, xmin1, xmax1, delta_weights_error, build_rule_waveform1, cos_mod_weight['CA3']-1.,
+                          field_center1)
+polished_result = optimize_polish(result['x'], xmin1, xmax1, delta_weights_error, build_rule_waveform1,
+                                  cos_mod_weight['CA3']-1., field_center1)
+delta_weights_error(polished_result['x'], xmin1, xmax1, build_rule_waveform0, cos_mod_weight['CA3']-1., field_center1,
+                    plot=True)
+"""

@@ -83,6 +83,7 @@ def update_pas_linear(x):
     x0 = [1.52E-06, 0.]
     :param x: array [soma.g_pas, dend.g_pas slope]
     """
+    x = x['pas']
     cell.modify_mech_param('soma', 'pas', 'g', x[0])
     cell.modify_mech_param('apical', 'pas', 'g', origin='soma', slope=x[1])
     for sec_type in ['basal', 'axon_hill', 'axon', 'ais', 'trunk', 'apical', 'tuft', 'spine_neck', 'spine_head']:
@@ -96,6 +97,7 @@ def update_pas_exp(x):
     x0 = [2.28e-05, 1.58e-06, 58.4]
     :param x: array [soma.g_pas, dend.g_pas slope, dend.g_pas tau, dend.g_pas xmax]
     """
+    x = x['pas']
     cell.modify_mech_param('soma', 'pas', 'g', x[0])
     maxval = x[0] + x[1] * (np.exp(x[3]/x[2]) - 1.)
     cell.modify_mech_param('apical', 'pas', 'g', origin='soma', slope=x[1], tau=x[2], max=maxval)
@@ -110,6 +112,7 @@ def update_pas_sigmoid(x):
     x0 = [2.28e-05, 1.58e-06, 58.4, 200.]
     :param x: array (soma.g_pas, dend.g_pas slope, dend.g_pas tau, dend.g_pas xhalf)
     """
+    x = x['pas']
     cell.modify_mech_param('soma', 'pas', 'g', x[0])
     cell.modify_mech_param('apical', 'pas', 'g', origin='soma', slope=x[1], tau=x[2], xhalf=x[3])
     for sec_type in ['basal', 'axon_hill', 'axon', 'ais', 'trunk', 'apical', 'tuft', 'spine_neck', 'spine_head']:
@@ -133,7 +136,7 @@ def get_Rinp_for_section(section, local_x=None):
     cell.zero_na()
     if local_x is None:
         # update_pas_sigmoid(x)
-        update_pas_exp(x)
+        update_pas_exp(x['pas'])
     else:
         # update_pas_sigmoid(local_x)
         update_pas_exp(local_x)
