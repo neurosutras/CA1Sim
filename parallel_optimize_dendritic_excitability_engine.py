@@ -18,8 +18,8 @@ rec_filename = str(time.strftime('%m%d%Y', time.gmtime()))+'_'+str(time.strftime
 # placeholder for optimization parameter, must be pushed to each engine on each iteration
 # x: array (soma.g_pas, dend.g_pas slope, dend.g_pas tau, dend.g_pas xhalf)
 # x = [1.52E-06, 1.63E-05, 121.9, 150.]
-x = {}
-x['pas'] = [1.52E-06, 0.]
+
+x = [1.52E-06, 0.]
 
 i_holding = {'soma': 0., 'dend': 0., 'distal_dend': 0.}
 
@@ -133,10 +133,10 @@ def get_Rinp_for_section(section, local_x=None):
     cell.zero_na()
     if local_x is None:
         # update_pas_sigmoid(x)
-        update_pas_exp(x['pas'])
+        update_pas_exp(x)
     else:
         # update_pas_sigmoid(local_x)
-        update_pas_exp(x['pas'])
+        update_pas_exp(local_x)
     offset_vm(section)
     loc = rec_locs[section]
     node = rec_nodes[section]

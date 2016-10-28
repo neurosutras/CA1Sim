@@ -208,13 +208,17 @@ else:
     c = Client()
 
 xlabels['pas'] = ['soma.g_pas', 'dend.g_pas slope', 'dend.g_pas tau', 'dend.gpas max_loc']
-x0['pas'] = [8.E-11, 9E-06, 1.00E+02, 3.00E+02]
-xmin['pas'] = [1.0E-13, 1.0E-12, 50., 200.]
-xmax['pas'] = [2.0E-6, 2.0E-04, 500., 500.]
-
-x0['pas'] = [2.53E-08, 4.30E-07, 5.00E+01, 4.00E+02]
-xmin['pas'] = [1.0E-13, 1.0E-12, 25., 200.]
-xmax['pas'] = [2.0E-6, 2.0E-04, 400., 400.]
+if spines:
+    # x0['pas'] = [9.38E-15, 9.51E-10, 2.59E+01, 2.98E+02]
+    x0['pas'] = [3.63E-09, 9.15E-09, 2.82E+01, 3.00E+02]  # Err: 7.259E+01
+    xmin['pas'] = [1.0E-17, 1.0E-12, 25., 200.]
+    xmax['pas'] = [2.0E-8, 2.0E-04, 300., 300.]
+else:
+    # x0['pas'] = [1.05E-13, 3.64E-07, 4.86E+01, 4.00E+02]
+    # x0['pas'] = [1.78E-13, 6.18E-10, 2.50E+01, 2.95E+02]  # Err: 5.575
+    x0['pas'] = [2.00E-08, 9.03E-08, 3.63E+01, 3.00E+02]  # Err: 8.017E+01
+    xmin['pas'] = [1.0E-17, 1.0E-12, 25., 200.]
+    xmax['pas'] = [2.0E-8, 2.0E-04, 300., 300.]
 
 """
 xlabels['pas'] = ['soma.g_pas', 'dend.g_pas slope', 'dend.g_pas tau', 'dend.gpas xhalf']
@@ -265,7 +269,7 @@ dv.execute('run parallel_optimize_dendritic_excitability_engine %i' % int(spines
 
 v = c.load_balanced_view()
 
-"""
+
 result = optimize.basinhopping(pas_error, x0['pas'], niter=explore_niter, niter_success=400,
                                disp=True, interval=40, minimizer_kwargs=minimizer_kwargs, take_step=take_step)
 print result
@@ -279,3 +283,4 @@ print polished_result
 polished_result = optimize.minimize(pas_error, x0['pas'], method='Nelder-Mead', options={'ftol': 1e-5, 'disp': True,
                                                                                          'maxiter': polish_niter})
 print polished_result
+"""

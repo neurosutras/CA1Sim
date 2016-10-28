@@ -2172,17 +2172,18 @@ def get_waveform_phase_vs_time(t, x=None, cycle_duration=150., time_offset=0.):
     return peak_times, peak_phases
 
 
-def low_pass_filter(source, freq, duration, dt):
+def low_pass_filter(source, freq, duration, dt, down_dt=0.5):
     """
     Filters the source waveform at the provided frequency.
     :param source: array
     :param freq: float
     :param duration: float
     :param dt: float
+    :param down_dt: float
     :return: np.array: filtered source
     """
-    t = np.arange(0., duration, dt)
-    down_dt = 0.5
+    t = np.arange(0., duration+dt, dt)
+    t = t[:len(source)]
     down_t = np.arange(0., duration, down_dt)
     # 2000 ms Hamming window
     window_len = int(2000. / down_dt)
@@ -2195,11 +2196,11 @@ def low_pass_filter(source, freq, duration, dt):
     padded_trace[-pad_len:] = down_sampled[::-1][:pad_len]
     filtered = signal.filtfilt(lp_filter, [1.], padded_trace, padlen=pad_len)
     filtered = filtered[pad_len:-pad_len]
-    up_sampled = np.interp(t, down_t, filtered)
+    up_sampled = np.interp(t, down_t, filtered)[:len(source)]
     return up_sampled
 
 
-def general_filter_trace(t, source, filter, duration, dt):
+def general_filter_trace(t, source, filter, duration, dt, down_dt=0.5):
     """
     Filters the source waveform at the provided frequency.
     :param t: array
@@ -2207,9 +2208,9 @@ def general_filter_trace(t, source, filter, duration, dt):
     :param filter: 'signal.firwin'
     :param duration: float
     :param dt: float
+    :param down_dt: float
     :return: np.array: filtered source
     """
-    down_dt = 0.5
     down_t = np.arange(0., duration, down_dt)
     # 2000 ms Hamming window
     window_len = int(2000. / down_dt)

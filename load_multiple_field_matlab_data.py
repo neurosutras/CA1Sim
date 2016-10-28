@@ -82,7 +82,7 @@ for this_field in field:
     peak_loc.append(this_peak_loc)
 
 if filename2 is None:
-    difference = np.add(np.subtract(filtered_vm[1], filtered_vm[0]), np.min(filtered_vm[0]))
+    difference = np.subtract(filtered_vm[1], filtered_vm[0])
 else:
     difference = None
 
@@ -105,7 +105,7 @@ axes.set_xlabel('Location (cm)')
 axes.set_xlim(0., track_length)
 axes.set_title('Depolarization')
 if difference is not None:
-    axes.plot(x, difference, label='Difference')
+    axes.plot(x, np.add(difference, np.min(filtered_vm[0])), label='Difference')
 axes.legend(loc='best', frameon=False, framealpha=0.5)
 clean_axes(axes)
 plt.show()
@@ -129,3 +129,9 @@ clean_axes(axes)
 plt.show()
 plt.close()
 
+
+induction_locs = [88., 45.]
+saved_filename = '102716 katie newcell5 saved output'
+saved = {'t': t, 'ramp': np.subtract(filtered_vm, np.min(filtered_vm, axis=1)[0]), 'difference': difference,
+         'induction_locs': induction_locs}
+write_to_pkl(data_dir+saved_filename+'.pkl', saved)
