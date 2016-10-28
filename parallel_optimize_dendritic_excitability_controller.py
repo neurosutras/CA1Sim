@@ -2,9 +2,11 @@ __author__ = 'Grace Ng'
 import parallel_optimize_dendritic_excitability_engine
 import sys
 import os
+import math
 from ipyparallel import Client
 from IPython.display import clear_output
 from plot_results import *
+import matplotlib.pyplot as plt
 import scipy.optimize as optimize
 
 """
@@ -44,6 +46,7 @@ class History(object):
         """
 
         """
+        self.xlabels = []
         self.x_values = []
         self.error_values = []
         self.Rinp_values = {section: [] for section in ['soma', 'dend']}
@@ -67,7 +70,7 @@ class History(object):
         Save the history to .pkl
         :param hist_filename: str
         """
-        saved_history = {'x_values': self.x_values, 'error_values': self.error_values, 'Rinp_values': self.Rinp_values}
+        saved_history = {'xlabels': self.xlabels, 'x_values': self.x_values, 'error_values': self.error_values, 'Rinp_values': self.Rinp_values}
         write_to_pkl(data_dir+hist_filename+'.pkl', saved_history)
 
     def import_from_pkl(self, hist_filename):
@@ -76,6 +79,8 @@ class History(object):
         :param hist_filename: str
         """
         previous_history = read_from_pkl(data_dir+hist_filename +'.pkl')
+        #self.xlabels = previous_history['xlabels']
+        self.xlabels = ['soma.g_pas', 'dend.g_pas slope']
         self.x_values = previous_history['x_values']
         self.error_values = previous_history['error_values']
         self.Rinp_values = previous_history['Rinp_values']
@@ -84,11 +89,38 @@ class History(object):
         """
         Remember to : also plot each value in x against error, and against input resistance
         """
-        for section in self.Rinp_values:
-            plt.plot(self.Rinp_values[section], self.error_values, label=section)
-            plt.xlabel("Rinp values")
+        num_x_param = len(self.xlabels)
+        num_plot_rows = math.floor(math.sqrt(num_x_param))
+        print(num_plot_rows)
+        num_plot_cols = math.ceil(num_x_param/num_plot_rows)
+        print(num_plot_cols)
+
+        #plot x-values against error
+        plt.figure(1)
+        for i, x_param in enumerate(self.xlabels):
+            plt.subplot(num_plot_rows, num_plot_cols, i+1)
+            x_param_vals = [x_val[i] for x_val in self.x_values]
+            range_param_vals = max(x_param_vals) - min(x_param_vals)
+            plt.scatter(x_param_vals, self.error_values)
+            plt.xlim((min(x_param_vals)-0.1*range_param_vals, max(x_param_vals)+0.1*range_param_vals))
+            plt.xlabel(x_param)
             plt.ylabel("Error values")
-        plt.legend(loc='upper right')
+        #plt.show()
+        #plt.close()
+
+        plt.figure(2)
+        colors = ['r', 'g', 'b', 'gray', 'darkviolet', 'goldenrod']
+        #plot x-values against input resistance
+        for i, x_param in enumerate(self.xlabels):
+            plt.subplot(num_plot_rows, num_plot_cols, i+1)
+            x_param_vals = [x_val[i] for x_val in self.x_values]
+            range_param_vals = max(x_param_vals) - min(x_param_vals)
+            for j, section in enumerate(self.Rinp_values):
+                plt.scatter([x_param_vals], self.Rinp_values[section], label=section, color = colors[j])
+            plt.xlim((min(x_param_vals) - 0.1 * range_param_vals, max(x_param_vals) + 0.1 * range_param_vals))
+            plt.xlabel(x_param)
+            plt.ylabel("Rinp values")
+            plt.legend(loc='upper right', scatterpoints = 1, frameon=False, framealpha=0.5)
         plt.show()
         plt.close()
 
@@ -256,6 +288,8 @@ x0['v_rest'] = [-63., -77.]
 xmin['v_rest'] = [v_init, soma_ek]
 xmax['v_rest'] = [-63., -63.]
 
+hist.xlabels = xlabels['pas']
+
 explore_niter = 1000  # max number of iterations to run
 polish_niter = 400
 take_step = Normalized_Step(x0['pas'], xmin['pas'], xmax['pas'])
@@ -278,6 +312,7 @@ print result
 polished_result = optimize.minimize(pas_error, result.x, method='Nelder-Mead', options={'ftol': 1e-5,
                                                     'disp': True, 'maxiter': polish_niter})
 print polished_result
+"""
 
 """
 polished_result = optimize.minimize(pas_error, x0['pas'], method='Nelder-Mead', options={'ftol': 1e-5, 'disp': True,
