@@ -188,8 +188,8 @@ def get_expected_depolization(rate_maps, weights, x_interp, stim_t, track_durati
                                                 int(track_equilibrate / dt) + len(x_interp)], 2.,
                                                     track_equilibrate+track_duration, dt, 1.)
     expected_depolarization = np.interp(x_bins, x_interp, expected_depolarization)
-    subtract_baseline(expected_depolarization, baseline)
-    return expected_depolarization
+    baseline = subtract_baseline(expected_depolarization, baseline)
+    return expected_depolarization, baseline
 
 
 NMDA_type = 'NMDA_KIN5'
@@ -507,7 +507,7 @@ def build_rule_waveform0(x, induction_loc, x_interp, stim_x, stim_t, extended_st
         axes.legend(loc='best', frameon=False, framealpha=0.5)
         axes.set_xlabel('Time (ms)')
         axes.set_ylabel('Normalized change in synaptic weight')
-        axes.set_ylim([0., 2.5])
+        axes.set_ylim([math.floor(np.min(rule_waveform)) - 0.25, 2.5])
         axes.set_xlim([0., induction_duration])
         clean_axes(axes)
         plt.show()
@@ -560,6 +560,22 @@ def build_rule_waveform1(x, induction_loc, x_interp, stim_x, stim_t, extended_st
                                                   post_pot_phase_offset) + 0.5)
     rule_waveform[left:right] = np.array(post_waveform1[left:right])
 
+    ref_theta = 0.5 * np.cos(2. * np.pi * extended_stim_t / global_theta_cycle_duration - global_phase_offset) + 1.75
+    if plot:
+        left = induction_start_index - int(5000. / dt)
+        right = induction_start_index + int(5000. / dt)
+        fig, axes = plt.subplots(1)
+        axes.plot(extended_stim_t[left:right] - induction_start, rule_waveform[left:right], label='Plasticity rule')
+        axes.plot(extended_stim_t[left:right] - induction_start, ref_theta[left:right], label='LFP theta')
+        axes.legend(loc='best', frameon=False, framealpha=0.5)
+        axes.set_xlabel('Time (ms)')
+        axes.set_ylabel('Normalized change in synaptic weight')
+        axes.set_ylim([math.floor(np.min(rule_waveform)) - 0.25, 2.5])
+        axes.set_xlim([-5000., 5000.])
+        clean_axes(axes)
+        plt.show()
+        plt.close()
+
     before_rule = np.array(rule_waveform[:len(x_interp)])
     after_rule = np.array(rule_waveform[2 * len(x_interp):])
     within_rule = np.array(rule_waveform[len(x_interp):2 * len(x_interp)])
@@ -567,24 +583,6 @@ def build_rule_waveform1(x, induction_loc, x_interp, stim_x, stim_t, extended_st
     rule_waveform[int(track_equilibrate / dt):int(track_equilibrate / dt) + len(x_interp)] = before_rule + \
                                                                                              after_rule + \
                                                                                              within_rule
-    ref_theta = 0.5 * np.cos(2. * np.pi * stim_t / global_theta_cycle_duration - global_phase_offset) + 1.75
-
-    if plot:
-        left = int(induction_start / dt) + int(track_equilibrate / dt) - int(pre_pot_dur / dt)
-        right = int(track_equilibrate / dt) + int(induction_start / dt) + int(induction_duration / dt) + \
-                int(post_pot_dur / dt)
-        fig, axes = plt.subplots(1)
-        axes.plot(stim_t[left:right] - induction_start, rule_waveform[left:right], label='Plasticity rule')
-        axes.plot(stim_t[left:right] - induction_start, ref_theta[left:right], label='LFP theta')
-        axes.legend(loc='best', frameon=False, framealpha=0.5)
-        axes.set_xlabel('Time (ms)')
-        axes.set_ylabel('Normalized change in synaptic weight')
-        axes.set_ylim([0., 2.5])
-        axes.set_xlim([-pre_pot_dur, induction_duration+post_pot_dur])
-        clean_axes(axes)
-        plt.show()
-        plt.close()
-
     return rule_waveform
 
 
@@ -610,6 +608,8 @@ def build_rule_waveform2(x, induction_loc, x_interp, stim_x, stim_t, extended_st
     pot_amp = x[2]
     pre_pot_dur = x[3]
     post_pot_dur = x[4]
+    post_depot_depth = x[5]
+    post_depot_dur = x[6]
 
     induction_start_index = np.where(stim_x >= induction_loc)[0][0]
     induction_start = extended_stim_t[induction_start_index]
@@ -629,22 +629,29 @@ def build_rule_waveform2(x, induction_loc, x_interp, stim_x, stim_t, extended_st
     right = left + int(post_pot_dur / dt)
     post_pot_phase_offset = 2. * np.pi * ((induction_start + induction_duration) % (post_pot_dur * 2.)) / \
                             (post_pot_dur * 2.)
-    post_waveform1 = pot_amp * (0.5 * np.cos(2. * np.pi * extended_stim_t / (post_pot_dur * 2.) -
+    post_pot_waveform = pot_amp * (0.5 * np.cos(2. * np.pi * extended_stim_t / (post_pot_dur * 2.) -
                                                   post_pot_phase_offset) + 0.5)
-    rule_waveform[left:right] = np.array(post_waveform1[left:right])
+    rule_waveform[left:right] = np.array(post_pot_waveform[left:right])
+    left = right
+    right = left + int(post_depot_dur / dt)
+    post_depot_phase_offset = 2. * np.pi * ((induction_start + induction_duration + post_pot_dur) % post_depot_dur) / \
+                              post_depot_dur
+    post_depot_waveform = post_depot_depth * 0.5 * np.cos(2. * np.pi * extended_stim_t / post_depot_dur -
+                                                          post_depot_phase_offset) - post_depot_depth * 0.5
+    rule_waveform[left:right] = np.array(post_depot_waveform[left:right])
 
-    ref_theta = 0.5 * np.cos(2. * np.pi * stim_t / global_theta_cycle_duration - global_phase_offset) + 1.75
+    ref_theta = 0.5 * np.cos(2. * np.pi * extended_stim_t / global_theta_cycle_duration - global_phase_offset) + 1.75
     if plot:
-        left = induction_start_index - int(pre_pot_dur / dt)
-        right = induction_start_index + int(induction_duration / dt) + int(post_pot_dur / dt)
+        left = induction_start_index - int(5000. / dt)
+        right = induction_start_index + int(5000. / dt)
         fig, axes = plt.subplots(1)
-        axes.plot(stim_t[left:right] - induction_start, rule_waveform[left:right], label='Plasticity rule')
-        axes.plot(stim_t[left:right] - induction_start, ref_theta[left:right], label='LFP theta')
+        axes.plot(extended_stim_t[left:right] - induction_start, rule_waveform[left:right], label='Plasticity rule')
+        axes.plot(extended_stim_t[left:right] - induction_start, ref_theta[left:right], label='LFP theta')
         axes.legend(loc='best', frameon=False, framealpha=0.5)
         axes.set_xlabel('Time (ms)')
         axes.set_ylabel('Normalized change in synaptic weight')
-        axes.set_ylim([0., 2.5])
-        axes.set_xlim([-pre_pot_dur, induction_duration+post_pot_dur])
+        axes.set_ylim([math.floor(np.min(rule_waveform)) - 0.25, 2.5])
+        axes.set_xlim([-5000., 5000.])
         clean_axes(axes)
         plt.show()
         plt.close()
@@ -656,7 +663,6 @@ def build_rule_waveform2(x, induction_loc, x_interp, stim_x, stim_t, extended_st
     rule_waveform[int(track_equilibrate / dt):int(track_equilibrate / dt) + len(x_interp)] = before_rule + \
                                                                                              after_rule + \
                                                                                              within_rule
-
     return rule_waveform
 
 
@@ -679,16 +685,18 @@ def calculate_delta_weights(rule_waveform, i):
     return delta_weights, rule_gain
 
 
-def ramp_error(x, xmin, xmax, rule_function, ramp, i, plot=False):
+def ramp_error(x, xmin, xmax, rule_function, ramp, i, baseline=None, plot=False, full_output=False):
     """
 
-    :param x: array [during_depth, pre_pot_dur, post_pot_dur, depot_dur, depot_depth]
+    :param x: array [during_depth, phase_offset, pot_amp, pre_pot_dur, post_pot_dur, post_depot_depth, post_depot_dur]
     :param xmin: array
     :param xmax: array
     :param rule_function: callable
     :param ramp: array
-    :param i: int: index of various location and time waves to use
+    :param i: int: list index of various location and time waves to use
+    :param baseline: float
     :param plot: bool
+    :param full_output: bool: whether to return all relevant objects (True), or just Err (False)
     :return: float
     """
     if not check_bounds(x, xmin, xmax):
@@ -696,18 +704,18 @@ def ramp_error(x, xmin, xmax, rule_function, ramp, i, plot=False):
         return 1e9
     rule_waveform = rule_function(x, induction_locs[i], x_interp[i], stim_x[i], stim_t[i], extended_stim_t[i], plot)
     delta_weights, rule_gain = calculate_delta_weights(rule_waveform, i)
-    new_ramp = get_expected_depolization(rate_maps[i], delta_weights + 1., x_interp[i], stim_t[i], track_duration[i])
-    ramp_gain = np.max(ramp[i]) / np.max(new_ramp)
+    new_ramp, new_baseline = get_expected_depolization(rate_maps[i], delta_weights + 1., x_interp[i], stim_t[i],
+                                                       track_duration[i], baseline)
+    ramp_peak = np.max(ramp)
+    # ramp_peak_index = np.where(ramp == ramp_peak)[0][0]
+    # ramp_gain = ramp_peak / new_ramp[ramp_peak_index]
+    ramp_gain = ramp_peak / np.max(new_ramp)
     delta_weights *= ramp_gain
     rule_gain *= ramp_gain
     new_ramp *= ramp_gain
     Err = 0.
-    for j in range(len(ramp[i])):
-        Err += ((ramp[i][j] - new_ramp[i]) / 0.1) ** 2.
-
-    hist.x.append(x)
-    hist.Err.append(Err)
-    formatted_x = '[' + ', '.join(['%.2f' % xi for xi in x]) + ']'
+    for j in range(len(ramp)):
+        Err += ((ramp[j] - new_ramp[j]) / 0.05) ** 2.
 
     if plot:
         fig, axes = plt.subplots(1)
@@ -715,27 +723,35 @@ def ramp_error(x, xmin, xmax, rule_function, ramp, i, plot=False):
         axes.legend(loc='best', frameon=False, framealpha=0.5)
         axes.set_xlabel('Location (cm)')
         axes.set_ylabel('Normalized synaptic weight')
-        axes.set_ylim([0.9, math.ceil(np.max(delta_weights)) + 1.])
+        axes.set_ylim([math.floor(np.min(delta_weights + 1.)), math.ceil(np.max(delta_weights + 1.))])
         axes.set_xlim([0., track_length])
         clean_axes(axes)
         plt.show()
         plt.close()
 
         fig, axes = plt.subplots(1)
-        axes.plot(x_bins, ramp[i], label='Experiment')
+        axes.plot(x_bins, ramp, label='Experiment')
         axes.plot(x_bins, new_ramp, label='Model')
         axes.set_xlabel('Location (cm)')
         axes.set_ylabel('Depolarization (mV)')
+        axes.set_xlim([0., track_length])
+        axes.set_ylim([math.floor(np.min(ramp)) - 0.5, math.ceil(np.max(ramp)) + 0.5])
         axes.legend(loc='best', frameon=False, framealpha=0.5)
         clean_axes(axes)
         plt.show()
         plt.close()
 
+    formatted_x = '[' + ', '.join(['%.2f' % xi for xi in x]) + ']'
     print 'x: %s, Err: %.4E, Rule gain: %.4E' % (formatted_x, Err, rule_gain)
-    return Err
+    if full_output:
+        return rule_waveform, delta_weights, new_ramp, new_baseline
+    else:
+        hist.x.append(x)
+        hist.Err.append(Err)
+        return Err
 
 
-def optimize_polish(x, xmin, xmax, error_function, rule_function, ramp, i, maxfev=None):
+def optimize_polish(x, xmin, xmax, error_function, rule_function, ramp, i, baseline=None, maxfev=None):
     """
 
     :param x: array
@@ -745,6 +761,7 @@ def optimize_polish(x, xmin, xmax, error_function, rule_function, ramp, i, maxfe
     :param rule_function: callable
     :param ramp: array
     :param i: int: index of various location and time waves to use
+    :param baseline: float
     :param maxfev: int
     :return: dict
     """
@@ -753,14 +770,14 @@ def optimize_polish(x, xmin, xmax, error_function, rule_function, ramp, i, maxfe
 
     result = optimize.minimize(error_function, x, method='Nelder-Mead', options={'ftol': 1e-3,
                                                     'xtol': 1e-3, 'disp': True, 'maxiter': maxfev},
-                               args=(xmin, xmax, rule_function, ramp, i))
+                               args=(xmin, xmax, rule_function, ramp, i, baseline))
     formatted_x = '['+', '.join(['%.2E' % xi for xi in result.x])+']'
     print 'Process: %i completed optimize_polish after %i iterations with Error: %.4E and x: %s' % (os.getpid(),
                                                                             result.nit, result.fun, formatted_x)
     return {'x': result.x, 'Err': result.fun}
 
 
-def optimize_explore(x, xmin, xmax, error_function, rule_function, ramp, i, maxfev=None):
+def optimize_explore(x, xmin, xmax, error_function, rule_function, ramp, i, baseline=None, maxfev=None):
     """
 
     :param x: array
@@ -770,6 +787,7 @@ def optimize_explore(x, xmin, xmax, error_function, rule_function, ramp, i, maxf
     :param rule_function: callable
     :param ramp: array
     :param i: int: index of various location and time waves to use
+    :param baseline: float
     :param maxfev: int
     :return: dict
     """
@@ -777,7 +795,7 @@ def optimize_explore(x, xmin, xmax, error_function, rule_function, ramp, i, maxf
         maxfev = 400
 
     take_step = Normalized_Step(x, xmin, xmax)
-    minimizer_kwargs = dict(method=null_minimizer, args=(xmin, xmax, rule_function, ramp, i))
+    minimizer_kwargs = dict(method=null_minimizer, args=(xmin, xmax, rule_function, ramp, i, baseline))
     result = optimize.basinhopping(error_function, x, niter=maxfev, niter_success=maxfev/2,
                                    disp=True, interval=20, minimizer_kwargs=minimizer_kwargs,
                                    take_step=take_step)
@@ -787,112 +805,80 @@ def optimize_explore(x, xmin, xmax, error_function, rule_function, ramp, i, maxf
     return {'x': result.x, 'Err': result.fun}
 
 
-if False:
-    def get_mod_weights(x, field_center, existing_weights, rule_gain):
-        """
+rule_waveforms = []
+delta_weights = []
+model_ramp = []
 
-        :param x: [pre_induction_pot_dur, post_induction_pot_dur, post_induction_depot_dur, pot_DC, depot_trough]
-        :param field_center: float  # cm
-        :param existing_weights: array
-        :return: spdp_mod_weight, rule_waveform, new_rule_gain: array, array, float
-        """
-        pre_induction_pot_dur = x[0]
-        post_induction_pot_dur = x[1]
-        post_induction_depot_dur = x[2]
-        pot_DC = x[3]
-        depot_trough = x[4]
-        pot_amp = (1. - pot_DC) / 2.
-        induction_loc = field_center
-
-        induction_start = induction_loc * 1000. / run_vel
-        rule_theta = rule_gain * (pot_amp * np.cos(2. * np.pi * extended_stim_t / global_theta_cycle_duration -
-                                                   global_phase_offset - rule_phase_offset) + pot_amp + pot_DC)
-        rule_waveform = np.zeros_like(extended_stim_t)
-        left = int((track_duration + induction_start - pre_induction_pot_dur) / dt)
-        right = left + int(pre_induction_pot_dur / dt)
-        pre_phase_offset = 2. * np.pi * ((induction_start - pre_induction_pot_dur) % (pre_induction_pot_dur * 2.)) / \
-                           (pre_induction_pot_dur * 2.)
-        pre_waveform = rule_gain * pot_DC * (0.5 * np.cos(2. * np.pi * extended_stim_t / (pre_induction_pot_dur * 2.) -
-                                                          np.pi - pre_phase_offset) + 0.5)
-        rule_waveform[left:right] = np.array(pre_waveform[left:right])
-        left = right
-        right = left + int(induction_duration / dt)
-        rule_waveform[left:right] = np.array(rule_theta[left:right])
-        left = right
-        right = left + int(post_induction_pot_dur / dt)
-        post_phase_offset1 = 2. * np.pi * ((induction_start + induction_duration) % (post_induction_pot_dur * 2.)) / \
-                             (post_induction_pot_dur * 2.)
-        post_waveform1 = rule_gain * pot_DC * (0.5 * np.cos(2. * np.pi * extended_stim_t /
-                                                            (post_induction_pot_dur * 2.) - post_phase_offset1) + 0.5)
-        rule_waveform[left:right] = np.array(post_waveform1[left:right])
-        left = right
-        right = left + int(post_induction_depot_dur / dt)
-        post_phase_offset2 = 2. * np.pi * ((induction_start + induction_duration + post_induction_pot_dur) %
-                                           post_induction_depot_dur) / post_induction_depot_dur
-        post_waveform2 = rule_gain * (depot_trough * 0.5 * np.cos(2. * np.pi * extended_stim_t /
-                                                                  post_induction_depot_dur - post_phase_offset2) -
-                                      depot_trough * 0.5)
-        rule_waveform[left:right] = np.array(post_waveform2[left:right])
-        before_rule = np.array(rule_waveform[:int(track_duration / dt)])
-        after_rule = np.array(rule_waveform[int(2. * track_duration / dt):])
-        within_rule = np.array(rule_waveform[int(track_duration / dt):int(2. * track_duration / dt)])
-        rule_waveform = np.zeros_like(stim_t)
-        rule_waveform[int(track_equilibrate / dt):int((track_equilibrate + track_duration) / dt)] = before_rule + \
-                                                                                                    after_rule + \
-                                                                                                    within_rule
-        spdp_mod_weight = copy.deepcopy(existing_weights)
-        for group in ['CA3', 'ECIII']:
-            for i, stim_force in enumerate(exc_stim_forces[group]):
-                this_force = 0.001 * dt * np.multiply(stim_force, rule_waveform)
-                this_area = np.trapz(this_force, dx=dt)
-                this_weight = this_area + spdp_mod_weight[group][i]
-                if this_weight < 1.:
-                    this_weight = 1.
-                elif this_weight > 3.:
-                    this_weight = 3.
-                spdp_mod_weight[group][i] = this_weight
-        rule_gain *= 1.5 / (np.max(spdp_mod_weight['CA3']) - 1.)
-        return spdp_mod_weight, rule_waveform, rule_gain
-
-
-# [pre_induction_pot_dur, post_induction_pot_dur, post_induction_depot_dur, pot_DC, depot_trough]
-x0 = [1505.6, 1124.6, 564.5, 0.70, 1.94]  # rule gain: 4.15
-xmin = [750., 750., 500., 0.2, 0.11]
-xmax = [2250., 2250., 1500., 1., 3.]
 
 # [during_depth, phase_offset]
 # x0 = [0.7, 45.]
-x0 = [0.0594, 45.]  # Err: 129362.12, Rule gain: 0.00733
+x0 = [0., 45.]  # Err: 1.932E+05, Rule gain:
 xmin0 = [0., 45.]
 xmax0 = [1., 90.]
 
 # [during_depth, phase_offset, pot_amp, pre_pot_dur, post_pot_dur]
-x1 = [2.65E-01, 6.24E+01, 1.00, 2.5E+03, 5.E+02]
-# x1 = [2.65E-01, 5.01E+01, 2.00E+00, 4.00E+03, 2.00E+02]
+# x1 = [2.65E-01, 6.24E+01, 1.00, 2.5E+03, 5.E+02]
+# x1 = [2.99E-04, 7.56E+01, 1.00E+00, 2.80E+03, 8.95E+02]  # Err: 3.649E+02, Rule gain: 1.8212E-04, normalized to
+                                                         # experiment peak_loc
+x1 = [0.00, 75.54, 1.00, 2826.48, 923.00]  # Err: 1.3359E+03, Rule gain: 1.7876E-04
 xmin1 = [0., 45., 0., 1000., 500.]
 xmax1 = [1., 90., 1., 3000., 2000.]
 
 # [during_depth, phase_offset, pot_amp, pre_pot_dur, post_pot_dur, post_depot_depth, post_depot_dur]
-x2 = [2.02E-01, 7.44E+01, 1.49E+00, 2.24E+03, 7.50E+02]
-xmin2 = [0., 45., 0., 1500., 200., 0., 200.]
-xmax2 = [1., 90., 1.75, 3000., 1500., 2., 1500.]
+# x2 = [0.00, 75.54, 1.00, 2826.48, 923.00, 2., 600.]
+# x2 = [0.22, 81.98, 0.75, 2999.97, 500.00, 3.00, 861.61]
+x2 = [0.01, 88.49, 0.97, 2999.73, 200.02, 2.17, 1492.99]
+xmin2 = [0., 45., 0., 1000., 100., 0., 200.]
+xmax2 = [1., 90., 1., 4000., 1500., 5., 2500.]
+
+# [during_depth, phase_offset]
+# induction_index = 0
+# ramp_error(x0, xmin0, xmax0, build_rule_waveform0, ramp[induction_index], induction_index, plot=True)
+
+# induction_index = 0
+# [during_depth, phase_offset, pot_amp, pre_pot_dur, post_pot_dur]
+# ramp_error(x1, xmin1, xmax1, build_rule_waveform1, ramp[induction_index], induction_index, plot=True)
+
+# induction_index = 1
+# [during_depth, phase_offset, pot_amp, pre_pot_dur, post_pot_dur, post_depot_depth, post_depot_dur]
+# ramp_error(x2, xmin2, xmax2, build_rule_waveform2, difference, induction_index, plot=True)
+
+"""
+induction_index = 0
+result = optimize_explore(x0, xmin0, xmax0, ramp_error, build_rule_waveform0, ramp[induction_index], induction_index)
+polished_result = optimize_polish(result['x'], xmin0, xmax0, ramp_error, build_rule_waveform0, ramp[induction_index],
+                                  induction_index)
+ramp_error(polished_result['x'], xmin0, xmax0, build_rule_waveform0, ramp[induction_index], induction_index, plot=True)
+"""
+
+"""
+induction_index = 0
+result = optimize_explore(x1, xmin1, xmax1, ramp_error, build_rule_waveform1, ramp[induction_index], induction_index,
+                          maxfev=700)
+polished_result = optimize_polish(result['x'], xmin1, xmax1, ramp_error, build_rule_waveform1, ramp[induction_index],
+                                  induction_index)
+ramp_error(polished_result['x'], xmin1, xmax1, build_rule_waveform1, ramp[induction_index], induction_index, plot=True)
+"""
 
 induction_index = 0
-# [during_depth, phase_offset]
-# ramp_error(x0, xmin0, xmax0, build_rule_waveform0, ramp, induction_index, plot=True)
+this_rule_waveform, this_delta_weights, this_model_ramp, baseline = ramp_error(x1, xmin1, xmax1, build_rule_waveform1,
+                                                                             ramp[induction_index],
+                                                                             induction_index, plot=True,
+                                                                             full_output=True)
+rule_waveforms.append(this_rule_waveform)
+delta_weights.append(this_delta_weights)
+model_ramp.append(this_model_ramp)
 
-# [during_depth, phase_offset, pot_amp, pre_pot_dur, post_pot_dur]
-ramp_error(x1, xmin1, xmax1, build_rule_waveform1, ramp, induction_index, plot=True)
+induction_index = 1
 
-"""
-result = optimize_explore(x0, xmin0, xmax0, ramp_error, build_rule_waveform0, ramp, induction_index)
-polished_result = optimize_polish(result['x'], xmin0, xmax0, ramp_error, build_rule_waveform0, ramp, induction_index)
-ramp_error(polished_result['x'], xmin0, xmax0, build_rule_waveform0, ramp, induction_index, plot=True)
-"""
-
-
-result = optimize_explore(x1, xmin1, xmax1, ramp_error, build_rule_waveform1, ramp, induction_index, maxfev=700)
-"""
-polished_result = optimize_polish(result['x'], xmin1, xmax1, ramp_error, build_rule_waveform1, ramp, induction_index)
-ramp_error(polished_result['x'], xmin1, xmax1, build_rule_waveform1, ramp, induction_index, plot=True)
-"""
+result = optimize_explore(x2, xmin2, xmax2, ramp_error, build_rule_waveform2, difference, induction_index, baseline,
+                          maxfev=700)
+polished_result = optimize_polish(result['x'], xmin2, xmax2, ramp_error, build_rule_waveform2, difference,
+                                  induction_index, baseline)
+this_rule_waveform, this_delta_weights, this_model_ramp, baseline = ramp_error(polished_result['x'], xmin2, xmax2,
+                                                                               build_rule_waveform2, difference,
+                                                                               induction_index, baseline=baseline,
+                                                                               plot=True, full_output=True)
+rule_waveforms.append(this_rule_waveform)
+delta_weights.append(this_delta_weights)
+model_ramp.append(this_model_ramp)
