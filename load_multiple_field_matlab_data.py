@@ -50,6 +50,17 @@ if filename2 is None:
 else:
     field.append(io.loadmat(data_dir+mat_dir+filename2+'.mat'))
 
+if filename1 == 'newcell1':
+    induction_locs = [125., 7.]
+elif filename1 == 'newcell2':
+    induction_locs = [128., 32.]
+elif filename1 == 'newcell3':
+    induction_locs = [90., 0.]
+elif filename1 == 'newcell4':
+    induction_locs = [150., 65.]
+elif filename1 == 'newcell5':
+    induction_locs = [88., 45.]
+
 
 def get_delta_t(pos):
     """
@@ -77,16 +88,20 @@ for this_field in field:
     this_vm = this_vm[:len(x)]
     this_vm *= 1000.
     vm.append(this_vm)
-    filtered_vm.append(signal.savgol_filter(this_vm, 51, 3))
-    this_peak_loc = x[np.where(this_vm == max(this_vm))[0][0]]
-    peak_loc.append(this_peak_loc)
+    # some peaks around periods of slow running velocity need less filtering
+    if filename1 in ['newcell2']:
+        filtered_vm.append(signal.savgol_filter(this_vm, 19, 4, mode='wrap'))
+    elif filename1 in ['newcell1']:
+        filtered_vm.append(signal.savgol_filter(this_vm, 21, 3, mode='wrap'))
+    else:
+        filtered_vm.append(signal.savgol_filter(this_vm, 51, 3, mode='wrap'))
 
 if filename2 is None:
     difference = np.subtract(filtered_vm[1], filtered_vm[0])
 else:
     difference = None
 
-for j, this_field in enumerate(field):
+for this_field in field:
     delta_t.append([])
     for i in range(len(this_field['pos_cell'][0,:])):
         this_delta_t = get_delta_t(this_field['pos_cell'][:,i])
@@ -94,35 +109,67 @@ for j, this_field in enumerate(field):
     mean_delta_t.append(np.mean(delta_t[-1], axis=0))
     t.append(np.insert(np.cumsum(mean_delta_t[-1]), 0, 0.))
     mean_vel.append(np.mean(np.divide(dx, mean_delta_t[-1])))
-print 'Mean vel:', mean_vel
+print 'Mean vel: [%s]' % ('%.1f '*len(mean_vel) % tuple(mean_vel))
+
+vel = []
+smoothed_vel = []
+for i in range(len(field)):
+    this_vel = np.divide(dx, mean_delta_t[i])
+    this_smoothed_vel = signal.savgol_filter(this_vel, 19, 4 , mode='wrap')
+    vel.append(this_vel)
+    smoothed_vel.append(this_smoothed_vel)
+
+colors = ['c', 'g', 'r', 'k', 'purple']
+x_start = [induction_loc/track_length for induction_loc in induction_locs]
+
+for i in range(2):
+    plt.plot(x, vm[i], color=colors[i])
+    plt.plot(x, filtered_vm[i], color=colors[i+2])
+    plt.show()
+    plt.close()
 
 fig, axes = plt.subplots(1)
+ylim = max(np.max(vm), np.max(filtered_vm))
 for i in range(2):
-    axes.plot(x, vm[i], label='Vel: %.1f; Loc: %.1f' % (mean_vel[i], peak_loc[i]))
-    axes.plot(x, filtered_vm[i])
+    axes.plot(x, vm[i], label='Mean vel: %.1f cm/s' % mean_vel[i], color=colors[i])
+    axes.plot(x, filtered_vm[i], color=colors[i+2])
+    axes.axhline(y=ylim + 0.3, xmin=x_start[i], xmax=x_start[i] + 0.02, c=colors[i], linewidth=3., zorder=0)
 axes.set_ylabel('Vm (mV)')
 axes.set_xlabel('Location (cm)')
 axes.set_xlim(0., track_length)
 axes.set_title('Depolarization')
 if difference is not None:
-    axes.plot(x, np.add(difference, np.min(filtered_vm[0])), label='Difference')
+    axes.plot(x, np.add(difference, np.min(filtered_vm[0])), label='Difference', color=colors[-1])
 axes.legend(loc='best', frameon=False, framealpha=0.5)
 clean_axes(axes)
 plt.show()
 plt.close()
 
+fig, axes = plt.subplots(1)
 for i in range(2):
-    plt.plot(t[i], t_x, label=str(i+1))
-plt.legend(loc='best', frameon=False, framealpha=0.5)
+    axes.plot(t[i], t_x, color=colors[i], label='Field induction '+str(i+1))
+    axes.axvline(ymin=x_start[i], ymax=x_start[i]+0.02, x=0., c=colors[i], linewidth=3., zorder=0)
+axes.set_ylim(-3., track_length)
+axes.set_ylabel('Location (cm)')
+axes.set_xlabel('Time (s)')
+axes.set_xlim(-1., np.max(t))
+axes.set_title('Position vs. Time')
+clean_axes(axes)
+axes.legend(loc='best', frameon=False, framealpha=0.5)
 plt.show()
 plt.close()
 
+ylim = np.max(smoothed_vel)
+max_vel = math.ceil(ylim/10.) * 10.
 fig, axes = plt.subplots(1)
-for i in range(2):
-    axes.plot(x, np.divide(dx, mean_delta_t[i]), label='Vel: %.1f; Loc: %.1f' % (mean_vel[i], peak_loc[i]))
+for i in range(len(vel)):
+    # axes.plot(x, vel[i])
+    axes.plot(x, smoothed_vel[i], label='Mean vel: %.1f cm/s' % mean_vel[i], color=colors[i])
+    axes.axhline(y=ylim + 0.3, xmin=x_start[i], xmax=x_start[i] + 0.02, c=colors[i], linewidth=3., zorder=0)
 axes.set_ylabel('Velocity (cm/s)')
 axes.set_xlabel('Location (cm)')
 axes.set_xlim(0., track_length)
+axes.set_ylim(0., max(40., max_vel))
 axes.set_title('Running Speed')
 axes.legend(loc='best', frameon=False, framealpha=0.5)
 clean_axes(axes)
@@ -130,8 +177,6 @@ plt.show()
 plt.close()
 
 
-induction_locs = [88., 45.]
-saved_filename = '102716 katie newcell5 saved output'
-saved = {'t': t, 'ramp': np.subtract(filtered_vm, np.min(filtered_vm, axis=1)[0]), 'difference': difference,
-         'induction_locs': induction_locs}
+saved_filename = '110716 katie '+filename1+' saved output'
+saved = {'t': t, 'ramp': filtered_vm, 'difference': difference, 'induction_locs': induction_locs}
 write_to_pkl(data_dir+saved_filename+'.pkl', saved)
