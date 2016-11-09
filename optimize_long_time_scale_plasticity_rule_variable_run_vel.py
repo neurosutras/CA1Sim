@@ -23,9 +23,15 @@ trial_seed = 0
 field1_loc = 0.5
 # .pkl file contains traces for position vs. time, ramp vs. position, and difference between 1st and 2nd induction
 if len(sys.argv) > 1:
-    experimental_filename = str(sys.argv[1])
+    cell_id = int(sys.argv[1])
 else:
-    experimental_filename = '102716 katie newcell5 saved output'
+    cell_id = None
+
+experimental_filename = {1: '110716 katie newcell1 saved output', 2: '110716 katie newcell2 saved output',
+                         3: '110716 katie newcell3 saved output', 4: '110716 katie newcell4 saved output',
+                         5: '110716 katie newcell5 saved output'}
+
+rule_max_timescale = 9000.
 
 
 class History(object):
@@ -162,7 +168,7 @@ def subtract_baseline(waveform, baseline=None):
     return baseline
 
 
-def get_expected_depolization(rate_maps, weights, x_interp, stim_t, track_duration, baseline=None):
+def get_expected_depolization(rate_maps, weights, x_interp, stim_t, track_duration):
     """
     Take pre-computed rate maps and weights for a set of inputs. Convolve with an EPSP kernel, sum, normalize, and
     downsample to 100 spatial bins.
@@ -171,7 +177,6 @@ def get_expected_depolization(rate_maps, weights, x_interp, stim_t, track_durati
     :param x_interp: array (just one item from the outer list)
     :param stim_t: array (just one item from the outer list)
     :param track_duration: float (just one item from the outer list)
-    :param baseline: float
     :return: array
     """
     filter_t = np.arange(0., 200., dt)
@@ -188,8 +193,7 @@ def get_expected_depolization(rate_maps, weights, x_interp, stim_t, track_durati
                                                 int(track_equilibrate / dt) + len(x_interp)], 2.,
                                                     track_equilibrate+track_duration, dt, 1.)
     expected_depolarization = np.interp(x_bins, x_interp, expected_depolarization)
-    baseline = subtract_baseline(expected_depolarization, baseline)
-    return expected_depolarization, baseline
+    return expected_depolarization
 
 
 NMDA_type = 'NMDA_KIN5'
@@ -203,8 +207,8 @@ dx = track_length / 100.  # cm
 x = np.arange(0., track_length+dx/2., dx)
 x_bins = x[:100] + dx/2.
 default_run_vel = 30.  # cm/s
-if experimental_filename is not None:
-    experimental_data = read_from_pkl(data_dir+experimental_filename+'.pkl')
+if cell_id is not None:
+    experimental_data = read_from_pkl(data_dir+experimental_filename[cell_id]+'.pkl')
     x_t = np.multiply(experimental_data['t'], 1000.)  # convert s to ms
     ramp = experimental_data['ramp']
     difference = experimental_data['difference']
@@ -442,11 +446,15 @@ if ramp is None:
     ramp = [get_expected_depolization(rate_maps[i], cos_mod_weight['CA3'], x_interp[i], stim_t[i], track_duration[i])]
 else:
     baseline = None
+    ramp_baseline_indexes = None
     for this_ramp in ramp:
-        baseline = subtract_baseline(this_ramp, baseline)
+        if baseline is None:
+            ramp_baseline_indexes = np.where(np.array(this_ramp) <= np.percentile(this_ramp, 10.))[0]
+            baseline = np.mean(this_ramp[ramp_baseline_indexes])
+        ignore = subtract_baseline(this_ramp, baseline)
 
 if induction_locs is None:
-    induction_locs = field_center1 + 5.  # optimize for backward shift of peak of place field
+    induction_locs = [field_center1 + 5.]  # optimize for backward shift of peak of place field
 
 
 def check_bounds(x, xmin, xmax):
@@ -475,7 +483,7 @@ def build_rule_waveform0(x, induction_loc, x_interp, stim_x, stim_t, extended_st
     :param stim_t: array (just one item from the outer list)
     :param extended_stim_t: array (just one item from the outer list)
     :param plot: bool
-    :return: array
+    :return: array, array
     """
     during_depth = x[0]
     during_pot_amp = (1. - during_depth) / 2.
@@ -496,14 +504,16 @@ def build_rule_waveform0(x, induction_loc, x_interp, stim_x, stim_t, extended_st
     rule_waveform = np.zeros_like(stim_t)
     rule_waveform[int(track_equilibrate / dt):int(track_equilibrate / dt)+len(x_interp)] = before_rule + after_rule + \
                                                                                            within_rule
-    ref_theta = 0.5 * np.cos(2. * np.pi * stim_t / global_theta_cycle_duration - global_phase_offset) + 1.75
+    ref_theta = 0.5 * np.cos(2. * np.pi * extended_stim_t / global_theta_cycle_duration - global_phase_offset) + 1.75
+
+    rule_waveform_offset = rule_waveform[induction_start_index-int(5000./dt):induction_start_index+int(5000./dt)]
 
     if plot:
-        left = int((track_equilibrate + induction_start) / dt)
+        left = induction_start_index
         right = left + int(induction_duration / dt)
         fig, axes = plt.subplots(1)
-        axes.plot(stim_t[left:right] - induction_start, rule_waveform[left:right], label='Plasticity rule')
-        axes.plot(stim_t[left:right] - induction_start, ref_theta[left:right], label='LFP theta')
+        axes.plot(extended_stim_t[left:right] - induction_start, rule_waveform[left:right], label='Plasticity rule')
+        axes.plot(extended_stim_t[left:right] - induction_start, ref_theta[left:right], label='LFP theta')
         axes.legend(loc='best', frameon=False, framealpha=0.5)
         axes.set_xlabel('Time (ms)')
         axes.set_ylabel('Normalized change in synaptic weight')
@@ -513,7 +523,7 @@ def build_rule_waveform0(x, induction_loc, x_interp, stim_x, stim_t, extended_st
         plt.show()
         plt.close()
 
-    return rule_waveform
+    return rule_waveform, rule_waveform_offset
 
 
 def build_rule_waveform1(x, induction_loc, x_interp, stim_x, stim_t, extended_stim_t, plot=False):
@@ -561,9 +571,13 @@ def build_rule_waveform1(x, induction_loc, x_interp, stim_x, stim_t, extended_st
     rule_waveform[left:right] = np.array(post_waveform1[left:right])
 
     ref_theta = 0.5 * np.cos(2. * np.pi * extended_stim_t / global_theta_cycle_duration - global_phase_offset) + 1.75
+    rule_waveform_offset = rule_waveform[
+                           induction_start_index - int(rule_max_timescale / dt):induction_start_index +
+                                                                                int(rule_max_timescale / dt)]
+
     if plot:
-        left = induction_start_index - int(5000. / dt)
-        right = induction_start_index + int(5000. / dt)
+        left = induction_start_index - int(rule_max_timescale / dt)
+        right = induction_start_index + int(rule_max_timescale / dt)
         fig, axes = plt.subplots(1)
         axes.plot(extended_stim_t[left:right] - induction_start, rule_waveform[left:right], label='Plasticity rule')
         axes.plot(extended_stim_t[left:right] - induction_start, ref_theta[left:right], label='LFP theta')
@@ -571,7 +585,7 @@ def build_rule_waveform1(x, induction_loc, x_interp, stim_x, stim_t, extended_st
         axes.set_xlabel('Time (ms)')
         axes.set_ylabel('Normalized change in synaptic weight')
         axes.set_ylim([math.floor(np.min(rule_waveform)) - 0.25, 2.5])
-        axes.set_xlim([-5000., 5000.])
+        axes.set_xlim([-rule_max_timescale, rule_max_timescale])
         clean_axes(axes)
         plt.show()
         plt.close()
@@ -583,7 +597,7 @@ def build_rule_waveform1(x, induction_loc, x_interp, stim_x, stim_t, extended_st
     rule_waveform[int(track_equilibrate / dt):int(track_equilibrate / dt) + len(x_interp)] = before_rule + \
                                                                                              after_rule + \
                                                                                              within_rule
-    return rule_waveform
+    return rule_waveform, rule_waveform_offset
 
 
 def build_rule_waveform2(x, induction_loc, x_interp, stim_x, stim_t, extended_stim_t, plot=False):
@@ -632,6 +646,7 @@ def build_rule_waveform2(x, induction_loc, x_interp, stim_x, stim_t, extended_st
     post_pot_waveform = pot_amp * (0.5 * np.cos(2. * np.pi * extended_stim_t / (post_pot_dur * 2.) -
                                                   post_pot_phase_offset) + 0.5)
     rule_waveform[left:right] = np.array(post_pot_waveform[left:right])
+    """
     left = right
     right = left + int(post_depot_dur / dt)
     post_depot_phase_offset = 2. * np.pi * ((induction_start + induction_duration + post_pot_dur) % post_depot_dur) / \
@@ -639,11 +654,21 @@ def build_rule_waveform2(x, induction_loc, x_interp, stim_x, stim_t, extended_st
     post_depot_waveform = post_depot_depth * 0.5 * np.cos(2. * np.pi * extended_stim_t / post_depot_dur -
                                                           post_depot_phase_offset) - post_depot_depth * 0.5
     rule_waveform[left:right] = np.array(post_depot_waveform[left:right])
-
+    """
+    right = left + int(post_depot_dur / dt)
+    post_depot_phase_offset = 2. * np.pi * ((induction_start + induction_duration) % post_depot_dur) / \
+                              post_depot_dur
+    post_depot_waveform = post_depot_depth * 0.5 * np.cos(2. * np.pi * extended_stim_t / post_depot_dur -
+                                                          post_depot_phase_offset) - post_depot_depth * 0.5
+    rule_waveform[left:right] = np.add(rule_waveform[left:right], post_depot_waveform[left:right])
     ref_theta = 0.5 * np.cos(2. * np.pi * extended_stim_t / global_theta_cycle_duration - global_phase_offset) + 1.75
+    rule_waveform_offset = rule_waveform[
+                           induction_start_index - int(rule_max_timescale / dt):induction_start_index +
+                                                                                int(rule_max_timescale / dt)]
+
     if plot:
-        left = induction_start_index - int(5000. / dt)
-        right = induction_start_index + int(5000. / dt)
+        left = induction_start_index - int(rule_max_timescale / dt)
+        right = induction_start_index + int(rule_max_timescale / dt)
         fig, axes = plt.subplots(1)
         axes.plot(extended_stim_t[left:right] - induction_start, rule_waveform[left:right], label='Plasticity rule')
         axes.plot(extended_stim_t[left:right] - induction_start, ref_theta[left:right], label='LFP theta')
@@ -651,7 +676,7 @@ def build_rule_waveform2(x, induction_loc, x_interp, stim_x, stim_t, extended_st
         axes.set_xlabel('Time (ms)')
         axes.set_ylabel('Normalized change in synaptic weight')
         axes.set_ylim([math.floor(np.min(rule_waveform)) - 0.25, 2.5])
-        axes.set_xlim([-5000., 5000.])
+        axes.set_xlim([-rule_max_timescale, rule_max_timescale])
         clean_axes(axes)
         plt.show()
         plt.close()
@@ -663,29 +688,45 @@ def build_rule_waveform2(x, induction_loc, x_interp, stim_x, stim_t, extended_st
     rule_waveform[int(track_equilibrate / dt):int(track_equilibrate / dt) + len(x_interp)] = before_rule + \
                                                                                              after_rule + \
                                                                                              within_rule
-    return rule_waveform
+    return rule_waveform, rule_waveform_offset
 
 
-def calculate_delta_weights(rule_waveform, i):
+def calculate_plasticity_signal(rule_waveform, induction_index):
     """
-    Given any rule waveform, compute the resulting delta_weights (without saturation).
+    Given any rule waveform, compute the resulting plasticity_signal (without saturation).
     :param rule_waveform: array
-    :param i: int: index of various location and time waves to use
+    :param induction_index: int: index of various location and time waves to use
     :param plot: bool
-    :return: delta_weights: array, rule_gain: float
+    :return: plasticity_signal: array, rule_gain: float
     """
     group = 'CA3'
-    delta_weights = np.zeros_like(peak_locs[group])
-    for i, stim_force in enumerate(rate_maps[i]):
+    plasticity_signal = np.zeros_like(peak_locs[group])
+    for j, stim_force in enumerate(rate_maps[induction_index]):
         this_force = 0.001 * dt * np.multiply(stim_force, rule_waveform)
         this_area = np.trapz(this_force, dx=dt)
-        delta_weights[i] = this_area
-    rule_gain = 1. / np.max(delta_weights)
-    delta_weights /= rule_gain
-    return delta_weights, rule_gain
+        plasticity_signal[j] = this_area
+    return plasticity_signal
 
 
-def ramp_error(x, xmin, xmax, rule_function, ramp, i, baseline=None, plot=False, full_output=False):
+def calculate_delta_weights(plasticity_signal, orig_weights=None, depot_depth=1.):
+    """
+    Implement a BCM-like transformation of plasticity signal into change in synaptic weight dependent on initial weight.
+    :param plasticity_signal: array
+    :param orig_weights: array
+    :param depot_depth: float
+    :return: array
+    """
+    if orig_weights is None:
+        orig_weights = np.zeros_like(peak_locs['CA3'])
+    this_filter = lambda this_plasticity_signal, this_w: \
+        this_plasticity_signal - this_w if this_plasticity_signal >= this_w else \
+            depot_depth * this_w / 2. * np.cos(2. * np.pi * this_plasticity_signal / this_w) - depot_depth * this_w / 2.
+    this_filter = np.vectorize(this_filter)
+    return this_filter(plasticity_signal, orig_weights) + orig_weights
+
+
+def ramp_error_orig(x, xmin, xmax, rule_function, ramp, induction_index, orig_weights=None, baseline_indexes=None,
+               baseline=None, plot=False, full_output=False):
     """
 
     :param x: array [during_depth, phase_offset, pot_amp, pre_pot_dur, post_pot_dur, post_depot_depth, post_depot_dur]
@@ -693,7 +734,9 @@ def ramp_error(x, xmin, xmax, rule_function, ramp, i, baseline=None, plot=False,
     :param xmax: array
     :param rule_function: callable
     :param ramp: array
-    :param i: int: list index of various location and time waves to use
+    :param induction_index: int: list index of various location and time waves to use
+    :param orig_weights: array
+    :param baseline_indexes: list
     :param baseline: float
     :param plot: bool
     :param full_output: bool: whether to return all relevant objects (True), or just Err (False)
@@ -702,28 +745,41 @@ def ramp_error(x, xmin, xmax, rule_function, ramp, i, baseline=None, plot=False,
     if not check_bounds(x, xmin, xmax):
         print 'Aborting: Invalid parameter values.'
         return 1e9
-    rule_waveform = rule_function(x, induction_locs[i], x_interp[i], stim_x[i], stim_t[i], extended_stim_t[i], plot)
-    delta_weights, rule_gain = calculate_delta_weights(rule_waveform, i)
-    new_ramp, new_baseline = get_expected_depolization(rate_maps[i], delta_weights + 1., x_interp[i], stim_t[i],
-                                                       track_duration[i], baseline)
+    rule_waveform, rule_waveform_offset = rule_function(x, induction_locs[induction_index], x_interp[induction_index],
+                                                        stim_x[induction_index], stim_t[induction_index],
+                                                        extended_stim_t[induction_index], plot)
+    delta_weights = calculate_delta_weights(rule_waveform, induction_index)
+    if orig_weights is not None:
+        this_weights = delta_weights + orig_weights
+    else:
+        this_weights = delta_weights
+    new_ramp = get_expected_depolization(rate_maps[induction_index], this_weights + 1., x_interp[induction_index],
+                                         stim_t[induction_index], track_duration[induction_index])
+    if baseline is None:
+        if baseline_indexes is None:
+            new_baseline = subtract_baseline(new_ramp)
+        else:
+            new_baseline = np.mean(new_ramp[baseline_indexes])
+            new_ramp -= new_baseline
+    else:
+        new_baseline = subtract_baseline(new_ramp, baseline)
+
     ramp_peak = np.max(ramp)
-    # ramp_peak_index = np.where(ramp == ramp_peak)[0][0]
-    # ramp_gain = ramp_peak / new_ramp[ramp_peak_index]
-    ramp_gain = ramp_peak / np.max(new_ramp)
-    delta_weights *= ramp_gain
-    rule_gain *= ramp_gain
-    new_ramp *= ramp_gain
+    rule_gain = ramp_peak / np.max(new_ramp)
+    new_ramp *= rule_gain
+    rule_waveform_offset *= rule_gain
     Err = 0.
     for j in range(len(ramp)):
         Err += ((ramp[j] - new_ramp[j]) / 0.05) ** 2.
 
     if plot:
         fig, axes = plt.subplots(1)
-        axes.scatter(peak_locs['CA3'], delta_weights + 1., color='r', label='Weights from plasticity rule')
+        axes.scatter(peak_locs['CA3'], this_weights * rule_gain + 1., color='r', label='Weights from plasticity rule')
         axes.legend(loc='best', frameon=False, framealpha=0.5)
         axes.set_xlabel('Location (cm)')
         axes.set_ylabel('Normalized synaptic weight')
-        axes.set_ylim([math.floor(np.min(delta_weights + 1.)), math.ceil(np.max(delta_weights + 1.))])
+        axes.set_ylim([math.floor(np.min(this_weights * rule_gain + 1.)),
+                       math.ceil(np.max(this_weights * rule_gain + 1.))])
         axes.set_xlim([0., track_length])
         clean_axes(axes)
         plt.show()
@@ -744,60 +800,346 @@ def ramp_error(x, xmin, xmax, rule_function, ramp, i, baseline=None, plot=False,
     formatted_x = '[' + ', '.join(['%.2f' % xi for xi in x]) + ']'
     print 'x: %s, Err: %.4E, Rule gain: %.4E' % (formatted_x, Err, rule_gain)
     if full_output:
-        return rule_waveform, delta_weights, new_ramp, new_baseline
+        return rule_waveform_offset, this_weights, new_ramp, new_baseline, rule_gain
     else:
         hist.x.append(x)
         hist.Err.append(Err)
         return Err
 
 
-def optimize_polish(x, xmin, xmax, error_function, rule_function, ramp, i, baseline=None, maxfev=None):
+def ramp_error1(x, xmin, xmax, ramp, induction_index=None, orig_weights=None, baseline_indexes=None, baseline=None,
+                plot=False, full_output=False):
+    """
+    Calculates a rule_waveform and set of weights to match the first place field induction. Uses baseline_indexes to
+    subtract a baseline at the same spatial locations as the minimum of the experimental data.
+    :param x: array [during_depth, phase_offset, pot_amp, pre_pot_dur, post_pot_dur, depot_depth]
+    :param xmin: array
+    :param xmax: array
+    :param rule_function: callable
+    :param ramp: array
+    :param induction_index: int: list index of various location and time waves to use
+    :param orig_weights: array
+    :param baseline_indexes: list
+    :param baseline: float
+    :param plot: bool
+    :param full_output: bool: whether to return all relevant objects (True), or just Err (False)
+    :return: float
+    """
+    if not check_bounds(x, xmin, xmax):
+        print 'Aborting: Invalid parameter values.'
+        return 1e9
+    if induction_index is None:
+        induction_index = 0
+    rule_waveform, rule_waveform_offset = build_rule_waveform1(x, induction_locs[induction_index],
+                                                               x_interp[induction_index], stim_x[induction_index],
+                                                               stim_t[induction_index],
+                                                               extended_stim_t[induction_index], plot)
+    plasticity_signal = calculate_plasticity_signal(rule_waveform, induction_index)
+    this_weights = calculate_delta_weights(plasticity_signal, orig_weights, 0.)
+    new_ramp = get_expected_depolization(rate_maps[induction_index], this_weights + 1., x_interp[induction_index],
+                                         stim_t[induction_index], track_duration[induction_index])
+    if baseline is None:
+        if baseline_indexes is None:
+            new_baseline = subtract_baseline(new_ramp)
+        else:
+            new_baseline = np.mean(new_ramp[baseline_indexes])
+            new_ramp -= new_baseline
+    else:
+        new_baseline = subtract_baseline(new_ramp, baseline)
+
+    ramp_peak = np.max(ramp)
+    rule_gain = ramp_peak / np.max(new_ramp)
+    new_ramp *= rule_gain
+    rule_waveform_offset *= rule_gain
+    Err = 0.
+    for j in range(len(ramp)):
+        Err += ((ramp[j] - new_ramp[j]) / 0.05) ** 2.
+
+    if plot:
+        fig, axes = plt.subplots(1)
+        axes.scatter(peak_locs['CA3'], this_weights * rule_gain + 1., color='r', label='Weights from plasticity rule')
+        axes.legend(loc='best', frameon=False, framealpha=0.5)
+        axes.set_xlabel('Location (cm)')
+        axes.set_ylabel('Normalized synaptic weight')
+        axes.set_ylim([math.floor(np.min(this_weights * rule_gain + 1.)),
+                       math.ceil(np.max(this_weights * rule_gain + 1.))])
+        axes.set_xlim([0., track_length])
+        clean_axes(axes)
+        plt.show()
+        plt.close()
+
+        fig, axes = plt.subplots(1)
+        axes.plot(x_bins, ramp, label='Experiment')
+        axes.plot(x_bins, new_ramp, label='Model')
+        axes.set_xlabel('Location (cm)')
+        axes.set_ylabel('Depolarization (mV)')
+        axes.set_xlim([0., track_length])
+        axes.set_ylim([math.floor(np.min(ramp)) - 0.5, math.ceil(np.max(ramp)) + 0.5])
+        axes.legend(loc='best', frameon=False, framealpha=0.5)
+        clean_axes(axes)
+        plt.show()
+        plt.close()
+
+    formatted_x = '[' + ', '.join(['%.2f' % xi for xi in x]) + ']'
+    print 'x: %s, Err: %.4E, Rule gain: %.4E' % (formatted_x, Err, rule_gain)
+    if full_output:
+        return rule_waveform_offset, this_weights, new_ramp, new_baseline, rule_gain
+    else:
+        hist.x.append(x)
+        hist.Err.append(Err)
+        return Err
+
+
+def ramp_error2(x, xmin, xmax, ramp, induction_index=None, orig_weights=None, baseline_indexes=None, baseline=None,
+                rule_gain=None, plot=False, full_output=False):
+    """
+    Requires information from the result of optimizing ramp_error1, including orig_weights, baseline, and rule_gain.
+    Calculates a separate rule_waveform and set of weights to match the second place field induction.
+    :param x: array [during_depth, phase_offset, pot_amp, pre_pot_dur, post_pot_dur, depot_depth]
+    :param xmin: array
+    :param xmax: array
+    :param rule_function: callable
+    :param ramp: array
+    :param induction_index: int: list index of various location and time waves to use
+    :param orig_weights: array
+    :param baseline_indexes: list
+    :param baseline: float
+    :param rule_gain: float
+    :param plot: bool
+    :param full_output: bool: whether to return all relevant objects (True), or just Err (False)
+    :return: float
+    """
+    if not check_bounds(x, xmin, xmax):
+        print 'Aborting: Invalid parameter values.'
+        return 1e9
+    if induction_index is None:
+        induction_index = 1
+    rule_waveform, rule_waveform_offset = build_rule_waveform1(x[:-1], induction_locs[induction_index],
+                                                               x_interp[induction_index], stim_x[induction_index],
+                                                               stim_t[induction_index],
+                                                               extended_stim_t[induction_index], plot)
+    plasticity_signal = calculate_plasticity_signal(rule_waveform, induction_index)
+    this_weights = calculate_delta_weights(plasticity_signal, orig_weights, x[-1])
+    new_ramp = get_expected_depolization(rate_maps[induction_index], this_weights + 1., x_interp[induction_index],
+                                         stim_t[induction_index], track_duration[induction_index])
+    if baseline is None:
+        if baseline_indexes is None:
+            new_baseline = subtract_baseline(new_ramp)
+        else:
+            new_baseline = np.mean(new_ramp[baseline_indexes])
+            new_ramp -= new_baseline
+    else:
+        new_baseline = subtract_baseline(new_ramp, baseline)
+
+    if rule_gain is None:
+        ramp_peak = np.max(ramp)
+        rule_gain = ramp_peak / np.max(new_ramp)
+    new_ramp *= rule_gain
+    rule_waveform_offset *= rule_gain
+
+    Err = 0.
+    for j in range(len(ramp)):
+        Err += ((ramp[j] - new_ramp[j]) / 0.05) ** 2.
+
+    if plot:
+        fig, axes = plt.subplots(1)
+        axes.scatter(peak_locs['CA3'], this_weights * rule_gain + 1., color='r', label='Weights from plasticity rule')
+        axes.legend(loc='best', frameon=False, framealpha=0.5)
+        axes.set_xlabel('Location (cm)')
+        axes.set_ylabel('Normalized synaptic weight')
+        axes.set_ylim([math.floor(np.min(this_weights * rule_gain + 1.)),
+                       math.ceil(np.max(this_weights * rule_gain + 1.))])
+        axes.set_xlim([0., track_length])
+        clean_axes(axes)
+        plt.show()
+        plt.close()
+
+        fig, axes = plt.subplots(1)
+        axes.plot(x_bins, ramp, label='Experiment')
+        axes.plot(x_bins, new_ramp, label='Model')
+        axes.set_xlabel('Location (cm)')
+        axes.set_ylabel('Depolarization (mV)')
+        axes.set_xlim([0., track_length])
+        axes.set_ylim([math.floor(np.min(ramp)) - 0.5, math.ceil(np.max(ramp)) + 0.5])
+        axes.legend(loc='best', frameon=False, framealpha=0.5)
+        clean_axes(axes)
+        plt.show()
+        plt.close()
+
+    formatted_x = '[' + ', '.join(['%.2f' % xi for xi in x]) + ']'
+    print 'x: %s, Err: %.4E, Rule gain: %.4E' % (formatted_x, Err, rule_gain)
+    if full_output:
+        return rule_waveform_offset, this_weights, new_ramp, new_baseline, rule_gain
+    else:
+        hist.x.append(x)
+        hist.Err.append(Err)
+        return Err
+
+
+def ramp_error3(x, xmin, xmax, ramp, induction_index=None, orig_weights=None, baseline_indexes=None, baseline=None,
+                rule_gain=None, plot=False, full_output=False):
+    """
+    Attemps to find a single rule_waveform to account for both the first and second place field inductions.
+    :param x: array [during_depth, phase_offset, pot_amp, pre_pot_dur, post_pot_dur, depot_depth]
+    :param xmin: array
+    :param xmax: array
+    :param rule_function: callable
+    :param ramp: list of array
+    :param induction_index: int: list index of various location and time waves to use
+    :param orig_weights: array
+    :param baseline_indexes: list
+    :param baseline: float
+    :param rule_gain: float
+    :param plot: bool
+    :param full_output: bool: whether to return all relevant objects (True), or just Err (False)
+    :return: float
+    """
+    if not check_bounds(x, xmin, xmax):
+        print 'Aborting: Invalid parameter values.'
+        return 1e9
+    induction_index = 0
+    rule_waveform0, rule_waveform_offset0 = build_rule_waveform1(x[:-1], induction_locs[induction_index],
+                                                               x_interp[induction_index], stim_x[induction_index],
+                                                               stim_t[induction_index],
+                                                               extended_stim_t[induction_index], plot)
+    plasticity_signal0 = calculate_plasticity_signal(rule_waveform0, induction_index)
+    this_weights0 = calculate_delta_weights(plasticity_signal0, orig_weights, x[-1])
+    model_ramp0 = get_expected_depolization(rate_maps[induction_index], this_weights0 + 1., x_interp[induction_index],
+                                         stim_t[induction_index], track_duration[induction_index])
+    if baseline is None:
+        if baseline_indexes is None:
+            new_baseline = subtract_baseline(model_ramp0)
+        else:
+            new_baseline = np.mean(model_ramp0[baseline_indexes])
+            model_ramp0 -= new_baseline
+    else:
+        new_baseline = subtract_baseline(model_ramp0, baseline)
+
+    if rule_gain is None:
+        ramp_peak = np.max(ramp[induction_index])
+        rule_gain = ramp_peak / np.max(model_ramp0)
+    model_ramp0 *= rule_gain
+    rule_waveform_offset0 *= rule_gain
+
+    Err = 0.
+    for j in range(len(ramp[induction_index])):
+        Err += ((ramp[induction_index][j] - model_ramp0[j]) / 0.25) ** 2.
+
+    induction_index = 1
+    rule_waveform1, rule_waveform_offset1 = build_rule_waveform1(x[:-1], induction_locs[induction_index],
+                                                                 x_interp[induction_index], stim_x[induction_index],
+                                                                 stim_t[induction_index],
+                                                                 extended_stim_t[induction_index], plot)
+    plasticity_signal1 = calculate_plasticity_signal(rule_waveform1, induction_index)
+    this_weights1 = calculate_delta_weights(plasticity_signal1, this_weights0, x[-1])
+    model_ramp1 = get_expected_depolization(rate_maps[induction_index], this_weights1 + 1., x_interp[induction_index],
+                                            stim_t[induction_index], track_duration[induction_index])
+    model_ramp1 -= new_baseline
+    model_ramp1 *= rule_gain
+    rule_waveform_offset1 *= rule_gain
+
+    for j in range(len(ramp[induction_index])):
+        Err += ((ramp[induction_index][j] - model_ramp1[j]) / 0.25) ** 2.
+
+    if plot:
+        colors = ['r', 'k', 'c', 'g']
+        fig, axes = plt.subplots(1)
+        weight_min = min(np.min(this_weights0), np.min(this_weights1))
+        weight_max = max(np.max(this_weights0), np.max(this_weights1))
+        for j, this_weights in enumerate([this_weights0, this_weights1]):
+            axes.scatter(peak_locs['CA3'], this_weights * rule_gain + 1., color=colors[j], label='Induction '+str(j+1))
+        axes.legend(loc='best', frameon=False, framealpha=0.5)
+        axes.set_xlabel('Location (cm)')
+        axes.set_ylabel('Relative synaptic weight')
+        axes.set_ylim([math.floor(weight_min * rule_gain + 1.),
+                       math.ceil(weight_max * rule_gain + 1.)])
+        axes.set_xlim([0., track_length])
+        axes.set_title('Model synaptic weights')
+        clean_axes(axes)
+        plt.show()
+        plt.close()
+
+        fig, axes = plt.subplots(1)
+        ramp_min = min([np.min(ramp), np.min(model_ramp0), np.min(model_ramp1)])
+        ramp_max = max([np.max(ramp), np.max(model_ramp0), np.max(model_ramp1)])
+        for j, model_ramp in enumerate([model_ramp0, model_ramp1]):
+            axes.plot(x_bins, ramp[j], label='Experiment'+str(j+1), color=colors[j+2])
+            axes.plot(x_bins, model_ramp, label='Model'+str(j+1), color=colors[j])
+        axes.set_xlabel('Location (cm)')
+        axes.set_ylabel('Depolarization (mV)')
+        axes.set_xlim([0., track_length])
+        axes.set_ylim([math.floor(ramp_min) - 0.5, math.ceil(ramp_max) + 0.5])
+        axes.legend(loc='best', frameon=False, framealpha=0.5)
+        clean_axes(axes)
+        plt.show()
+        plt.close()
+
+    formatted_x = '[' + ', '.join(['%.2f' % xi for xi in x]) + ']'
+    print 'x: %s, Err: %.4E, Rule gain: %.4E' % (formatted_x, Err, rule_gain)
+    if full_output:
+        return [rule_waveform_offset0, rule_waveform_offset1], [this_weights0, this_weights1], \
+               [model_ramp0, model_ramp1], new_baseline, rule_gain
+    else:
+        hist.x.append(x)
+        hist.Err.append(Err)
+        return Err
+
+
+def optimize_polish(x, xmin, xmax, error_function, ramp, induction_index=None, orig_weights=None, baseline_indexes=None,
+                    baseline=None, rule_gain=None, maxfev=None):
     """
 
     :param x: array
     :param xmin: array
     :param xmax: array
     :param error_function: callable
-    :param rule_function: callable
     :param ramp: array
-    :param i: int: index of various location and time waves to use
+    :param induction_index: int: index of various location and time waves to use
+    :param orig_weights: array
+    :param baseline_indexes: list
     :param baseline: float
-    :param maxfev: int
-    :return: dict
-    """
-    if maxfev is None:
-        maxfev = 200
-
-    result = optimize.minimize(error_function, x, method='Nelder-Mead', options={'ftol': 1e-3,
-                                                    'xtol': 1e-3, 'disp': True, 'maxiter': maxfev},
-                               args=(xmin, xmax, rule_function, ramp, i, baseline))
-    formatted_x = '['+', '.join(['%.2E' % xi for xi in result.x])+']'
-    print 'Process: %i completed optimize_polish after %i iterations with Error: %.4E and x: %s' % (os.getpid(),
-                                                                            result.nit, result.fun, formatted_x)
-    return {'x': result.x, 'Err': result.fun}
-
-
-def optimize_explore(x, xmin, xmax, error_function, rule_function, ramp, i, baseline=None, maxfev=None):
-    """
-
-    :param x: array
-    :param xmin: array
-    :param xmax: array
-    :param error_function: callable
-    :param rule_function: callable
-    :param ramp: array
-    :param i: int: index of various location and time waves to use
-    :param baseline: float
+    :param rule_gain: float
     :param maxfev: int
     :return: dict
     """
     if maxfev is None:
         maxfev = 400
 
+    result = optimize.minimize(error_function, x, method='Nelder-Mead', options={'ftol': 1e-3,
+                                                    'xtol': 1e-3, 'disp': True, 'maxiter': maxfev},
+                               args=(xmin, xmax, ramp, induction_index, orig_weights, baseline_indexes,
+                                     baseline, rule_gain))
+    formatted_x = '['+', '.join(['%.2E' % xi for xi in result.x])+']'
+    print 'Process: %i completed optimize_polish after %i iterations with Error: %.4E and x: %s' % (os.getpid(),
+                                                                            result.nit, result.fun, formatted_x)
+    return {'x': result.x, 'Err': result.fun}
+
+
+def optimize_explore(x, xmin, xmax, error_function, ramp, induction_index=None, orig_weights=None, baseline_indexes=None,
+                     baseline=None, rule_gain=None, maxfev=None):
+    """
+
+    :param x: array
+    :param xmin: array
+    :param xmax: array
+    :param error_function: callable
+    :param ramp: array
+    :param induction_index: int: index of various location and time waves to use
+    :param orig_weights: array
+    :param baseline_indexes: list
+    :param baseline: float
+    :param rule_gain: float
+    :param maxfev: int
+    :return: dict
+    """
+    if maxfev is None:
+        maxfev = 700
+
     take_step = Normalized_Step(x, xmin, xmax)
-    minimizer_kwargs = dict(method=null_minimizer, args=(xmin, xmax, rule_function, ramp, i, baseline))
+    minimizer_kwargs = dict(method=null_minimizer, args=(xmin, xmax, ramp, induction_index, orig_weights,
+                                                         baseline_indexes, baseline, rule_gain))
     result = optimize.basinhopping(error_function, x, niter=maxfev, niter_success=maxfev/2,
-                                   disp=True, interval=20, minimizer_kwargs=minimizer_kwargs,
+                                   disp=True, interval=40, minimizer_kwargs=minimizer_kwargs,
                                    take_step=take_step)
     formatted_x = '['+', '.join(['%.2E' % xi for xi in result.x])+']'
     print 'Process: %i completed optimize_explore after %i iterations with Error: %.4E and x: %s' % (os.getpid(),
@@ -809,7 +1151,6 @@ rule_waveforms = []
 delta_weights = []
 model_ramp = []
 
-
 # [during_depth, phase_offset]
 # x0 = [0.7, 45.]
 x0 = [0., 45.]  # Err: 1.932E+05, Rule gain:
@@ -817,68 +1158,145 @@ xmin0 = [0., 45.]
 xmax0 = [1., 90.]
 
 # [during_depth, phase_offset, pot_amp, pre_pot_dur, post_pot_dur]
-# x1 = [2.65E-01, 6.24E+01, 1.00, 2.5E+03, 5.E+02]
-# x1 = [2.99E-04, 7.56E+01, 1.00E+00, 2.80E+03, 8.95E+02]  # Err: 3.649E+02, Rule gain: 1.8212E-04, normalized to
-                                                         # experiment peak_loc
-x1 = [0.00, 75.54, 1.00, 2826.48, 923.00]  # Err: 1.3359E+03, Rule gain: 1.7876E-04
-xmin1 = [0., 45., 0., 1000., 500.]
-xmax1 = [1., 90., 1., 3000., 2000.]
+if cell_id == 1:
+    x1 = [0.00, 80.71, 1.00, 4139.00, 1433.51]  # Err: 1.3315E+04, Rule gain: 1.3960E-01
+elif cell_id == 2:
+    x1 = [0.00, 64.33, 1.00, 6000.00, 100.02]  # Err: 1.8580E+05, Rule gain: 6.1844E-02
+elif cell_id == 3:
+    x1 = [0.00, 82.75, 0.25, 3562.13, 100.00]  # Err: 3.1113E+03, Rule gain: 1.9009E-01
+elif cell_id == 4:
+    x1 = [0.19, 68.51, 1.00, 6999.99, 6159.05]  # Err: 1.6502E+04, Rule gain: 1.3647E-02
+elif cell_id == 5:
+    x1 = [0.00, 75.58, 1.00, 2855.96, 932.52]  # Err: 1.1978E+03, Rule gain: 8.6899E-02
+xmin1 = [0., 45., 0., 1000., 100.]
+xmax1 = [1., 90., 1., 7000., 7000.]
 
-# [during_depth, phase_offset, pot_amp, pre_pot_dur, post_pot_dur, post_depot_depth, post_depot_dur]
-# x2 = [0.00, 75.54, 1.00, 2826.48, 923.00, 2., 600.]
-# x2 = [0.22, 81.98, 0.75, 2999.97, 500.00, 3.00, 861.61]
-x2 = [0.01, 88.49, 0.97, 2999.73, 200.02, 2.17, 1492.99]
-xmin2 = [0., 45., 0., 1000., 100., 0., 200.]
-xmax2 = [1., 90., 1., 4000., 1500., 5., 2500.]
+# [during_depth, phase_offset, pot_amp, pre_pot_dur, post_pot_dur, depot_depth]
+if cell_id == 1:
+    # x2 = [0.00, 49.71, 1.00, 1749.80, 3998.71, 0.17]  # Err: 7.9991E+04, Rule gain: 8.3086E-02
+    # x2 = [0.34, 71.20, 0.78, 1125.44, 3953.76, 0.73]
+    x2 = [0.00, 81.86, 0.76, 1027.12, 7316.62, 0.57]  # Err: 4.6454E+04, Rule gain: 1.3950E-01
+elif cell_id == 2:
+    x2 = [0.42, 81.10, 1.00, 2685.49, 2999.35, 0.5]
+elif cell_id == 3:
+    x2 = [0.00, 75.09, 0.06, 7000.00, 3996.26, 0.05]  # Err: 2.5270E+04, Rule gain: 1.3342E-01
+elif cell_id == 4:
+    x2 = [1.00, 84.44, 1.00, 4993.32, 4000.00, 0.47]  # Err: 7.5804E+04, Rule gain: 1.8681E-02
+elif cell_id == 5:
+    x2 = [1.00, 45.10, 0.39, 5999.77, 2571.92, 0.40]  # Err: 6.0807E+04, Rule gain: 9.1297E-02
+xmin2 = [0., 45., 0., 100., 100., 0.]
+xmax2 = [1., 90., 1., rule_max_timescale, rule_max_timescale, 1.]
 
 # [during_depth, phase_offset]
 # induction_index = 0
-# ramp_error(x0, xmin0, xmax0, build_rule_waveform0, ramp[induction_index], induction_index, plot=True)
+# ramp_error(x0, xmin0, xmax0, build_rule_waveform0, ramp[induction_index], induction_index,
+#            baseline_indexes=ramp_baseline_indexes), plot=True)
 
 # induction_index = 0
 # [during_depth, phase_offset, pot_amp, pre_pot_dur, post_pot_dur]
-# ramp_error(x1, xmin1, xmax1, build_rule_waveform1, ramp[induction_index], induction_index, plot=True)
-
-# induction_index = 1
-# [during_depth, phase_offset, pot_amp, pre_pot_dur, post_pot_dur, post_depot_depth, post_depot_dur]
-# ramp_error(x2, xmin2, xmax2, build_rule_waveform2, difference, induction_index, plot=True)
+# ramp_error(x1, xmin1, xmax1, build_rule_waveform1, ramp[induction_index], induction_index,
+#            baseline_indexes=ramp_baseline_indexes), plot=True)
 
 """
 induction_index = 0
-result = optimize_explore(x0, xmin0, xmax0, ramp_error, build_rule_waveform0, ramp[induction_index], induction_index)
+result = optimize_explore(x0, xmin0, xmax0, ramp_error, build_rule_waveform0, ramp[induction_index], induction_index,
+                          baseline_indexes=ramp_baseline_indexes)
 polished_result = optimize_polish(result['x'], xmin0, xmax0, ramp_error, build_rule_waveform0, ramp[induction_index],
-                                  induction_index)
-ramp_error(polished_result['x'], xmin0, xmax0, build_rule_waveform0, ramp[induction_index], induction_index, plot=True)
-"""
+                                  induction_index, baseline_indexes=ramp_baseline_indexes)
+ramp_error(polished_result['x'], xmin0, xmax0, build_rule_waveform0, ramp[induction_index], induction_index,
+           baseline_indexes=ramp_baseline_indexes, plot=True)
 
-"""
-induction_index = 0
-result = optimize_explore(x1, xmin1, xmax1, ramp_error, build_rule_waveform1, ramp[induction_index], induction_index,
-                          maxfev=700)
-polished_result = optimize_polish(result['x'], xmin1, xmax1, ramp_error, build_rule_waveform1, ramp[induction_index],
-                                  induction_index)
-ramp_error(polished_result['x'], xmin1, xmax1, build_rule_waveform1, ramp[induction_index], induction_index, plot=True)
-"""
 
 induction_index = 0
-this_rule_waveform, this_delta_weights, this_model_ramp, baseline = ramp_error(x1, xmin1, xmax1, build_rule_waveform1,
-                                                                             ramp[induction_index],
-                                                                             induction_index, plot=True,
-                                                                             full_output=True)
-rule_waveforms.append(this_rule_waveform)
-delta_weights.append(this_delta_weights)
-model_ramp.append(this_model_ramp)
+result = optimize_explore(x1, xmin1, xmax1, ramp_error1, ramp[induction_index], induction_index,
+                          baseline_indexes=ramp_baseline_indexes, maxfev=700)
+polished_result = optimize_polish(result['x'], xmin1, xmax1, ramp_error1, ramp[induction_index], induction_index,
+                                  baseline_indexes=ramp_baseline_indexes)
+
+ramp_error1(polished_result['x'], xmin1, xmax1, ramp[induction_index], induction_index,
+            baseline_indexes=ramp_baseline_indexes, plot=True)
+
+
+induction_index = 0
+this_rule_waveform0, this_raw_delta_weights0, this_model_ramp0, this_baseline0, this_rule_gain0 = \
+    ramp_error1(x1, xmin1, xmax1, ramp[induction_index], induction_index, baseline_indexes=ramp_baseline_indexes,
+                plot=False, full_output=True)
+rule_waveforms.append(this_rule_waveform0)
+delta_weights.append(this_raw_delta_weights0 * this_rule_gain0)
+model_ramp.append(this_model_ramp0)
+
 
 induction_index = 1
 
-result = optimize_explore(x2, xmin2, xmax2, ramp_error, build_rule_waveform2, difference, induction_index, baseline,
+result = optimize_explore(x2, xmin2, xmax2, ramp_error2,  ramp[induction_index], induction_index,
+                          orig_weights=this_raw_delta_weights0, baseline=this_baseline0, rule_gain=this_rule_gain0,
                           maxfev=700)
-polished_result = optimize_polish(result['x'], xmin2, xmax2, ramp_error, build_rule_waveform2, difference,
-                                  induction_index, baseline)
-this_rule_waveform, this_delta_weights, this_model_ramp, baseline = ramp_error(polished_result['x'], xmin2, xmax2,
-                                                                               build_rule_waveform2, difference,
-                                                                               induction_index, baseline=baseline,
-                                                                               plot=True, full_output=True)
-rule_waveforms.append(this_rule_waveform)
-delta_weights.append(this_delta_weights)
-model_ramp.append(this_model_ramp)
+polished_result = optimize_polish(result['x'], xmin2, xmax2, ramp_error2, ramp[induction_index], induction_index,
+                                  orig_weights=this_raw_delta_weights0, baseline=this_baseline0,
+                                  rule_gain=this_rule_gain0)
+ramp_error2(polished_result['x'], xmin2, xmax2, ramp[induction_index], induction_index,
+                orig_weights=this_raw_delta_weights0, baseline=this_baseline0, rule_gain=this_rule_gain0, plot=True)
+
+this_rule_waveform1, this_raw_delta_weights1, this_model_ramp1, this_baseline1, this_rule_gain1 = \
+    ramp_error2(x2, xmin2, xmax2, ramp[induction_index], induction_index, orig_weights=this_raw_delta_weights0,
+                baseline=this_baseline0, rule_gain=this_rule_gain0, plot=False, full_output=True)
+
+rule_waveforms.append(this_rule_waveform1)
+delta_weights.append(this_raw_delta_weights1 * this_rule_gain1)
+model_ramp.append(this_model_ramp1)
+"""
+
+result = optimize_explore(x2, xmin2, xmax2, ramp_error3, ramp, baseline_indexes=ramp_baseline_indexes, maxfev=700)
+"""
+polished_result = optimize_polish(result['x'], xmin2, xmax2, ramp_error3, ramp, baseline_indexes=ramp_baseline_indexes)
+ramp_error3(polished_result['x'], xmin2, xmax2, ramp, baseline_indexes=ramp_baseline_indexes, plot=True)
+
+rule_waveforms, delta_weights, model_ramp, new_baseline, rule_gain = ramp_error3(x2, xmin2, xmax2, ramp, plot=False,
+                                                                                 full_output=True)
+
+colors = ['r', 'k', 'c', 'g']
+x_start = [induction_loc/track_length for induction_loc in induction_locs]
+
+ylim = max(np.max(ramp), np.max(model_ramp))
+fig, axes = plt.subplots(1)
+for i in range(len(model_ramp)):
+    axes.plot(x_bins, ramp[i], color=colors[i+2], label='Experiment'+str(i+1))
+    axes.plot(x_bins, model_ramp[i], color=colors[i], label='Model'+str(i+1))
+    axes.axhline(y=ylim+0.3, xmin=x_start[i], xmax=x_start[i]+0.02, c=colors[i], linewidth=3., zorder=0)
+axes.set_xlabel('Location (cm)')
+axes.set_xlim(0., track_length)
+axes.set_ylabel('Depolarization (mV)')
+plt.legend(loc='best', frameon=False, framealpha=0.5)
+plt.show()
+plt.close()
+
+fig, axes = plt.subplots(1)
+t_waveform = np.arange(-rule_max_timescale, rule_max_timescale, dt)
+for i in range(len(model_ramp)):
+    axes.plot(t_waveform, rule_waveforms[i], label='Induction kernel '+str(i+1), color=colors[i])
+axes.set_xlabel('Time (ms)')
+axes.set_xlim(-rule_max_timescale, rule_max_timescale)
+axes.set_ylabel('Change in synaptic weight per spike')
+plt.legend(loc='best', frameon=False, framealpha=0.5)
+plt.show()
+plt.close()
+
+ylim = np.max(delta_weights) + 1.
+fig, axes = plt.subplots(1)
+for i in range(len(model_ramp)):
+    axes.scatter(peak_locs['CA3'], delta_weights[i] + 1., label='Weights'+str(i+1), color=colors[i])
+    axes.axhline(y=ylim + 0.1, xmin=x_start[i], xmax=x_start[i] + 0.01, c=colors[i], linewidth=3., zorder=0)
+axes.set_xlabel('Location (cm)')
+axes.set_xlim(0., track_length)
+axes.set_ylabel('Relative synaptic weight')
+plt.legend(loc='best', frameon=False, framealpha=0.5)
+plt.show()
+plt.close()
+
+if len(delta_weights) > 1:
+    fig, axes = plt.subplots(1)
+    axes.scatter(delta_weights[0]+1., delta_weights[1]+1.)
+    clean_axes(axes)
+    plt.show()
+    plt.close()
+"""
