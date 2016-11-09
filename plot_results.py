@@ -403,6 +403,46 @@ def plot_Rinp(rec_file_list, description_list="", title=None):
     plt.show()
     plt.close()
 
+def plot_Rinp_general(rec_file_list, sectypes_list = None, features_list=None, labels=None):
+    """
+
+    :return:
+    """
+    if features_list is None or labels is None:
+        features_list = ['Rinp_peak', 'Rinp_baseline', 'Rinp_steady', 'decay_50']
+        labels_dict = {'Rinp_peak': 'Peak Rinp', 'Rinp_baseline': 'Baseline Rinp',
+                       'Rinp_steady': 'Steady Rinp', 'decay_50': '50% Decay Point'}
+    else:
+        labels_dict = {features_list: features_list}
+
+    if isinstance(rec_file_list, str):
+        rec_file_list = [rec_file_list]
+
+    feature_dict = {feature: {sectype: [] for sectype in sectypes_list} for feature in features_list}
+    distances_dict = {feature: {sectype: [] for sectype in sectypes_list} for feature in features_list}
+
+    for rec_file in rec_file_list:
+        with h5py.File(data_dir + rec_file + '.hdf5', 'w') as f:
+            for item in f['Rinp_data'].itervalues():
+                if item.attrs['type'] in sectypes_list:
+                    for feature in features_list:
+                        distances_dict[feature][item.attrs['type']].append(item.attrs['soma_distance'])
+                        if item.attrs['type'] in ['basal', 'ais', 'axon_hill']:
+                            feature_dict[feature][item.attrs['type']].append(item.attrs[feature]*-1.)
+                        else:
+                            feature_dict[feature][item.attrs['type']].append(item.attrs[feature])
+
+    for index, feature in enumerate(features_list):
+        plt.figure(index)
+        colors = ['r', 'g', 'b', 'gray', 'darkviolet', 'goldenrod']
+        for i, sectype in enumerate(sectypes_list):
+            plt.scatter(distances_dict[feature][sectype], feature_dict[feature][sectype], label=sectype, color = colors[i])
+        plt.xlabel(feature)
+        plt.ylabel("Rinp values")
+        plt.legend(loc='best', scatterpoints = 1, frameon=False, framealpha=0.5)
+    plt.show()
+    plt.close()
+
 
 def plot_Rinp_vm(rec_file_list, description_list="", title=None):
     """

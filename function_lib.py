@@ -582,8 +582,21 @@ def time2index(tvec, start, stop):
         left -= 1
     return left, right
 
+def interpolate_tvec_vec(tvec, vec, duration, dt=0.02):
+    """
+    Interpolates the array for tvec from t=0 to t=duration according to the dt time step, and interpolates the
+    vec array to correlate with the interpolated tvec array.
+    :param tvec: vector of times
+    :param vec: vector of voltage recordings
+    :param duration: length of time of voltage trace
+    :param dt:
+    :return:
+    """
+    interp_t = np.arange(0., duration, dt)
+    interp_vm = np.interp(interp_t, tvec, vec)
+    return interp_t, interp_vm
 
-def get_Rinp(tvec, vec, start, stop, amp):
+def get_Rinp(tvec, vec, start, stop, amp, dt=0.02):
     """
     Calculate peak and steady-state input resistance from a step current injection. For waveform current injections, the
     peak but not the steady-state will have meaning.
@@ -592,16 +605,19 @@ def get_Rinp(tvec, vec, start, stop, amp):
     :param start: float
     :param stop: float
     :param amp: float
+    :param dt: float
     :return: tuple of float
     """
 
-    interp_t = np.arange(0., stop, 0.01)
-    interp_vm = np.interp(interp_t, tvec, vec)
-    left, right = time2index(interp_t, start-3., start-1.)
+    interp_t, interp_vm = interpolate_tvec_vec(tvec, vec, stop, dt)
+    left = int((start-3.) / dt)
+    right = left + int(2. / dt)
     baseline = np.mean(interp_vm[left:right])
     temp_vec = np.abs(interp_vm - baseline)
-    peak = np.max(temp_vec[right:])
-    left, right = time2index(interp_t, stop-3., stop-1.)
+    start_index = int(start / dt)
+    peak = np.max(temp_vec[start_index:])
+    left = int((stop-3.) / dt)
+    right = left + int(2. / dt)
     plateau = np.mean(temp_vec[left:right])
     return baseline, peak/abs(amp), plateau/abs(amp)
 

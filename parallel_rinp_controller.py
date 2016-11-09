@@ -12,13 +12,16 @@ Assumes a controller is already running in another process with:
 ipcluster start -n num_cores
 """
 
-new_rec_filename = parallel_rinp_engine.mech_filename+' - Rinp'
-
 if len(sys.argv) > 1:
     cluster_id = sys.argv[1]
     c = Client(cluster_id=cluster_id)
 else:
     c = Client()
+if len(sys.argv) > 2:
+    description = str(sys.argv[2])
+    new_rec_filename = datetime.datetime.today().strftime('%m%d%Y%H%M')+'_Rinp_'+description
+else:
+    new_rec_filename = datetime.datetime.today().strftime('%m%d%Y%H%M') + '_Rinp'
 
 dv = c[:]
 dv.clear()
@@ -32,6 +35,7 @@ v = c.load_balanced_view()
 num_secs = len(parallel_rinp_engine.nodes)
 
 result = v.map_async(parallel_rinp_engine.test_single_section, range(num_secs))
+#result = v.map_async(parallel_rinp_engine.test_single_section, range(20))
 while not result.ready():
     time.sleep(30)
     clear_output()
@@ -42,7 +46,56 @@ while not result.ready():
     sys.stdout.flush()
 print 'Parallel execution took: ', time.time()-start_time, ' s'
 rec_file_list = [filename for filename in dv['rec_filename'] if os.path.isfile(data_dir+filename+'.hdf5')]
-combine_output_files(rec_file_list, new_rec_filename)
+
+with h5py.File(data_dir+new_rec_filename+'.hdf5', 'w') as f:
+    f.create_group("Rinp_data")
+    f.create_group("avg_waves")
+    rec_dict = {sec_type:[] for sec_type in ['axon', 'soma']}
+    #create group for avg waves
+    trial_ind = 0
+    for filename in rec_file_list:
+        with h5py.File(data_dir + filename + '.hdf5', 'r') as r:
+            for trial in r.itervalues():
+                f["Rinp_data"].create_group(str(trial_ind))
+                for key, value in trial.attrs.iteritems():
+                    f["Rinp_data"][str(trial_ind)].attrs[key] = value
+                    #'Rinp_peak', 'decay_50', 'Rinp_baseline', 'Rinp_steady'
+                rec = trial['rec'].itervalues().next()
+                for key, value in rec.attrs.iteritems():
+                    f["Rinp_data"][str(trial_ind)].attrs[key] = value
+                    # adds 'cell', 'index', 'type', 'loc', 'soma_distance', 'branch_distance'
+                sec_type = rec.attrs['type']
+                if sec_type in ['ais', 'axon_hill']:
+                    key = 'axon'
+                elif sec_type in ['apical', 'trunk', 'tuft', 'basal']:
+                    distance = rec.attrs['soma_distance']
+                    if distance < 200.:
+                        key = 'prox_'+sec_type
+                    else:
+                        key = 'dist_'+sec_type
+                else:
+                    key = sec_type
+                if key not in rec_dict:
+                    rec_dict[key] = []
+                dt = 0.02
+                interp_t, interp_vm = interpolate_tvec_vec(trial['time'], rec, parallel_rinp_engine.duration, dt)
+                if trial_ind == 0:
+                    f["avg_waves"].create_dataset('time', compression='gzip', compression_opts=9,
+                                                  data=interp_t[int(parallel_rinp_engine.equilibrate/dt):] -
+                                                  parallel_rinp_engine.equilibrate - parallel_rinp_engine.delay)
+                #need to fix interpolation here
+                rec_dict[key].append(interp_vm[int(parallel_rinp_engine.equilibrate/dt):])
+                trial_ind += 1
+
+    #average waveforms for soma, prox_dend, axon, dist_dend
+    for key in rec_dict:
+        if np.any(rec_dict[key]):
+            f["avg_waves"].create_dataset(key, compression='gzip', compression_opts=9,
+                                                            data=(np.mean(rec_dict[key], axis=0)))
+
+
 for filename in rec_file_list:
     os.remove(data_dir+filename+'.hdf5')
-#plot_Rinp(new_rec_filename)
+
+#plot_Rinp_general(new_rec_filename)
+

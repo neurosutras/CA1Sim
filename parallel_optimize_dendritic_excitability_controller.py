@@ -300,7 +300,7 @@ dv.clear()
 dv.block = True
 global_start_time = time.time()
 dv.execute('run parallel_optimize_dendritic_excitability_engine %i' % int(spines))
-
+time.sleep(300)
 v = c.load_balanced_view()
 
 

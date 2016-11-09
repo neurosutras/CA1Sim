@@ -11,13 +11,22 @@ section type to test R_inp.
 
 # morph_filename = 'EB2-late-bifurcation.swc'
 morph_filename = 'DG_GC_355549.swc'
-mech_filename = '102016 DG_GC pas no_spines'
 rec_filename = str(time.strftime('%m%d%Y', time.gmtime()))+'_'+str(time.strftime('%H%M%S', time.gmtime()))+\
                '_pid'+str(os.getpid())+'_sim_output'
 
 # placeholder for optimization parameter, must be pushed to each engine on each iteration
 # x: array ['soma.g_pas', 'dend.g_pas slope', 'dend.g_pas tau', 'dend.gpas max_loc']
-x = [3.63E-09, 9.15E-09, 2.82E+01, 3.00E+02]
+if len(sys.argv) > 1:
+    spines = bool(int(sys.argv[1]))
+else:
+    spines = False
+
+if spines:
+    x = [3.63E-09, 9.15E-09, 2.82E+01, 3.00E+02]
+    mech_filename = '110316 DG_GC pas spines'
+else:
+    x = [2.00E-08, 9.03E-08, 3.63E+01, 3.00E+02]
+    mech_filename = '110316 DG_GC pas no_spines'
 
 i_holding = {'soma': 0., 'dend': 0., 'distal_dend': 0.}
 
@@ -164,11 +173,6 @@ amp = 0.3
 th_dvdt = 10.
 v_init = -67.
 v_active = -61.
-
-if len(sys.argv) > 1:
-    spines = bool(int(sys.argv[1]))
-else:
-    spines = False
 
 if spines:
     sim_description = 'with_spines'
