@@ -1,29 +1,40 @@
 __author__ = 'milsteina'
 from specify_cells2 import *
 import os
+import sys
+from ipyparallel import interactive
 """
 Builds a cell locally so each engine is ready to receive jobs one at a time, specified by an index corresponding to
 which section to simulate (full sampling of sections).
 """
 
-#morph_filename = 'EB2-late-bifurcation.swc'
-#mech_filename = '043016 Type A - km2_NMDA_KIN5_Pr'
-
 morph_filename = 'DG_GC_355549.swc'
-mech_filename = '110316 DG_GC pas spines'
-#mech_filename = '110316 DG_GC pas no_spines'
-
 rec_filename = 'output'+datetime.datetime.today().strftime('%m%d%Y%H%M')+'-pid'+str(os.getpid())
+mech_filename = None
+spines=False
+"""
+if len(sys.argv) > 1:
+    spines = bool(int(sys.argv[1]))
+else:
+    spines = False
+
+if len(sys.argv) > 2:
+    mech_filename = str(sys.argv[2])
+else:
+    mech_filename = None
+"""
 
 
-def test_single_section(sec_index):
+@interactive
+def test_single_section(sec_index, loc=None):
     """
     :param sec_index: int
     :return: str
     """
     start_time = time.time()
     node = nodes[sec_index]
-    loc = 0. if node.type == 'soma' else 0.5
+    if loc is None:
+        loc = 0. if node.type == 'soma' else 0.5
     sim.modify_rec(0, node=node, loc=loc)
     sim.modify_stim(0, node=node, loc=loc)
     sim.run(v_init)
@@ -36,7 +47,10 @@ def test_single_section(sec_index):
         sim.export_to_file(f, sec_index)
     print 'Process:', os.getpid(), 'completed Iteration:', sec_index, 'Node:', node.name, 'in', \
         time.time() - start_time, 's'
+    if cell.is_terminal(node):
+        test_single_section(sec_index, 1.)
     return rec_filename
+
 
 def calc_decay(decay_degree, tvec, vec, start, stop, dt = 0.02):
     """
@@ -77,7 +91,7 @@ amp = -0.15
 v_init = -67.
 
 #cell = CA1_Pyr(morph_filename, mech_filename, full_spines=True)
-cell = DG_GC(morph_filename, mech_filename, full_spines=True)
+cell = DG_GC(morph_filename, mech_filename, full_spines=spines)
 cell.zero_na()
 
 nodes = cell.soma+cell.basal+cell.trunk+cell.apical+cell.tuft+cell.axon

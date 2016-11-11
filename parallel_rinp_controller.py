@@ -13,25 +13,35 @@ ipcluster start -n num_cores
 """
 
 if len(sys.argv) > 1:
-    cluster_id = sys.argv[1]
+    spines = bool(int(sys.argv[1]))
+else:
+    spines = False
+if len(sys.argv) > 2:
+    mech_filename = str(sys.argv[2])
+else:
+    mech_filename = '110316 DG_GC pas spines'
+if len(sys.argv) > 3:
+    description = str(sys.argv[3])
+    new_rec_filename = datetime.datetime.today().strftime('%m%d%Y%H%M') + '_Rinp_' + description
+else:
+    new_rec_filename = datetime.datetime.today().strftime('%m%d%Y%H%M') + '_Rinp'
+if len(sys.argv) > 4:
+    cluster_id = sys.argv[4]
     c = Client(cluster_id=cluster_id)
 else:
     c = Client()
-if len(sys.argv) > 2:
-    description = str(sys.argv[2])
-    new_rec_filename = datetime.datetime.today().strftime('%m%d%Y%H%M')+'_Rinp_'+description
-else:
-    new_rec_filename = datetime.datetime.today().strftime('%m%d%Y%H%M') + '_Rinp'
+
 
 dv = c[:]
 dv.clear()
 dv.block = True
 start_time = time.time()
-result = dv.execute('from parallel_rinp_engine import *')
-while not result.ready():
-    time.sleep(30)
+# dv.execute('run parallel_rinp_engine %i \"%s\"' % (int(spines), mech_filename))
+# dv.execute('run parallel_rinp_engine %i' % (int(spines)))
+dv.execute('from parallel_rinp_engine import *')
+time.sleep(45)
 v = c.load_balanced_view()
-
+"""
 num_secs = len(parallel_rinp_engine.nodes)
 
 result = v.map_async(parallel_rinp_engine.test_single_section, range(num_secs))
@@ -98,4 +108,4 @@ for filename in rec_file_list:
     os.remove(data_dir+filename+'.hdf5')
 
 #plot_Rinp_general(new_rec_filename)
-
+"""

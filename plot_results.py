@@ -403,42 +403,58 @@ def plot_Rinp(rec_file_list, description_list="", title=None):
     plt.show()
     plt.close()
 
-def plot_Rinp_general(rec_file_list, sectypes_list = None, features_list=None, labels=None):
+def plot_Rinp_general(rec_file_list, sectypes_list=None, features_list=None, labels=None):
     """
 
     :return:
     """
-    if features_list is None or labels is None:
+    for parameter in [rec_file_list, sectypes_list, features_list, labels]:
+        if isinstance(parameter, str):
+            parameter = [parameter]
+    if (sectypes_list is None):
+        sectypes_list = ['axon','apical','soma']
+    axon_types_list = ['axon','ais','axon_hill']
+    dend_types_list = ['basal','apical','trunk','tuft']
+    if features_list is None:
         features_list = ['Rinp_peak', 'Rinp_baseline', 'Rinp_steady', 'decay_50']
-        labels_dict = {'Rinp_peak': 'Peak Rinp', 'Rinp_baseline': 'Baseline Rinp',
-                       'Rinp_steady': 'Steady Rinp', 'decay_50': '50% Decay Point'}
+    if labels is None:
+        labels_dict = {'Rinp_peak': 'Peak Rinp (MOhm)', 'Rinp_baseline': 'Baseline Vm (mV)',
+                       'Rinp_steady': 'Steady Rinp (MOhm)', 'decay_50': '50% Decay Point (ms)'}
     else:
-        labels_dict = {features_list: features_list}
+        labels_dict = {feature: label for (feature, label) in zip(features_list, labels)}
 
-    if isinstance(rec_file_list, str):
-        rec_file_list = [rec_file_list]
-
-    feature_dict = {feature: {sectype: [] for sectype in sectypes_list} for feature in features_list}
-    distances_dict = {feature: {sectype: [] for sectype in sectypes_list} for feature in features_list}
+    feature_dict = {feature: {} for feature in features_list}
+    distances_dict = {feature: {} for feature in features_list}
 
     for rec_file in rec_file_list:
-        with h5py.File(data_dir + rec_file + '.hdf5', 'w') as f:
+        with h5py.File(data_dir + rec_file + '.hdf5', 'r') as f:
             for item in f['Rinp_data'].itervalues():
-                if item.attrs['type'] in sectypes_list:
+                if ((item.attrs['type'] in sectypes_list) or ('axon' in sectypes_list and item.attrs['type'] in axon_types_list)
+                                        or ('dendrite' in sectypes_list and item.attrs['type'] in dend_types_list)):
+                    if ('axon' in sectypes_list and item.attrs['type'] in axon_types_list):
+                        sectype = 'axon'
+                    elif ('dendrite' in sectypes_list and item.attrs['type'] in dend_types_list):
+                        sectype = 'dendrite'
+                    else:
+                        sectype = item.attrs['type']
                     for feature in features_list:
-                        distances_dict[feature][item.attrs['type']].append(item.attrs['soma_distance'])
-                        if item.attrs['type'] in ['basal', 'ais', 'axon_hill']:
-                            feature_dict[feature][item.attrs['type']].append(item.attrs[feature]*-1.)
+                        if sectype not in distances_dict[feature]:
+                            distances_dict[feature][sectype] = []
+                        if item.attrs['type'] in ['basal', 'axon', 'ais', 'axon_hill']:
+                            distances_dict[feature][sectype].append(item.attrs['soma_distance'] * -1.)
                         else:
-                            feature_dict[feature][item.attrs['type']].append(item.attrs[feature])
+                            distances_dict[feature][sectype].append(item.attrs['soma_distance'])
+                        if sectype not in feature_dict[feature]:
+                            feature_dict[feature][sectype] = []
+                        feature_dict[feature][sectype].append(item.attrs[feature])
 
     for index, feature in enumerate(features_list):
         plt.figure(index)
         colors = ['r', 'g', 'b', 'gray', 'darkviolet', 'goldenrod']
         for i, sectype in enumerate(sectypes_list):
             plt.scatter(distances_dict[feature][sectype], feature_dict[feature][sectype], label=sectype, color = colors[i])
-        plt.xlabel(feature)
-        plt.ylabel("Rinp values")
+        plt.xlabel('Distance to soma')
+        plt.ylabel(labels_dict[feature])
         plt.legend(loc='best', scatterpoints = 1, frameon=False, framealpha=0.5)
     plt.show()
     plt.close()
