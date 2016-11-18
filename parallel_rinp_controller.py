@@ -1,10 +1,11 @@
 __author__ = 'milsteina'
-from ipyparallel import Client
-from IPython.display import clear_output
-from plot_results import *
 import parallel_rinp_engine
 import sys
 import os
+from ipyparallel import Client
+from IPython.display import clear_output
+from plot_results import *
+
 """
 Parallel version: Iterates through every section, injecting hyperpolarizing current and measuring input resistance.
 
@@ -36,10 +37,8 @@ dv = c[:]
 dv.clear()
 dv.block = True
 start_time = time.time()
-# dv.execute('run parallel_rinp_engine %i \"%s\"' % (int(spines), mech_filename))
-# dv.execute('run parallel_rinp_engine %i' % (int(spines)))
-dv.execute('from parallel_rinp_engine import *')
-time.sleep(45)
+dv.execute('run parallel_rinp_engine %i \"%s\"' % (int(spines), mech_filename))
+# time.sleep(120)
 v = c.load_balanced_view()
 """
 num_secs = len(parallel_rinp_engine.nodes)

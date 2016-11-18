@@ -10,9 +10,7 @@ which section to simulate (full sampling of sections).
 
 morph_filename = 'DG_GC_355549.swc'
 rec_filename = 'output'+datetime.datetime.today().strftime('%m%d%Y%H%M')+'-pid'+str(os.getpid())
-mech_filename = None
-spines=False
-"""
+
 if len(sys.argv) > 1:
     spines = bool(int(sys.argv[1]))
 else:
@@ -22,10 +20,8 @@ if len(sys.argv) > 2:
     mech_filename = str(sys.argv[2])
 else:
     mech_filename = None
-"""
 
 
-@interactive
 def test_single_section(sec_index, loc=None):
     """
     :param sec_index: int
