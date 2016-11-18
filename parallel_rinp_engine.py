@@ -8,11 +8,9 @@ Builds a cell locally so each engine is ready to receive jobs one at a time, spe
 which section to simulate (full sampling of sections).
 """
 
-rec_filename = 'output'+datetime.datetime.today().strftime('%m%d%Y%H%M')+'-pid'+str(os.getpid())
 morph_filename = 'DG_GC_355549.swc'
-mech_filename = None
-spines=False
-"""
+rec_filename = 'output'+datetime.datetime.today().strftime('%m%d%Y%H%M')+'-pid'+str(os.getpid())
+
 if len(sys.argv) > 1:
     spines = bool(int(sys.argv[1]))
 else:
@@ -22,10 +20,8 @@ if len(sys.argv) > 2:
     mech_filename = str(sys.argv[2])
 else:
     mech_filename = None
-"""
 
 
-@interactive
 def test_single_section(sec_index, loc=None):
     """
     :param sec_index: int

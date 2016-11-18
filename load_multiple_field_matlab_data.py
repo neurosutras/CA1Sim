@@ -3,6 +3,9 @@ from plot_results import *
 import scipy.io as io
 import scipy.signal as signal
 import sys
+mpl.rcParams['font.size'] = 30.
+mpl.rcParams['legend.fontsize'] = 30.
+mpl.rcParams['figure.figsize'] = 6, 4.3
 
 """
 Loads .mat file from MATLAB containing:
@@ -60,6 +63,17 @@ elif filename1 == 'newcell4':
     induction_locs = [150., 65.]
 elif filename1 == 'newcell5':
     induction_locs = [88., 45.]
+
+if filename2 == 'newcell1':
+    induction_locs[1] = 125.
+elif filename2 == 'newcell2':
+    induction_locs[1] = 128.
+elif filename2 == 'newcell3':
+    induction_locs[1] = 90.
+elif filename2 == 'newcell4':
+    induction_locs[1] = 150.
+elif filename2 == 'newcell5':
+    induction_locs[1] = 88.
 
 
 def get_delta_t(pos):
@@ -164,7 +178,7 @@ max_vel = math.ceil(ylim/10.) * 10.
 fig, axes = plt.subplots(1)
 for i in range(len(vel)):
     # axes.plot(x, vel[i])
-    axes.plot(x, smoothed_vel[i], label='Mean vel: %.1f cm/s' % mean_vel[i], color=colors[i])
+    axes.plot(x, smoothed_vel[i], label='Field induction '+str(i+1), color=colors[i])
     axes.axhline(y=ylim + 0.3, xmin=x_start[i], xmax=x_start[i] + 0.02, c=colors[i], linewidth=3., zorder=0)
 axes.set_ylabel('Velocity (cm/s)')
 axes.set_xlabel('Location (cm)')
@@ -176,7 +190,8 @@ clean_axes(axes)
 plt.show()
 plt.close()
 
-
+"""
 saved_filename = '110716 katie '+filename1+' saved output'
 saved = {'t': t, 'ramp': filtered_vm, 'difference': difference, 'induction_locs': induction_locs}
 write_to_pkl(data_dir+saved_filename+'.pkl', saved)
+"""

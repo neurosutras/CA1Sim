@@ -2121,6 +2121,7 @@ def clean_axes(axes):
     if not type(axes) in [np.ndarray, list]:
         axes = [axes]
     for axis in axes:
+        axis.tick_params(direction='out')
         axis.spines['top'].set_visible(False)
         axis.spines['right'].set_visible(False)
         axis.get_xaxis().tick_bottom()
