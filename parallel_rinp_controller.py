@@ -41,7 +41,7 @@ start_time = time.time()
 dv.execute('from parallel_rinp_engine import *')
 time.sleep(45)
 v = c.load_balanced_view()
-"""
+
 num_secs = len(parallel_rinp_engine.nodes)
 
 result = v.map_async(parallel_rinp_engine.test_single_section, range(num_secs))
@@ -108,4 +108,3 @@ for filename in rec_file_list:
     os.remove(data_dir+filename+'.hdf5')
 
 #plot_Rinp_general(new_rec_filename)
-"""

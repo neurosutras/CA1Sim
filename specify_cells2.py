@@ -30,6 +30,7 @@ class HocCell(object):
         self.tree = btmorph.STree2()  # Builds a simple tree to store nodes of type 'SHocNode'
         self.index = 0  # Keep track of number of nodes
         self._node_dict = {'soma': [], 'axon': [], 'basal': [], 'trunk': [], 'apical': [], 'tuft': [], 'spine': []}
+        self.mech_filename = mech_filename
         self.mech_dict = self.load_mech_dict(mech_filename)  # Refer to function_lib for description of structure of
                                                              # mechanism dictionary. loads from .pkl or
                                                              # default_mech_dict in function_lib

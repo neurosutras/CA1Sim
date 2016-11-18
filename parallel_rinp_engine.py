@@ -8,8 +8,8 @@ Builds a cell locally so each engine is ready to receive jobs one at a time, spe
 which section to simulate (full sampling of sections).
 """
 
-morph_filename = 'DG_GC_355549.swc'
 rec_filename = 'output'+datetime.datetime.today().strftime('%m%d%Y%H%M')+'-pid'+str(os.getpid())
+morph_filename = 'DG_GC_355549.swc'
 mech_filename = None
 spines=False
 """
