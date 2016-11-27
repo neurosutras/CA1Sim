@@ -616,7 +616,7 @@ def build_kernel1(x, plot=False):
         axes.legend(loc='best', frameon=False, framealpha=0.5)
         axes.set_xlabel('Time (ms)')
         axes.set_ylabel('Relative kernel amplitude (a.u.)')
-        axes.set_xlim(-500., max(filter_t[:len(local_filter)][-1], filter_t[:len(global_filter)][-1]))
+        axes.set_xlim(-500., max(5000., max(filter_t[:len(local_filter)][-1], filter_t[:len(global_filter)][-1])))
         clean_axes(axes)
         plt.show()
         plt.close()
@@ -843,14 +843,20 @@ x0 = {}
 
 # x0['1'] = [3.61E+01, 1.24E+03, 1.29E+01, 4.91E+02, 3.21E-03]  # Err: 1.929E+04
 x0['1'] = [1.000E+01, 1.669E+03, 1.000E+01, 3.366E+02, 4.820E-03]  # 4.6118E+04
-# x0['2'] = [231.3749, 2366.1465, 0.8026, 22.0357, 40.5840, 0.0143]  # Err: 1.1192E+05
-x0['2'] = [4.96E+02, 2.34E+03, 1.00E+01, 2.55E+01, 1.96E-02]  # Err: 9.360E+04
+# x0['2'] = [4.96E+02, 2.34E+03, 1.00E+01, 2.55E+01, 1.96E-02]  # Err: 9.360E+04
+x0['2'] = [5.000E+02, 2.343E+03, 2.042E+01, 2.500E+01, 8.808E-03]  # Err: 9.5359E+04
 # x0['3'] = [1.00E+01, 1.79E+03, 3.55E+01, 1.22E+02, 3.13E-03]  # Err: 9.785E+03
 x0['3'] = [1.001E+01, 1.650E+03, 2.943E+01, 1.349E+02, 1.536E-03]  # Err: 1.0000E+04
-# x0['4'] = [449.6926, 2003.5177, 0.6553, 27.4732, 115.4437, 0.0013]  # Err: 8.4060E+04
-x0['4'] = [1.00E+01, 2.13E+03, 1.83E+01, 5.00E+02, 1.46E-03]  # Err: 2.792E+04
+# x0['4'] = [1.00E+01, 2.13E+03, 1.83E+01, 5.00E+02, 1.46E-03]  # Err: 2.792E+04
+x0['4'] = [1.126E+01, 2.124E+03, 2.196E+01, 4.926E+02, 1.001E-03]  # Err: 2.9893E+04
 # x0['5'] = [3.59E+02, 6.97E+02, 2.07E+01, 3.76E+02, 2.40E-03]  # Err: 3.785E+03
 x0['5'] = [3.150E+02, 7.208E+02, 1.000E+01, 3.844E+02, 2.241E-03]  # Err: 3.7821E+03
+x0['6'] = [1.003E+02, 5.002E+02, 1.695E+01, 3.845E+02, 2.663E-03]  # Err: 1.5555E+04
+x0['7'] = [2.395E+02, 7.743E+02, 2.788E+01, 5.000E+02, 1.871E-03]  # Err: 9.7416E+04
+x0['8'] = [2.877E+02, 6.819E+02, 1.223E+01, 5.000E+02, 2.538E-03]  # Err: 1.8180E+04
+x0['9'] = [1.000E+01, 6.480E+02, 1.619E+01, 5.000E+02, 2.296E-03]  # Err: 8.4610E+04
+x0['10'] = [4.956E+02, 3.000E+03, 1.000E+01, 2.500E+01, 5.693E-03]  # Err: 7.9027E+04
+x0['11'] = [2.46E+02, 5.00E+02, 4.97E+01, 4.23E+02, 1.00E-03]  # Err: 2.3930E+05
 
 # to avoid saturation and reduce variability of time courses across cells, impose the relative amplitude
 # of global and local kernels:
@@ -861,8 +867,8 @@ if cell_id in x0:
     x1 = x0[cell_id]
 else:
     x1 = x0['1']
-xmin1 = [10., 500., 10., 25., 1.e-3]
-xmax1 = [500., 3000., 50., 500., 5.e-2]
+xmin1 = [10., 300., 10., 25., 5.e-4]
+xmax1 = [500., 4000., 50., 1000., 2.e-2]
 
 
 induction = 1
@@ -874,7 +880,7 @@ result = optimize_explore(x1, xmin1, xmax1, ramp_error1, ramp[induction], induct
 polished_result = optimize_polish(result['x'], xmin1, xmax1, ramp_error1, ramp[induction], induction)
 
 hist.report_best()
-hist.export('112616_magee_data_optimization_long_cell'+cell_id)
+hist.export('112716_magee_data_optimization_long_cell'+cell_id)
 """
 ramp_error1(polished_result['x'], xmin1, xmax1, ramp[induction], induction, plot=True)
 
