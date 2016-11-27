@@ -1434,7 +1434,7 @@ def plot_mech_param_distribution(cell, mech_name, param_name, scale_factor=10000
         mpl.rcParams['font.size'] = remember_font_size
 
 
-def new_plot_mech_param_distribution(cell, mech_name, param_name, import_file=None, export=None, scale_factor=10000.,
+def new_plot_mech_param_distribution(cell, mech_name, param_name, export_file=None, scale_factor=10000.,
                         param_label=None, ylabel='Conductance density', yunits='pS/um2', svg_title=None):
     """
     cell = DG_GC(morph_filename = 'DG_GC_355549.swc', mech_filename=None, full_spines=False)
@@ -1506,30 +1506,26 @@ def new_plot_mech_param_distribution(cell, mech_name, param_name, import_file=No
     if svg_title is not None:
         mpl.rcParams['font.size'] = remember_font_size
 
-    if import_file is not None:
-        with h5py.File(data_dir + import_file + '.hdf5', 'w') as w:
+    if export_file is not None:
+        with h5py.File(data_dir + export_file + '.hdf5', 'a') as w:
             if w.attrs['mech_filename'] == cell.mech_filename:
                 if not 'distances' in w.keys():
-                    f.create_group('distances')
-                    f['distances'].create_group(sec_type)
-                    f['distances'][sec_type].create_dataset('values', data=distances[sec_type])
+                    w.create_group('distances')
+                    w['distances'].create_group(sec_type)
+                    w['distances'][sec_type].create_dataset('values', data=distances[sec_type])
             else:
+                pass
                 #raise error exception
 
+            if not mech_name in w.keys():
+                w.create_group(mech_name)
+                if not param_name in w[mech_name].keys():
+                    w[mech_name].create_group(param_name)
+                    w[mech_name][param_name].create_group(sec_type)
+                    w[mech_name][param_name][sec_type].create_dataset('values', data=param_vals)
 
-    if not mech_name in f.keys():
-        f.create_group(mech_name)
-        if not param_name in f[mech_name].keys():
-            f[mech_name].create_group(param_name)
-            f[mech_name][param_name].create_group(sec_type)
-            f[mech_name][param_name][sec_type].create_dataset('values', data=param_vals)
-
-
-    f.close()
-    if export is None:
-        os.remove(data_dir+filename+'.hdf5')
-    #don't export if mech_filename doesn't match up with the one in the cell
-    #don't export if hdf5 file already has groups for this mech_name and param_name
+            #don't export if mech_filename doesn't match up with the one in the cell
+            #don't export if hdf5 file already has groups for this mech_name and param_name
 
 """
 def plot_mech_param_from_file(mech_name, param_name, param_label=None, ylabel='Conductance density', yunits='pS/um2',

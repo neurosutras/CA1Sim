@@ -26,12 +26,14 @@ def basal_release_error(x, plot=0):
     for i in range(repeat):
         instructions.append(x)
     map_result = v.map_async(parallel_optimize_pr_engine_020116.sim_stim_train_basal, instructions)
+    last_line = ''
     while not map_result.ready():
         time.sleep(30)
         clear_output()
         for stdout in [stdout for stdout in map_result.stdout if stdout][-len(c):]:
             lines = stdout.split('\n')
-            if lines[-2]:
+            if lines[-2] and lines[-2] != last_line:
+                last_line = lines[-2]
                 print lines[-2]
         sys.stdout.flush()
     unit_amps = []
