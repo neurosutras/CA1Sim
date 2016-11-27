@@ -872,6 +872,9 @@ induction = 1
 result = optimize_explore(x1, xmin1, xmax1, ramp_error1, ramp[induction], induction, maxfev=700)
 
 polished_result = optimize_polish(result['x'], xmin1, xmax1, ramp_error1, ramp[induction], induction)
+
+hist.report_best()
+hist.export('112616_magee_data_optimization_long_cell'+cell_id)
 """
 ramp_error1(polished_result['x'], xmin1, xmax1, ramp[induction], induction, plot=True)
 
