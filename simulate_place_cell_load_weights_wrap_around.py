@@ -41,7 +41,7 @@ else:
 if len(sys.argv) > 5:
     mean_run_vel = int(sys.argv[5])
 else:
-    mean_run_vel = None
+    mean_run_vel = 0.
 
 weights_filename = None
 
@@ -301,7 +301,9 @@ for sec_type in all_inh_syns:
             if 'GABA_A_KIN' in syn._syn:
                 all_inh_syns[sec_type].append(syn)
 
-sim = QuickSim(duration, cvode=0, dt=0.01)
+sim_dt = 0.01
+sim = QuickSim(duration, cvode=0, dt=sim_dt)
+# sim = QuickSim(10., cvode=0, dt=1.)
 sim.parameters['equilibrate'] = equilibrate
 sim.parameters['track_equilibrate'] = track_equilibrate
 sim.parameters['global_theta_cycle_duration'] = global_theta_cycle_duration
@@ -309,6 +311,7 @@ sim.parameters['input_field_width'] = input_field_width
 sim.parameters['track_length'] = track_length
 sim.parameters['duration'] = duration
 sim.parameters['stim_dt'] = dt
+sim.parameters['dt'] = sim_dt
 sim.parameters['mean_run_vel'] = mean_run_vel
 sim.append_rec(cell, cell.tree.root, description='soma', loc=0.)
 sim.append_rec(cell, trunk_bifurcation[0], description='proximal_trunk', loc=1.)
@@ -402,7 +405,7 @@ for group in stim_exc_syns:
 
 weights = {}
 
-if mean_run_vel is not None:
+if mean_run_vel != 0.:
     with h5py.File(data_dir + weights_filename + '.hdf5', 'r') as f:
         group = 'CA3'
         this_weights = f[str(mean_run_vel)]['weights'][:]
@@ -436,56 +439,5 @@ weights['ECIII'] = np.interp(peak_locs['ECIII'], peak_locs['CA3'], weights['CA3'
 # rate_maps = run_trial(trial_seed, global_phase_offset=0., sim=False)
 
 run_trial(trial_seed)
-
-"""
-# colors = ['r', 'k', 'c', 'g']
-colors = ['k', 'r', 'g', 'c']
-x_start = [induction_loc/track_length for induction_loc in induction_locs]
-
-ylim = max(np.max(ramp[0]), np.max(model_ramp))
-#ylim = max(np.max(ramp), np.max(model_ramp))
-fig, axes = plt.subplots(1)
-for i in range(len(model_ramp)):
-    axes.plot(x_bins, ramp[i], color=colors[i+2], label='Experiment'+str(i+1))
-    axes.plot(x_bins, model_ramp[i], color=colors[i], label='Model'+str(i+1))
-    axes.axhline(y=ylim+0.3, xmin=x_start[i], xmax=x_start[i]+0.02, c=colors[i], linewidth=3., zorder=0)
-axes.set_xlabel('Location (cm)')
-axes.set_xlim(0., track_length)
-axes.set_ylabel('Depolarization (mV)')
-axes.legend(loc='best', frameon=False, framealpha=0.5)
-clean_axes(axes)
-plt.show()
-plt.close()
-
-fig, axes = plt.subplots(1)
-t_waveform = np.arange(-rule_max_timescale, rule_max_timescale, dt)
-for i in range(len(model_ramp)):
-    axes.plot(t_waveform, rule_waveforms[i], label='Induction kernel '+str(i+1), color=colors[i])
-axes.set_xlabel('Time (ms)')
-axes.set_xlim(-rule_max_timescale, rule_max_timescale)
-axes.set_ylabel('Relative change in synaptic weight per spike')
-axes.legend(loc='best', frameon=False, framealpha=0.5)
-clean_axes(axes)
-plt.show()
-plt.close()
-
-ylim = np.max(delta_weights) + 1.
-fig, axes = plt.subplots(1)
-for i in range(len(model_ramp)):
-    axes.scatter(peak_locs['CA3'], delta_weights[i] + 1., label='Weights'+str(i+1), color=colors[i])
-    axes.axhline(y=ylim + 0.1, xmin=x_start[i], xmax=x_start[i] + 0.01, c=colors[i], linewidth=3., zorder=0)
-axes.set_xlabel('Location (cm)')
-axes.set_xlim(0., track_length)
-axes.set_ylabel('Relative synaptic weight')
-axes.legend(loc='best', frameon=False, framealpha=0.5)
-clean_axes(axes)
-plt.show()
-plt.close()
-
-if len(delta_weights) > 1:
-    fig, axes = plt.subplots(1)
-    axes.scatter(delta_weights[0]+1., delta_weights[1]+1.)
-    clean_axes(axes)
-    plt.show()
-    plt.close()
-"""
+if os.path.isfile(data_dir+rec_filename+'-working.hdf5'):
+    os.rename(data_dir+rec_filename+'-working.hdf5', data_dir+rec_filename+'.hdf5')
