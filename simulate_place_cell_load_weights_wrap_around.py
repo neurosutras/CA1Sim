@@ -94,16 +94,16 @@ def get_dynamic_theta_phase_force(phase_ranges, peak_loc, dx):
     return phase_force[len(interp_x)-int(track_equilibrate/dt):len(interp_x)-int(track_equilibrate/dt)+len(stim_t)]
 
 
-def run_trial(simiter, global_phase_offset=0., sim=True):
+def run_trial(simiter, global_phase_offset=0., run_sim=True):
     """
 
     :param simiter: int
     :param global_phase_offset: float
-    :param sim: bool
+    :param run_sim: bool
     """
     local_random.seed(simiter)
     global_phase_offset = local_random.uniform(-np.pi, np.pi)
-    if sim:
+    if run_sim:
         with h5py.File(data_dir + rec_filename + '-working.hdf5', 'a') as f:
             f.create_group(str(simiter))
             f[str(simiter)].create_group('train')
@@ -138,7 +138,7 @@ def run_trial(simiter, global_phase_offset=0., sim=True):
             theta_force *= excitatory_theta_modulation_depth[group]
             theta_force += 1. - excitatory_theta_modulation_depth[group]
             stim_force = np.multiply(gauss_force, theta_force)
-            if sim:
+            if run_sim:
                 train = get_inhom_poisson_spike_times_by_thinning(stim_force, stim_t, dt=dt, generator=local_random)
                 syn.source.play(h.Vector(np.add(train, equilibrate + track_equilibrate)))
                 with h5py.File(data_dir + rec_filename + '-working.hdf5', 'a') as f:
@@ -152,7 +152,7 @@ def run_trial(simiter, global_phase_offset=0., sim=True):
             else:
                 rate_maps[group].append(stim_force)
             index += 1
-    if sim:
+    if run_sim:
         index = 0
         for group in stim_inh_syns:
             inh_peak_rate = 2. * inhibitory_mean_rate[group] / (2. - inhibitory_theta_modulation_depth[group])
@@ -193,7 +193,7 @@ def run_trial(simiter, global_phase_offset=0., sim=True):
             f[str(simiter)].create_dataset('output', compression='gzip', compression_opts=9,
                                            data=np.subtract(cell.spike_detector.get_recordvec().to_python(),
                                                             equilibrate + track_equilibrate))
-    if not sim:
+    if not run_sim:
         return rate_maps
 
 
