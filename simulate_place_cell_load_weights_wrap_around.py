@@ -84,14 +84,14 @@ def get_dynamic_theta_phase_force(phase_ranges, peak_loc, dx):
             phase_force[this_indexes] = this_range_interp_piece
     before_start = peak_loc - track_length * 0.5
     after_end = peak_loc + track_length * 0.5
-    after_end_index = np.where(extended_x >= after_end)[0][0]
+    after_end_index = np.where(extended_x > after_end)[0][0]
     if before_start < 0.:
         before = np.array(phase_force[np.where((extended_x >= before_start) & (extended_x < 0.))[0]])
         phase_force[after_end_index:after_end_index+len(before)] = before
     elif after_end > track_length:
-        after = np.array(phase_force[2*len(interp_x)-int(track_equilibrate/dt):after_end_index])
-        phase_force[len(interp_x)-int(track_equilibrate/dt):len(interp_x)-int(track_equilibrate/dt)+len(after)] = after
-    return phase_force[len(interp_x)-int(track_equilibrate/dt):len(interp_x)-int(track_equilibrate/dt)+len(stim_t)]
+        after = np.array(phase_force[2*len(x)-int(track_equilibrate/dt):after_end_index])
+        phase_force[len(x)-int(track_equilibrate/dt):len(x)-int(track_equilibrate/dt)+len(after)] = after
+    return phase_force[len(x)-int(track_equilibrate/dt):len(x)-int(track_equilibrate/dt)+len(stim_t)]
 
 
 def run_trial(simiter, global_phase_offset=0., run_sim=True):
@@ -114,16 +114,19 @@ def run_trial(simiter, global_phase_offset=0., run_sim=True):
     for group in stim_exc_syns:
         rate_maps[group] = []
         for i, syn in enumerate(stim_exc_syns[group]):
+            # the stochastic sequence used for each synapse is unique for each trial,
+            # up to 10000 input spikes per spine
+            if excitatory_stochastic:
+                syn.randObj.seq(rand_exc_seq_locs[group][i] + int(simiter * 1e4))
             peak_loc = peak_locs[group][i]
             gauss_force = excitatory_peak_rate[group] * np.exp(-((extended_x - peak_loc) / gauss_sigma)**2.)
-            before = np.array(gauss_force[:len(interp_x)])
-            after = np.array(gauss_force[2*len(interp_x)-int(track_equilibrate/dt):])
-            gauss_force[len(interp_x):len(interp_x) + len(before)] += before
-            gauss_force[len(interp_x)-int(track_equilibrate/dt):len(interp_x)-int(track_equilibrate/dt)+len(after)] \
+            before = np.array(gauss_force[:len(x)])
+            after = np.array(gauss_force[2*len(x)-int(track_equilibrate/dt):])
+            gauss_force[len(x):len(x) + len(before)] += before
+            gauss_force[len(x)-int(track_equilibrate/dt):len(x)-int(track_equilibrate/dt)+len(after)] \
                 += after
-            gauss_force = np.array(gauss_force[len(interp_x)-int(track_equilibrate/dt):len(interp_x)-
-                                                                                       int(track_equilibrate/dt)+
-                                                                                       len(stim_t)])
+            gauss_force = np.array(gauss_force[len(x)-int(track_equilibrate/dt):len(x)-int(track_equilibrate/dt)+
+                                                                                len(stim_t)])
             if group in excitatory_precession_range:
                 phase_force = get_dynamic_theta_phase_force(excitatory_precession_range[group], peak_loc, dx)
                 theta_force = np.exp(excitatory_theta_phase_tuning_factor[group] * np.cos(phase_force +
@@ -204,17 +207,14 @@ equilibrate = 250.  # time to steady-state
 global_theta_cycle_duration = 150.  # -0.5 * run_vel + 155.  # (ms)
 input_field_width = 90.  # cm
 track_length = 187.  # cm
-dx_bins = track_length / 100.  # cm
-x = np.arange(0., track_length+dx_bins/2., dx_bins)
-x_bins = x[:100] + dx_bins/2.
-default_run_vel = 30.  # cm/s
 field1_loc = 0.5
+default_run_vel = 30.  # cm/s
 
-dt_bins = dx_bins / default_run_vel * 1000.
-t = np.arange(0., len(x)*dt_bins, dt_bins)[:len(x)]
-interp_t = np.arange(0., t[-1] + dt / 2., dt)
-interp_x = np.interp(interp_t, t, x)
-dx = interp_x[1] - interp_x[0]
+dx = dt * default_run_vel / 1000.
+x = np.arange(0., track_length, dx)
+t = np.arange(0., len(x)*dt, dt)[:len(x)]
+
+extended_x = np.concatenate([x - track_length, x, x + track_length])
 
 track_equilibrate = 2. * global_theta_cycle_duration
 track_duration = t[-1]
@@ -303,7 +303,7 @@ for sec_type in all_inh_syns:
 
 sim_dt = 0.01
 sim = QuickSim(duration, cvode=0, dt=sim_dt)
-# sim = QuickSim(10., cvode=0, dt=1.)
+# sim = QuickSim(duration, cvode=0, dt=0.1)
 sim.parameters['equilibrate'] = equilibrate
 sim.parameters['track_equilibrate'] = track_equilibrate
 sim.parameters['global_theta_cycle_duration'] = global_theta_cycle_duration
@@ -372,11 +372,7 @@ for sec_type in all_inh_syns:
             group = 'axo-axonic'
         stim_inh_syns[group].append(syn)
 
-extended_x = np.zeros(3*len(interp_x))
-extended_x[:len(interp_x)] = interp_x - track_length
-extended_x[len(interp_x):2*len(interp_x)] = interp_x
-extended_x[2*len(interp_x):] = interp_x + track_length
-stim_t = np.append(np.arange(-track_equilibrate, 0., dt), interp_t)
+stim_t = np.append(np.arange(-track_equilibrate, 0., dt), t)
 
 gauss_sigma = input_field_width / 3. / np.sqrt(2.)  # contains 99.7% gaussian area
 
@@ -436,7 +432,17 @@ else:
 # optimization assumed no ECIII inputs, interpolate the weights across location for those inputs as well
 weights['ECIII'] = np.interp(peak_locs['ECIII'], peak_locs['CA3'], weights['CA3'])
 
-# rate_maps = run_trial(trial_seed, global_phase_offset=0., sim=False)
+for group in stim_exc_syns:
+    peak_locs[group] = list(peak_locs[group])
+    weights[group] = list(weights[group])
+    indexes = range(len(peak_locs[group]))
+    local_random.shuffle(indexes)
+    peak_locs[group] = map(peak_locs[group].__getitem__, indexes)
+    weights[group] = map(weights[group].__getitem__, indexes)
+    for i, syn in enumerate(stim_exc_syns[group]):
+        syn.netcon('AMPA_KIN').weight[0] = weights[group][i]
+
+# rate_maps = run_trial(trial_seed, global_phase_offset=0., run_sim=False)
 
 run_trial(trial_seed)
 if os.path.isfile(data_dir+rec_filename+'-working.hdf5'):

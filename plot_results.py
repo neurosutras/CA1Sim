@@ -2703,7 +2703,7 @@ def process_patterned_input_simulation_input_output(rec_filename, title, svg_tit
         return stim_t[start:], mean_input[start:], mean_inh_input[start:], mean_output
 
 
-def process_patterned_input_simulation(rec_filename, title, dt=0.02):
+def process_patterned_input_simulation(rec_filename, title, spatial_bins=100., dt=0.02):
     """
 
     :param rec_file_name: str
@@ -2717,14 +2717,15 @@ def process_patterned_input_simulation(rec_filename, title, dt=0.02):
         equilibrate = sim.attrs['equilibrate']
         track_equilibrate = sim.attrs['track_equilibrate']
         track_length = sim.attrs['track_length']
-        input_field_duration = sim.attrs['input_field_duration']
+        # input_field_duration = sim.attrs['input_field_duration']
         duration = sim.attrs['duration']
         stim_dt = sim.attrs['stim_dt']
-        bins = int((1.5 + track_length) * input_field_duration / 20.)
+        bins = int(spatial_bins)
         track_duration = duration - equilibrate - track_equilibrate
+        spatial_bin = track_duration / spatial_bins
         stim_t = np.arange(-track_equilibrate, track_duration, stim_dt)
         start = int(track_equilibrate/stim_dt)
-        spatial_bin = input_field_duration/50.
+
         intervals = []
         pop_input = []
         output = []
@@ -2779,7 +2780,7 @@ def process_patterned_input_simulation(rec_filename, title, dt=0.02):
         plt.close()
     rec_t = np.arange(0., track_duration, dt)
     #spikes_removed = get_removed_spikes_alt(rec_filename, plot=0)
-    spikes_removed = get_removed_spikes(rec_filename, plot=0)
+    spikes_removed = get_removed_spikes(rec_filename, dt=dt, plot=0)
     # down_sample traces to 2 kHz after clipping spikes for theta and ramp filtering
     down_dt = 0.5
     down_t = np.arange(0., track_duration, down_dt)
