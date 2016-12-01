@@ -145,15 +145,14 @@ def pas_error(x):
     formatted_x = '[' + ', '.join(['%.2E' % xi for xi in x]) + ']'
     print 'Process %i using current x: %s: %s' % (os.getpid(), str(xlabels['pas']), formatted_x)
     result = v.map_async(parallel_optimize_dendritic_excitability_engine.get_Rinp_for_section, sec_list)
-    last_printed = ''
     while not result.ready():
+        time.sleep(10.)
         clear_output()
         for stdout in [stdout for stdout in result.stdout if stdout][-len(c):]:
             lines = stdout.split('\n')
-            if lines[-2] and lines[-2] != last_printed:
+            if lines[-2]:
                 print lines[-2]
         sys.stdout.flush()
-        time.sleep(1.)
     result = result.get()
 
     Err = 0.
