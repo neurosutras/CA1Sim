@@ -410,9 +410,14 @@ def plot_Rinp_general(rec_file_list, sectypes_list=None, features_list=None, lab
 
     :return:
     """
-    for parameter in [rec_file_list, sectypes_list, features_list, labels]:
-        if isinstance(parameter, str):
-            parameter = [parameter]
+    if isinstance(rec_file_list, str):
+        rec_file_list = [rec_file_list]
+    if isinstance(sectypes_list, str):
+        sectypes_list = [sectypes_list]
+    if isinstance(features_list, str):
+        features_list = [features_list]
+    if isinstance(labels, str):
+        labels = [labels]
     if (sectypes_list is None):
         sectypes_list = ['axon','apical','soma']
     axon_types_list = ['axon','ais','axon_hill']
@@ -440,13 +445,13 @@ def plot_Rinp_general(rec_file_list, sectypes_list=None, features_list=None, lab
                     else:
                         sectype = item.attrs['type']
                     for feature in features_list:
-                        if sectype not in distances_dict[feature]:
+                        if not sectype in distances_dict[feature].keys():
                             distances_dict[feature][sectype] = []
                         if item.attrs['type'] in ['basal', 'axon', 'ais', 'axon_hill']:
                             distances_dict[feature][sectype].append(item.attrs['soma_distance'] * -1.)
                         else:
                             distances_dict[feature][sectype].append(item.attrs['soma_distance'])
-                        if sectype not in feature_dict[feature]:
+                        if not sectype in feature_dict[feature].keys():
                             feature_dict[feature][sectype] = []
                         feature_dict[feature][sectype].append(item.attrs[feature])
 
@@ -1434,19 +1439,19 @@ def plot_mech_param_distribution(cell, mech_name, param_name, scale_factor=10000
         mpl.rcParams['font.size'] = remember_font_size
 
 
-def new_plot_mech_param_distribution(cell, mech_name, param_name, import_file=None, export=None, scale_factor=10000.,
+def new_plot_mech_param_distribution(cell, mech_name, param_name, export=None, scale_factor=10000.,
                         param_label=None, ylabel='Conductance density', yunits='pS/um2', svg_title=None):
     """
-    cell = DG_GC(morph_filename = 'DG_GC_355549.swc', mech_filename=None, full_spines=False)
+    cell = DG_GC(morph_filename = 'DG_GC_355549.swc', mech_filename='110316 DG_GC pas no_spines', full_spines=False)
     Takes a cell as input rather than a file. No simulation is required, this method just takes a fully specified cell
     and plots the relationship between distance and the specified mechanism parameter for all dendritic segments. Used
     while debugging specification of mechanism parameters.
     :param cell: :class:'HocCell'
     :param mech_name: str
     :param param_name: str
-    :param import_file: str (name of hdf5 file for editing)
     :param export: str (name of hdf5 file for export)
     :param scale_factor: float
+    :param param_label: str
     :param ylabel: str
     :param yunits: str
     :param svg_title: str
@@ -1461,7 +1466,7 @@ def new_plot_mech_param_distribution(cell, mech_name, param_name, import_file=No
     distances = {}
     param_vals = {}
     for i, sec_type in enumerate(dend_types):
-        if (cell.node_dict[sec_type]):
+        if sec_type in cell._node_dict.keys():
             distances[sec_type] = []
             param_vals[sec_type] = []
             for branch in cell.get_nodes_of_subtype(sec_type):
@@ -1474,17 +1479,21 @@ def new_plot_mech_param_distribution(cell, mech_name, param_name, import_file=No
                 axes.scatter(distances[sec_type], param_vals[sec_type],
                              color=colors[i], label=sec_type)
                 if maxval is None:
-                    maxval = max(param_vals)
+                    maxval = max(param_vals[sec_type])
                 else:
-                    maxval = max(maxval, max(param_vals))
+                    maxval = max(maxval, max(param_vals[sec_type]))
                 if minval is None:
-                    minval = min(param_vals)
+                    minval = min(param_vals[sec_type])
                 else:
-                    minval = min(minval, min(param_vals))
+                    minval = min(minval, min(param_vals[sec_type]))
 
     axes.set_xlabel('Distance to soma (um)')
-    axes.set_xlim(-200., 525.)
-    axes.set_xticks([-150., 0., 150., 300., 450.])
+    distances_list = []
+    for dist_list in distances.itervalues():
+        distances_list += dist_list
+    xmax = max(distances_list)
+    xmin = min(0, min(distances_list))
+    axes.set_xlim(xmin, xmax)
     axes.set_ylabel(ylabel + ' (' + yunits + ')')
     if (maxval is not None) and (minval is not None):
         buffer = 0.1 * (maxval - minval)
@@ -1506,99 +1515,109 @@ def new_plot_mech_param_distribution(cell, mech_name, param_name, import_file=No
     if svg_title is not None:
         mpl.rcParams['font.size'] = remember_font_size
 
-    if import_file is not None:
-        with h5py.File(data_dir + import_file + '.hdf5', 'w') as w:
-            if w.attrs['mech_filename'] == cell.mech_filename:
-                if not 'distances' in w.keys():
-                    f.create_group('distances')
+    if export is not None:
+        with h5py.File(data_dir + export + '.hdf5', 'a') as f:
+            if 'mech_filename' in f.attrs.keys():
+                if not (f.attrs['mech_filename'] == '{}'.format(cell.mech_filename)):
+                    raise Exception('Specified mechanism filename {} does not match the mechanism filename '
+                                    'of the cell {}'.format(f.attrs['mech_filename'], cell.mech_filename))
+            else:
+                f.attrs['mech_filename'] = '{}'.format(cell.mech_filename)
+            if mech_name in f.keys():
+                if param_name in f[mech_name].keys:
+                    return
+                else:
+                    f[mech_name].create_group(param_name)
+            else:
+                f.create_group(mech_name)
+                f[mech_name].create_group(param_name)
+            for sec_type in param_vals.keys():
+                f[mech_name][param_name].create_group(sec_type)
+                f[mech_name][param_name][sec_type].create_dataset('values', data=param_vals[sec_type])
+            if not 'distances' in f.keys():
+                f.create_group('distances')
+                for sec_type in distances.keys():
                     f['distances'].create_group(sec_type)
                     f['distances'][sec_type].create_dataset('values', data=distances[sec_type])
-            else:
-                #raise error exception
 
 
-    if not mech_name in f.keys():
-        f.create_group(mech_name)
-        if not param_name in f[mech_name].keys():
-            f[mech_name].create_group(param_name)
-            f[mech_name][param_name].create_group(sec_type)
-            f[mech_name][param_name][sec_type].create_dataset('values', data=param_vals)
-
-
-    f.close()
-    if export is None:
-        os.remove(data_dir+filename+'.hdf5')
-    #don't export if mech_filename doesn't match up with the one in the cell
-    #don't export if hdf5 file already has groups for this mech_name and param_name
-
-"""
-def plot_mech_param_from_file(mech_name, param_name, param_label=None, ylabel='Conductance density', yunits='pS/um2',
-                              svg_title=None, filenames):
-
-    Takes a cell as input rather than a file. No simulation is required, this method just takes a fully specified cell
-    and plots the relationship between distance and the specified mechanism parameter for all dendritic segments. Used
-    while debugging specification of mechanism parameters.
-    :param mech_name: str
-    :param param_names: str
-    :param svg_title: str
-    :param filenames: list of hdf filenames
-
-    :param scale_factor: float
-    :param ylabel: str
-    :param yunits: str
-
+def plot_mech_param_from_file(mech_name, param_name, filenames, filename_labels = None,
+                              param_label=None, ylabel='Conductance density', yunits='pS/um2', svg_title=None):
+    """
+        Takes in a list of files, and plots the relationship between distance and the specified mechanism parameter for
+        all dendritic segments from each file.
+        :param mech_name: str
+        :param param_name: str
+        :param filenames: list of hdf filenames
+        :param filename_labels: list of filename labels
+        :param param_label: str
+        :param ylabel: str
+        :param yunits: str
+        :param svg_title: str
+    """
     colors = ['k', 'r', 'c', 'y', 'm', 'g', 'b']
     if svg_title is not None:
         remember_font_size = mpl.rcParams['font.size']
         mpl.rcParams['font.size'] = 20
-
-    for index, file in enumerate(filenames):
+    fig, axes = plt.subplots(1)
+    max_param_val, min_param_val = None, None
+    max_dist, min_dist = None, None
+    for i, file in enumerate(filenames):
         with h5py.File(data_dir + file + '.hdf5', 'r') as f:
-            fig, axes = plt.subplots(1)
-            maxval, minval = None, None
-            for i, sec_type in enumerate(dend_types):
-                distances = []
-                param_vals = []
-                for branch in cell.get_nodes_of_subtype(sec_type):
-                    for seg in [seg for seg in branch.sec if hasattr(seg, mech_name)]:
-                        distances.append(cell.get_distance_to_node(cell.tree.root, branch, seg.x))
-                        if sec_type == 'basal':
-                            distances[-1] *= -1
-                        param_vals.append(getattr(getattr(seg, mech_name), param_name) * scale_factor)
-                if param_vals:
-                    axes.scatter(distances, param_vals, color=colors[i], label=sec_type)
-                    if maxval is None:
-                        maxval = max(param_vals)
-                    else:
-                        maxval = max(maxval, max(param_vals))
-                    if minval is None:
-                        minval = min(param_vals)
-                    else:
-                        minval = min(minval, min(param_vals))
-            axes.set_xlabel('Distance to soma (um)')
-            axes.set_xlim(-200., 525.)
-            axes.set_xticks([-150., 0., 150., 300., 450.])
-            axes.set_ylabel(ylabel + ' (' + yunits + ')')
-            if (maxval is not None) and (minval is not None):
-                buffer = 0.1 * (maxval - minval)
-                axes.set_ylim(minval - buffer, maxval + buffer)
-            if param_label is not None:
-                plt.title(param_label, fontsize=mpl.rcParams['font.size'])
-            plt.legend(loc='best', scatterpoints=1, frameon=False, framealpha=0.5, fontsize=mpl.rcParams['font.size'])
-            clean_axes(axes)
-            axes.tick_params(direction='out')
-            if not svg_title is None:
-                if param_label is not None:
-                    svg_title = svg_title + ' - ' + param_label + '.svg'
+            if mech_name not in f.keys():
+                raise Exception('Specified mechanism name is not found in the file {}'.format(file))
+            elif param_name not in f[mech_name].keys():
+                raise Exception('Specified parameter name is not found in the file {}'.format(file))
+            distances = []
+            param_vals = []
+            for sec_type in f[mech_name][param_name].keys():
+                for value in f[mech_name][param_name][sec_type]['values']:
+                    param_vals.append(value)
+                for distance in f['distances'][sec_type]['values']:
+                    distances.append(distance)
+            if param_vals:
+                if filename_labels is not None:
+                    axes.scatter(distances, param_vals, color=colors[i], label=filename_labels[i])
                 else:
-                    svg_title = svg_title + ' - ' + mech_name + '_' + param_name + ' distribution.svg'
-                fig.set_size_inches(5.27, 4.37)
-                fig.savefig(data_dir + svg_title, format='svg', transparent=True)
+                    axes.scatter(distances, param_vals, color=colors[i], label=file)
+                if max_param_val is None:
+                    max_param_val = max(param_vals)
+                else:
+                    max_param_val = max(max_param_val, max(param_vals))
+                if min_param_val is None:
+                    min_param_val = min(param_vals)
+                else:
+                    min_param_val = min(min_param_val, min(param_vals))
+                if max_dist is None:
+                    max_dist = max(distances)
+                else:
+                    max_dist = max(max_dist, max(distances))
+                if min_dist is None:
+                    min_dist = min(distances)
+                else:
+                    min_dist = min(min_dist, min(distances))
+    axes.set_xlabel('Distance to soma (um)')
+    axes.set_xlim(min_dist, max_dist)
+    axes.set_ylabel(ylabel + ' (' + yunits + ')')
+    if (max_param_val is not None) and (min_param_val is not None):
+        buffer = 0.1 * (max_param_val - min_param_val)
+    axes.set_ylim(min_param_val - buffer, max_param_val + buffer)
+    if param_label is not None:
+        plt.title(param_label, fontsize=mpl.rcParams['font.size'])
+    plt.legend(loc='best', scatterpoints=1, frameon=False, framealpha=0.5, fontsize=mpl.rcParams['font.size'])
+    clean_axes(axes)
+    axes.tick_params(direction='out')
+    if not svg_title is None:
+        if param_label is not None:
+            svg_title = svg_title + ' - ' + param_label + '.svg'
+        else:
+            svg_title = svg_title + ' - ' + mech_name + '_' + param_name + ' distribution.svg'
+        fig.set_size_inches(5.27, 4.37)
+        fig.savefig(data_dir + svg_title, format='svg', transparent=True)
     plt.show()
     plt.close()
     if svg_title is not None:
         mpl.rcParams['font.size'] = remember_font_size
-"""
 
 
 def plot_sum_mech_param_distribution(cell, mech_param_list, scale_factor=10000., param_label=None,

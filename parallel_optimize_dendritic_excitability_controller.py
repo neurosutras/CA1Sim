@@ -242,7 +242,8 @@ else:
 xlabels['pas'] = ['soma.g_pas', 'dend.g_pas slope', 'dend.g_pas tau', 'dend.gpas max_loc']
 if spines:
     # x0['pas'] = [9.38E-15, 9.51E-10, 2.59E+01, 2.98E+02]
-    x0['pas'] = [3.63E-09, 9.15E-09, 2.82E+01, 3.00E+02]  # Err: 7.259E+01
+    # x0['pas'] = [3.63E-09, 9.15E-09, 2.82E+01, 3.00E+02]  # Err: 7.259E+01
+    x0['pas'] = [2.25E-09, 9.25E-09, 2.82E+01, 3.00E+02]  # Err: 7.261E+01
     xmin['pas'] = [1.0E-17, 1.0E-12, 25., 200.]
     xmax['pas'] = [2.0E-8, 2.0E-04, 300., 300.]
 else:
@@ -291,7 +292,7 @@ xmax['v_rest'] = [-63., -63.]
 hist.xlabels = xlabels['pas']
 
 explore_niter = 1000  # max number of iterations to run
-polish_niter = 400
+polish_niter = 200
 take_step = Normalized_Step(x0['pas'], xmin['pas'], xmax['pas'])
 minimizer_kwargs = dict(method=null_minimizer)
 
@@ -300,10 +301,10 @@ dv.clear()
 dv.block = True
 global_start_time = time.time()
 dv.execute('run parallel_optimize_dendritic_excitability_engine %i' % int(spines))
-time.sleep(120)
+# time.sleep(120)
 v = c.load_balanced_view()
 
-
+"""
 result = optimize.basinhopping(pas_error, x0['pas'], niter=explore_niter, niter_success=400,
                                disp=True, interval=40, minimizer_kwargs=minimizer_kwargs, take_step=take_step)
 print result
@@ -312,10 +313,11 @@ print result
 polished_result = optimize.minimize(pas_error, result.x, method='Nelder-Mead', options={'ftol': 1e-5,
                                                     'disp': True, 'maxiter': polish_niter})
 print polished_result
-
-
 """
+
+
 polished_result = optimize.minimize(pas_error, x0['pas'], method='Nelder-Mead', options={'ftol': 1e-5, 'disp': True,
                                                                                          'maxiter': polish_niter})
 print polished_result
-"""
+
+hist.report_best()
