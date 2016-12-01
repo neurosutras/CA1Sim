@@ -155,19 +155,22 @@ def generate_complete_rate_maps(simiter, induction, spatial_rate_maps, phase_map
     for i in range(len(position[induction])):
         this_interp_t = interp_t[induction][i]
         this_interp_x = interp_x[induction][i]
+        this_run_vel_gate = run_vel_gate[induction][i]
         if i == 0:
             complete_t = this_interp_t - len(this_interp_t) * dt
             complete_x = this_interp_x - track_length
+            complete_run_vel_gate = np.array(this_run_vel_gate)
         complete_t = np.append(complete_t, this_interp_t + running_delta_t)
         complete_x = np.append(complete_x, this_interp_x + i * track_length)
+        complete_run_vel_gate = np.append(complete_run_vel_gate, this_run_vel_gate)
         running_delta_t += len(this_interp_t) * dt
-        if i == range(len(position[induction])):
+        if i == len(position[induction]) - 1:
             complete_t = np.append(complete_t, this_interp_t + running_delta_t)
             complete_x = np.append(complete_x, this_interp_x + (i+1) * track_length)
+            complete_run_vel_gate = np.append(complete_run_vel_gate, this_run_vel_gate)
     group = 'CA3'
     for j in range(len(spatial_rate_maps)):
         for i in range(len(position[induction])):
-            this_interp_t = interp_t[induction][i]
             this_interp_x = interp_x[induction][i]
             this_rate_map = np.interp(this_interp_x, generic_x, spatial_rate_maps[j])
             this_phase_map = np.interp(this_interp_x, generic_x, phase_maps[j])
@@ -176,7 +179,7 @@ def generate_complete_rate_maps(simiter, induction, spatial_rate_maps, phase_map
                 this_complete_phase_map = np.array(this_phase_map)
             this_complete_rate_map = np.append(this_complete_rate_map, this_rate_map)
             this_complete_phase_map = np.append(this_complete_phase_map, this_phase_map)
-            if i == range(len(position[induction])):
+            if i == len(position[induction]) - 1:
                 this_complete_rate_map = np.append(this_complete_rate_map, this_rate_map)
                 this_complete_phase_map = np.append(this_complete_phase_map, this_phase_map)
         theta_force = np.exp(excitatory_theta_phase_tuning_factor[group] * np.cos(this_complete_phase_map +
@@ -189,9 +192,65 @@ def generate_complete_rate_maps(simiter, induction, spatial_rate_maps, phase_map
         theta_force *= excitatory_theta_modulation_depth[group]
         theta_force += 1. - excitatory_theta_modulation_depth[group]
         this_complete_rate_map = np.multiply(this_complete_rate_map, theta_force)
+        this_complete_rate_map = np.multiply(this_complete_rate_map, complete_run_vel_gate)
         complete_rate_maps.append(this_complete_rate_map)
 
     return complete_t, complete_x, complete_rate_maps
+
+
+def generate_default_rate_maps(simiter, induction, spatial_rate_maps, phase_maps, global_phase_offset=None):
+    """
+
+    :param simiter: int
+    :param induction: int
+    :param spatial_rate_maps: array
+    :param phase_maps: array
+    :param global_phase_offset: float
+    """
+    local_random.seed(simiter)
+    if global_phase_offset is None:
+        global_phase_offset = local_random.uniform(-np.pi, np.pi)
+    default_rate_maps = []
+    group = 'CA3'
+    for j in range(len(spatial_rate_maps)):
+        this_rate_map = np.interp(default_interp_x, generic_x, spatial_rate_maps[j])
+        this_phase_map = np.interp(default_interp_x, generic_x, phase_maps[j])
+        theta_force = np.exp(excitatory_theta_phase_tuning_factor[group] * np.cos(this_phase_map +
+                                                                                  excitatory_theta_phase_offset[group] -
+                                                                                       2. * np.pi * default_interp_t /
+                                                                                  global_theta_cycle_duration +
+                                                                                       global_phase_offset))
+        theta_force -= np.min(theta_force)
+        theta_force /= np.max(theta_force)
+        theta_force *= excitatory_theta_modulation_depth[group]
+        theta_force += 1. - excitatory_theta_modulation_depth[group]
+        this_rate_map = np.multiply(this_rate_map, theta_force)
+        default_rate_maps.append(this_rate_map)
+
+    return default_rate_maps
+
+
+def generate_complete_induction_gate(induction):
+    """
+
+    :param induction: int
+    :return:
+    """
+    for i in range(len(position[induction])):
+        this_interp_t = interp_t[induction][i]
+        this_interp_x = interp_x[induction][i]
+        if i == 0:
+            complete_induction_gate = np.zeros_like(this_interp_t)
+        this_induction_loc = induction_locs[induction][i]
+        this_induction_dur = induction_durs[induction][i]
+        this_induction_gate = np.zeros_like(this_interp_t)
+        start_index = np.where(this_interp_x >= this_induction_loc)[0][0]
+        end_index = start_index + int(this_induction_dur / dt)
+        this_induction_gate[start_index:end_index] = 1.
+        complete_induction_gate = np.append(complete_induction_gate, this_induction_gate)
+        if i == len(position[induction]) - 1:
+            complete_induction_gate = np.append(complete_induction_gate, np.zeros_like(this_interp_t))
+    return complete_induction_gate
 
 
 def subtract_baseline(waveform, baseline=None):
@@ -207,13 +266,12 @@ def subtract_baseline(waveform, baseline=None):
     return baseline
 
 
-def get_expected_depolarization(rate_maps, weights, extended_t, interp_x):
+def get_expected_depolarization(rate_maps, weights, interp_x):
     """
     Take pre-computed rate maps and weights for a set of inputs. Convolve with an EPSP kernel, sum, normalize, and
     downsample to 100 spatial bins.
     :param rate_maps: list of array
     :param weights: list of float
-    :param extended_t: array (just one item from the outer list)
     :param interp_x: array (just one item from the outer list)
     :return: array
     """
@@ -224,11 +282,13 @@ def get_expected_depolarization(rate_maps, weights, extended_t, interp_x):
     scaling_factor = 7.15e-4  # generates a predicted 6 mV depolarization from gaussian weights with peak = 2.5
     for i, rate_map in enumerate(rate_maps):
         this_weighted_rate_map = rate_map * weights[i] * scaling_factor
-        this_weighted_rate_map = np.convolve(this_weighted_rate_map, epsp_filter)[:len(extended_t)]
+        this_weighted_rate_map = np.concatenate([this_weighted_rate_map for i in range(3)])
+        this_weighted_rate_map = np.convolve(this_weighted_rate_map, epsp_filter)[:3*len(interp_x)]
         weighted_rate_maps.append(this_weighted_rate_map)
     expected_depolarization = np.sum(weighted_rate_maps, axis=0)
-    expected_depolarization = low_pass_filter(expected_depolarization, 2., len(extended_t)*dt, dt, 1.)
-    expected_depolarization = np.interp(binned_x, interp_x, expected_depolarization[len(interp_x): 2 * len(interp_x)])
+    expected_depolarization = low_pass_filter(expected_depolarization, 2.,
+                                              3*len(interp_x)*dt, dt, 1.)[len(interp_x): 2 * len(interp_x)]
+    expected_depolarization = np.interp(binned_x, interp_x, expected_depolarization)
     return expected_depolarization
 
 
@@ -405,10 +465,14 @@ default_global_phase_offset = 0.
 
 spatial_rate_maps, phase_maps = generate_generic_rate_and_phase_maps()
 
-complete_t, complete_x, complete_rate_maps = {}, {}, {}
+complete_t, complete_x, complete_rate_maps, complete_induction_gates = {}, {}, {}, {}
 for induction in [1]:  # position:
     complete_t[induction], complete_x[induction], complete_rate_maps[induction] = \
         generate_complete_rate_maps(trial_seed, induction, spatial_rate_maps, phase_maps, default_global_phase_offset)
+    complete_induction_gates[induction] = generate_complete_induction_gate(induction)
+
+default_rate_maps = generate_default_rate_maps(trial_seed, induction, spatial_rate_maps, phase_maps,
+                                               default_global_phase_offset)
 
 baseline = None
 for induction in position:
@@ -440,7 +504,7 @@ def check_bounds(x, xmin, xmax):
     return True
 
 
-def build_kernel1(x, plot=False):
+def build_kernels(x, plot=False):
     """
     Construct two kernels with exponential rise and decay:
     1) Local kernel that generates a plasticity signal at each spine
@@ -453,7 +517,6 @@ def build_kernel1(x, plot=False):
     local_decay_tau = x[1]
     global_rise_tau = x[2]
     global_decay_tau = x[3]
-    kernel_scale = x[4]
 
     max_time_scale = np.max([local_rise_tau+local_decay_tau, global_rise_tau+global_decay_tau])
     filter_t = np.arange(0., 6.*max_time_scale, dt)
@@ -507,54 +570,49 @@ def calculate_plasticity_signal(x, local_kernel, global_kernel, induction, plot=
         plasticity_signal = np.zeros_like(peak_locs[group])
         max_local_signal = 0.
         max_global_signal = 0.
-        for i in range(len(induction_locs[induction])):
-            start_time = time.time()
-            this_rate_maps = rate_maps[induction][i]
-            this_induction_loc = induction_locs[induction][i]
-            this_induction_dur = induction_durs[induction][i]
-            this_extended_x = extended_x[induction][i]
-            this_extended_t = extended_t[induction][i]
-            this_interp_t = interp_t[induction][i]
-            global_signal = np.zeros_like(this_extended_x)
-            start_index = np.where(this_extended_x >= this_induction_loc)[0][0]
-            end_index = start_index + int(this_induction_dur / dt)
-            global_signal[start_index:end_index] = 1.
-            global_signal = np.convolve(global_signal, global_kernel)[:len(this_extended_x)] * kernel_scale
-            down_t = np.arange(this_extended_t[0], this_extended_t[-1] + down_dt / 2., down_dt)
-            global_signal = np.interp(down_t, this_extended_t, global_signal)
-            max_global_signal = max(max_global_signal, np.max(global_signal))
-            filter_t = np.arange(0., len(local_kernel) * dt, dt)
-            down_filter_t = np.arange(0., filter_t[-1] + down_dt / 2., down_dt)
-            local_kernel_down = np.interp(down_filter_t, filter_t, local_kernel)
-
-            for j, stim_force in enumerate(this_rate_maps):
-                this_stim_force = np.interp(down_t, this_extended_t, stim_force)
-                local_signal = np.convolve(0.001 * down_dt * this_stim_force, local_kernel_down)[:len(down_t)] / \
-                               saturation_factor * kernel_scale / filter_ratio
-                max_local_signal = max(max_local_signal, np.max(local_signal))
-                this_signal = np.minimum(local_signal, global_signal)
-                this_area = np.trapz(this_signal, dx=down_dt)
-                plasticity_signal[j] += this_area
-                if plot and j == int(len(this_rate_maps)/2) and i == 0 and attempt == 1:
-                    ylim = max(np.max(local_signal), np.max(global_signal))
-                    x_start = 0.25 + this_extended_t[start_index]/this_interp_t[-1]/2.
-                    x_end = 0.25 + this_extended_t[end_index]/this_interp_t[-1]/2.
-                    fig, axes = plt.subplots(1)
-                    axes.plot(down_t, local_signal, label='Local signal', color='g')
-                    axes.plot(down_t, global_signal, label='Global signal', color='k')
-                    axes.fill_between(down_t, 0., this_signal, label='Overlap', facecolor='r', alpha=0.5)
-                    axes.axhline(y=ylim*1.05, xmin=x_start, xmax=x_end, linewidth=3, c='k')
-                    axes.legend(loc='best', frameon=False, framealpha=0.5)
-                    axes.set_xlabel('Time (ms)')
-                    axes.set_ylabel('Signal amplitude (a.u.)')
-                    axes.set_xlim(-0.5*this_interp_t[-1], 1.5*this_interp_t[-1])
-                    axes.set_ylim(-0.05*ylim, ylim*1.1)
-                    axes.set_title('Induced plasticity signal')
-                    clean_axes(axes)
-                    plt.show()
-                    plt.close()
+        start_time = time.time()
+        global_signal = np.convolve(complete_induction_gates[induction], global_kernel)[:len(complete_t[induction])] * \
+                        kernel_scale
+        down_t = np.arange(complete_t[induction][0], complete_t[induction][-1] + down_dt / 2., down_dt)
+        global_signal = np.interp(down_t, complete_t[induction], global_signal)
+        max_global_signal = max(max_global_signal, np.max(global_signal))
+        filter_t = np.arange(0., len(local_kernel) * dt, dt)
+        down_filter_t = np.arange(0., filter_t[-1] + down_dt / 2., down_dt)
+        local_kernel_down = np.interp(down_filter_t, filter_t, local_kernel)
+        for j, stim_force in enumerate(complete_rate_maps[induction]):
+            this_stim_force = np.interp(down_t, complete_t[induction], stim_force)
+            local_signal = np.convolve(0.001 * down_dt * this_stim_force, local_kernel_down)[:len(down_t)] / \
+                           saturation_factor * kernel_scale / filter_ratio
+            max_local_signal = max(max_local_signal, np.max(local_signal))
+            this_signal = np.minimum(local_signal, global_signal)
+            this_area = np.trapz(this_signal, dx=down_dt)
+            plasticity_signal[j] += this_area
+            if plot and j == int(len(complete_rate_maps[induction])/2) and attempt == 1:
+                ylim = max(np.max(local_signal), np.max(global_signal))
+                start_index = np.where(interp_x[induction][0] >= induction_locs[induction][0])[0][0]
+                this_induction_start = interp_t[induction][0][start_index]
+                this_induction_dur = induction_durs[induction][0]
+                start_time = -5000.
+                end_time = interp_t[induction][0][-1] + 5000.
+                this_duration = end_time - start_time
+                x_start = (5000. + this_induction_start) / this_duration
+                x_end = (5000. + this_induction_start + this_induction_dur) / this_duration
+                fig, axes = plt.subplots(1)
+                axes.plot(down_t/1000., local_signal, label='Local signal', color='g')
+                axes.plot(down_t/1000., global_signal, label='Global signal', color='k')
+                axes.fill_between(down_t/1000., 0., this_signal, label='Overlap', facecolor='r', alpha=0.5)
+                axes.axhline(y=ylim*1.05, xmin=x_start, xmax=x_end, linewidth=3, c='k')
+                axes.legend(loc='best', frameon=False, framealpha=0.5)
+                axes.set_xlabel('Time (ms)')
+                axes.set_ylabel('Signal amplitude (a.u.)')
+                axes.set_xlim(-5., interp_t[induction][0][-1]/1000. + 5.)
+                axes.set_ylim(-0.05*ylim, ylim*1.1)
+                axes.set_title('Induced plasticity signal')
+                clean_axes(axes)
+                plt.show()
+                plt.close()
         saturation_factor *= filter_ratio * max_local_signal / max_global_signal
-            # print 'Computed induction trial', i, 'in %i s' % (time.time() - start_time)
+        # print 'Computed weights in %i s' % (time.time() - start_time)
 
     if plot:
         x_start = np.mean(induction_locs[induction]) / track_length
@@ -573,7 +631,8 @@ def calculate_plasticity_signal(x, local_kernel, global_kernel, induction, plot=
     return plasticity_signal
 
 
-def ramp_error1(x, xmin, xmax, ramp, induction=None, orig_weights=None, baseline=None, plot=False, full_output=False):
+def ramp_error_cont(x, xmin, xmax, ramp, induction=None, orig_weights=None, baseline=None, plot=False,
+                    full_output=False):
     """
     Calculates a rule_waveform and set of weights to match the first place field induction.
     :param x: array [local_rise_tau, local_decay_tau, global_rise_tau, global_decay_tau, kernel_scale]
@@ -598,11 +657,9 @@ def ramp_error1(x, xmin, xmax, ramp, induction=None, orig_weights=None, baseline
     print 'Trying x: %s' % formatted_x
     if induction is None:
         induction = 1
-    local_kernel, global_kernel = build_kernel1(x, plot)
+    local_kernel, global_kernel = build_kernels(x, plot)
     this_weights = calculate_plasticity_signal(x, local_kernel, global_kernel, induction, plot)
-    # model_ramp_baseline = np.mean(get_expected_depolarization(default_rate_maps, np.ones_like(this_weights),
-    #                                                   default_extended_t, default_interp_x))
-    model_ramp = get_expected_depolarization(default_rate_maps, this_weights + 1., default_extended_t, default_interp_x)
+    model_ramp = get_expected_depolarization(default_rate_maps, this_weights + 1., default_interp_x)
     model_ramp_baseline = np.mean(model_ramp[ramp_baseline_indexes])
     model_ramp -= model_ramp_baseline
 
@@ -744,22 +801,22 @@ xmax1 = [500., 4000., 50., 1000., 2.e-2]
 
 
 induction = 1
-"""
-# ramp_error1(x1, xmin1, xmax1, ramp[induction], induction, plot=True)
 
-result = optimize_explore(x1, xmin1, xmax1, ramp_error1, ramp[induction], induction, maxfev=700)
+# ramp_error_cont(x1, xmin1, xmax1, ramp[induction], induction, plot=True)
 
-polished_result = optimize_polish(result['x'], xmin1, xmax1, ramp_error1, ramp[induction], induction)
+result = optimize_explore(x1, xmin1, xmax1, ramp_error_cont, ramp[induction], induction, maxfev=700)
+
+polished_result = optimize_polish(result['x'], xmin1, xmax1, ramp_error_cont, ramp[induction], induction)
 
 hist.report_best()
-hist.export('112716_magee_data_optimization_long_cell'+cell_id)
-"""
+hist.export('113016_magee_data_optimization_long_cell'+cell_id)
+
 
 """
-ramp_error1(polished_result['x'], xmin1, xmax1, ramp[induction], induction, plot=True)
+ramp_error_cont(polished_result['x'], xmin1, xmax1, ramp[induction], induction, plot=True)
 
 local_signal[induction], global_signal[induction], delta_weights[induction], model_ramp[induction] = \
-    ramp_error1(x1, xmin1, xmax1, ramp[induction], induction, plot=True, full_output=True)
+    ramp_error_cont(x1, xmin1, xmax1, ramp[induction], induction, plot=True, full_output=True)
 
 
 

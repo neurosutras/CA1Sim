@@ -39,15 +39,15 @@ else:
     trial_seed = 0
 # .hdf5 file contains weight_distributions for various running speeds
 if len(sys.argv) > 5:
-    mean_run_vel = int(sys.argv[5])
+    induction_run_vel = int(sys.argv[5])
 else:
-    mean_run_vel = 0.
+    induction_run_vel = 0.
 
 weights_filename = None
 
 rec_filename = 'output'+datetime.datetime.today().strftime('%m%d%Y%H%M')+'-pid'+str(os.getpid())+'-seed'+\
                str(synapses_seed)+'-e'+str(num_exc_syns)+'-i'+str(num_inh_syns)+\
-               '-run_vel'+str(mean_run_vel)+'_'+str(trial_seed)
+               '-run_vel'+str(induction_run_vel)+'_'+str(trial_seed)
 
 
 def get_dynamic_theta_phase_force(phase_ranges, peak_loc, dx):
@@ -303,7 +303,7 @@ for sec_type in all_inh_syns:
 
 sim_dt = 0.01
 sim = QuickSim(duration, cvode=0, dt=sim_dt)
-# sim = QuickSim(duration, cvode=0, dt=0.1)
+# sim = QuickSim(duration, cvode=0, dt=1.)
 sim.parameters['equilibrate'] = equilibrate
 sim.parameters['track_equilibrate'] = track_equilibrate
 sim.parameters['global_theta_cycle_duration'] = global_theta_cycle_duration
@@ -312,7 +312,8 @@ sim.parameters['track_length'] = track_length
 sim.parameters['duration'] = duration
 sim.parameters['stim_dt'] = dt
 sim.parameters['dt'] = sim_dt
-sim.parameters['mean_run_vel'] = mean_run_vel
+sim.parameters['induction_run_vel'] = induction_run_vel
+sim.parameters['run_vel'] = default_run_vel
 sim.append_rec(cell, cell.tree.root, description='soma', loc=0.)
 sim.append_rec(cell, trunk_bifurcation[0], description='proximal_trunk', loc=1.)
 sim.append_rec(cell, trunk, description='distal_trunk', loc=1.)
@@ -401,11 +402,11 @@ for group in stim_exc_syns:
 
 weights = {}
 
-if mean_run_vel != 0.:
+if induction_run_vel != 0.:
     with h5py.File(data_dir + weights_filename + '.hdf5', 'r') as f:
         group = 'CA3'
-        this_weights = f[str(mean_run_vel)]['weights'][:]
-        this_peak_locs = f[str(mean_run_vel)]['peak_locs'][:]
+        this_weights = f[str(induction_run_vel)]['weights'][:]
+        this_peak_locs = f[str(induction_run_vel)]['peak_locs'][:]
         weights[group] = np.interp(peak_locs[group], this_peak_locs, this_weights)
 else:
     # default weights if a distribution was not loaded from a file.
