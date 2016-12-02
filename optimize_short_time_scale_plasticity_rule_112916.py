@@ -514,10 +514,8 @@ def build_kernels(x, plot=False):
     :param plot: bool
     :return: array, array
     """
-    local_rise_tau = x[0]
-    local_decay_tau = x[1]
-    global_rise_tau = x[2]
-    global_decay_tau = x[3]
+    global_rise_tau = x[0]
+    global_decay_tau = x[1]
 
     max_time_scale = np.max([local_rise_tau+local_decay_tau, global_rise_tau+global_decay_tau])
     filter_t = np.arange(0., 6.*max_time_scale, dt)
@@ -565,7 +563,7 @@ def calculate_plasticity_signal(x, local_kernel, global_kernel, induction, plot=
     :return: plasticity_signal: array
     """
     saturation_factor = 0.02
-    kernel_scale = x[4]
+    kernel_scale = x[2]
     group = 'CA3'
     for attempt in range(2):
         plasticity_signal = np.zeros_like(peak_locs[group])
@@ -636,7 +634,7 @@ def ramp_error_cont(x, xmin, xmax, ramp, induction=None, orig_weights=None, base
                     full_output=False):
     """
     Calculates a rule_waveform and set of weights to match the first place field induction.
-    :param x: array [local_rise_tau, local_decay_tau, global_rise_tau, global_decay_tau, kernel_scale]
+    :param x: array [global_rise_tau, global_decay_tau, kernel_scale]
     :param xmin: array
     :param xmax: array
     :param ramp: array
@@ -650,7 +648,7 @@ def ramp_error_cont(x, xmin, xmax, ramp, induction=None, orig_weights=None, base
     if not check_bounds(x, xmin, xmax):
         print 'Aborting: Invalid parameter values.'
         return 1e9
-    elif (x[1] < x[0]) or (x[3] < x[2]):
+    elif x[1] < x[0]:
         print 'Aborting: Invalid parameter values.'
         return 1e9
     start_time = time.time()
@@ -756,50 +754,42 @@ global_signal = {}
 delta_weights = {}
 model_ramp = {}
 
-x0 = {}
-# x0['1'] = [300., 6.69E+02, 9.77E-02, 6.40E+01, 1.31E+02, 4.04E-03]
-# x0['1'] = [223.606, 978.505, 0.117, 60.137, 106.736, 0.003]
-# x0['1'] = [2.34E+02, 8.74E+02, 1.53E-01, 5.33E+01, 1.09E+02, 2.21E-03]
-# x0['1'] = [3.00E+02, 7.18E+02, 1.91E-01, 2.97E+01, 1.00E+02, 2.10E-03]
-# x0['1'] = [1.00E+01, 1.35E+03, 3.02E-01, 2.12E+01, 2.15E+02, 3.13E-03]
+local_rise_tau = 10.
+local_decay_tau = 100.
 
-# x0['1'] = [3.61E+01, 1.24E+03, 1.29E+01, 4.91E+02, 3.21E-03]  # Err: 1.929E+04
-x0['1'] = [1.000E+01, 1.669E+03, 1.000E+01, 3.366E+02, 4.820E-03]  # 4.6118E+04
-# x0['2'] = [4.96E+02, 2.34E+03, 1.00E+01, 2.55E+01, 1.96E-02]  # Err: 9.360E+04
-# x0['2'] = [5.000E+02, 2.343E+03, 2.042E+01, 2.500E+01, 8.808E-03]  # Err: 9.5359E+04
-x0['2'] = [5.000E+02, 2.365E+03, 1.002E+01, 2.500E+01, 9.188E-03]  # Err: 9.4305E+04
-# x0['3'] = [1.00E+01, 1.79E+03, 3.55E+01, 1.22E+02, 3.13E-03]  # Err: 9.785E+03
-# x0['3'] = [1.001E+01, 1.650E+03, 2.943E+01, 1.349E+02, 1.536E-03]  # Err: 1.0000E+04
-x0['3'] = [1.000E+01, 1.632E+03, 5.000E+01, 1.064E+02, 1.553E-03]  # Err: 9.8435E+03
-# x0['4'] = [1.00E+01, 2.13E+03, 1.83E+01, 5.00E+02, 1.46E-03]  # Err: 2.792E+04
-# x0['4'] = [1.126E+01, 2.124E+03, 2.196E+01, 4.926E+02, 1.001E-03]  # Err: 2.9893E+04
-x0['4'] = [1.000E+01, 3.419E+03, 5.000E+01, 9.351E+02, 1.212E-03]  # Err: 2.6862E+04
-# x0['5'] = [3.59E+02, 6.97E+02, 2.07E+01, 3.76E+02, 2.40E-03]  # Err: 3.785E+03
-x0['5'] = [3.150E+02, 7.208E+02, 1.000E+01, 3.844E+02, 2.241E-03]  # Err: 3.7821E+03
-# x0['6'] = [1.003E+02, 5.002E+02, 1.695E+01, 3.845E+02, 2.663E-03]  # Err: 1.5555E+04
-# x0['6'] = [1.540E+02, 3.449E+02, 1.000E+01, 3.081E+02, 2.731E-03]  # Err: 1.3552E+04
-x0['6'] = [2.33E+02, 3.00E+02, 1.00E+01, 3.43E+02, 2.70E-03]  # Err: 1.3100E+04
-# x0['7'] = [2.395E+02, 7.743E+02, 2.788E+01, 5.000E+02, 1.871E-03]  # Err: 9.7416E+04
-x0['7'] = [3.280E+02, 1.231E+03, 1.000E+01, 9.999E+02, 2.056E-03]  # Err: 8.2503E+04
-# x0['8'] = [2.877E+02, 6.819E+02, 1.223E+01, 5.000E+02, 2.538E-03]  # Err: 1.8180E+04
-x0['8'] = [4.823E+02, 4.823E+02, 1.489E+01, 5.154E+02, 2.526E-03]  # Err: 1.7002E+04
-# x0['9'] = [1.000E+01, 6.480E+02, 1.619E+01, 5.000E+02, 2.296E-03]  # Err: 8.4610E+04
-x0['9'] = [2.635E+01, 1.040E+03, 1.000E+01, 9.995E+02, 2.486E-03]  # Err: 6.1448E+04
-# x0['10'] = [4.956E+02, 3.000E+03, 1.000E+01, 2.500E+01, 5.693E-03]  # Err: 7.9027E+04
-x0['10'] = [5.000E+02, 4.000E+03, 1.401E+01, 2.500E+01, 6.154E-03]  # Err: 6.1108E+04
-x0['11'] = [2.46E+02, 5.00E+02, 4.97E+01, 4.23E+02, 1.00E-03]  # Err: 2.3930E+05
+# [global_rise_tau, global_decay_tau, kernel_scale]
+x0 = {}
+
+# x0['1'] = [1.000E+01, 3.366E+02, 4.820E-03]
+x0['1'] = [1.000E+01, 2.500E+01, 5.355E-03]  # Err: 6.5399E+05
+# x0['2'] = [1.00E+01, 2.55E+01, 1.96E-02]
+x0['2'] = [1.000E+01, 2.559E+01, 1.144E-02]  # Err: 3.0698E+05
+# x0['3'] = [2.943E+01, 1.349E+02, 1.536E-03]
+x0['3'] = [1.000E+01, 2.501E+01, 1.596E-03]  # Err: 2.0212E+05
+# x0['4'] = [1.83E+01, 5.00E+02, 1.46E-03]
+x0['4'] = [1.796E+01, 6.163E+01, 1.061E-03]  # Err: 5.6261E+04
+# x0['5'] = [1.000E+01, 3.844E+02, 2.241E-03]
+x0['5'] = [1.000E+01, 2.500E+01, 3.342E-03]  # Err: 2.1297E+05
+# x0['6'] = [20.4656, 452.9689, 0.0027]
+x0['6'] = [1.682E+01, 2.500E+01, 4.479E-03]  # Err: 5.0876E+04
+# x0['7'] = [45.9480, 334.9104, 0.0019]
+x0['7'] = [1.000E+01, 9.926E+01, 2.085E-03]  # Err: 2.2092E+05
+# x0['8'] = [10.9215, 433.4655, 0.0024]
+x0['8'] = [1.000E+01, 2.500E+01, 2.669E-03]  # Err: 2.3392E+05
+x0['9'] = [1.000E+01, 1.775E+02, 2.634E-03]  # Err: 1.7976E+05
+x0['10'] = [1.210E+01, 2.500E+01, 1.000E-03]  # Err: 1.1124E+06
+x0['11'] = [1.000E+01, 1.748E+02, 1.482E-03]  # Err: 1.3021E+05
 
 # to avoid saturation and reduce variability of time courses across cells, impose the relative amplitude
 # of global and local kernels:
 filter_ratio = 1.5
-# [local_rise_tau, local_decay_tau, global_rise_tau, global_decay_tau, kernel_scale]
-# x1 = [300., 1000., 50., 500., 2.e-3]
+
 if cell_id in x0:
     x1 = x0[cell_id]
 else:
     x1 = x0['1']
-xmin1 = [10., 300., 10., 25., 5.e-4]
-xmax1 = [500., 4000., 50., 1000., 2.e-2]
+xmin1 = [10., 25., 5.e-4]
+xmax1 = [50., 500., 5.e-2]
 
 
 induction = 1
@@ -811,7 +801,7 @@ result = optimize_explore(x1, xmin1, xmax1, ramp_error_cont, ramp[induction], in
 polished_result = optimize_polish(result['x'], xmin1, xmax1, ramp_error_cont, ramp[induction], induction)
 
 hist.report_best()
-hist.export('120116_magee_data_optimization_long_cell'+cell_id)
+hist.export('120116_magee_data_optimization_short_cell'+cell_id)
 
 
 """

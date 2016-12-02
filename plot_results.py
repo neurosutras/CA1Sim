@@ -405,6 +405,7 @@ def plot_Rinp(rec_file_list, description_list="", title=None):
     plt.show()
     plt.close()
 
+
 def plot_Rinp_general(rec_file_list, sectypes_list=None, features_list=None, labels=None):
     """
 
