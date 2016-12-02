@@ -793,15 +793,15 @@ xmax1 = [500., 4000., 50., 1000., 2.e-2]
 
 induction = 1
 
-ramp_error_cont(x1, xmin1, xmax1, ramp[induction], induction, plot=True)
-"""
+# ramp_error_cont(x1, xmin1, xmax1, ramp[induction], induction, plot=True)
+
 result = optimize_explore(x1, xmin1, xmax1, ramp_error_cont, ramp[induction], induction, maxfev=700)
 
 polished_result = optimize_polish(result['x'], xmin1, xmax1, ramp_error_cont, ramp[induction], induction)
 
 hist.report_best()
-hist.export('120116_magee_data_optimization_long_cell'+cell_id)
-
+hist.export('120216_magee_data_optimization_long_cell'+cell_id)
+"""
 
 
 ramp_error_cont(polished_result['x'], xmin1, xmax1, ramp[induction], induction, plot=True)
