@@ -199,11 +199,10 @@ def generate_complete_rate_maps(simiter, induction, spatial_rate_maps, phase_map
     return complete_t, complete_x, complete_rate_maps
 
 
-def generate_default_rate_maps(simiter, induction, spatial_rate_maps, phase_maps, global_phase_offset=None):
+def generate_default_rate_maps(simiter, spatial_rate_maps, phase_maps, global_phase_offset=None):
     """
 
     :param simiter: int
-    :param induction: int
     :param spatial_rate_maps: array
     :param phase_maps: array
     :param global_phase_offset: float
@@ -472,8 +471,7 @@ for induction in [1]:  # position:
         generate_complete_rate_maps(trial_seed, induction, spatial_rate_maps, phase_maps, default_global_phase_offset)
     complete_induction_gates[induction] = generate_complete_induction_gate(induction)
 
-default_rate_maps = generate_default_rate_maps(trial_seed, induction, spatial_rate_maps, phase_maps,
-                                               default_global_phase_offset)
+default_rate_maps = generate_default_rate_maps(trial_seed, spatial_rate_maps, phase_maps, default_global_phase_offset)
 
 baseline = None
 for induction in position:
@@ -510,7 +508,7 @@ def build_kernels(x, plot=False):
     Construct two kernels with exponential rise and decay:
     1) Local kernel that generates a plasticity signal at each spine
     2) Global kernal that generates a plasticity signal during dendritic calcium spiking
-    :param x: array: [local_rise_tau, local_decay_tau, local_scale, global_rise_tau, global_decay_tau, global_scale]
+    :param x: array: [local_rise_tau, local_decay_tau, global_rise_tau, global_decay_tau, filter_ratio, global_scale]
     :param plot: bool
     :return: array, array
     """
@@ -518,6 +516,7 @@ def build_kernels(x, plot=False):
     local_decay_tau = x[1]
     global_rise_tau = x[2]
     global_decay_tau = x[3]
+    filter_ratio = x[4]
 
     max_time_scale = np.max([local_rise_tau+local_decay_tau, global_rise_tau+global_decay_tau])
     filter_t = np.arange(0., 6.*max_time_scale, dt)
@@ -557,7 +556,7 @@ def calculate_plasticity_signal(x, local_kernel, global_kernel, induction, plot=
     Given the local and global kernels, convolve each input rate_map with the local kernel, and convolve the
     current injection with the global kernel. The weight change for each input is proportional to the area under the
     product of the two signals. Incremental weight changes accrue across multiple induction trials.
-    :param x: array: [local_rise_tau, local_decay_tau, global_rise_tau, global_decay_tau, kernel_scale]
+    :param x: array: [local_rise_tau, local_decay_tau, global_rise_tau, global_decay_tau, filter_ratio, kernel_scale]
     :param local_kernel: array
     :param global_kernel: array
     :param induction: int: key for dicts of arrays
@@ -565,7 +564,8 @@ def calculate_plasticity_signal(x, local_kernel, global_kernel, induction, plot=
     :return: plasticity_signal: array
     """
     saturation_factor = 0.02
-    kernel_scale = x[4]
+    filter_ratio = x[4]
+    kernel_scale = x[5]
     group = 'CA3'
     for attempt in range(2):
         plasticity_signal = np.zeros_like(peak_locs[group])
@@ -604,7 +604,7 @@ def calculate_plasticity_signal(x, local_kernel, global_kernel, induction, plot=
                 axes.fill_between(down_t/1000., 0., this_signal, label='Overlap', facecolor='r', alpha=0.5)
                 axes.axhline(y=ylim*1.05, xmin=x_start, xmax=x_end, linewidth=3, c='k')
                 axes.legend(loc='best', frameon=False, framealpha=0.5)
-                axes.set_xlabel('Time (ms)')
+                axes.set_xlabel('Time (s)')
                 axes.set_ylabel('Signal amplitude (a.u.)')
                 axes.set_xlim(-5., interp_t[induction][0][-1]/1000. + 5.)
                 axes.set_ylim(-0.05*ylim, ylim*1.1)
@@ -636,7 +636,7 @@ def ramp_error_cont(x, xmin, xmax, ramp, induction=None, orig_weights=None, base
                     full_output=False):
     """
     Calculates a rule_waveform and set of weights to match the first place field induction.
-    :param x: array [local_rise_tau, local_decay_tau, global_rise_tau, global_decay_tau, kernel_scale]
+    :param x: array [local_rise_tau, local_decay_tau, global_rise_tau, global_decay_tau, filter_ratio, kernel_scale]
     :param xmin: array
     :param xmax: array
     :param ramp: array
@@ -667,6 +667,8 @@ def ramp_error_cont(x, xmin, xmax, ramp, induction=None, orig_weights=None, base
     Err = 0.
     for j in range(len(ramp)):
         Err += ((ramp[j] - model_ramp[j]) / 0.05) ** 2.
+    # Extra penalty for difference in peak amplitude
+    Err += ((np.max(ramp) - np.max(model_ramp)) / 0.01) ** 2.
 
     if plot:
         x_start = np.mean(induction_locs[induction])/track_length
@@ -763,50 +765,52 @@ x0 = {}
 # x0['1'] = [3.00E+02, 7.18E+02, 1.91E-01, 2.97E+01, 1.00E+02, 2.10E-03]
 # x0['1'] = [1.00E+01, 1.35E+03, 3.02E-01, 2.12E+01, 2.15E+02, 3.13E-03]
 
-x0['1'] = [1.246E+01, 1.603E+03, 3.967E+01, 4.438E+02, 4.360E-03]  # Err: 7.1880E+04
-x0['2'] = [1.035E+01, 3.526E+02, 1.814E+01, 2.713E+01, 4.449E-03]  # 1.0169E+05
-x0['3'] = [1.000E+01, 1.605E+03, 5.000E+01, 9.899E+01, 1.539E-03]  # Err: 9.7867E+03
-x0['4'] = [1.007E+01, 2.842E+03, 5.000E+01, 1.000E+03, 1.071E-03]  # Err: 1.8466E+04
-x0['5'] = [5.000E+02, 5.795E+02, 2.296E+01, 3.846E+02, 1.530E-03]  # Err: 1.7840E+03
-x0['6'] = [2.33E+02, 3.00E+02, 1.00E+01, 3.43E+02, 2.70E-03]  # Err: 1.3100E+04
-x0['7'] = [5.000E+02, 1.017E+03, 1.000E+01, 1.000E+03, 2.093E-03]  # Err: 8.1851E+04
-x0['8'] = [2.877E+02, 6.819E+02, 1.223E+01, 5.000E+02, 2.538E-03]  # Err: 1.8180E+04
+# x0['1'] = [1.246E+01, 1.603E+03, 3.967E+01, 4.438E+02, 1.5, 4.360E-03]  # Err: 7.1880E+04
+x0['1'] = [1.638E+01, 1.488E+03, 5.000E+01, 4.830E+02, 1.000E+00, 3.338E-03]  # Err: 7.0740E+04
+x0['2'] = [1.035E+01, 3.526E+02, 1.814E+01, 2.713E+01, 1.5, 4.449E-03]  # 1.0169E+05
+x0['3'] = [1.000E+01, 1.605E+03, 5.000E+01, 9.899E+01, 1.5, 1.539E-03]  # Err: 9.7867E+03
+x0['4'] = [1.007E+01, 2.842E+03, 5.000E+01, 1.000E+03, 1.5, 1.071E-03]  # Err: 1.8466E+04
+x0['5'] = [5.000E+02, 5.795E+02, 2.296E+01, 3.846E+02, 1.5, 1.530E-03]  # Err: 1.7840E+03
+x0['6'] = [2.33E+02, 3.00E+02, 1.00E+01, 3.43E+02, 1.5, 2.70E-03]  # Err: 1.3100E+04
+x0['7'] = [5.000E+02, 1.017E+03, 1.000E+01, 1.000E+03, 1.5, 2.093E-03]  # Err: 8.1851E+04
+x0['8'] = [2.877E+02, 6.819E+02, 1.223E+01, 5.000E+02, 1.5, 2.538E-03]  # Err: 1.8180E+04
 # x0['8'] = [4.823E+02, 4.823E+02, 1.489E+01, 5.154E+02, 2.526E-03]  # Err: 1.7002E+04
-x0['9'] = [1.316E+01, 1.112E+03, 4.950E+01, 9.948E+02, 2.553E-03]  # Err: 5.8385E+04
-x0['10'] = [4.894E+02, 3.977E+03, 1.000E+01, 2.500E+01, 5.438E-03]  # Err: 5.4078E+04
-x0['11'] = [1.121E+01, 3.002E+02, 1.354E+01, 2.500E+01, 1.710E-03]  # Err: 4.4760E+04
-x0['12'] = [1.006E+01, 5.596E+02, 2.856E+01, 5.641E+01, 5.014E-03]  # Err: 2.0313E+04
-x0['13'] = [5.000E+02, 9.456E+02, 1.001E+01, 1.395E+02, 4.149E-03]  # Err: 9.6708E+03
-x0['14'] = [1.944E+02, 3.000E+02, 2.035E+01, 2.537E+02, 1.513E-03]  # Err: 2.2878E+04
-x0['15'] = [5.000E+02, 6.081E+02, 1.287E+01, 4.231E+02, 1.894E-03]  # Err: 7.3329E+03
-x0['16'] = [4.093E+02, 4.431E+02, 1.000E+01, 4.328E+02, 3.237E-03]  # Err: 1.4417E+04
-x0['17'] = [5.000E+02, 6.188E+02, 1.840E+01, 5.337E+02, 1.978E-03]  # Err: 5.0532E+04
+x0['9'] = [1.316E+01, 1.112E+03, 4.950E+01, 9.948E+02, 1.5, 2.553E-03]  # Err: 5.8385E+04
+x0['10'] = [4.894E+02, 3.977E+03, 1.000E+01, 2.500E+01, 1.5, 5.438E-03]  # Err: 5.4078E+04
+x0['11'] = [1.121E+01, 3.002E+02, 1.354E+01, 2.500E+01, 1.5, 1.710E-03]  # Err: 4.4760E+04
+x0['12'] = [1.006E+01, 5.596E+02, 2.856E+01, 5.641E+01, 1.5, 5.014E-03]  # Err: 2.0313E+04
+x0['13'] = [5.000E+02, 9.456E+02, 1.001E+01, 1.395E+02, 1.5, 4.149E-03]  # Err: 9.6708E+03
+x0['14'] = [1.944E+02, 3.000E+02, 2.035E+01, 2.537E+02, 1.5, 1.513E-03]  # Err: 2.2878E+04
+x0['15'] = [5.000E+02, 6.081E+02, 1.287E+01, 4.231E+02, 1.5, 1.894E-03]  # Err: 7.3329E+03
+x0['16'] = [4.093E+02, 4.431E+02, 1.000E+01, 4.328E+02, 1.5, 3.237E-03]  # Err: 1.4417E+04
+x0['17'] = [5.000E+02, 6.188E+02, 1.840E+01, 5.337E+02, 1.5, 1.978E-03]  # Err: 5.0532E+04
+x0['18'] = [4.992E+02, 3.934E+03, 1.000E+01, 6.264E+02, 1.5, 1.555E-03]  # Err: 1.5993E+04
 
-
-# to avoid saturation and reduce variability of time courses across cells, impose the relative amplitude
+# to avoid saturation and reduce variability of time courses across cells, constrain the relative amplitude
 # of global and local kernels:
-filter_ratio = 1.5
-# [local_rise_tau, local_decay_tau, global_rise_tau, global_decay_tau, kernel_scale]
-# x1 = [300., 1000., 50., 500., 2.e-3]
+# [local_rise_tau, local_decay_tau, global_rise_tau, global_decay_tau, filter_ratio, kernel_scale]
 if cell_id in x0:
     x1 = x0[cell_id]
 else:
     x1 = x0['1']
-xmin1 = [10., 300., 10., 25., 5.e-4]
-xmax1 = [500., 4000., 50., 1000., 2.e-2]
+xmin1 = [10., 300., 10., 25., 1., 5.e-4]
+xmax1 = [500., 4000., 50., 1000., 1.5, 2.e-2]
 
 
 induction = 1
 
-ramp_error_cont(x1, xmin1, xmax1, ramp[induction], induction, plot=True)
+
+# ramp_error_cont(x1, xmin1, xmax1, ramp[induction], induction, plot=True)
 """
 result = optimize_explore(x1, xmin1, xmax1, ramp_error_cont, ramp[induction], induction, maxfev=700)
 
 polished_result = optimize_polish(result['x'], xmin1, xmax1, ramp_error_cont, ramp[induction], induction)
+"""
+polished_result = optimize_polish(x1, xmin1, xmax1, ramp_error_cont, ramp[induction], induction)
 
 hist.report_best()
 hist.export('120216_magee_data_optimization_long_cell'+cell_id)
-
+"""
 
 
 ramp_error_cont(polished_result['x'], xmin1, xmax1, ramp[induction], induction, plot=True)

@@ -199,11 +199,10 @@ def generate_complete_rate_maps(simiter, induction, spatial_rate_maps, phase_map
     return complete_t, complete_x, complete_rate_maps
 
 
-def generate_default_rate_maps(simiter, induction, spatial_rate_maps, phase_maps, global_phase_offset=None):
+def generate_default_rate_maps(simiter, spatial_rate_maps, phase_maps, global_phase_offset=None):
     """
 
     :param simiter: int
-    :param induction: int
     :param spatial_rate_maps: array
     :param phase_maps: array
     :param global_phase_offset: float
@@ -472,8 +471,7 @@ for induction in [1]:  # position:
         generate_complete_rate_maps(trial_seed, induction, spatial_rate_maps, phase_maps, default_global_phase_offset)
     complete_induction_gates[induction] = generate_complete_induction_gate(induction)
 
-default_rate_maps = generate_default_rate_maps(trial_seed, induction, spatial_rate_maps, phase_maps,
-                                               default_global_phase_offset)
+default_rate_maps = generate_default_rate_maps(trial_seed, spatial_rate_maps, phase_maps, default_global_phase_offset)
 
 baseline = None
 for induction in position:
@@ -510,14 +508,13 @@ def build_kernels(x, plot=False):
     Construct two kernels with exponential rise and decay:
     1) Local kernel that generates a plasticity signal at each spine
     2) Global kernal that generates a plasticity signal during dendritic calcium spiking
-    :param x: array: [local_rise_tau, local_decay_tau, local_scale, global_rise_tau, global_decay_tau, global_scale]
+    :param x: array: [global_rise_tau, global_decay_tau, filter_ratio, global_scale]
     :param plot: bool
     :return: array, array
     """
-    local_rise_tau = x[0]
-    local_decay_tau = x[1]
-    global_rise_tau = x[2]
-    global_decay_tau = x[3]
+    global_rise_tau = x[0]
+    global_decay_tau = x[1]
+    filter_ratio = x[2]
 
     max_time_scale = np.max([local_rise_tau+local_decay_tau, global_rise_tau+global_decay_tau])
     filter_t = np.arange(0., 6.*max_time_scale, dt)
@@ -557,7 +554,7 @@ def calculate_plasticity_signal(x, local_kernel, global_kernel, induction, plot=
     Given the local and global kernels, convolve each input rate_map with the local kernel, and convolve the
     current injection with the global kernel. The weight change for each input is proportional to the area under the
     product of the two signals. Incremental weight changes accrue across multiple induction trials.
-    :param x: array: [local_rise_tau, local_decay_tau, global_rise_tau, global_decay_tau, kernel_scale]
+    :param x: array: [global_rise_tau, global_decay_tau, filter_ratio, global_scale]
     :param local_kernel: array
     :param global_kernel: array
     :param induction: int: key for dicts of arrays
@@ -565,7 +562,8 @@ def calculate_plasticity_signal(x, local_kernel, global_kernel, induction, plot=
     :return: plasticity_signal: array
     """
     saturation_factor = 0.02
-    kernel_scale = x[4]
+    filter_ratio = x[2]
+    kernel_scale = x[3]
     group = 'CA3'
     for attempt in range(2):
         plasticity_signal = np.zeros_like(peak_locs[group])
@@ -636,7 +634,7 @@ def ramp_error_cont(x, xmin, xmax, ramp, induction=None, orig_weights=None, base
                     full_output=False):
     """
     Calculates a rule_waveform and set of weights to match the first place field induction.
-    :param x: array [local_rise_tau, local_decay_tau, global_rise_tau, global_decay_tau, kernel_scale]
+    :param x: array [global_rise_tau, global_decay_tau, filter_ratio, kernel_scale]
     :param xmin: array
     :param xmax: array
     :param ramp: array
@@ -650,7 +648,7 @@ def ramp_error_cont(x, xmin, xmax, ramp, induction=None, orig_weights=None, base
     if not check_bounds(x, xmin, xmax):
         print 'Aborting: Invalid parameter values.'
         return 1e9
-    elif (x[1] <= x[0]) or (x[3] <= x[2]):
+    elif x[1] <= x[0]:
         print 'Aborting: Invalid parameter values.'
         return 1e9
     start_time = time.time()
@@ -667,6 +665,8 @@ def ramp_error_cont(x, xmin, xmax, ramp, induction=None, orig_weights=None, base
     Err = 0.
     for j in range(len(ramp)):
         Err += ((ramp[j] - model_ramp[j]) / 0.05) ** 2.
+    # Extra penalty for difference in peak amplitude
+    Err += ((np.max(ramp) - np.max(model_ramp)) / 0.01) ** 2.
 
     if plot:
         x_start = np.mean(induction_locs[induction])/track_length
@@ -756,57 +756,54 @@ global_signal = {}
 delta_weights = {}
 model_ramp = {}
 
+local_rise_tau = 10.
+local_decay_tau = 100.
+
 x0 = {}
-# x0['1'] = [300., 6.69E+02, 9.77E-02, 6.40E+01, 1.31E+02, 4.04E-03]
-# x0['1'] = [223.606, 978.505, 0.117, 60.137, 106.736, 0.003]
-# x0['1'] = [2.34E+02, 8.74E+02, 1.53E-01, 5.33E+01, 1.09E+02, 2.21E-03]
-# x0['1'] = [3.00E+02, 7.18E+02, 1.91E-01, 2.97E+01, 1.00E+02, 2.10E-03]
-# x0['1'] = [1.00E+01, 1.35E+03, 3.02E-01, 2.12E+01, 2.15E+02, 3.13E-03]
 
-x0['1'] = [1.246E+01, 1.603E+03, 3.967E+01, 4.438E+02, 4.360E-03]  # Err: 7.1880E+04
-x0['2'] = [1.035E+01, 3.526E+02, 1.814E+01, 2.713E+01, 4.449E-03]  # 1.0169E+05
-x0['3'] = [1.000E+01, 1.605E+03, 5.000E+01, 9.899E+01, 1.539E-03]  # Err: 9.7867E+03
-x0['4'] = [1.007E+01, 2.842E+03, 5.000E+01, 1.000E+03, 1.071E-03]  # Err: 1.8466E+04
-x0['5'] = [5.000E+02, 5.795E+02, 2.296E+01, 3.846E+02, 1.530E-03]  # Err: 1.7840E+03
-x0['6'] = [2.33E+02, 3.00E+02, 1.00E+01, 3.43E+02, 2.70E-03]  # Err: 1.3100E+04
-x0['7'] = [5.000E+02, 1.017E+03, 1.000E+01, 1.000E+03, 2.093E-03]  # Err: 8.1851E+04
-x0['8'] = [2.877E+02, 6.819E+02, 1.223E+01, 5.000E+02, 2.538E-03]  # Err: 1.8180E+04
-# x0['8'] = [4.823E+02, 4.823E+02, 1.489E+01, 5.154E+02, 2.526E-03]  # Err: 1.7002E+04
-x0['9'] = [1.316E+01, 1.112E+03, 4.950E+01, 9.948E+02, 2.553E-03]  # Err: 5.8385E+04
-x0['10'] = [4.894E+02, 3.977E+03, 1.000E+01, 2.500E+01, 5.438E-03]  # Err: 5.4078E+04
-x0['11'] = [1.121E+01, 3.002E+02, 1.354E+01, 2.500E+01, 1.710E-03]  # Err: 4.4760E+04
-x0['12'] = [1.006E+01, 5.596E+02, 2.856E+01, 5.641E+01, 5.014E-03]  # Err: 2.0313E+04
-x0['13'] = [5.000E+02, 9.456E+02, 1.001E+01, 1.395E+02, 4.149E-03]  # Err: 9.6708E+03
-x0['14'] = [1.944E+02, 3.000E+02, 2.035E+01, 2.537E+02, 1.513E-03]  # Err: 2.2878E+04
-x0['15'] = [5.000E+02, 6.081E+02, 1.287E+01, 4.231E+02, 1.894E-03]  # Err: 7.3329E+03
-x0['16'] = [4.093E+02, 4.431E+02, 1.000E+01, 4.328E+02, 3.237E-03]  # Err: 1.4417E+04
-x0['17'] = [5.000E+02, 6.188E+02, 1.840E+01, 5.337E+02, 1.978E-03]  # Err: 5.0532E+04
+x0['1'] = [1.000E+01, 2.500E+01, 1.5, 4.684E-03]  # Err: 4.8691E+05
+x0['2'] = [1.000E+01, 2.500E+01, 1.5, 4.223E-03]  # Err: 1.0227E+05
+x0['3'] = [1.000E+01, 2.500E+01, 1.5, 1.593E-03]  # Err: 2.0170E+05
+x0['4'] = [2.482E+01, 1.001E+02, 1.5, 9.087E-04]  # Err: 3.9805E+04
+x0['5'] = [1.000E+01, 2.500E+01, 1.5, 2.255E-03]  # Err: 1.6122E+05
+x0['6'] = [1.000E+01, 3.063E+01, 1.5, 4.484E-03]  # Err: 4.9357E+04
+x0['7'] = [1.000E+01, 1.063E+02, 1.5, 2.074E-03]  # Err: 2.2461E+05
+x0['8'] = [1.000E+01, 2.502E+01, 1.5, 2.677E-03]  # Err: 2.3636E+05
+x0['9'] = [1.000E+01, 1.840E+02, 1.5, 2.621E-03]  # Err: 1.7979E+05
+x0['10'] = [1.001E+01, 2.500E+01, 1.5, 5.000E-04]  # Err: 1.0187E+06
+x0['11'] = [1.000E+01, 2.500E+01, 1.5, 1.829E-03]  # Err: 4.6237E+04
+x0['12'] = [1.000E+01, 2.500E+01, 1.5, 6.053E-03]  # Err: 2.3643E+05
+x0['13'] = [1.000E+01, 2.502E+01, 1.5, 4.183E-03]  # Err: 5.1455E+05
+x0['14'] = [1.000E+01, 2.639E+01, 1.5, 2.150E-03]  # Err: 4.0964E+04
+x0['15'] = [1.000E+01, 2.557E+01, 1.5, 2.469E-03]  # Err: 2.2841E+05
+x0['16'] = [1.000E+01, 2.530E+01, 1.5, 3.585E-03]  # Err: 2.8989E+05
+x0['17'] = [1.000E+01, 2.500E+01, 1.5, 2.583E-03]  # Err: 2.5722E+05
+x0['18'] = [1.000E+01, 2.500E+01, 1.5, 1.306E-03]  # Err: 1.8075E+05
 
-
-# to avoid saturation and reduce variability of time courses across cells, impose the relative amplitude
+# to avoid saturation and reduce variability of time courses across cells, constrain the relative amplitude
 # of global and local kernels:
-filter_ratio = 1.5
-# [local_rise_tau, local_decay_tau, global_rise_tau, global_decay_tau, kernel_scale]
-# x1 = [300., 1000., 50., 500., 2.e-3]
+# [global_rise_tau, global_decay_tau, filter_ratio, kernel_scale]
+
 if cell_id in x0:
     x1 = x0[cell_id]
 else:
     x1 = x0['1']
-xmin1 = [10., 300., 10., 25., 5.e-4]
-xmax1 = [500., 4000., 50., 1000., 2.e-2]
+xmin1 = [10., 25., 1., 5.e-4]
+xmax1 = [50., 500., 1.5, 5.e-2]
 
 
 induction = 1
 
-ramp_error_cont(x1, xmin1, xmax1, ramp[induction], induction, plot=True)
+# ramp_error_cont(x1, xmin1, xmax1, ramp[induction], induction, plot=True)
 """
 result = optimize_explore(x1, xmin1, xmax1, ramp_error_cont, ramp[induction], induction, maxfev=700)
 
 polished_result = optimize_polish(result['x'], xmin1, xmax1, ramp_error_cont, ramp[induction], induction)
-
+"""
+polished_result = optimize_polish(x1, xmin1, xmax1, ramp_error_cont, ramp[induction], induction)
 hist.report_best()
-hist.export('120216_magee_data_optimization_long_cell'+cell_id)
-
+hist.export('120216_magee_data_optimization_short_cell'+cell_id)
+"""
 
 
 ramp_error_cont(polished_result['x'], xmin1, xmax1, ramp[induction], induction, plot=True)
