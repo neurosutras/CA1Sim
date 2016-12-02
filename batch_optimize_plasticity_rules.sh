@@ -6,6 +6,7 @@ qsub -N long_cell_120216_cell04 -l d_rt=36000 -b y -cwd -V 'python optimize_long
 qsub -N long_cell_120216_cell05 -l d_rt=36000 -b y -cwd -V 'python optimize_long_time_scale_plasticity_rule_120216.py 5'
 qsub -N long_cell_120216_cell06 -l d_rt=36000 -b y -cwd -V 'python optimize_long_time_scale_plasticity_rule_120216.py 6'
 qsub -N long_cell_120216_cell07 -l d_rt=36000 -b y -cwd -V 'python optimize_long_time_scale_plasticity_rule_120216.py 7'
+qsub -N long_cell_120216_cell08 -l d_rt=36000 -b y -cwd -V 'python optimize_long_time_scale_plasticity_rule_120216.py 8'
 qsub -N long_cell_120216_cell09 -l d_rt=36000 -b y -cwd -V 'python optimize_long_time_scale_plasticity_rule_120216.py 9'
 qsub -N long_cell_120216_cell10 -l d_rt=36000 -b y -cwd -V 'python optimize_long_time_scale_plasticity_rule_120216.py 10'
 qsub -N long_cell_120216_cell11 -l d_rt=36000 -b y -cwd -V 'python optimize_long_time_scale_plasticity_rule_120216.py 11'
