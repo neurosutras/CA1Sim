@@ -28,7 +28,7 @@ if len(sys.argv) > 1:
 else:
     raise Exception('No cell_id provided.')
 
-output_file = '120116 magee lab spont'
+output_file = '120216 magee lab spont'
 
 cell_keys = {1: '130925s.txt',
              2: '131210s.txt',
@@ -39,7 +39,7 @@ cell_keys = {1: '130925s.txt',
              7: '160204s.txt'
              }
 
-cell_legend = { # not exported yet, ramp had 97, not 100 spatial bins
+cell_legend = { # ramp had 97, not 100 spatial bins. Added 3 in the beginning
                 1: [{'position': [0], 'ramp': 2, 'current': [1], 'induction_loc': [],
                     'induction_dur': []}],
                 2: [{'position': [0], 'ramp': 2, 'current': [1], 'induction_loc': [],
