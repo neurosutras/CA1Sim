@@ -359,11 +359,14 @@ for induction in position:
         interp_t[induction].append(this_interp_t)
         this_interp_x = np.interp(interp_t[induction][i], t[induction][i], position[induction][i])
         interp_x[induction].append(this_interp_x)
-        padded_x = np.insert(this_interp_x, 0, this_interp_x[-vel_window_bins-1:-1]-track_length)
-        padded_x = np.insert(padded_x, -1, this_interp_x[1:vel_window_bins+1]+track_length)
+        padded_t = np.insert(this_interp_t, 0, this_interp_t[-vel_window_bins:] - this_interp_t[-1] - dt)
+        padded_t = np.append(padded_t, this_interp_t[:vel_window_bins + 1] + this_interp_t[-1] + dt)
+        padded_x = np.insert(this_interp_x, 0, this_interp_x[-vel_window_bins:] - track_length)
+        padded_x = np.append(padded_x, this_interp_x[:vel_window_bins + 1] + track_length)
         this_run_vel = []
-        for j in range(vel_window_bins, vel_window_bins+len(this_interp_x)):
-            this_run_vel.append(np.sum(np.diff(padded_x[j-vel_window_bins:j+vel_window_bins]))/vel_window_dur*1000.)
+        for j in range(vel_window_bins, vel_window_bins + len(this_interp_x)):
+            this_run_vel.append(np.sum(np.diff(padded_x[j - vel_window_bins:j + vel_window_bins + 1])) /
+                                np.sum(np.diff(padded_t[j - vel_window_bins:j + vel_window_bins + 1])) * 1000.)
         this_run_vel = np.array(this_run_vel)
         this_run_vel_gate = np.zeros_like(this_run_vel)
         this_run_vel_gate[np.where(this_run_vel>5.)[0]] = 1.
@@ -758,7 +761,16 @@ model_ramp = {}
 
 x0 = {}
 
-x0['1'] = [1.638E+01, 1.488E+03, 5.000E+01, 4.830E+02, 1.5, 3.338E-03]  # Err: 7.0740E+04
+# x0['1'] = [1.638E+01, 1.488E+03, 5.000E+01, 4.830E+02, 1.5, 3.338E-03]  # Err: 7.0740E+04
+x0['1'] = [1.000E+01, 3.000E+02, 4.905E+01, 3.985E+02, 1.496E+00, 1.935E-03]  # Err: 1.5336E+04
+x0['2'] =  [5.000E+02, 5.443E+02, 5.000E+01, 6.303E+01, 1.278E+00, 7.978E-03]  # Err: 2.2476E+04
+x0['3'] = [1.000E+01, 1.413E+03, 4.906E+01, 5.689E+02, 1.499E+00, 3.052E-03]  # Err: 1.7048E+04
+x0['4'] = [5.000E+02, 1.048E+03, 1.597E+01, 8.817E+02, 1.005E+00, 1.280E-02]  # Err: 2.3228E+04
+x0['5'] = [1.061E+01, 1.094E+03, 5.000E+01, 7.335E+02, 1.500E+00, 3.621E-03]  # Err: 1.2595E+05
+x0['6'] = [5.000E+02, 8.594E+02, 1.005E+01, 2.330E+02, 1.292E+00, 1.195E-02]  # Err: 1.0243E+04
+x0['7'] = [1.000E+01, 3.402E+02, 3.091E+01, 4.065E+02, 1.500E+00, 1.873E-02]  # Err: 1.5137E+06
+
+# x0['mean'] = [2.201E+02, 7.998E+02, 3.643E+01, 4.693E+02, 1.367E+00, 8.581E-03]
 
 # to avoid saturation and reduce variability of time courses across cells, constrain the relative amplitude
 # of global and local kernels:
@@ -775,7 +787,7 @@ induction = 1
 
 
 # ramp_error_cont(x1, xmin1, xmax1, ramp[induction], induction, plot=True)
-
+"""
 result = optimize_explore(x1, xmin1, xmax1, ramp_error_cont, ramp[induction], induction, maxfev=700)
 
 polished_result = optimize_polish(result['x'], xmin1, xmax1, ramp_error_cont, ramp[induction], induction)
@@ -784,7 +796,7 @@ polished_result = optimize_polish(result['x'], xmin1, xmax1, ramp_error_cont, ra
 
 hist.report_best()
 hist.export('120216_magee_data_optimization_long_cell_spont'+cell_id)
-"""
+
 
 
 ramp_error_cont(polished_result['x'], xmin1, xmax1, ramp[induction], induction, plot=True)

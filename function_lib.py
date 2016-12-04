@@ -952,7 +952,8 @@ def get_inhom_poisson_spike_times_by_thinning(rate, t, dt=0.02, refractory=3., g
     interp_t = np.arange(t[0], t[-1] + dt, dt)
     interp_rate = np.interp(interp_t, t, rate)
     interp_rate /= 1000.
-    interp_rate = 1. / (1. / interp_rate - refractory)
+    non_zero = np.where(interp_rate > 0.)[0]
+    interp_rate[non_zero] = 1. / (1. / interp_rate[non_zero] - refractory)
     spike_times = []
     max_rate = np.max(interp_rate)
     i = 0

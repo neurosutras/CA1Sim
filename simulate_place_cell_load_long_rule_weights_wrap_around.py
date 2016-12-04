@@ -19,35 +19,32 @@ morph_filename = 'EB2-late-bifurcation.swc'
 
 mech_filename = '043016 Type A - km2_NMDA_KIN5_Pr'
 
+num_exc_syns = 1600
+num_inh_syns = 600
+
+# .hdf5 file contains weight_distributions for various running speeds
 if len(sys.argv) > 1:
-    synapses_seed = int(sys.argv[1])
+    induction_run_vel = int(sys.argv[1])
 else:
-    synapses_seed = 0
+    induction_run_vel = 0
 if len(sys.argv) > 2:
-    num_exc_syns = int(sys.argv[2])
+    induction_seed = int(sys.argv[2])
 else:
-    num_exc_syns = 3200
-if len(sys.argv) > 3:
-    num_inh_syns = int(sys.argv[3])
-else:
-    num_inh_syns = 600
+    induction_seed = 0
 # allows parallel computation of multiple trials for the same spines with the same peak_locs, but with different
 # input spike trains and stochastic synapses for each trial
-if len(sys.argv) > 4:
-    trial_seed = int(sys.argv[4])
+if len(sys.argv) > 3:
+    trial_seed = int(sys.argv[3])
 else:
     trial_seed = 0
-# .hdf5 file contains weight_distributions for various running speeds
-if len(sys.argv) > 5:
-    induction_run_vel = int(sys.argv[5])
-else:
-    induction_run_vel = 0.
 
-weights_filename = None
+synapses_seed = induction_seed
+
+weights_filename = '120316 induced field long rule weights'
 
 rec_filename = 'output'+datetime.datetime.today().strftime('%m%d%Y%H%M')+'-pid'+str(os.getpid())+'-seed'+\
                str(synapses_seed)+'-e'+str(num_exc_syns)+'-i'+str(num_inh_syns)+\
-               '-run_vel'+str(induction_run_vel)+'_'+str(trial_seed)
+               '-run_vel'+str(induction_run_vel)+'_long'+str(induction_seed)+'_'+str(trial_seed)
 
 
 def get_dynamic_theta_phase_force(phase_ranges, peak_loc, dx):
@@ -313,6 +310,8 @@ sim.parameters['duration'] = duration
 sim.parameters['stim_dt'] = dt
 sim.parameters['dt'] = sim_dt
 sim.parameters['induction_run_vel'] = induction_run_vel
+sim.parameters['induction_seed'] = induction_seed
+sim.parameters['trial_seed'] = trial_seed
 sim.parameters['run_vel'] = default_run_vel
 sim.append_rec(cell, cell.tree.root, description='soma', loc=0.)
 sim.append_rec(cell, trunk_bifurcation[0], description='proximal_trunk', loc=1.)
@@ -378,19 +377,9 @@ stim_t = np.append(np.arange(-track_equilibrate, 0., dt), t)
 gauss_sigma = input_field_width / 3. / np.sqrt(2.)  # contains 99.7% gaussian area
 
 rand_exc_seq_locs = {}
-delta_peak_locs = {}
-extended_peak_locs = {}
-within_track = {}
-for group in stim_exc_syns:
-    rand_exc_seq_locs[group] = []
-    delta_peak_locs[group] = track_length / len(stim_exc_syns[group])
-    if stim_exc_syns[group]:
-        extended_peak_locs[group] = np.arange(-track_length, 2. * track_length, delta_peak_locs[group])
-        within_track[group] = np.where((extended_peak_locs[group] >= 0.) &
-                                       (extended_peak_locs[group] < track_length))[0]
-        peak_locs[group] = extended_peak_locs[group][within_track[group]]
 
 for group in stim_exc_syns:
+    rand_exc_seq_locs[group] = []
     for syn in stim_exc_syns[group]:
         if excitatory_stochastic:
             success_vec = h.Vector()
@@ -399,39 +388,47 @@ for group in stim_exc_syns:
             rand_exc_seq_locs[group].append(syn.randObj.seq())
         all_exc_syns[syn.node.parent.parent.type].remove(syn)
 
-
 weights = {}
 
-if induction_run_vel != 0.:
+if induction_run_vel != 0:
     with h5py.File(data_dir + weights_filename + '.hdf5', 'r') as f:
-        group = 'CA3'
-        this_weights = f[str(induction_run_vel)]['weights'][:]
-        this_peak_locs = f[str(induction_run_vel)]['peak_locs'][:]
-        weights[group] = np.interp(peak_locs[group], this_peak_locs, this_weights)
+        these_weights = f[str(induction_run_vel)][str(induction_seed)]
+        for group in stim_exc_syns:
+            weights[group] = these_weights[group]['weights'][:]
+            peak_locs[group] = these_weights[group]['peak_locs'][:]
 else:
+    delta_peak_locs = {}
+    extended_peak_locs = {}
+    within_track = {}
     # default weights if a distribution was not loaded from a file.
     field_center1 = track_length * field1_loc
     peak_mod_weight = 2.5
     tuning_amp = (peak_mod_weight - 1.)
     start_loc = field_center1 - input_field_width * 1.2 / 2.
     end_loc = field_center1 + input_field_width * 1.2 / 2.
-    group = 'CA3'
-    extended_weights = np.zeros_like(extended_peak_locs[group])
-    within_field = np.where((extended_peak_locs[group] >= start_loc) & (extended_peak_locs[group] <= end_loc))[0]
-    extended_weights[within_field] = tuning_amp / 2. * np.cos(2. * np.pi / (input_field_width * 1.2) *
-                                                              (extended_peak_locs[group][within_field] -
-                                                               field_center1)) + tuning_amp / 2.
-    this_weights = extended_weights[within_track[group]]
-    before_track_indexes = np.where(extended_peak_locs[group] < 0.)[0]
-    before_track = np.array(extended_weights[before_track_indexes[-min(len(before_track_indexes), len(this_weights)):]])
-    after_track_indexes = np.where(extended_peak_locs[group] > track_length)[0]
-    after_track = np.array(extended_weights[after_track_indexes[:min(len(after_track_indexes), len(this_weights))]])
-    this_weights[-len(before_track):] += before_track
-    this_weights[:len(after_track)] += after_track
-    weights[group] = 1. + this_weights
-
-# optimization assumed no ECIII inputs, interpolate the weights across location for those inputs as well
-weights['ECIII'] = np.interp(peak_locs['ECIII'], peak_locs['CA3'], weights['CA3'])
+    for group in stim_exc_syns:
+        if stim_exc_syns[group]:
+            delta_peak_locs[group] = track_length / len(stim_exc_syns[group])
+            extended_peak_locs[group] = np.arange(-track_length, 2. * track_length, delta_peak_locs[group])
+            within_track[group] = np.where((extended_peak_locs[group] >= 0.) &
+                                           (extended_peak_locs[group] < track_length))[0]
+            peak_locs[group] = extended_peak_locs[group][within_track[group]]
+            extended_weights = np.zeros_like(extended_peak_locs[group])
+            within_field = np.where((extended_peak_locs[group] >= start_loc) &
+                                    (extended_peak_locs[group] <= end_loc))[0]
+            extended_weights[within_field] = tuning_amp / 2. * np.cos(2. * np.pi / (input_field_width * 1.2) *
+                                                                      (extended_peak_locs[group][within_field] -
+                                                                       field_center1)) + tuning_amp / 2.
+            this_weights = extended_weights[within_track[group]]
+            before_track_indexes = np.where(extended_peak_locs[group] < 0.)[0]
+            before_track = np.array(extended_weights[before_track_indexes[-min(len(before_track_indexes),
+                                                                               len(this_weights)):]])
+            after_track_indexes = np.where(extended_peak_locs[group] > track_length)[0]
+            after_track = np.array(extended_weights[after_track_indexes[:min(len(after_track_indexes),
+                                                                             len(this_weights))]])
+            this_weights[-len(before_track):] += before_track
+            this_weights[:len(after_track)] += after_track
+            weights[group] = 1. + this_weights
 
 for group in stim_exc_syns:
     peak_locs[group] = list(peak_locs[group])

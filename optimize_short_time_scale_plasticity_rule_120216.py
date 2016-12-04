@@ -361,11 +361,14 @@ for induction in position:
         interp_t[induction].append(this_interp_t)
         this_interp_x = np.interp(interp_t[induction][i], t[induction][i], position[induction][i])
         interp_x[induction].append(this_interp_x)
-        padded_x = np.insert(this_interp_x, 0, this_interp_x[-vel_window_bins-1:-1]-track_length)
-        padded_x = np.insert(padded_x, -1, this_interp_x[1:vel_window_bins+1]+track_length)
+        padded_t = np.insert(this_interp_t, 0, this_interp_t[-vel_window_bins:] - this_interp_t[-1] - dt)
+        padded_t = np.append(padded_t, this_interp_t[:vel_window_bins + 1] + this_interp_t[-1] + dt)
+        padded_x = np.insert(this_interp_x, 0, this_interp_x[-vel_window_bins:] - track_length)
+        padded_x = np.append(padded_x, this_interp_x[:vel_window_bins + 1] + track_length)
         this_run_vel = []
-        for j in range(vel_window_bins, vel_window_bins+len(this_interp_x)):
-            this_run_vel.append(np.sum(np.diff(padded_x[j-vel_window_bins:j+vel_window_bins]))/vel_window_dur*1000.)
+        for j in range(vel_window_bins, vel_window_bins + len(this_interp_x)):
+            this_run_vel.append(np.sum(np.diff(padded_x[j - vel_window_bins:j + vel_window_bins + 1])) /
+                                np.sum(np.diff(padded_t[j - vel_window_bins:j + vel_window_bins + 1])) * 1000.)
         this_run_vel = np.array(this_run_vel)
         this_run_vel_gate = np.zeros_like(this_run_vel)
         this_run_vel_gate[np.where(this_run_vel>5.)[0]] = 1.
@@ -761,24 +764,47 @@ local_decay_tau = 100.
 
 x0 = {}
 
-x0['1'] = [1.000E+01, 2.500E+01, 1.5, 4.684E-03]  # Err: 4.8691E+05
-x0['2'] = [1.000E+01, 2.500E+01, 1.5, 4.223E-03]  # Err: 1.0227E+05
-x0['3'] = [1.000E+01, 2.500E+01, 1.5, 1.593E-03]  # Err: 2.0170E+05
-x0['4'] = [2.482E+01, 1.001E+02, 1.5, 9.087E-04]  # Err: 3.9805E+04
-x0['5'] = [1.000E+01, 2.500E+01, 1.5, 2.255E-03]  # Err: 1.6122E+05
-x0['6'] = [1.000E+01, 3.063E+01, 1.5, 4.484E-03]  # Err: 4.9357E+04
-x0['7'] = [1.000E+01, 1.063E+02, 1.5, 2.074E-03]  # Err: 2.2461E+05
-x0['8'] = [1.000E+01, 2.502E+01, 1.5, 2.677E-03]  # Err: 2.3636E+05
-x0['9'] = [1.000E+01, 1.840E+02, 1.5, 2.621E-03]  # Err: 1.7979E+05
-x0['10'] = [1.001E+01, 2.500E+01, 1.5, 5.000E-04]  # Err: 1.0187E+06
-x0['11'] = [1.000E+01, 2.500E+01, 1.5, 1.829E-03]  # Err: 4.6237E+04
-x0['12'] = [1.000E+01, 2.500E+01, 1.5, 6.053E-03]  # Err: 2.3643E+05
-x0['13'] = [1.000E+01, 2.502E+01, 1.5, 4.183E-03]  # Err: 5.1455E+05
-x0['14'] = [1.000E+01, 2.639E+01, 1.5, 2.150E-03]  # Err: 4.0964E+04
-x0['15'] = [1.000E+01, 2.557E+01, 1.5, 2.469E-03]  # Err: 2.2841E+05
-x0['16'] = [1.000E+01, 2.530E+01, 1.5, 3.585E-03]  # Err: 2.8989E+05
-x0['17'] = [1.000E+01, 2.500E+01, 1.5, 2.583E-03]  # Err: 2.5722E+05
-x0['18'] = [1.000E+01, 2.500E+01, 1.5, 1.306E-03]  # Err: 1.8075E+05
+# x0['1'] = [1.000E+01, 2.500E+01, 1.5, 4.684E-03]  # Err: 4.8691E+05
+x0['1'] = [1.000E+01, 2.509E+01, 1.476E+00, 4.225E-03]  # Err: 5.0313E+05
+# x0['2'] = [1.000E+01, 2.500E+01, 1.5, 4.223E-03]  # Err: 1.0227E+05
+x0['2'] = [1.059E+01, 2.500E+01, 1.392E+00, 4.763E-03]  # Err: 1.6251E+05
+# Don't use cell3, it's the same as cell15
+# x0['3'] = [1.000E+01, 2.500E+01, 1.5, 1.593E-03]  # Err: 2.0170E+05
+# x0['3'] = [1.000E+01, 2.500E+01, 1.490E+00, 1.697E-03]  # Err: 2.0338E+05
+# x0['4'] = [2.482E+01, 1.001E+02, 1.5, 9.087E-04]  # Err: 3.9805E+04
+x0['4'] = [1.105E+01, 1.270E+02, 1.000E+00, 6.412E-04]  # Err: 3.9978E+04
+# x0['5'] = [1.000E+01, 2.500E+01, 1.5, 2.255E-03]  # Err: 1.6122E+05
+x0['5'] = [1.418E+01, 2.520E+01, 1.000E+00, 1.510E-03]  # Err: 1.6155E+05
+# x0['6'] = [1.000E+01, 3.063E+01, 1.5, 4.484E-03]  # Err: 4.9357E+04
+x0['6'] = [1.000E+01, 4.425E+01, 1.402E+00, 3.923E-03]  # Err: 5.1173E+04
+# x0['7'] = [1.000E+01, 1.063E+02, 1.5, 2.074E-03]  # Err: 2.2461E+05
+x0['7'] = [2.115E+01, 1.295E+02, 1.000E+00, 1.437E-03]  # Err: 2.2481E+05
+# x0['8'] = [1.000E+01, 2.502E+01, 1.5, 2.677E-03]  # Err: 2.3636E+05
+x0['8'] = [1.133E+01, 2.522E+01, 1.000E+00, 1.737E-03]  # Err: 2.4338E+05
+# x0['9'] = [1.000E+01, 1.840E+02, 1.5, 2.621E-03]  # Err: 1.7979E+05
+x0['9'] = [1.024E+01, 1.848E+02, 1.000E+00, 1.919E-03]  # Err: 1.8147E+05
+# x0['10'] = [1.001E+01, 2.500E+01, 1.5, 5.000E-04]  # Err: 1.0187E+06
+x0['10'] = [1.221E+01, 2.500E+01, 1.500E+00, 1.057E-03]  # Err: 1.8915E+06
+# x0['11'] = [1.000E+01, 2.500E+01, 1.5, 1.829E-03]  # Err: 4.6237E+04
+x0['11'] = [1.000E+01, 2.500E+01, 1.498E+00, 1.975E-03]  # Err: 4.9026E+04
+# x0['12'] = [1.000E+01, 2.500E+01, 1.5, 6.053E-03]  # Err: 2.3643E+05
+x0['12'] = [1.193E+01, 2.500E+01, 1.000E+00, 4.014E-03]  # Err: 2.4047E+05
+# x0['13'] = [1.000E+01, 2.502E+01, 1.5, 4.183E-03]  # Err: 5.1455E+05
+x0['13'] = [1.000E+01, 2.500E+01, 1.366E+00, 4.188E-03]  # Err: 5.2261E+05
+# x0['14'] = [1.000E+01, 2.639E+01, 1.5, 2.150E-03]  # Err: 4.0964E+04
+x0['14'] = [1.000E+01, 2.500E+01, 1.453E+00, 1.995E-03]  # Err: 4.2736E+04
+# x0['15'] = [1.000E+01, 2.557E+01, 1.5, 2.469E-03]  # Err: 2.2841E+05
+x0['15'] = [1.074E+01, 2.500E+01, 1.000E+00, 1.722E-03]  # Err: 2.2603E+05
+# Don't use cell16, it's the same as cell8
+# x0['16'] = [1.000E+01, 2.530E+01, 1.5, 3.585E-03]  # Err: 2.8989E+05
+# x0['16'] = [1.102E+01, 2.504E+01, 1.000E+00, 2.354E-03]  # Err: 2.9600E+05
+# x0['17'] = [1.000E+01, 2.500E+01, 1.5, 2.583E-03]  # Err: 2.5722E+05
+x0['17'] = [1.140E+01, 2.561E+01, 1.000E+00, 1.762E-03]  # Err: 2.5605E+05
+# x0['18'] = [1.000E+01, 2.500E+01, 1.5, 1.306E-03]  # Err: 1.8075E+05
+x0['18'] = [1.068E+01, 2.500E+01, 1.000E+00, 9.869E-04]  # Err: 1.8177E+05
+
+# x0['mean'] = [1.159E+01, 4.917E+01, 1.193E+00, 2.366E-03]  # just induced
+# x0['mean'] = [1.507E+01, 7.193E+01, 1.208E+00, 5.363E-03]  # induced + spontaneous
 
 # to avoid saturation and reduce variability of time courses across cells, constrain the relative amplitude
 # of global and local kernels:
@@ -799,11 +825,11 @@ induction = 1
 result = optimize_explore(x1, xmin1, xmax1, ramp_error_cont, ramp[induction], induction, maxfev=700)
 
 polished_result = optimize_polish(result['x'], xmin1, xmax1, ramp_error_cont, ramp[induction], induction)
-"""
+
 polished_result = optimize_polish(x1, xmin1, xmax1, ramp_error_cont, ramp[induction], induction)
 hist.report_best()
 hist.export('120216_magee_data_optimization_short_cell'+cell_id)
-"""
+
 
 
 ramp_error_cont(polished_result['x'], xmin1, xmax1, ramp[induction], induction, plot=True)
