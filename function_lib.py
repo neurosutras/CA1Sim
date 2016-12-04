@@ -2244,3 +2244,28 @@ def general_filter_trace(t, source, filter, duration, dt, down_dt=0.5):
     return up_sampled
 
 
+def print_ramp_features(x, ramp, title, induction_loc=None):
+    """
+
+    :param x: array
+    :param ramp: array
+    :param title: str
+    :param induction_loc: float
+    """
+    if induction_loc is None:
+        induction_loc = 187./2.
+    ramp = np.array(ramp)
+    peak_index = np.where(ramp == np.max(ramp))[0][0]
+    baseline_indexes = np.where(ramp <= np.percentile(ramp, 10.))[0]
+    ramp -= np.mean(ramp[baseline_indexes])
+    start_index = np.where(ramp[:peak_index] <= 0.15*np.max(ramp))[0][-1]
+    end_index = peak_index + np.where(ramp[peak_index:] <= 0.15*np.max(ramp))[0][0]
+    print '%s:' % title
+    print '  amplitude: %.1f' % ramp[peak_index]
+    print '  peak_shift: %.1f' % (x[peak_index] - induction_loc)
+    ramp_width = x[end_index] - x[start_index]
+    print '  ramp_width: %.1f' % ramp_width
+    before_width = induction_loc - x[start_index]
+    after_width = x[end_index] - induction_loc
+    print '  rise:decay ratio: %.1f' % (before_width / after_width)
+

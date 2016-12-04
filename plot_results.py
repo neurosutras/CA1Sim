@@ -405,7 +405,6 @@ def plot_Rinp(rec_file_list, description_list="", title=None):
     plt.show()
     plt.close()
 
-
 def plot_Rinp_general(rec_file_list, sectypes_list=None, features_list=None, labels=None):
     """
 
@@ -2626,6 +2625,118 @@ def plot_nmdar_conductance_from_processed(actual_file_list, description_list=Non
     plt.close()
 
 
+def process_patterned_input_simulation_input_output_spatial_binning(rec_filename, title, dt=None, svg_title=None):
+    """
+
+    :param rec_file_name: str
+    :param title: str
+    :param dt: float
+    :param svg_title: str
+    """
+    with h5py.File(data_dir+rec_filename+'.hdf5', 'r') as f:
+        sim = f.itervalues().next()
+        equilibrate = sim.attrs['equilibrate']
+        track_equilibrate = sim.attrs['track_equilibrate']
+        track_length = sim.attrs['track_length']
+        input_field_width = sim.attrs['input_field_width']
+        duration = sim.attrs['duration']
+        stim_dt = sim.attrs['stim_dt']
+        run_vel = sim.attrs['run_vel']
+        if dt is None:
+            dt = sim.attrs['dt']
+        dx = dt * run_vel / 1000.
+        bins = 100.
+        track_duration = duration - equilibrate - track_equilibrate
+        stim_t = np.arange(-track_equilibrate, track_duration, stim_dt)
+        track_t = np.arange(0., duration, dt)
+        binned_dx = track_length / bins  # cm
+        binned_x = np.arange(0., track_length + binned_dx / 2., binned_dx)[:int(bins)] + binned_dx / 2.
+        x = np.arange(0., track_length, dx)
+        t = np.arange(0., len(x) * dt, dt)[:len(x)]
+        start = int(track_equilibrate / stim_dt)
+        intervals = []
+        pop_input = []
+        successes = []
+        inh_input = []
+        output = []
+        if 'successes' in sim:
+            stochastic = True
+        else:
+            stochastic = False
+        for sim in f.itervalues():
+            exc_input_sum = None
+            successes_sum = None
+            inh_input_sum = None
+            for key, train in sim['train'].iteritems():
+                this_train = np.array(train)
+                if len(this_train) > 0:
+                    for i in range(len(this_train) - 1):
+                        intervals.append(this_train[i+1] - this_train[i])
+                this_exc_rate = get_binned_firing_rate(this_train, t)
+                if exc_input_sum is None:
+                    exc_input_sum = np.array(this_exc_rate)
+                else:
+                    exc_input_sum = np.add(exc_input_sum, this_exc_rate)
+                if stochastic:
+                    this_success_rate = get_binned_firing_rate(np.array(sim['successes'][key]), t)
+                    if successes_sum is None:
+                        successes_sum = np.array(this_success_rate)
+                    else:
+                        successes_sum = np.add(successes_sum, this_success_rate)
+            pop_input.append(exc_input_sum)
+            if stochastic:
+                successes.append(successes_sum)
+            for train in sim['inh_train'].itervalues():
+                this_inh_rate = get_binned_firing_rate(np.array(train), t)
+                if inh_input_sum is None:
+                    inh_input_sum = np.array(this_inh_rate)
+                else:
+                    inh_input_sum = np.add(inh_input_sum, this_inh_rate)
+            inh_input.append(inh_input_sum)
+            this_output = get_smoothed_firing_rate(np.array(sim['output']), t, bin_dur=3.*binned_dx,
+                                           bin_step=binned_dx, dt=dt)
+            output.append(this_output)
+        mean_input = np.mean(pop_input, axis=0)
+        if stochastic:
+            mean_successes = np.mean(successes, axis=0)
+        mean_inh_input = np.mean(inh_input, axis=0)
+        mean_output = np.mean(output, axis=0)
+        fig, axes = plt.subplots(3, 1, sharex=True)
+        axes[0].plot(x, mean_input, label='Total excitatory input spike rate', c='b')
+        if stochastic:
+            axes[0].plot(x, mean_successes, label='Total excitatory input success rate', c='g')
+        axes[1].plot(x, mean_inh_input, label='Total inhibitory input spike rate', c='k')
+        axes[2].plot(x, mean_output, label='Single cell output spike rate', c='r')
+        for ax in axes:
+            ax.legend(loc='upper left', frameon=False, framealpha=0.5, fontsize=18)
+        axes[2].set_xlabel('Location (cm)', fontsize=18)
+        axes[1].set_ylabel('Event rate (Hz)', fontsize=18)
+        axes[0].set_title(title, fontsize=20)
+        axes[0].set_ylim(0., max(16000., np.max(mean_input) * 1.2))
+        axes[0].set_yticks(np.arange(0., max(16000., np.max(mean_input) * 1.2) + 1., 4000.))
+        axes[1].set_ylim(0., max(20000., np.max(mean_inh_input) * 1.2))
+        axes[2].set_ylim(0., max(50., np.max(mean_output) * 1.2))
+        plt.xlim(0., track_length)
+        clean_axes(axes)
+        if svg_title is not None:
+            plt.savefig(data_dir+svg_title+' - input output - '+title+'.svg', format='svg')
+            plt.close()
+        else:
+            plt.show()
+            plt.close()
+            plt.hist(intervals, bins=int(max(intervals)/3.), normed=True)
+            plt.xlim(0., 200.)
+            plt.ylabel('Probability')
+            plt.xlabel('Inter-spike interval (ms)')
+            plt.title('Distribution of input inter-spike intervals - '+title)
+            plt.show()
+            plt.close()
+    if stochastic:
+        return t, mean_input, mean_successes, mean_inh_input, mean_output
+    else:
+        return t, mean_input, mean_inh_input, mean_output
+
+
 def process_patterned_input_simulation_input_output(rec_filename, title, svg_title=None):
     """
 
@@ -2725,6 +2836,181 @@ def process_patterned_input_simulation_input_output(rec_filename, title, svg_tit
         return stim_t[start:], mean_input[start:], mean_successes[start:], mean_inh_input[start:], mean_output
     else:
         return stim_t[start:], mean_input[start:], mean_inh_input[start:], mean_output
+
+
+def process_patterned_input_simulation_spatial_binning(rec_filename, title, dt=None):
+    """
+    113016: New simulation infrastructure separates spatial and temporal modulation. This function plots vs. binned
+    spatial location.
+    :param rec_file_name: str
+    :param title: str
+    :param dt: float
+    :return: list of array
+    """
+    with h5py.File(data_dir+rec_filename+'.hdf5', 'r') as f:
+        sim = f.itervalues().next()
+        equilibrate = sim.attrs['equilibrate']
+        track_equilibrate = sim.attrs['track_equilibrate']
+        track_length = sim.attrs['track_length']
+        input_field_width = sim.attrs['input_field_width']
+        duration = sim.attrs['duration']
+        stim_dt = sim.attrs['stim_dt']
+        run_vel = sim.attrs['run_vel']
+        if dt is None:
+            dt = sim.attrs['dt']
+        dx = dt * run_vel / 1000.
+        bins = 100.
+        track_duration = duration - equilibrate - track_equilibrate
+        stim_t = np.arange(-track_equilibrate, track_duration, stim_dt)
+        track_t = np.arange(0., duration, dt)
+        binned_dx = track_length / bins  # cm
+        binned_x = np.arange(0., track_length + binned_dx / 2., binned_dx)[:int(bins)] + binned_dx / 2.
+        t = np.arange(0., track_duration, dt)
+        x = np.arange(0., len(t)*dx, dx)[:len(t)]
+        start = int(track_equilibrate/stim_dt)
+        intervals = []
+        pop_input = []
+        output = []
+        for sim in f.itervalues():
+            exc_input_sum = None
+            for key, train in sim['train'].iteritems():
+                this_train = np.array(train)
+                intervals.extend(np.diff(this_train))
+                this_exc_rate = get_binned_firing_rate(this_train, stim_t)
+                if exc_input_sum is None:
+                    exc_input_sum = np.array(this_exc_rate)
+                else:
+                    exc_input_sum = np.add(exc_input_sum, this_exc_rate)
+            pop_input.append(exc_input_sum)
+            this_output = get_smoothed_firing_rate(np.array(sim['output']), stim_t[start:], bin_dur=3.*binned_dx,
+                                           bin_step=binned_dx, dt=stim_dt)
+            output.append(this_output)
+        pop_psd = []
+        for this_pop_input in pop_input:
+            pop_freq, this_pop_psd = signal.periodogram(this_pop_input, 1000./stim_dt)
+            pop_psd.append(this_pop_psd)
+        pop_psd = np.mean(pop_psd, axis=0)
+        left = np.where(pop_freq >= 4.)[0][0]
+        right = np.where(pop_freq >= 11.)[0][0]
+        pop_psd /= np.max(pop_psd[left:right])
+        mean_output = np.mean(output, axis=0)
+        plt.hist(intervals, bins=int((max(intervals) - min(intervals)) / 3.), normed=True)
+        plt.xlim(0., 200.)
+        plt.ylabel('Probability')
+        plt.xlabel('Inter-spike interval (ms)')
+        plt.title('Distribution of input inter-spike intervals - '+title)
+        plt.show()
+        plt.close()
+        peak_locs = [sim.attrs['peak_loc'] for sim in f.itervalues().next()['train'].itervalues()]
+        plt.hist(peak_locs, bins=int(bins))
+        plt.xlabel('Time (ms)')
+        plt.ylabel('Count (%.2f cm bins)' % binned_dx)
+        plt.title('Distribution of input peak locations - '+title)
+        plt.xlim(0., track_length)
+        plt.show()
+        plt.close()
+        for sim in f.itervalues():
+            start = int((equilibrate + track_equilibrate) / dt)
+            vm = np.interp(track_t, sim['time'], sim['rec']['0'])[start:start+len(t)]
+            plt.plot(t, vm)
+            plt.xlabel('Time (ms)')
+            plt.ylabel('Voltage (mV)')
+            plt.title('Somatic Vm - '+title)
+            plt.ylim((-70., -50.))
+        plt.show()
+        plt.close()
+    spikes_removed = get_removed_spikes(rec_filename, dt=dt, plot=0)
+    # down_sample traces to 2 kHz after clipping spikes for theta and ramp filtering
+    down_dt = 0.5
+    down_t = np.arange(0., track_duration, down_dt)
+    # 2000 ms Hamming window, ~2 Hz low-pass for ramp, ~5 - 10 Hz bandpass for theta, ~0.2 Hz low-pass for residuals
+    window_len = int(2000. / down_dt)
+    pad_len = int(window_len / 2.)
+    theta_filter = signal.firwin(window_len, [5., 10.], nyq=1000. / 2. / down_dt, pass_zero=False)
+    ramp_filter = signal.firwin(window_len, 2., nyq=1000. / 2. / down_dt)
+    slow_vm_filter = signal.firwin(window_len, .2, nyq=1000. / 2. / down_dt)
+    theta_traces = []
+    theta_removed = []
+    ramp_traces = []
+    slow_vm_traces = []
+    residuals = []
+    intra_psd = []
+    theta_envelopes = []
+    for trace in spikes_removed:
+        intra_freq, this_intra_psd = signal.periodogram(trace, 1000. / dt)
+        intra_psd.append(this_intra_psd)
+        down_sampled = np.interp(down_t, t, trace)
+        padded_trace = np.zeros(len(down_sampled) + window_len)
+        padded_trace[pad_len:-pad_len] = down_sampled
+        padded_trace[:pad_len] = down_sampled[::-1][-pad_len:]
+        padded_trace[-pad_len:] = down_sampled[::-1][:pad_len]
+        filtered = signal.filtfilt(theta_filter, [1.], padded_trace, padlen=pad_len)
+        this_theta_envelope = np.abs(signal.hilbert(filtered))
+        filtered = filtered[pad_len:-pad_len]
+        up_sampled = np.interp(t, down_t, filtered)
+        theta_traces.append(up_sampled)
+        this_theta_removed = trace - up_sampled
+        theta_removed.append(this_theta_removed)
+        this_theta_envelope = this_theta_envelope[pad_len:-pad_len]
+        up_sampled = np.interp(t, down_t, this_theta_envelope)
+        theta_envelopes.append(up_sampled)
+        filtered = signal.filtfilt(ramp_filter, [1.], padded_trace, padlen=pad_len)
+        filtered = filtered[pad_len:-pad_len]
+        up_sampled = np.interp(t, down_t, filtered)
+        ramp_traces.append(up_sampled)
+        filtered = signal.filtfilt(slow_vm_filter, [1.], padded_trace, padlen=pad_len)
+        filtered = filtered[pad_len:-pad_len]
+        up_sampled = np.interp(t, down_t, filtered)
+        slow_vm_traces.append(up_sampled)
+        this_residual = this_theta_removed - up_sampled
+        residuals.append(this_residual)
+    intra_psd = np.mean(intra_psd, axis=0)
+    left = np.where(intra_freq >= 4.)[0][0]
+    right = np.where(intra_freq >= 11.)[0][0]
+    intra_psd /= np.max(intra_psd[left:right])
+    binned_mean = [[] for i in range(len(residuals))]
+    binned_variance = [[] for i in range(len(residuals))]
+    binned_points = int(binned_dx / dx)
+    for j in range(0, int(bins)):
+        for i, residual in enumerate(residuals):
+            binned_variance[i].append(np.var(residual[j * binned_points:(j + 1) * binned_points]))
+            binned_mean[i].append(np.mean(theta_removed[i][j * binned_points:(j + 1) * binned_points]))
+    mean_theta_envelope = np.mean(theta_envelopes, axis=0)
+    mean_ramp = np.mean(ramp_traces, axis=0)
+    mean_binned_vm = np.mean(binned_mean, axis=0)
+    mean_binned_var = np.mean(binned_variance, axis=0)
+    scatter_vm_mean = np.array(binned_mean).flatten()
+    scatter_vm_var = np.array(binned_variance).flatten()
+    print 'Mean Theta Envelope for %s: %.2f' % (title, np.mean(mean_theta_envelope))
+    plt.plot(binned_x, mean_binned_vm)
+    plt.xlabel('Location (%.2f cm bins)' % binned_dx)
+    plt.ylabel('Voltage (mV)')
+    plt.title('Somatic Vm mean - ' + title)
+    plt.show()
+    plt.close()
+    plt.plot(binned_x, mean_binned_var)
+    plt.xlabel('Location (%.2f cm bins)' % binned_dx)
+    plt.ylabel('Vm variance (mV' + r'$^2$' + ')')
+    plt.title('Somatic Vm variance - ' + title)
+    plt.show()
+    plt.close()
+    plt.scatter(scatter_vm_mean, scatter_vm_var)
+    plt.xlabel('Mean Vm (mV)')
+    plt.ylabel('Vm variance (mV' + r'$^2$' + ')')
+    plt.title('Mean - variance analysis - ' + title)
+    plt.show()
+    plt.close()
+    plt.plot(pop_freq, pop_psd, label='Total Population Input Spikes')
+    plt.plot(intra_freq, intra_psd, label='Single Cell Intracellular Vm')
+    plt.xlim(4., 11.)
+    plt.xlabel('Frequency (Hz)')
+    plt.ylabel('Normalized Power Density')
+    plt.title('Power Spectral Density - ' + title)
+    plt.legend(loc='best')
+    plt.show()
+    plt.close()
+    return t, x, residuals, mean_theta_envelope, scatter_vm_mean, scatter_vm_var, binned_x, mean_binned_vm, \
+           mean_binned_var, mean_ramp, mean_output
 
 
 def process_patterned_input_simulation(rec_filename, title, dt=0.02):
