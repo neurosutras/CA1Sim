@@ -96,7 +96,7 @@ def get_dynamic_theta_phase_force(phase_ranges, peak_loc, extended_x, interp_x, 
     start_phase_val = phase_ranges[0][1] * 2. * np.pi / 360.  # convert degrees to radians
     end_phase_val = phase_ranges[-1][1] * 2. * np.pi / 360.  # convert degrees to radians
     phase_force = np.ones_like(extended_x) * start_phase_val
-    phase_force[np.where(extended_x >= end_x_val)[0]] *= end_phase_val
+    phase_force[np.where(extended_x >= end_x_val)[0]] = end_phase_val
     for i in range(len(phase_ranges) - 1):
         x0 = phase_ranges[i][0] + peak_loc
         x1 = phase_ranges[i + 1][0] + peak_loc
@@ -105,12 +105,12 @@ def get_dynamic_theta_phase_force(phase_ranges, peak_loc, extended_x, interp_x, 
         del_x = x1 - x0
         del_phase = phase1 - phase0
         if abs(del_x) > 0.:
-            this_x_piece = np.arange(x0, x1, dx)
+            this_x_piece = np.arange(x0, x1 + dx / 2., dx)
             this_indexes = np.where((extended_x >= x0) & (extended_x < x1))[0]
             this_interp_x_piece = extended_x[this_indexes]
             if abs(del_phase) > 0.:
                 d_phase = del_phase / del_x * dx
-                this_range_piece = np.arange(phase0, phase1, d_phase)
+                this_range_piece = np.arange(phase0, phase1 + d_phase / 2., d_phase)
                 this_range_interp_piece = np.interp(this_interp_x_piece, this_x_piece, this_range_piece)
             else:
                 this_range_interp_piece = np.ones(len(this_interp_x_piece)) * phase0
