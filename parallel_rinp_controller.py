@@ -44,7 +44,7 @@ v = c.load_balanced_view()
 num_secs = len(parallel_rinp_engine.nodes)
 
 result = v.map_async(parallel_rinp_engine.test_single_section, range(num_secs))
-#result = v.map_async(parallel_rinp_engine.test_single_section, range(20))
+#result = v.map_async(parallel_rinp_engine.test_single_section, range(40))
 while not result.ready():
     time.sleep(30)
     clear_output()
