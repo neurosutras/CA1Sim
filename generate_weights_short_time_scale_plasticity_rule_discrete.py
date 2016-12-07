@@ -659,8 +659,11 @@ def calculate_plasticity_signal_discrete(x, local_kernel, global_kernel, inducti
                     clean_axes(axes)
                     plt.show()
                     plt.close()
-        saturation_factor *= filter_ratio * max_local_signal / max_global_signal
+        if attempt == 0:
+            saturation_factor *= filter_ratio * max_local_signal / max_global_signal
         # print 'Computed weights in %i s' % (time.time() - start_time)
+
+    print 'saturation_factor: %.3E' % saturation_factor
 
     if plot:
         x_start = np.mean(induction_locs[induction]) / track_length
@@ -726,10 +729,9 @@ def calculate_weights_discrete(x, induction=None, plot=False, full_output=False)
         return local_kernel, global_kernel, this_weights, model_ramp
 
 
-# x1 = [2.795E+02, 1.236E+03, 2.268E+01, 4.522E+02, 1.397E+00, 2.763E-03]  # just induced
 # kernel_scale corrected to produce closer to 2.5 mean weight in center 10 spatial bins 6 mV with 30 cm/s during
 # induction laps
-x1 = [10., 100., 1.507E+01, 7.193E+01, 1.208E+00, 5.363E-03*1.0165]  # # induced + spontaneous
+x1 = [10., 100., 1.507E+01, 7.193E+01, 1.208E+00, 5.363E-03*1.0165]  # induced + spontaneous
 
 # to avoid saturation and reduce variability of time courses across cells, constrain the relative amplitude
 # of global and local kernels:
@@ -739,6 +741,7 @@ induction = 1
 
 local_kernel, global_kernel, this_weights, model_ramp = calculate_weights_discrete(x1, 1, True, True)
 
+"""
 with h5py.File(data_dir+weights_filename+'.hdf5', 'a') as f:
     run_vel_key = str(int(induction_run_vel))
     if run_vel_key not in f:
@@ -750,50 +753,4 @@ with h5py.File(data_dir+weights_filename+'.hdf5', 'a') as f:
                                                                   data=this_weights[group]+1.)
         f[run_vel_key][str(induction_seed)][group].create_dataset('peak_locs', compression='gzip', compression_opts=9,
                                                                   data=peak_locs[group])
-"""
-colors = ['r', 'k', 'c', 'g']
-x_start = [induction_loc/track_length for induction_loc in induction_locs]
-
-ylim = max(np.max(ramp), np.max(model_ramp))
-fig, axes = plt.subplots(1)
-for i in range(len(model_ramp)):
-    axes.plot(binned_x, ramp[i], color=colors[i+2], label='Experiment'+str(i+1))
-    axes.plot(binned_x, model_ramp[i], color=colors[i], label='Model'+str(i+1))
-    axes.axhline(y=ylim+0.3, xmin=x_start[i], xmax=x_start[i]+0.02, c=colors[i], linewidth=3., zorder=0)
-axes.set_xlabel('Location (cm)')
-axes.set_xlim(0., track_length)
-axes.set_ylabel('Depolarization (mV)')
-plt.legend(loc='best', frameon=False, framealpha=0.5)
-plt.show()
-plt.close()
-
-fig, axes = plt.subplots(1)
-t_waveform = np.arange(-rule_max_timescale, rule_max_timescale, dt)
-for i in range(len(model_ramp)):
-    axes.plot(t_waveform, rule_waveforms[i], label='Induction kernel '+str(i+1), color=colors[i])
-axes.set_xlabel('Time (ms)')
-axes.set_xlim(-rule_max_timescale, rule_max_timescale)
-axes.set_ylabel('Change in synaptic weight per spike')
-plt.legend(loc='best', frameon=False, framealpha=0.5)
-plt.show()
-plt.close()
-
-ylim = np.max(delta_weights) + 1.
-fig, axes = plt.subplots(1)
-for i in range(len(model_ramp)):
-    axes.scatter(peak_locs['CA3'], delta_weights[i] + 1., label='Weights'+str(i+1), color=colors[i])
-    axes.axhline(y=ylim + 0.1, xmin=x_start[i], xmax=x_start[i] + 0.01, c=colors[i], linewidth=3., zorder=0)
-axes.set_xlabel('Location (cm)')
-axes.set_xlim(0., track_length)
-axes.set_ylabel('Relative synaptic weight')
-plt.legend(loc='best', frameon=False, framealpha=0.5)
-plt.show()
-plt.close()
-
-if len(delta_weights) > 1:
-    fig, axes = plt.subplots(1)
-    axes.scatter(delta_weights[0]+1., delta_weights[1]+1.)
-    clean_axes(axes)
-    plt.show()
-    plt.close()
 """

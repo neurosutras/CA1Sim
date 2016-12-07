@@ -294,7 +294,7 @@ for sec_type in all_inh_syns:
 
 sim_dt = 0.01
 sim = QuickSim(duration, cvode=0, dt=sim_dt)
-# sim = QuickSim(duration, cvode=0, dt=1.)
+# sim = QuickSim(equilibrate+track_equilibrate+500., cvode=0, dt=0.1)
 sim.parameters['equilibrate'] = equilibrate
 sim.parameters['track_equilibrate'] = track_equilibrate
 sim.parameters['global_theta_cycle_duration'] = global_theta_cycle_duration
@@ -421,6 +421,11 @@ for target_peak_loc in np.arange(field_center1-60., field_center1+60., 3.):
                 break
 
 # rate_maps = run_trial(trial_seed, global_phase_offset=0., run_sim=False)
+
+field_start_index = np.where(x >= field_center1)[0][0]
+induction_delay = equilibrate + track_equilibrate + t[field_start_index]
+
+sim.append_stim(cell, cell.tree.root, 0., amp=0.5, delay=induction_delay, dur=300.)
 
 run_trial(trial_seed, global_phase_offset=0.)
 if os.path.isfile(data_dir+rec_filename+'-working.hdf5'):
