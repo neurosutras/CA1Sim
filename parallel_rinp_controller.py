@@ -44,7 +44,7 @@ v = c.load_balanced_view()
 num_secs = len(parallel_rinp_engine.nodes)
 
 result = v.map_async(parallel_rinp_engine.test_single_section, range(num_secs))
-#result = v.map_async(parallel_rinp_engine.test_single_section, range(20))
+#result = v.map_async(parallel_rinp_engine.test_single_section, range(40))
 while not result.ready():
     time.sleep(30)
     clear_output()
@@ -55,7 +55,7 @@ while not result.ready():
     sys.stdout.flush()
 print 'Parallel execution took: ', time.time()-start_time, ' s'
 rec_file_list = [filename for filename in dv['rec_filename'] if os.path.isfile(data_dir+filename+'.hdf5')]
-"""
+
 with h5py.File(data_dir+new_rec_filename+'.hdf5', 'w') as f:
     f.create_group("Rinp_data")
     f.create_group("avg_waves")
@@ -106,4 +106,4 @@ with h5py.File(data_dir+new_rec_filename+'.hdf5', 'w') as f:
 for filename in rec_file_list:
     os.remove(data_dir+filename+'.hdf5')
 
-plot_Rinp_general(new_rec_filename)"""
+plot_Rinp_general(new_rec_filename)

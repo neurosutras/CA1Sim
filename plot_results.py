@@ -430,10 +430,9 @@ def plot_Rinp_general(rec_file_list, sectypes_list=None, features_list=None, lab
     else:
         labels_dict = {feature: label for (feature, label) in zip(features_list, labels)}
 
-    feature_dict = {feature: {} for feature in features_list}
-    distances_dict = {feature: {} for feature in features_list}
-
-    for rec_file in rec_file_list:
+    for file_index, rec_file in enumerate(rec_file_list):
+        feature_dict = {feature: {} for feature in features_list}
+        distances_dict = {feature: {} for feature in features_list}
         with h5py.File(data_dir + rec_file + '.hdf5', 'r') as f:
             for item in f['Rinp_data'].itervalues():
                 if ((item.attrs['type'] in sectypes_list) or ('axon' in sectypes_list and item.attrs['type'] in axon_types_list)
@@ -454,15 +453,15 @@ def plot_Rinp_general(rec_file_list, sectypes_list=None, features_list=None, lab
                         if not sectype in feature_dict[feature].keys():
                             feature_dict[feature][sectype] = []
                         feature_dict[feature][sectype].append(item.attrs[feature])
-
-    for index, feature in enumerate(features_list):
-        plt.figure(index)
-        colors = ['r', 'g', 'b', 'gray', 'darkviolet', 'goldenrod']
-        for i, sectype in enumerate(sectypes_list):
-            plt.scatter(distances_dict[feature][sectype], feature_dict[feature][sectype], label=sectype, color = colors[i])
-        plt.xlabel('Distance to soma')
-        plt.ylabel(labels_dict[feature])
-        plt.legend(loc='best', scatterpoints = 1, frameon=False, framealpha=0.5)
+        for index, feature in enumerate(features_list):
+            plt.figure(index)
+            colors = ['r', 'g', 'b', 'gray', 'darkviolet', 'goldenrod']
+            for i, sectype in enumerate(sectypes_list):
+                plt.scatter(distances_dict[feature][sectype], feature_dict[feature][sectype],
+                            label=sectype, color = colors[i + file_index*len(sectypes_list)])
+            plt.xlabel('Distance to soma')
+            plt.ylabel(labels_dict[feature])
+            plt.legend(loc='best', scatterpoints = 1, frameon=False, framealpha=0.5)
     plt.show()
     plt.close()
 
@@ -1439,10 +1438,10 @@ def plot_mech_param_distribution(cell, mech_name, param_name, scale_factor=10000
         mpl.rcParams['font.size'] = remember_font_size
 
 
-def new_plot_mech_param_distribution(cell, mech_name, param_name, export=None, scale_factor=10000.,
+def new_plot_mech_param_distribution(cell, mech_name, param_name, export=None, file_exists=False, scale_factor=10000.,
                         param_label=None, ylabel='Conductance density', yunits='pS/um2', svg_title=None):
     """
-    cell = DG_GC(morph_filename = 'DG_GC_355549.swc', mech_filename='110316 DG_GC pas no_spines', full_spines=False)
+    cell = DG_GC(morph_filename = 'DG_GC_355549.swc', mech_filename='120116 DG_GC pas no_spines', full_spines=False)
     Takes a cell as input rather than a file. No simulation is required, this method just takes a fully specified cell
     and plots the relationship between distance and the specified mechanism parameter for all dendritic segments. Used
     while debugging specification of mechanism parameters.
@@ -1450,6 +1449,8 @@ def new_plot_mech_param_distribution(cell, mech_name, param_name, export=None, s
     :param mech_name: str
     :param param_name: str
     :param export: str (name of hdf5 file for export)
+    :param file_exists: bool (whether hdf5 file already exists and should be modified, or whether a new one
+                                must be created)
     :param scale_factor: float
     :param param_label: str
     :param ylabel: str
@@ -1516,29 +1517,33 @@ def new_plot_mech_param_distribution(cell, mech_name, param_name, export=None, s
         mpl.rcParams['font.size'] = remember_font_size
 
     if export is not None:
-        with h5py.File(data_dir + export + '.hdf5', 'a') as f:
-            if 'mech_filename' in f.attrs.keys():
-                if not (f.attrs['mech_filename'] == '{}'.format(cell.mech_filename)):
-                    raise Exception('Specified mechanism filename {} does not match the mechanism filename '
-                                    'of the cell {}'.format(f.attrs['mech_filename'], cell.mech_filename))
+        if file_exists is False:
+            f = h5py.File(data_dir + export + '.hdf5', 'w')
+        else:
+            f = h5py.File(data_dir + export + '.hdf5', 'r+')
+        if 'mech_filename' in f.attrs.keys():
+            if not (f.attrs['mech_filename'] == '{}'.format(cell.mech_filename)):
+                raise Exception('Specified mechanism filename {} does not match the mechanism filename '
+                                'of the cell {}'.format(f.attrs['mech_filename'], cell.mech_filename))
+        else:
+            f.attrs['mech_filename'] = '{}'.format(cell.mech_filename)
+        if mech_name in f.keys():
+            if param_name in f[mech_name].keys():
+                return
             else:
-                f.attrs['mech_filename'] = '{}'.format(cell.mech_filename)
-            if mech_name in f.keys():
-                if param_name in f[mech_name].keys:
-                    return
-                else:
-                    f[mech_name].create_group(param_name)
-            else:
-                f.create_group(mech_name)
                 f[mech_name].create_group(param_name)
-            for sec_type in param_vals.keys():
-                f[mech_name][param_name].create_group(sec_type)
-                f[mech_name][param_name][sec_type].create_dataset('values', data=param_vals[sec_type])
-            if not 'distances' in f.keys():
-                f.create_group('distances')
-                for sec_type in distances.keys():
-                    f['distances'].create_group(sec_type)
-                    f['distances'][sec_type].create_dataset('values', data=distances[sec_type])
+        else:
+            f.create_group(mech_name)
+            f[mech_name].create_group(param_name)
+        for sec_type in param_vals.keys():
+            f[mech_name][param_name].create_group(sec_type)
+            f[mech_name][param_name][sec_type].create_dataset('values', data=param_vals[sec_type])
+        if not 'distances' in f.keys():
+            f.create_group('distances')
+            for sec_type in distances.keys():
+                f['distances'].create_group(sec_type)
+                f['distances'][sec_type].create_dataset('values', data=distances[sec_type])
+    f.close()
 
 
 def plot_mech_param_from_file(mech_name, param_name, filenames, filename_labels = None,

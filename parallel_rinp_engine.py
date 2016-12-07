@@ -21,7 +21,7 @@ if len(sys.argv) > 2:
 else:
     mech_filename = None
 
-
+@interactive
 def test_single_section(sec_index, loc=None):
     """
     :param sec_index: int

@@ -108,6 +108,21 @@ def update_pas_exp(x):
     cell.modify_mech_param('apical', 'pas', 'g', origin='soma', slope=x[1], tau=x[2], max=maxval)
     for sec_type in ['basal', 'axon_hill', 'axon', 'ais', 'trunk', 'apical', 'tuft', 'spine_neck', 'spine_head']:
         cell.reinitialize_subset_mechanisms(sec_type, 'pas')
+        if spines is False:
+            SA_spine = math.pi*(1.58*0.077 + 0.5*0.5)
+            for node in cell.get_nodes_of_subtype(sec_type):
+                if 'excitatory' in node.synapse_locs:
+                    excitatory_syn = node.synapse_locs['excitatory']
+                    seg_width = 1./node.sec.nseg
+                    for i, segment in enumerate(node.sec):
+                        node.sec.push()
+                        SA_seg = h.area(segment.x)
+                        h.pop_section()
+                        num_spines = len(np.where((np.array(excitatory_syn) >= i*seg_width) &
+                                                 (np.array(excitatory_syn) < (i+1)*seg_width))[0])
+                        correct_factor = (SA_seg + num_spines*SA_spine)/SA_seg
+                        node.sec(segment.x).g_pas *= correct_factor
+
 
 
 @interactive
