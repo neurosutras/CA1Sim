@@ -122,10 +122,12 @@ print 'Connectivity algorithm took %i s' % (time.time() - start_time)
 
 
 start_time = time.time()
-syn_in_degree = {target: {source: {i: 0 for i in range(len(pop_locs_X[target]))}}}
+syn_in_degree = {target: {source: {i: 0 for i in range(len(pop_locs_X[target]))}
+                          for source in convergence[target]} for target in convergence}
 
-syn_out_degree = {source: {target: {i: 0 for i in range(len(pop_locs_X[source]))}}}
-
+syn_out_degree = {source: {target: {i: 0 for i in range(len(pop_locs_X[source]))}
+                           for target in divergence[source]} for source in divergence}
+"""
 with h5py.File(data_dir+rec_filename+'.hdf5', 'r') as f:
     for target in f:
         for target_index in f[target]:
@@ -183,3 +185,4 @@ sc = plt.scatter(pop_locs_X[source][unique], pop_locs_Y[source][unique], c=count
 plt.colorbar(sc)
 plt.show()
 plt.close()
+"""

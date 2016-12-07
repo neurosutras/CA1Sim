@@ -11,20 +11,20 @@ swc_types = [soma_type, axon_type, basal_type, apical_type, trunk_type, tuft_typ
 sec_types = ['soma', 'axon_hill', 'ais', 'axon', 'basal', 'trunk', 'apical', 'tuft', 'spine_neck', 'spine_head']
 
 verbose = 0  # Turn on for text reporting during model initialization and simulation
-gid_max = 0  # Every new HocCell will receive a global identifier for network simulation, and increment this counter
+local_gid_counter = 0  # Every new HocCell will receive a global identifier for network simulation, and increment this counter
 
 #-------Wrapper for converting SWC --> BtMorph --> Skeleton morphology in NEURON hoc------------------------
 
 
 class HocCell(object):
-    def __init__(self, morph_filename=None, mech_filename=None):
+    def __init__(self, morph_filename=None, mech_filename=None, gid=0):
         """
         :param morph_filename: str : path to .swc file containing morphology
         :param mech_filename: str : path to .pkl file specifying cable parameters and membrane mechanisms
         """
-        global gid_max
-        self._gid = gid_max
-        gid_max += 1
+        global local_gid_counter
+        self._gid = gid
+        local_gid_counter += 1
         self.tree = btmorph.STree2()  # Builds a simple tree to store nodes of type 'SHocNode'
         self.index = 0  # Keep track of number of nodes
         self._node_dict = {'soma': [], 'axon': [], 'basal': [], 'trunk': [], 'apical': [], 'tuft': [], 'spine': []}
@@ -1306,8 +1306,8 @@ class SHocNode(btmorph.btstructs2.SNode2):
 
 
 class CA1_Pyr(HocCell):
-    def __init__(self, morph_filename=None, mech_filename=None, full_spines=True):
-        HocCell.__init__(self, morph_filename, mech_filename)
+    def __init__(self, morph_filename=None, mech_filename=None, full_spines=True, gid=0):
+        HocCell.__init__(self, morph_filename, mech_filename, gid)
         self.random.seed(self.gid)  # This cell will always have the same spine and GABA_A synapse locations as long as
                                     # they are inserted in the same order
         if full_spines:

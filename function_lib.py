@@ -952,7 +952,8 @@ def get_inhom_poisson_spike_times_by_thinning(rate, t, dt=0.02, refractory=3., g
     interp_t = np.arange(t[0], t[-1] + dt, dt)
     interp_rate = np.interp(interp_t, t, rate)
     interp_rate /= 1000.
-    interp_rate = 1. / (1. / interp_rate - refractory)
+    non_zero = np.where(interp_rate > 0.)[0]
+    interp_rate[non_zero] = 1. / (1. / interp_rate[non_zero] - refractory)
     spike_times = []
     max_rate = np.max(interp_rate)
     i = 0
@@ -2242,4 +2243,29 @@ def general_filter_trace(t, source, filter, duration, dt, down_dt=0.5):
     up_sampled = np.interp(t, down_t, filtered)
     return up_sampled
 
+
+def print_ramp_features(x, ramp, title, induction_loc=None):
+    """
+
+    :param x: array
+    :param ramp: array
+    :param title: str
+    :param induction_loc: float
+    """
+    if induction_loc is None:
+        induction_loc = 187./2.
+    ramp = np.array(ramp)
+    peak_index = np.where(ramp == np.max(ramp))[0][0]
+    baseline_indexes = np.where(ramp <= np.percentile(ramp, 10.))[0]
+    ramp -= np.mean(ramp[baseline_indexes])
+    start_index = np.where(ramp[:peak_index] <= 0.15*np.max(ramp))[0][-1]
+    end_index = peak_index + np.where(ramp[peak_index:] <= 0.15*np.max(ramp))[0][0]
+    print '%s:' % title
+    print '  amplitude: %.1f' % ramp[peak_index]
+    print '  peak_shift: %.1f' % (x[peak_index] - induction_loc)
+    ramp_width = x[end_index] - x[start_index]
+    print '  ramp_width: %.1f' % ramp_width
+    before_width = induction_loc - x[start_index]
+    after_width = x[end_index] - induction_loc
+    print '  rise:decay ratio: %.1f' % (before_width / after_width)
 

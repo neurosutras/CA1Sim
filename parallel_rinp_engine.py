@@ -34,7 +34,8 @@ def test_single_section(sec_index, loc=None):
     sim.modify_rec(0, node=node, loc=loc)
     sim.modify_stim(0, node=node, loc=loc)
     sim.run(v_init)
-    Rinp_params = get_Rinp(sim.tvec, sim.rec_list[0]['vec'], equilibrate + delay, equilibrate + delay + stim_dur, amp, dt=0.02)
+    Rinp_params = get_Rinp(sim.tvec, sim.rec_list[0]['vec'], equilibrate + delay, equilibrate + delay + stim_dur, amp,
+                           dt=0.02)
     sim.parameters['Rinp_baseline'] = Rinp_params[0]
     sim.parameters['Rinp_steady'] = Rinp_params[1]
     sim.parameters['Rinp_peak'] = Rinp_params[2]
