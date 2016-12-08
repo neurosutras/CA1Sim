@@ -183,7 +183,8 @@ extended_x = np.concatenate([x - track_length, x, x + track_length])
 
 track_equilibrate = 2. * global_theta_cycle_duration
 
-excitatory_peak_rate = {'CA3': 60., 'ECIII': 40.}
+excitatory_peak_rate = {'CA3': 65., 'ECIII': 40.}
+excitatory_background_rate = {'CA3': 2., 'ECIII': 2.}
 excitatory_stochastic = 1
 inhibitory_mean_rate = {'perisomatic': 10., 'axo-axonic': 10., 'apical dendritic': 10., 'distal apical dendritic': 10.,
                         'tuft feedforward': 10., 'tuft feedback': 10.}  # Hz
