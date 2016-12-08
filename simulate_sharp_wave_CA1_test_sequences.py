@@ -79,7 +79,8 @@ def run_trial(simiter, run_sim=True):
                 peak_time = peak_loc / 187. * 200.
                 start = int((200. - spw_rate_peak_delay + peak_time) / dt)
                 stim_force = np.zeros_like(extended_t)
-                stim_force[start:start+len(spw_rate_shape)] = (excitatory_peak_rate[group] - 1.) * spw_rate_shape
+                stim_force[start:start+len(spw_rate_shape)] = (excitatory_peak_rate[group] -
+                                                               excitatory_background_rate[group]) * spw_rate_shape
                 before = np.array(stim_force[:len(spw_rate_shape)])
                 after = np.array(stim_force[2*len(spw_rate_shape):])
                 stim_force[len(spw_rate_shape):len(spw_rate_shape) + len(before)] += before
@@ -88,9 +89,9 @@ def run_trial(simiter, run_sim=True):
                 rate_map = np.zeros_like(stim_t)
                 rate_map[int(track_equilibrate/dt):int(track_equilibrate/dt)+len(stim_force)] = stim_force
                 rate_map = np.multiply(rate_map, spw_filter)
-                rate_map += 1.
             elif group == 'ECIII':
-                rate_map = np.ones_like(stim_t)
+                rate_map = np.zeros_like(stim_t)
+            rate_map += excitatory_background_rate[group]
             if run_sim:
                 train = get_inhom_poisson_spike_times_by_thinning(rate_map, stim_t, dt=dt, generator=local_random)
                 syn.source.play(h.Vector(np.add(train, equilibrate + track_equilibrate)))
@@ -183,7 +184,7 @@ extended_x = np.concatenate([x - track_length, x, x + track_length])
 
 track_equilibrate = 2. * global_theta_cycle_duration
 
-excitatory_peak_rate = {'CA3': 65., 'ECIII': 40.}
+excitatory_peak_rate = {'CA3': 70., 'ECIII': 40.}
 excitatory_background_rate = {'CA3': 2., 'ECIII': 2.}
 excitatory_stochastic = 1
 inhibitory_mean_rate = {'perisomatic': 10., 'axo-axonic': 10., 'apical dendritic': 10., 'distal apical dendritic': 10.,
@@ -408,3 +409,4 @@ for group in stim_exc_syns:
 run_trial(trial_seed, global_phase_offset)
 if os.path.isfile(data_dir+rec_filename+'-working.hdf5'):
     os.rename(data_dir+rec_filename+'-working.hdf5', data_dir+rec_filename+'.hdf5')
+

@@ -12,7 +12,8 @@ phases within each theta cycle that each input is active, which will reduce jitt
 
 """
 
-input_filename = 'output120520161957-pid18137-seed0-e1600-i600-induction_spine_voltage0'
+# input_filename = 'output120520161957-pid18137-seed0-e1600-i600-induction_spine_voltage0'
+input_filename = 'output120720161451-pid48517-seed0-e1600-i600-induction_spine_voltage0'
 
 peak_locs = {}
 spine_vm = {}
@@ -189,7 +190,7 @@ def plot_plasticity_signal_discrete(rule, input_index):
     x_start = interp_t[start_index] / track_duration
     x_end = interp_t[end_index] / track_duration
     fig, axes = plt.subplots(3, sharex=True)
-    ymax0 = np.max(spine_vm[input_index])
+    ymax0 = -30.  # np.max(spine_vm[input_index])
     ymin0 = np.min(spine_vm[input_index])
     ydepth0 = ymax0 - ymin0
     ymax1 = np.max(global_signal)
