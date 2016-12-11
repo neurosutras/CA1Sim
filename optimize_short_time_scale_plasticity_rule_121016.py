@@ -50,7 +50,7 @@ class History(object):
         lowest_Err = min(self.Err)
         index = self.Err.index(lowest_Err)
         best_x = self.x[index]
-        formatted_x = '[' + ', '.join(['%.2E' % xi for xi in best_x]) + ']'
+        formatted_x = '[' + ', '.join(['%.3E' % xi for xi in best_x]) + ']'
         print 'best x: %s' % formatted_x
         print 'lowest Err: %.3E' % lowest_Err
         return best_x
@@ -693,6 +693,12 @@ def ramp_error_cont(x, xmin, xmax, ramp, induction=None, orig_weights=None, base
     for feature, sigma in zip((amp, width, shift, ratio), (0.05, 0.1, 0.05, 0.01)):
         Err += ((feature['exp'] - feature['model']) / sigma) ** 2.
 
+    for j in range(len(ramp)):
+        Err += ((ramp[j] - model_ramp[j]) / 0.1) ** 2.
+
+    # penalize DC drifts in minimum weight
+    Err += (np.min(this_weights)/0.005) ** 2.
+
     if plot:
         x_start = np.mean(induction_locs[induction])/track_length
         ylim = max(np.max(ramp), np.max(model_ramp))
@@ -840,7 +846,7 @@ if cell_id in x0:
     x1 = x0[cell_id]
 else:
     x1 = x0['1']
-xmin1 = [10., 25., 1., 5.e-4]
+xmin1 = [10., 25., 0.7, 5.e-4]
 xmax1 = [50., 500., 1.5, 5.e-2]
 
 
@@ -855,7 +861,7 @@ polished_result = optimize_polish(result['x'], xmin1, xmax1, ramp_error_cont, ra
 # polished_result = optimize_polish(x1, xmin1, xmax1, ramp_error_cont, ramp[induction], induction)
 
 hist.report_best()
-hist.export('121016_magee_data_optimization_short_cell'+cell_id)
+hist.export('121116_magee_data_optimization_short_cell'+cell_id)
 """
 
 ramp_error_cont(polished_result['x'], xmin1, xmax1, ramp[induction], induction, plot=True)
