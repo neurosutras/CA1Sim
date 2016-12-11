@@ -195,19 +195,19 @@ def plot_plasticity_signal_discrete(rule, input_index):
     ydepth0 = ymax0 - ymin0
     ymax1 = np.max(global_signal)
     axes[0].plot(track_t / 1000., spine_vm[input_index], label='Spine Vm', color='k')
-    axes[0].scatter(spike_train / 1000., np.ones_like(spike_train) * (ymax0 + ydepth0 * 0.2), color='k')
-    axes[0].scatter(success_train / 1000., np.ones_like(success_train) * (ymax0 + ydepth0 * 0.1), color='r')
+    axes[0].scatter(spike_train / 1000., np.ones_like(spike_train) * (ymax0 - ydepth0 * 0.1), color='k')
+    axes[0].scatter(success_train / 1000., np.ones_like(success_train) * (ymax0 - ydepth0 * 0.2), color='r')
     axes[0].set_ylabel('Spine voltage (mV)')
-    axes[0].set_ylim((ymin0 - ydepth0 * 0.05), (ymax0 + ydepth0 * 0.25))
+    axes[0].set_ylim((ymin0 - ydepth0 * 0.05), ymax0)
     axes[1].plot(track_t / 1000., local_signal, label='Local plasticity signal (%s)' % rule, color='r')
     axes[1].plot(track_t / 1000., global_signal, label='Global plasticity signal (%s)' % rule, color='k')
     axes[1].fill_between(track_t / 1000., 0., this_signal, label='Overlap', facecolor='r', alpha=0.5)
-    axes[1].axhline(y=ymax1*1.15, xmin=x_start, xmax=x_end, linewidth=3, c='k')
-    axes[1].legend(loc='best', frameon=False, framealpha=0.5)
+    axes[1].axhline(y=ymax1*0.95, xmin=x_start, xmax=x_end, linewidth=3, c='k')
+    axes[1].legend(loc='best', frameon=False, framealpha=0.5, fontsize=mpl.rcParams['font.size'])
     axes[1].set_xlabel('Time (s)')
     axes[1].set_ylabel('Signal amplitude (a.u.)')
     axes[1].set_xlim(0., track_duration/1000.)
-    axes[1].set_ylim(0., ymax1*1.2)
+    axes[1].set_ylim(0., ymax1*1.05)
     # axes.set_title('Induced plasticity signal')
     clean_axes(axes)
     plt.show()
@@ -223,17 +223,70 @@ x0 = {}  # induced + spontaneous
 x0['long'] = [2.614E+02, 1.103E+03, 2.686E+01, 4.574E+02, 1.388E+00, 4.533E-03*0.4619, 1.372E-02]
 x0['short'] = [10., 100., 1.507E+01, 7.193E+01, 1.208E+00, 5.363E-03*1.0165, 2.716E-02]
 
+"""
 induction_loc = field1_loc*track_length
 local_kernel, global_kernel = {}, {}
 for rule in x0:
     local_kernel[rule], global_kernel[rule] = build_kernels(x0[rule], plot=False)
 
-"""
+
 for rule in x0:
     get_saturation_factor(rule)
-"""
+
 # for input_index in spine_vm:
 for input_index in [18662]:
     # for rule in ['long']:
     for rule in x0:
         plot_plasticity_signal_discrete(rule, input_index)
+
+
+short_weights_filename = '120716 short discrete weights'
+long_weights_filename = '120716 long discrete weights'
+peak_locs_filename = '120716 peak_locs discrete'
+ramps_filename = '120716 plasticity discrete ramps'
+ramp_x, long_ramp, short_ramp = read_from_pkl(data_dir+ramps_filename+'.pkl')
+short_weights = read_from_pkl(data_dir+short_weights_filename+'.pkl')
+long_weights = read_from_pkl(data_dir+long_weights_filename+'.pkl')
+peak_locs_x = read_from_pkl(data_dir+peak_locs_filename+'.pkl')
+
+x_start = induction_loc / track_length
+start_index = np.where(interp_x >= induction_loc)[0][0]
+end_index = start_index + int(induction_dur / dt)
+x_end = interp_x[end_index] / track_length
+
+ylim = max(np.max(short_weights), np.max(long_weights)) + 1.
+fig, axes = plt.subplots(2, 2)
+fig.set_size_inches(5.2, 3.9)
+axes[0][0].scatter(peak_locs_x, short_weights+1., color='r', s=1.)
+axes[0][0].scatter(peak_locs_x, long_weights+1., color='b', s=1.)
+axes[0][0].axhline(y=ylim + 0.15, xmin=x_start, xmax=x_end, linewidth=2, c='k')
+axes[0][0].set_ylabel('Relative synaptic weight')
+axes[0][0].set_xlabel('Location (cm)')
+axes[0][0].set_xlim(0., track_length)
+axes[0][0].set_ylim(0.5, ylim + 0.3)
+axes[0][0].set_title('Induced synaptic weight distribution', fontsize=12.)
+clean_axes(axes[0])
+plt.tight_layout()
+plt.show()
+plt.close()
+
+for ramp in long_ramp, short_ramp:
+    baseline = np.mean(ramp[np.where(ramp <= np.percentile(ramp, 10.))[0]])
+    ramp -= baseline
+
+ylim = max(np.max(long_ramp), np.max(short_ramp))
+fig, axes = plt.subplots(2, 2)
+fig.set_size_inches(5.2, 3.9)
+axes[0][0].plot(ramp_x, short_ramp, color='r')
+axes[0][0].plot(ramp_x, long_ramp, color='b')
+axes[0][0].axhline(y=ylim + 0.25, xmin=x_start, xmax=x_end, linewidth=2, c='k')
+axes[0][0].set_ylabel('Depolarization (mV)')
+axes[0][0].set_xlabel('Location (cm)')
+axes[0][0].set_xlim(0., track_length)
+axes[0][0].set_ylim(-0.5, ylim + 0.5)
+axes[0][0].set_title('Induced Vm ramp', fontsize=12.)
+clean_axes(axes[0])
+plt.tight_layout()
+plt.show()
+plt.close()
+"""

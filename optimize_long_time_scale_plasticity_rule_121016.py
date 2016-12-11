@@ -66,6 +66,34 @@ class History(object):
 hist = History()
 
 
+def calculate_ramp_features(ramp, induction_loc):
+    """
+
+    :param x: array
+    :param ramp: array
+    :param induction_loc: float
+    """
+
+    interp_ramp = np.interp(default_interp_x, binned_x, ramp)
+    baseline_indexes = np.where(interp_ramp <= np.percentile(interp_ramp, 10.))[0]
+    interp_ramp -= np.mean(interp_ramp[baseline_indexes])
+    extended_ramp = np.concatenate([interp_ramp for i in range(3)])
+    extended_interp_x = np.concatenate([default_interp_x - track_length, default_interp_x,
+                                        default_interp_x + track_length])
+    peak_index = np.where(interp_ramp == np.max(interp_ramp))[0][0] + len(interp_ramp)
+    peak_val = extended_ramp[peak_index]
+    if extended_interp_x[peak_index] > induction_loc + 30.:
+        peak_index -= len(interp_ramp)
+    start_index = np.where(extended_ramp[:peak_index] <= 0.15*peak_val)[0][-1]
+    end_index = peak_index + np.where(extended_ramp[peak_index:] <= 0.15*peak_val)[0][0]
+    peak_shift = extended_interp_x[peak_index] - induction_loc
+    ramp_width = extended_interp_x[end_index] - extended_interp_x[start_index]
+    before_width = induction_loc - extended_interp_x[start_index]
+    after_width = extended_interp_x[end_index] - induction_loc
+    ratio = before_width / after_width
+    return peak_val, ramp_width, peak_shift, ratio
+
+
 def wrap_around_and_compress(waveform, interp_x):
     """
 
@@ -483,13 +511,6 @@ for induction in position:
         baseline = np.mean(ramp[induction][ramp_baseline_indexes])
     ignore = subtract_baseline(ramp[induction], baseline)
 
-"""
-for induction in ramp:
-    plt.plot(binned_x, ramp[induction])
-plt.show()
-plt.close()
-"""
-
 
 def check_bounds(x, xmin, xmax):
     """
@@ -664,14 +685,15 @@ def ramp_error_cont(x, xmin, xmax, ramp, induction=None, orig_weights=None, base
     local_kernel, global_kernel = build_kernels(x, plot)
     this_weights = calculate_plasticity_signal(x, local_kernel, global_kernel, induction, plot)
     model_ramp = get_expected_depolarization(default_rate_maps, this_weights + 1., default_interp_x)
-    model_ramp_baseline = np.mean(model_ramp[ramp_baseline_indexes])
-    model_ramp -= model_ramp_baseline
-
+    ignore = subtract_baseline(model_ramp)
+    amp, width, shift, ratio = {}, {}, {}, {}
+    this_induction_loc = np.mean(induction_locs[induction])
+    for this_ramp, this_key in zip((ramp, model_ramp), ('exp', 'model')):
+        amp[this_key], width[this_key], shift[this_key], ratio[this_key] = calculate_ramp_features(this_ramp,
+                                                                                                   this_induction_loc)
     Err = 0.
-    for j in range(len(ramp)):
-        Err += ((ramp[j] - model_ramp[j]) / 0.05) ** 2.
-    # Extra penalty for difference in peak amplitude
-    Err += ((np.max(ramp) - np.max(model_ramp)) / 0.01) ** 2.
+    for feature, sigma in zip((amp, width, shift, ratio), (0.05, 0.1, 0.05, 0.01)):
+        Err += ((feature['exp'] - feature['model']) / sigma) ** 2.
 
     if plot:
         x_start = np.mean(induction_locs[induction])/track_length
@@ -693,6 +715,10 @@ def ramp_error_cont(x, xmin, xmax, ramp, induction=None, orig_weights=None, base
 
     formatted_x = '[' + ', '.join(['%.4f' % xi for xi in x]) + ']'
     print 'x: %s, Err: %.4E took %i s' % (formatted_x, Err, time.time()-start_time)
+    print 'exp: amp: %.1f, ramp_width: %.1f, peak_shift: %.1f, asymmetry: %.1f' % (amp['exp'], width['exp'],
+                                                                                   shift['exp'], ratio['exp'])
+    print 'model: amp: %.1f, ramp_width: %.1f, peak_shift: %.1f, asymmetry: %.1f' % (amp['model'], width['model'],
+                                                                                     shift['model'], ratio['model'])
     if full_output:
         return local_kernel, global_kernel, this_weights, model_ramp
     else:
@@ -816,27 +842,27 @@ if cell_id in x0:
 else:
     x1 = x0['1']
 xmin1 = [10., 300., 10., 25., 1., 5.e-4]
-xmax1 = [500., 4000., 50., 1000., 1.5, 2.e-2]
+xmax1 = [500., 5000., 50., 2000., 1.5, 2.e-2]
 
 
 induction = 1
 
 
 # ramp_error_cont(x1, xmin1, xmax1, ramp[induction], induction, plot=True)
-"""
+
 result = optimize_explore(x1, xmin1, xmax1, ramp_error_cont, ramp[induction], induction, maxfev=700)
 
 polished_result = optimize_polish(result['x'], xmin1, xmax1, ramp_error_cont, ramp[induction], induction)
 
-polished_result = optimize_polish(x1, xmin1, xmax1, ramp_error_cont, ramp[induction], induction)
+# polished_result = optimize_polish(x1, xmin1, xmax1, ramp_error_cont, ramp[induction], induction)
 
 hist.report_best()
-hist.export('120216_magee_data_optimization_long_cell'+cell_id)
-
+hist.export('121016_magee_data_optimization_long_cell'+cell_id)
+"""
 
 
 ramp_error_cont(polished_result['x'], xmin1, xmax1, ramp[induction], induction, plot=True)
-"""
+
 local_kernel, global_kernel, weights, model_ramp = \
     ramp_error_cont(x1, xmin1, xmax1, ramp[induction], induction, plot=False, full_output=True)
 
@@ -852,3 +878,4 @@ with h5py.File(data_dir+output_filename+'.hdf5', 'a') as f:
     f['long'][cell_id].attrs['dt'] = dt
     f['long'][cell_id].create_dataset('ramp', compression='gzip', compression_opts=9, data=ramp[induction])
     f['long'][cell_id].create_dataset('model_ramp', compression='gzip', compression_opts=9, data=model_ramp)
+"""

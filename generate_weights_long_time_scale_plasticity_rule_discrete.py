@@ -739,7 +739,7 @@ x1 = [2.614E+02, 1.103E+03, 2.686E+01, 4.574E+02, 1.388E+00, 4.533E-03*0.4619]  
 
 induction = 1
 
-# local_kernel, global_kernel, this_weights, model_ramp = calculate_weights_discrete(x1, 1, True, True)
+local_kernel, global_kernel, this_weights, model_ramp = calculate_weights_discrete(x1, 1, True, True)
 
 """
 with h5py.File(data_dir+weights_filename+'.hdf5', 'a') as f:

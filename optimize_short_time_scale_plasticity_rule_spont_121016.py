@@ -27,9 +27,7 @@ if len(sys.argv) > 1:
 else:
     cell_id = None
 
-# experimental_filename = '112116 magee lab first induction'
-# experimental_filename = '112516 magee lab first induction'
-experimental_filename = '120116 magee lab first induction'
+experimental_filename = '120216 magee lab spont'
 
 rule_max_timescale = 9000.
 
@@ -64,6 +62,34 @@ class History(object):
 
 
 hist = History()
+
+
+def calculate_ramp_features(ramp, induction_loc):
+    """
+
+    :param x: array
+    :param ramp: array
+    :param induction_loc: float
+    """
+
+    interp_ramp = np.interp(default_interp_x, binned_x, ramp)
+    baseline_indexes = np.where(interp_ramp <= np.percentile(interp_ramp, 10.))[0]
+    interp_ramp -= np.mean(interp_ramp[baseline_indexes])
+    extended_ramp = np.concatenate([interp_ramp for i in range(3)])
+    extended_interp_x = np.concatenate([default_interp_x - track_length, default_interp_x,
+                                        default_interp_x + track_length])
+    peak_index = np.where(interp_ramp == np.max(interp_ramp))[0][0] + len(interp_ramp)
+    peak_val = extended_ramp[peak_index]
+    if extended_interp_x[peak_index] > induction_loc + 30.:
+        peak_index -= len(interp_ramp)
+    start_index = np.where(extended_ramp[:peak_index] <= 0.15*peak_val)[0][-1]
+    end_index = peak_index + np.where(extended_ramp[peak_index:] <= 0.15*peak_val)[0][0]
+    peak_shift = extended_interp_x[peak_index] - induction_loc
+    ramp_width = extended_interp_x[end_index] - extended_interp_x[start_index]
+    before_width = induction_loc - extended_interp_x[start_index]
+    after_width = extended_interp_x[end_index] - induction_loc
+    ratio = before_width / after_width
+    return peak_val, ramp_width, peak_shift, ratio
 
 
 def wrap_around_and_compress(waveform, interp_x):
@@ -366,7 +392,7 @@ for induction in position:
         padded_x = np.insert(this_interp_x, 0, this_interp_x[-vel_window_bins:] - track_length)
         padded_x = np.append(padded_x, this_interp_x[:vel_window_bins + 1] + track_length)
         this_run_vel = []
-        for j in range(vel_window_bins, vel_window_bins+len(this_interp_x)):
+        for j in range(vel_window_bins, vel_window_bins + len(this_interp_x)):
             this_run_vel.append(np.sum(np.diff(padded_x[j - vel_window_bins:j + vel_window_bins + 1])) /
                                 np.sum(np.diff(padded_t[j - vel_window_bins:j + vel_window_bins + 1])) * 1000.)
         this_run_vel = np.array(this_run_vel)
@@ -483,13 +509,6 @@ for induction in position:
         baseline = np.mean(ramp[induction][ramp_baseline_indexes])
     ignore = subtract_baseline(ramp[induction], baseline)
 
-"""
-for induction in ramp:
-    plt.plot(binned_x, ramp[induction])
-plt.show()
-plt.close()
-"""
-
 
 def check_bounds(x, xmin, xmax):
     """
@@ -511,15 +530,13 @@ def build_kernels(x, plot=False):
     Construct two kernels with exponential rise and decay:
     1) Local kernel that generates a plasticity signal at each spine
     2) Global kernal that generates a plasticity signal during dendritic calcium spiking
-    :param x: array: [local_rise_tau, local_decay_tau, global_rise_tau, global_decay_tau, filter_ratio, global_scale]
+    :param x: array: [global_rise_tau, global_decay_tau, filter_ratio, global_scale]
     :param plot: bool
     :return: array, array
     """
-    local_rise_tau = x[0]
-    local_decay_tau = x[1]
-    global_rise_tau = x[2]
-    global_decay_tau = x[3]
-    filter_ratio = x[4]
+    global_rise_tau = x[0]
+    global_decay_tau = x[1]
+    filter_ratio = x[2]
 
     max_time_scale = np.max([local_rise_tau+local_decay_tau, global_rise_tau+global_decay_tau])
     filter_t = np.arange(0., 6.*max_time_scale, dt)
@@ -559,7 +576,7 @@ def calculate_plasticity_signal(x, local_kernel, global_kernel, induction, plot=
     Given the local and global kernels, convolve each input rate_map with the local kernel, and convolve the
     current injection with the global kernel. The weight change for each input is proportional to the area under the
     product of the two signals. Incremental weight changes accrue across multiple induction trials.
-    :param x: array: [local_rise_tau, local_decay_tau, global_rise_tau, global_decay_tau, filter_ratio, kernel_scale]
+    :param x: array: [global_rise_tau, global_decay_tau, filter_ratio, global_scale]
     :param local_kernel: array
     :param global_kernel: array
     :param induction: int: key for dicts of arrays
@@ -567,8 +584,8 @@ def calculate_plasticity_signal(x, local_kernel, global_kernel, induction, plot=
     :return: plasticity_signal: array
     """
     saturation_factor = 0.02
-    filter_ratio = x[4]
-    kernel_scale = x[5]
+    filter_ratio = x[2]
+    kernel_scale = x[3]
     group = 'CA3'
     for attempt in range(2):
         plasticity_signal = np.zeros_like(peak_locs[group])
@@ -639,7 +656,7 @@ def ramp_error_cont(x, xmin, xmax, ramp, induction=None, orig_weights=None, base
                     full_output=False):
     """
     Calculates a rule_waveform and set of weights to match the first place field induction.
-    :param x: array [local_rise_tau, local_decay_tau, global_rise_tau, global_decay_tau, filter_ratio, kernel_scale]
+    :param x: array [global_rise_tau, global_decay_tau, filter_ratio, kernel_scale]
     :param xmin: array
     :param xmax: array
     :param ramp: array
@@ -653,7 +670,7 @@ def ramp_error_cont(x, xmin, xmax, ramp, induction=None, orig_weights=None, base
     if not check_bounds(x, xmin, xmax):
         print 'Aborting: Invalid parameter values.'
         return 1e9
-    elif (x[1] <= x[0]) or (x[3] <= x[2]):
+    elif x[1] <= x[0]:
         print 'Aborting: Invalid parameter values.'
         return 1e9
     start_time = time.time()
@@ -664,14 +681,15 @@ def ramp_error_cont(x, xmin, xmax, ramp, induction=None, orig_weights=None, base
     local_kernel, global_kernel = build_kernels(x, plot)
     this_weights = calculate_plasticity_signal(x, local_kernel, global_kernel, induction, plot)
     model_ramp = get_expected_depolarization(default_rate_maps, this_weights + 1., default_interp_x)
-    model_ramp_baseline = np.mean(model_ramp[ramp_baseline_indexes])
-    model_ramp -= model_ramp_baseline
-
+    ignore = subtract_baseline(model_ramp)
+    amp, width, shift, ratio = {}, {}, {}, {}
+    this_induction_loc = np.mean(induction_locs[induction])
+    for this_ramp, this_key in zip((ramp, model_ramp), ('exp', 'model')):
+        amp[this_key], width[this_key], shift[this_key], ratio[this_key] = calculate_ramp_features(this_ramp,
+                                                                                                   this_induction_loc)
     Err = 0.
-    for j in range(len(ramp)):
-        Err += ((ramp[j] - model_ramp[j]) / 0.05) ** 2.
-    # Extra penalty for difference in peak amplitude
-    Err += ((np.max(ramp) - np.max(model_ramp)) / 0.01) ** 2.
+    for feature, sigma in zip((amp, width, shift, ratio), (0.05, 0.1, 0.05, 0.01)):
+        Err += ((feature['exp'] - feature['model']) / sigma) ** 2.
 
     if plot:
         x_start = np.mean(induction_locs[induction])/track_length
@@ -693,6 +711,10 @@ def ramp_error_cont(x, xmin, xmax, ramp, induction=None, orig_weights=None, base
 
     formatted_x = '[' + ', '.join(['%.4f' % xi for xi in x]) + ']'
     print 'x: %s, Err: %.4E took %i s' % (formatted_x, Err, time.time()-start_time)
+    print 'exp: amp: %.1f, ramp_width: %.1f, peak_shift: %.1f, asymmetry: %.1f' % (amp['exp'], width['exp'],
+                                                                                   shift['exp'], ratio['exp'])
+    print 'model: amp: %.1f, ramp_width: %.1f, peak_shift: %.1f, asymmetry: %.1f' % (amp['model'], width['model'],
+                                                                                     shift['model'], ratio['model'])
     if full_output:
         return local_kernel, global_kernel, this_weights, model_ramp
     else:
@@ -761,94 +783,64 @@ global_kernel = {}
 weights = {}
 model_ramp = {}
 
+local_rise_tau = 10.
+local_decay_tau = 100.
+
 x0 = {}
-# x0['1'] = [300., 6.69E+02, 9.77E-02, 6.40E+01, 1.31E+02, 4.04E-03]
-# x0['1'] = [223.606, 978.505, 0.117, 60.137, 106.736, 0.003]
-# x0['1'] = [2.34E+02, 8.74E+02, 1.53E-01, 5.33E+01, 1.09E+02, 2.21E-03]
-# x0['1'] = [3.00E+02, 7.18E+02, 1.91E-01, 2.97E+01, 1.00E+02, 2.10E-03]
-# x0['1'] = [1.00E+01, 1.35E+03, 3.02E-01, 2.12E+01, 2.15E+02, 3.13E-03]
 
-# x0['1'] = [1.246E+01, 1.603E+03, 3.967E+01, 4.438E+02, 1.5, 4.360E-03]  # Err: 7.1880E+04
-x0['1'] = [1.638E+01, 1.488E+03, 5.000E+01, 4.830E+02, 1.000E+00, 3.338E-03]  # Err: 7.0740E+04
-# x0['2'] = [1.035E+01, 3.526E+02, 1.814E+01, 2.713E+01, 1.5, 4.449E-03]  # 1.0169E+05
-x0['2'] = [1.048E+01, 3.368E+02, 1.682E+01, 2.500E+01, 1.500E+00, 5.531E-03]  # Err: 1.6334E+05
-# Don't use cell3, it's the same as cell15
-# x0['3'] = [1.000E+01, 1.605E+03, 5.000E+01, 1.012E+02, 1.500E+00, 1.581E-03]  # Err: 1.0576E+04
-# x0['4'] = [1.007E+01, 2.842E+03, 5.000E+01, 1.000E+03, 1.5, 1.071E-03]  # Err: 1.8466E+04
-x0['4'] = [1.007E+01, 2.984E+03, 5.000E+01, 1.000E+03, 1.500E+00, 1.071E-03]  # Err: 1.9300E+04
-# x0['5'] = [5.000E+02, 5.795E+02, 2.296E+01, 3.846E+02, 1.5, 1.530E-03]  # Err: 1.7840E+03
-x0['5'] = [5.000E+02, 5.800E+02, 2.407E+01, 3.849E+02, 1.500E+00, 1.530E-03]  # Err: 1.7981E+03
-# x0['6'] = [2.33E+02, 3.00E+02, 1.00E+01, 3.43E+02, 1.5, 2.70E-03]  # Err: 1.3100E+04
-x0['6'] = [2.138E+02, 3.001E+02, 1.000E+01, 3.270E+02, 1.467E+00, 2.700E-03]  # Err: 1.3405E+04
-# x0['7'] = [5.000E+02, 1.017E+03, 1.000E+01, 1.000E+03, 1.5, 2.093E-03]  # Err: 8.1851E+04
-x0['7'] = [5.000E+02, 1.068E+03, 1.000E+01, 1.000E+03, 1.500E+00, 2.093E-03]  # Err: 9.0542E+04
-# x0['8'] = [4.865E+02, 4.876E+02, 2.676E+01, 5.082E+02, 1.5, 2.567E-03]  # Err: 1.7466E+04
-x0['8'] = [4.898E+02, 4.985E+02, 2.794E+01, 5.166E+02, 1.500E+00, 2.563E-03]  # Err: 1.7940E+04
-# x0['9'] = [1.316E+01, 1.112E+03, 4.950E+01, 9.948E+02, 1.5, 2.553E-03]  # Err: 5.8385E+04
-x0['9'] = [1.273E+01, 1.150E+03, 5.000E+01, 1.000E+03, 1.500E+00, 2.437E-03]  # Err: 6.3113E+04
-# x0['10'] = [4.894E+02, 3.977E+03, 1.000E+01, 2.500E+01, 1.5, 5.438E-03]  # Err: 5.4078E+04
-x0['10'] = [5.000E+02, 4.000E+03, 1.008E+01, 2.500E+01, 1.439E+00, 5.686E-03]  # Err: 6.5520E+04
-# x0['11'] = [1.121E+01, 3.002E+02, 1.354E+01, 2.500E+01, 1.5, 1.710E-03]  # Err: 4.4760E+04
-x0['11'] = [1.160E+01, 3.000E+02, 1.300E+01, 2.500E+01, 1.441E+00, 1.802E-03]  # Err: 4.8351E+04
-# x0['12'] = [1.006E+01, 5.596E+02, 2.856E+01, 5.641E+01, 1.5, 5.014E-03]  # Err: 2.0313E+04
-x0['12'] = [1.000E+01, 5.659E+02, 3.134E+01, 6.100E+01, 1.499E+00, 4.853E-03]  # Err: 2.0582E+04
-# x0['13'] = [5.000E+02, 9.456E+02, 1.001E+01, 1.395E+02, 1.5, 4.149E-03]  # Err: 9.6708E+03
-x0['13'] = [5.000E+02, 9.589E+02, 1.001E+01, 1.397E+02, 1.500E+00, 4.149E-03]  # Err: 9.8706E+03
-# x0['14'] = [1.944E+02, 3.000E+02, 2.035E+01, 2.537E+02, 1.5, 1.513E-03]  # Err: 2.2878E+04
-x0['14'] = [2.034E+02, 3.002E+02, 1.462E+01, 3.116E+02, 1.000E+00, 1.199E-03]  # Err: 2.2859E+04
-# x0['15'] = [5.000E+02, 6.081E+02, 1.287E+01, 4.231E+02, 1.5, 1.894E-03]  # Err: 7.3329E+03
-x0['15'] = [5.000E+02, 6.081E+02, 1.287E+01, 4.231E+02, 1.500E+00, 1.902E-03]  # Err: 7.3751E+03
-# Don't use cell16, it's the same as cell8
-# x0['16'] = [4.093E+02, 4.431E+02, 1.000E+01, 4.328E+02, 1.5, 3.237E-03]  # Err: 1.4417E+04
-# x0['16'] = [4.313E+02, 4.313E+02, 1.066E+01, 4.397E+02, 1.497E+00, 3.224E-03]  # Err: 1.4823E+04
-# x0['17'] = [5.000E+02, 6.188E+02, 1.840E+01, 5.337E+02, 1.5, 1.978E-03]  # Err: 5.0532E+04
-x0['17'] = [5.000E+02, 6.314E+02, 1.840E+01, 5.362E+02, 1.500E+00, 1.978E-03]  # Err: 5.0492E+04
-# x0['18'] = [4.992E+02, 3.934E+03, 1.000E+01, 6.264E+02, 1.5, 1.555E-03]  # Err: 1.5993E+04
-x0['18'] = [4.944E+02, 4.000E+03, 1.370E+01, 9.775E+02, 1.000E+00, 1.371E-03]  # Err: 1.4975E+04
+# x0['1'] = [1.000E+01, 2.500E+01, 1.5, 4.684E-03]  # Err: 4.8691E+05
+x0['1'] = [3.827E+01, 2.532E+02, 1.500E+00, 2.120E-03]  # Err: 1.3799E+04
+x0['2'] = [1.000E+01, 2.500E+01, 1.166E+00, 2.489E-02]  # Err: 1.7589E+05
+x0['3'] = [1.035E+01, 2.500E+01, 1.156E+00, 3.504E-03]  # Err: 6.9660E+04
+x0['4'] = [1.039E+01, 2.500E+01, 1.000E+00, 6.997E-03]  # Err: 6.1694E+05
+x0['5'] = [3.209E+01, 1.342E+02, 1.000E+00, 7.927E-03]  # Err: 1.1921E+05
+x0['6'] = [1.000E+01, 2.500E+01, 1.389E+00, 1.277E-02]  # Err: 2.8602E+05
+x0['7'] = [5.000E+01, 3.804E+02, 1.478E+00, 2.728E-02]  # Err: 1.5065E+06
 
-# x0['mean'] = [2.795E+02, 1.236E+03, 2.268E+01, 4.522E+02, 1.397E+00, 2.763E-03]
+# x0['mean'] = [2.301E+01, 1.240E+02, 1.241E+00, 1.221E-02]
 
 # to avoid saturation and reduce variability of time courses across cells, constrain the relative amplitude
 # of global and local kernels:
-# [local_rise_tau, local_decay_tau, global_rise_tau, global_decay_tau, filter_ratio, kernel_scale]
+# [global_rise_tau, global_decay_tau, filter_ratio, kernel_scale]
+
 if cell_id in x0:
     x1 = x0[cell_id]
 else:
     x1 = x0['1']
-xmin1 = [10., 300., 10., 25., 1., 5.e-4]
-xmax1 = [500., 4000., 50., 1000., 1.5, 2.e-2]
+xmin1 = [10., 25., 1., 5.e-4]
+xmax1 = [50., 500., 1.5, 5.e-2]
 
 
 induction = 1
 
 
 # ramp_error_cont(x1, xmin1, xmax1, ramp[induction], induction, plot=True)
-"""
+
 result = optimize_explore(x1, xmin1, xmax1, ramp_error_cont, ramp[induction], induction, maxfev=700)
 
 polished_result = optimize_polish(result['x'], xmin1, xmax1, ramp_error_cont, ramp[induction], induction)
 
-polished_result = optimize_polish(x1, xmin1, xmax1, ramp_error_cont, ramp[induction], induction)
+# polished_result = optimize_polish(x1, xmin1, xmax1, ramp_error_cont, ramp[induction], induction)
 
 hist.report_best()
-hist.export('120216_magee_data_optimization_long_cell'+cell_id)
-
-
+hist.export('121016_magee_data_optimization_short_cell_spont'+cell_id)
+"""
 
 ramp_error_cont(polished_result['x'], xmin1, xmax1, ramp[induction], induction, plot=True)
-"""
+
 local_kernel, global_kernel, weights, model_ramp = \
-    ramp_error_cont(x1, xmin1, xmax1, ramp[induction], induction, plot=False, full_output=True)
+    ramp_error_cont(x1, xmin1, xmax1, ramp[induction], induction, plot=True, full_output=True)
 
 output_filename = '120816 plasticity rule optimization summary'
 with h5py.File(data_dir+output_filename+'.hdf5', 'a') as f:
-    if 'long' not in f:
-        f.create_group('long')
-    f['long'].create_group(cell_id)
-    f['long'][cell_id].attrs['track_length'] = track_length
-    f['long'][cell_id].attrs['induction_loc'] = induction_locs[induction]
-    f['long'][cell_id].create_dataset('local_kernel', compression='gzip', compression_opts=9, data=local_kernel)
-    f['long'][cell_id].create_dataset('global_kernel', compression='gzip', compression_opts=9, data=global_kernel)
-    f['long'][cell_id].attrs['dt'] = dt
-    f['long'][cell_id].create_dataset('ramp', compression='gzip', compression_opts=9, data=ramp[induction])
-    f['long'][cell_id].create_dataset('model_ramp', compression='gzip', compression_opts=9, data=model_ramp)
+    if 'short' not in f:
+        f.create_group('short')
+    f['short'].create_group('s'+cell_id)
+    f['short']['s'+cell_id].attrs['track_length'] = track_length
+    f['short']['s'+cell_id].attrs['induction_loc'] = induction_locs[induction]
+    f['short']['s'+cell_id].create_dataset('local_kernel', compression='gzip', compression_opts=9, data=local_kernel)
+    f['short']['s'+cell_id].create_dataset('global_kernel', compression='gzip', compression_opts=9, data=global_kernel)
+    f['short']['s'+cell_id].attrs['dt'] = dt
+    f['short']['s'+cell_id].create_dataset('ramp', compression='gzip', compression_opts=9, data=ramp[induction])
+    f['short']['s'+cell_id].create_dataset('model_ramp', compression='gzip', compression_opts=9, data=model_ramp)
+"""
