@@ -71,25 +71,40 @@ def calculate_ramp_features(ramp, induction_loc):
     :param ramp: array
     :param induction_loc: float
     """
-
-    interp_ramp = np.interp(default_interp_x, binned_x, ramp)
-    baseline_indexes = np.where(interp_ramp <= np.percentile(interp_ramp, 10.))[0]
-    interp_ramp -= np.mean(interp_ramp[baseline_indexes])
-    extended_ramp = np.concatenate([interp_ramp for i in range(3)])
+    extended_binned_x = np.concatenate([binned_x - track_length, binned_x, binned_x + track_length])
+    extended_binned_ramp = np.concatenate([ramp for i in range(3)])
     extended_interp_x = np.concatenate([default_interp_x - track_length, default_interp_x,
                                         default_interp_x + track_length])
+    dx = extended_interp_x[1] - extended_interp_x[0]
+    extended_ramp = np.interp(extended_interp_x, extended_binned_x, extended_binned_ramp)
+    interp_ramp = extended_ramp[len(default_interp_x):2*len(default_interp_x)]
+    baseline_indexes = np.where(interp_ramp <= np.percentile(interp_ramp, 10.))[0]
+    baseline = np.mean(interp_ramp[baseline_indexes])
+    interp_ramp -= baseline
+    extended_ramp -= baseline
     peak_index = np.where(interp_ramp == np.max(interp_ramp))[0][0] + len(interp_ramp)
-    peak_val = extended_ramp[peak_index]
-    if extended_interp_x[peak_index] > induction_loc + 30.:
-        peak_index -= len(interp_ramp)
-    start_index = np.where(extended_ramp[:peak_index] <= 0.15*peak_val)[0][-1]
-    end_index = peak_index + np.where(extended_ramp[peak_index:] <= 0.15*peak_val)[0][0]
-    peak_shift = extended_interp_x[peak_index] - induction_loc
+    # use center of mass in 10 spatial bins instead of literal peak for determining peak_shift
+    before_peak_index = peak_index-int(track_length/10./2./dx)
+    after_peak_index = peak_index + int(track_length/10./2./dx)
+    area_around_peak = np.trapz(extended_ramp[before_peak_index:after_peak_index], dx=dx)
+    for i in range(before_peak_index+1, after_peak_index):
+        this_area = np.trapz(extended_ramp[before_peak_index:i], dx=dx)
+        if this_area/area_around_peak >= 0.5:
+            center_of_mass_index = i
+            break
+    center_of_mass_val = np.mean(extended_ramp[before_peak_index:after_peak_index])
+
+    if extended_interp_x[center_of_mass_index] > induction_loc + 30.:
+        center_of_mass_index -= len(interp_ramp)
+    center_of_mass_x = extended_interp_x[center_of_mass_index]
+    start_index = np.where(extended_ramp[:center_of_mass_index] <= 0.15*center_of_mass_val)[0][-1]
+    end_index = center_of_mass_index + np.where(extended_ramp[center_of_mass_index:] <= 0.15*center_of_mass_val)[0][0]
+    peak_shift = center_of_mass_x - induction_loc
     ramp_width = extended_interp_x[end_index] - extended_interp_x[start_index]
     before_width = induction_loc - extended_interp_x[start_index]
     after_width = extended_interp_x[end_index] - induction_loc
     ratio = before_width / after_width
-    return peak_val, ramp_width, peak_shift, ratio
+    return center_of_mass_val, ramp_width, peak_shift, ratio
 
 
 def wrap_around_and_compress(waveform, interp_x):
@@ -688,8 +703,10 @@ def ramp_error_cont(x, xmin, xmax, ramp, induction=None, orig_weights=None, base
         amp[this_key], width[this_key], shift[this_key], ratio[this_key] = calculate_ramp_features(this_ramp,
                                                                                                    this_induction_loc)
     Err = 0.
-    for feature, sigma in zip((amp, width, shift, ratio), (0.05, 0.1, 0.05, 0.01)):
-        Err += ((feature['exp'] - feature['model']) / sigma) ** 2.
+    for feature, sigma in zip((amp, width, shift, ratio), (0.01, 0.1, 0.05, 0.05)):
+        Err_piece = ((feature['exp'] - feature['model']) / sigma) ** 2.
+        # print Err_piece
+        Err += Err_piece
 
     for j in range(len(ramp)):
         Err += ((ramp[j] - model_ramp[j]) / 0.1) ** 2.
@@ -794,14 +811,14 @@ local_decay_tau = 100.
 
 x0 = {}
 
-# x0['1'] = [1.000E+01, 2.500E+01, 1.5, 4.684E-03]  # Err: 4.8691E+05
-x0['1'] = [3.827E+01, 2.532E+02, 1.500E+00, 2.120E-03]  # Err: 1.3799E+04
-x0['2'] = [1.000E+01, 2.500E+01, 1.166E+00, 2.489E-02]  # Err: 1.7589E+05
-x0['3'] = [1.035E+01, 2.500E+01, 1.156E+00, 3.504E-03]  # Err: 6.9660E+04
-x0['4'] = [1.039E+01, 2.500E+01, 1.000E+00, 6.997E-03]  # Err: 6.1694E+05
-x0['5'] = [3.209E+01, 1.342E+02, 1.000E+00, 7.927E-03]  # Err: 1.1921E+05
-x0['6'] = [1.000E+01, 2.500E+01, 1.389E+00, 1.277E-02]  # Err: 2.8602E+05
-x0['7'] = [5.000E+01, 3.804E+02, 1.478E+00, 2.728E-02]  # Err: 1.5065E+06
+x0['1'] = [1.737E+01, 2.500E+01, 1.361E+00, 2.231E-03]  # Error: 1.5179E+04
+x0['2'] = [1.677E+01, 8.723E+01, 7.000E-01, 1.052E-02]  # Error: 1.7429E+05
+x0['3'] = [1.199E+01, 1.507E+02, 1.042E+00, 2.543E-03]  # Error: 2.2592E+05
+x0['4'] = [1.000E+01, 2.546E+01, 1.029E+00, 6.641E-03]  # Error: 3.8659E+05
+x0['5'] = [3.052E+01, 4.872E+02, 7.007E-01, 3.324E-03]  # Error: 1.0790E+05
+# x0['6'] = [2.455E+01, 1.386E+02, 7.000E-01, 5.212E-04]  # Error: 6.8511E+05
+x0['6'] = [1.848E+01, 1.401E+02, 7.492E-01, 8.142E-03]  # Err: 6.782E+05
+x0['7'] = [4.834E+01, 3.692E+02, 1.500E+00, 2.082E-02]  # Error: 5.4287E+05
 
 # x0['mean'] = [2.301E+01, 1.240E+02, 1.241E+00, 1.221E-02]
 
@@ -813,7 +830,7 @@ if cell_id in x0:
     x1 = x0[cell_id]
 else:
     x1 = x0['1']
-xmin1 = [10., 25., 0.7, 5.e-4]
+xmin1 = [10., 25., 1., 5.e-4]
 xmax1 = [50., 500., 1.5, 5.e-2]
 
 
@@ -829,7 +846,7 @@ polished_result = optimize_polish(result['x'], xmin1, xmax1, ramp_error_cont, ra
 # polished_result = optimize_polish(x1, xmin1, xmax1, ramp_error_cont, ramp[induction], induction)
 
 hist.report_best()
-hist.export('121116_magee_data_optimization_short_cell_spont'+cell_id)
+hist.export('121216_magee_data_optimization_short_cell_spont'+cell_id)
 """
 
 ramp_error_cont(polished_result['x'], xmin1, xmax1, ramp[induction], induction, plot=True)
@@ -837,7 +854,7 @@ ramp_error_cont(polished_result['x'], xmin1, xmax1, ramp[induction], induction, 
 local_kernel, global_kernel, weights, model_ramp = \
     ramp_error_cont(x1, xmin1, xmax1, ramp[induction], induction, plot=True, full_output=True)
 
-output_filename = '120816 plasticity rule optimization summary'
+output_filename = '121116 plasticity rule optimization summary'
 with h5py.File(data_dir+output_filename+'.hdf5', 'a') as f:
     if 'short' not in f:
         f.create_group('short')

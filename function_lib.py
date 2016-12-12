@@ -2283,7 +2283,7 @@ def print_ramp_features(x, ramp, title, track_length=None, dx=None, induction_lo
     after_width = extended_x[end_index] - induction_loc
     print '  rise:decay ratio: %.1f' % (before_width / after_width)
     if plot:
-        plt.plot(extended_x, extended_ramp)
+        plt.plot(interp_x, interp_ramp)
 
 
 def process_plasticity_rule_continuous(output_filename, plot=False):

@@ -73,25 +73,40 @@ def calculate_ramp_features(ramp, induction_loc):
     :param ramp: array
     :param induction_loc: float
     """
-
-    interp_ramp = np.interp(default_interp_x, binned_x, ramp)
-    baseline_indexes = np.where(interp_ramp <= np.percentile(interp_ramp, 10.))[0]
-    interp_ramp -= np.mean(interp_ramp[baseline_indexes])
-    extended_ramp = np.concatenate([interp_ramp for i in range(3)])
+    extended_binned_x = np.concatenate([binned_x - track_length, binned_x, binned_x + track_length])
+    extended_binned_ramp = np.concatenate([ramp for i in range(3)])
     extended_interp_x = np.concatenate([default_interp_x - track_length, default_interp_x,
                                         default_interp_x + track_length])
+    dx = extended_interp_x[1] - extended_interp_x[0]
+    extended_ramp = np.interp(extended_interp_x, extended_binned_x, extended_binned_ramp)
+    interp_ramp = extended_ramp[len(default_interp_x):2*len(default_interp_x)]
+    baseline_indexes = np.where(interp_ramp <= np.percentile(interp_ramp, 10.))[0]
+    baseline = np.mean(interp_ramp[baseline_indexes])
+    interp_ramp -= baseline
+    extended_ramp -= baseline
     peak_index = np.where(interp_ramp == np.max(interp_ramp))[0][0] + len(interp_ramp)
-    peak_val = extended_ramp[peak_index]
-    if extended_interp_x[peak_index] > induction_loc + 30.:
-        peak_index -= len(interp_ramp)
-    start_index = np.where(extended_ramp[:peak_index] <= 0.15*peak_val)[0][-1]
-    end_index = peak_index + np.where(extended_ramp[peak_index:] <= 0.15*peak_val)[0][0]
-    peak_shift = extended_interp_x[peak_index] - induction_loc
+    # use center of mass in 10 spatial bins instead of literal peak for determining peak_shift
+    before_peak_index = peak_index-int(track_length/10./2./dx)
+    after_peak_index = peak_index + int(track_length/10./2./dx)
+    area_around_peak = np.trapz(extended_ramp[before_peak_index:after_peak_index], dx=dx)
+    for i in range(before_peak_index+1, after_peak_index):
+        this_area = np.trapz(extended_ramp[before_peak_index:i], dx=dx)
+        if this_area/area_around_peak >= 0.5:
+            center_of_mass_index = i
+            break
+    center_of_mass_val = np.mean(extended_ramp[before_peak_index:after_peak_index])
+
+    if extended_interp_x[center_of_mass_index] > induction_loc + 30.:
+        center_of_mass_index -= len(interp_ramp)
+    center_of_mass_x = extended_interp_x[center_of_mass_index]
+    start_index = np.where(extended_ramp[:center_of_mass_index] <= 0.15*center_of_mass_val)[0][-1]
+    end_index = center_of_mass_index + np.where(extended_ramp[center_of_mass_index:] <= 0.15*center_of_mass_val)[0][0]
+    peak_shift = center_of_mass_x - induction_loc
     ramp_width = extended_interp_x[end_index] - extended_interp_x[start_index]
     before_width = induction_loc - extended_interp_x[start_index]
     after_width = extended_interp_x[end_index] - induction_loc
     ratio = before_width / after_width
-    return peak_val, ramp_width, peak_shift, ratio
+    return center_of_mass_val, ramp_width, peak_shift, ratio
 
 
 def wrap_around_and_compress(waveform, interp_x):
@@ -690,8 +705,10 @@ def ramp_error_cont(x, xmin, xmax, ramp, induction=None, orig_weights=None, base
         amp[this_key], width[this_key], shift[this_key], ratio[this_key] = calculate_ramp_features(this_ramp,
                                                                                                    this_induction_loc)
     Err = 0.
-    for feature, sigma in zip((amp, width, shift, ratio), (0.05, 0.1, 0.05, 0.01)):
-        Err += ((feature['exp'] - feature['model']) / sigma) ** 2.
+    for feature, sigma in zip((amp, width, shift, ratio), (0.01, 0.1, 0.05, 0.05)):
+        Err_piece = ((feature['exp'] - feature['model']) / sigma) ** 2.
+        # print Err_piece
+        Err += Err_piece
 
     for j in range(len(ramp)):
         Err += ((ramp[j] - model_ramp[j]) / 0.1) ** 2.
@@ -796,47 +813,28 @@ local_decay_tau = 100.
 
 x0 = {}
 
-# x0['1'] = [1.000E+01, 2.500E+01, 1.5, 4.684E-03]  # Err: 4.8691E+05
-x0['1'] = [1.000E+01, 2.509E+01, 1.476E+00, 4.225E-03]  # Err: 5.0313E+05
-# x0['2'] = [1.000E+01, 2.500E+01, 1.5, 4.223E-03]  # Err: 1.0227E+05
-x0['2'] = [1.059E+01, 2.500E+01, 1.392E+00, 4.763E-03]  # Err: 1.6251E+05
+x0['1'] = [1.434E+01, 3.335E+02, 7.000E-01, 2.222E-03]  # Error: 4.8356E+05
+x0['2'] = [1.045E+01, 2.500E+01, 1.495E+00, 3.975E-03]  # Error: 1.2502E+05
 # Don't use cell3, it's the same as cell15
-# x0['3'] = [1.000E+01, 2.500E+01, 1.5, 1.593E-03]  # Err: 2.0170E+05
-# x0['3'] = [1.000E+01, 2.500E+01, 1.490E+00, 1.697E-03]  # Err: 2.0338E+05
-# x0['4'] = [2.482E+01, 1.001E+02, 1.5, 9.087E-04]  # Err: 3.9805E+04
-x0['4'] = [1.105E+01, 1.270E+02, 1.000E+00, 6.412E-04]  # Err: 3.9978E+04
-# x0['5'] = [1.000E+01, 2.500E+01, 1.5, 2.255E-03]  # Err: 1.6122E+05
-x0['5'] = [1.418E+01, 2.520E+01, 1.000E+00, 1.510E-03]  # Err: 1.6155E+05
-# x0['6'] = [1.000E+01, 3.063E+01, 1.5, 4.484E-03]  # Err: 4.9357E+04
-x0['6'] = [1.000E+01, 4.425E+01, 1.402E+00, 3.923E-03]  # Err: 5.1173E+04
-# x0['7'] = [1.000E+01, 1.063E+02, 1.5, 2.074E-03]  # Err: 2.2461E+05
-x0['7'] = [2.115E+01, 1.295E+02, 1.000E+00, 1.437E-03]  # Err: 2.2481E+05
-# x0['8'] = [1.000E+01, 2.502E+01, 1.5, 2.677E-03]  # Err: 2.3636E+05
-x0['8'] = [1.133E+01, 2.522E+01, 1.000E+00, 1.737E-03]  # Err: 2.4338E+05
-# x0['9'] = [1.000E+01, 1.840E+02, 1.5, 2.621E-03]  # Err: 1.7979E+05
-x0['9'] = [1.024E+01, 1.848E+02, 1.000E+00, 1.919E-03]  # Err: 1.8147E+05
-# x0['10'] = [1.001E+01, 2.500E+01, 1.5, 5.000E-04]  # Err: 1.0187E+06
-x0['10'] = [1.221E+01, 2.500E+01, 1.500E+00, 1.057E-03]  # Err: 1.8915E+06
-# x0['11'] = [1.000E+01, 2.500E+01, 1.5, 1.829E-03]  # Err: 4.6237E+04
-x0['11'] = [1.000E+01, 2.500E+01, 1.498E+00, 1.975E-03]  # Err: 4.9026E+04
-# x0['12'] = [1.000E+01, 2.500E+01, 1.5, 6.053E-03]  # Err: 2.3643E+05
-x0['12'] = [1.193E+01, 2.500E+01, 1.000E+00, 4.014E-03]  # Err: 2.4047E+05
-# x0['13'] = [1.000E+01, 2.502E+01, 1.5, 4.183E-03]  # Err: 5.1455E+05
-x0['13'] = [1.000E+01, 2.500E+01, 1.366E+00, 4.188E-03]  # Err: 5.2261E+05
-# x0['14'] = [1.000E+01, 2.639E+01, 1.5, 2.150E-03]  # Err: 4.0964E+04
-x0['14'] = [1.000E+01, 2.500E+01, 1.453E+00, 1.995E-03]  # Err: 4.2736E+04
-# x0['15'] = [1.000E+01, 2.557E+01, 1.5, 2.469E-03]  # Err: 2.2841E+05
-x0['15'] = [1.074E+01, 2.500E+01, 1.000E+00, 1.722E-03]  # Err: 2.2603E+05
+x0['4'] = [3.554E+01, 4.840E+02, 7.000E-01, 5.874E-04]  # Error: 7.2991E+04
+x0['5'] = [1.000E+01, 8.845E+01, 7.000E-01, 1.165E-03]  # Error: 4.9222E+05
+x0['6'] = [1.000E+01, 6.974E+01, 1.354E+00, 3.603E-03]  # Error: 6.7061E+04
+x0['7'] = [1.000E+01, 2.503E+02, 7.087E-01, 1.310E-03]  # Error: 5.5460E+05
+x0['8'] = [1.159E+01, 5.200E+01, 7.000E-01, 1.385E-03]  # Error: 3.8851E+05
+x0['9'] = [1.013E+01, 1.482E+02, 7.000E-01, 1.828E-03]  # Error: 3.4405E+05
+x0['10'] = [1.000E+01, 4.757E+01, 7.001E-01, 1.610E-03]  # Error: 1.7557E+06
+x0['11'] = [1.000E+01, 2.509E+01, 1.499E+00, 1.729E-03]  # Error: 3.3409E+04
+x0['12'] = [1.252E+01, 5.856E+01, 7.000E-01, 3.077E-03]  # Error: 1.5987E+05
+x0['13'] = [1.161E+01, 4.150E+01, 1.084E+00, 2.939E-03]  # Error: 4.5294E+05
+x0['14'] = [1.131E+01, 1.112E+02, 7.000E-01, 1.065E-03]  # Error: 1.6080E+04
+x0['15'] = [1.164E+01, 5.248E+01, 7.000E-01, 1.332E-03]  # Error: 5.3043E+05
 # Don't use cell16, it's the same as cell8
-# x0['16'] = [1.000E+01, 2.530E+01, 1.5, 3.585E-03]  # Err: 2.8989E+05
-# x0['16'] = [1.102E+01, 2.504E+01, 1.000E+00, 2.354E-03]  # Err: 2.9600E+05
-# x0['17'] = [1.000E+01, 2.500E+01, 1.5, 2.583E-03]  # Err: 2.5722E+05
-x0['17'] = [1.140E+01, 2.561E+01, 1.000E+00, 1.762E-03]  # Err: 2.5605E+05
-# x0['18'] = [1.000E+01, 2.500E+01, 1.5, 1.306E-03]  # Err: 1.8075E+05
-x0['18'] = [1.068E+01, 2.500E+01, 1.000E+00, 9.869E-04]  # Err: 1.8177E+05
+x0['17'] = [1.041E+01, 4.502E+01, 7.049E-01, 1.393E-03]  # Error: 1.0524E+06
+x0['18'] = [2.877E+01, 9.728E+01, 7.000E-01, 6.809E-04]  # Error: 9.1869E+05
 
 # x0['mean'] = [1.159E+01, 4.917E+01, 1.193E+00, 2.366E-03]  # just induced
-# x0['mean'] = [1.507E+01, 7.193E+01, 1.208E+00, 5.363E-03]  # induced + spontaneous
+# x0['mean'] = [1.507E+01, 7.193E+01, 1.208E+00, 5.363E-03]  # induced + spontaneous 120416
+x0['mean'] = [1.643E+01, 1.397E+02, 9.078E-01, 3.326E-03]  # induced + spontaneous 121116
 
 # to avoid saturation and reduce variability of time courses across cells, constrain the relative amplitude
 # of global and local kernels:
@@ -846,7 +844,7 @@ if cell_id in x0:
     x1 = x0[cell_id]
 else:
     x1 = x0['1']
-xmin1 = [10., 25., 0.7, 5.e-4]
+xmin1 = [10., 25., 1., 5.e-4]
 xmax1 = [50., 500., 1.5, 5.e-2]
 
 
@@ -861,7 +859,7 @@ polished_result = optimize_polish(result['x'], xmin1, xmax1, ramp_error_cont, ra
 # polished_result = optimize_polish(x1, xmin1, xmax1, ramp_error_cont, ramp[induction], induction)
 
 hist.report_best()
-hist.export('121116_magee_data_optimization_short_cell'+cell_id)
+hist.export('121216_magee_data_optimization_short_cell'+cell_id)
 """
 
 ramp_error_cont(polished_result['x'], xmin1, xmax1, ramp[induction], induction, plot=True)
@@ -870,7 +868,7 @@ ramp_error_cont(polished_result['x'], xmin1, xmax1, ramp[induction], induction, 
 local_kernel, global_kernel, weights, model_ramp = \
     ramp_error_cont(x1, xmin1, xmax1, ramp[induction], induction, plot=True, full_output=True)
 
-output_filename = '120816 plasticity rule optimization summary'
+output_filename = '121116 plasticity rule optimization summary'
 with h5py.File(data_dir+output_filename+'.hdf5', 'a') as f:
     if 'short' not in f:
         f.create_group('short')
@@ -882,4 +880,33 @@ with h5py.File(data_dir+output_filename+'.hdf5', 'a') as f:
     f['short'][cell_id].attrs['dt'] = dt
     f['short'][cell_id].create_dataset('ramp', compression='gzip', compression_opts=9, data=ramp[induction])
     f['short'][cell_id].create_dataset('model_ramp', compression='gzip', compression_opts=9, data=model_ramp)
+"""
+
+local_kernel, global_kernel, weights, model_ramp = \
+    ramp_error_cont(x1, xmin1, xmax1, ramp[induction], induction, plot=True, full_output=True)
+"""
+fig, axes = plt.subplots(2, 2)
+fig.set_size_inches(5.2, 3.9)
+mean_induction_loc = np.mean(induction_locs[induction])
+mean_induction_dur = np.mean(induction_durs[induction])
+start_index = np.where(interp_x[induction][0] >= mean_induction_loc)[0][0]
+end_index = start_index + int(mean_induction_dur / dt)
+x_start = mean_induction_loc/track_length
+x_end = interp_x[induction][0][end_index] / track_length
+ylim = max(np.max(ramp[induction]), np.max(model_ramp), 4.7467076834)
+print 'ylim: ', ylim
+ymin = min(np.min(ramp[induction]), np.min(model_ramp))
+axes[0][0].plot(binned_x, ramp[induction], label='Experiment', color='k')
+axes[0][0].plot(binned_x, model_ramp, label='Short model', color='r')
+axes[0][0].axhline(y=ylim + 0.25, xmin=x_start, xmax=x_end, linewidth=2, c='k')
+axes[0][0].set_ylabel('Depolarization (mV)')
+axes[0][0].set_xlabel('Location (cm)')
+axes[0][0].set_xlim(0., track_length)
+axes[0][0].set_ylim(-0.5, ylim + 0.5)
+axes[0][0].set_title('Induced Vm ramp', fontsize=12.)
+axes[0][0].legend(loc='best', frameon=False, framealpha=0.5, fontsize=12.)
+clean_axes(axes[0])
+plt.tight_layout()
+plt.show()
+plt.close()
 """
