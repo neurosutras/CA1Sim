@@ -4,6 +4,7 @@ from plot_results import *
 import random
 import sys
 import scipy.signal as signal
+import mkl
 
 """
 In this version of the simulation, phase precession of CA3 inputs is implemented using the method from Chadwick et al.,
@@ -32,6 +33,8 @@ else:
 experimental_filename = '120116 magee lab first induction'
 
 rule_max_timescale = 9000.
+
+mkl.set_num_threads(2)
 
 
 class History(object):
@@ -878,11 +881,11 @@ with h5py.File(data_dir+output_filename+'.hdf5', 'a') as f:
     f['long'][cell_id].attrs['dt'] = dt
     f['long'][cell_id].create_dataset('ramp', compression='gzip', compression_opts=9, data=ramp[induction])
     f['long'][cell_id].create_dataset('model_ramp', compression='gzip', compression_opts=9, data=model_ramp)
-"""
+
 
 local_kernel, global_kernel, weights, model_ramp = \
     ramp_error_cont(x1, xmin1, xmax1, ramp[induction], induction, plot=True, full_output=True)
-"""
+
 fig, axes = plt.subplots(2, 2)
 fig.set_size_inches(5.2, 3.9)
 mean_induction_loc = np.mean(induction_locs[induction])

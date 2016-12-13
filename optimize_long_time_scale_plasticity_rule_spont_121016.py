@@ -4,6 +4,7 @@ from plot_results import *
 import random
 import sys
 import scipy.signal as signal
+import mkl
 
 """
 In this version of the simulation, phase precession of CA3 inputs is implemented using the method from Chadwick et al.,
@@ -30,6 +31,8 @@ else:
 experimental_filename = '120216 magee lab spont'
 
 rule_max_timescale = 9000.
+
+mkl.set_num_threads(2)
 
 
 class History(object):
