@@ -30,7 +30,7 @@ else:
 
 # experimental_filename = '112116 magee lab first induction'
 # experimental_filename = '112516 magee lab first induction'
-experimental_filename = '120116 magee lab first induction'
+experimental_filename = '121216 magee lab first induction'
 
 rule_max_timescale = 9000.
 
