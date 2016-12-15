@@ -756,9 +756,9 @@ def optimize_explore(x, xmin, xmax, error_function, ramp, induction=None, orig_w
     return {'x': result.x, 'Err': result.fun}
 
 
-local_signal = {}
-global_signal = {}
-delta_weights = {}
+local_kernel = {}
+global_kernel = {}
+weights = {}
 model_ramp = {}
 
 x0 = {}
@@ -836,55 +836,19 @@ hist.export('120216_magee_data_optimization_long_cell'+cell_id)
 
 
 ramp_error_cont(polished_result['x'], xmin1, xmax1, ramp[induction], induction, plot=True)
-
-local_signal[induction], global_signal[induction], delta_weights[induction], model_ramp[induction] = \
-    ramp_error_cont(x1, xmin1, xmax1, ramp[induction], induction, plot=True, full_output=True)
-
-
-
-colors = ['r', 'k', 'c', 'g']
-x_start = [induction_loc/track_length for induction_loc in induction_locs]
-
-ylim = max(np.max(ramp), np.max(model_ramp))
-fig, axes = plt.subplots(1)
-for i in range(len(model_ramp)):
-    axes.plot(binned_x, ramp[i], color=colors[i+2], label='Experiment'+str(i+1))
-    axes.plot(binned_x, model_ramp[i], color=colors[i], label='Model'+str(i+1))
-    axes.axhline(y=ylim+0.3, xmin=x_start[i], xmax=x_start[i]+0.02, c=colors[i], linewidth=3., zorder=0)
-axes.set_xlabel('Location (cm)')
-axes.set_xlim(0., track_length)
-axes.set_ylabel('Depolarization (mV)')
-plt.legend(loc='best', frameon=False, framealpha=0.5)
-plt.show()
-plt.close()
-
-fig, axes = plt.subplots(1)
-t_waveform = np.arange(-rule_max_timescale, rule_max_timescale, dt)
-for i in range(len(model_ramp)):
-    axes.plot(t_waveform, rule_waveforms[i], label='Induction kernel '+str(i+1), color=colors[i])
-axes.set_xlabel('Time (ms)')
-axes.set_xlim(-rule_max_timescale, rule_max_timescale)
-axes.set_ylabel('Change in synaptic weight per spike')
-plt.legend(loc='best', frameon=False, framealpha=0.5)
-plt.show()
-plt.close()
-
-ylim = np.max(delta_weights) + 1.
-fig, axes = plt.subplots(1)
-for i in range(len(model_ramp)):
-    axes.scatter(peak_locs['CA3'], delta_weights[i] + 1., label='Weights'+str(i+1), color=colors[i])
-    axes.axhline(y=ylim + 0.1, xmin=x_start[i], xmax=x_start[i] + 0.01, c=colors[i], linewidth=3., zorder=0)
-axes.set_xlabel('Location (cm)')
-axes.set_xlim(0., track_length)
-axes.set_ylabel('Relative synaptic weight')
-plt.legend(loc='best', frameon=False, framealpha=0.5)
-plt.show()
-plt.close()
-
-if len(delta_weights) > 1:
-    fig, axes = plt.subplots(1)
-    axes.scatter(delta_weights[0]+1., delta_weights[1]+1.)
-    clean_axes(axes)
-    plt.show()
-    plt.close()
 """
+local_kernel, global_kernel, weights, model_ramp = \
+    ramp_error_cont(x1, xmin1, xmax1, ramp[induction], induction, plot=False, full_output=True)
+
+output_filename = '120816 plasticity rule optimization summary'
+with h5py.File(data_dir+output_filename+'.hdf5', 'a') as f:
+    if 'long' not in f:
+        f.create_group('long')
+    f['long'].create_group(cell_id)
+    f['long'][cell_id].attrs['track_length'] = track_length
+    f['long'][cell_id].attrs['induction_loc'] = induction_locs[induction]
+    f['long'][cell_id].create_dataset('local_kernel', compression='gzip', compression_opts=9, data=local_kernel)
+    f['long'][cell_id].create_dataset('global_kernel', compression='gzip', compression_opts=9, data=global_kernel)
+    f['long'][cell_id].attrs['dt'] = dt
+    f['long'][cell_id].create_dataset('ramp', compression='gzip', compression_opts=9, data=ramp[induction])
+    f['long'][cell_id].create_dataset('model_ramp', compression='gzip', compression_opts=9, data=model_ramp)

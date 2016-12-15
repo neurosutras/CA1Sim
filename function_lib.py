@@ -2244,28 +2244,91 @@ def general_filter_trace(t, source, filter, duration, dt, down_dt=0.5):
     return up_sampled
 
 
-def print_ramp_features(x, ramp, title, induction_loc=None):
+def print_ramp_features(x, ramp, title, track_length=None, dx=None, induction_loc=None, plot=False):
     """
 
     :param x: array
     :param ramp: array
     :param title: str
+    :param dx = None
     :param induction_loc: float
+    :param plot: bool
     """
+    if track_length is None:
+        track_length = 187.
     if induction_loc is None:
-        induction_loc = 187./2.
-    ramp = np.array(ramp)
-    peak_index = np.where(ramp == np.max(ramp))[0][0]
-    baseline_indexes = np.where(ramp <= np.percentile(ramp, 10.))[0]
-    ramp -= np.mean(ramp[baseline_indexes])
-    start_index = np.where(ramp[:peak_index] <= 0.15*np.max(ramp))[0][-1]
-    end_index = peak_index + np.where(ramp[peak_index:] <= 0.15*np.max(ramp))[0][0]
+        induction_loc = track_length/2.
+    binned_x = np.array(x)
+    if dx is None:
+        dx = 1. * 30. / 1000.
+    default_interp_x = np.arange(0., track_length, dx)
+    extended_binned_x = np.concatenate([binned_x - track_length, binned_x, binned_x + track_length])
+    extended_binned_ramp = np.concatenate([ramp for i in range(3)])
+    extended_interp_x = np.concatenate([default_interp_x - track_length, default_interp_x,
+                                        default_interp_x + track_length])
+    dx = extended_interp_x[1] - extended_interp_x[0]
+    extended_ramp = np.interp(extended_interp_x, extended_binned_x, extended_binned_ramp)
+    interp_ramp = extended_ramp[len(default_interp_x):2 * len(default_interp_x)]
+    baseline_indexes = np.where(interp_ramp <= np.percentile(interp_ramp, 10.))[0]
+    baseline = np.mean(interp_ramp[baseline_indexes])
+    interp_ramp -= baseline
+    extended_ramp -= baseline
+    peak_index = np.where(interp_ramp == np.max(interp_ramp))[0][0] + len(interp_ramp)
+    # use center of mass in 10 spatial bins instead of literal peak for determining peak_shift
+    before_peak_index = peak_index - int(track_length / 10. / 2. / dx)
+    after_peak_index = peak_index + int(track_length / 10. / 2. / dx)
+    area_around_peak = np.trapz(extended_ramp[before_peak_index:after_peak_index], dx=dx)
+    for i in range(before_peak_index + 1, after_peak_index):
+        this_area = np.trapz(extended_ramp[before_peak_index:i], dx=dx)
+        if this_area / area_around_peak >= 0.5:
+            center_of_mass_index = i
+            break
+    center_of_mass_val = np.mean(extended_ramp[before_peak_index:after_peak_index])
+
+    if extended_interp_x[center_of_mass_index] > induction_loc + 30.:
+        center_of_mass_index -= len(interp_ramp)
+    center_of_mass_x = extended_interp_x[center_of_mass_index]
+    start_index = np.where(extended_ramp[:center_of_mass_index] <= 0.15 * center_of_mass_val)[0][-1]
+    end_index = center_of_mass_index + np.where(extended_ramp[center_of_mass_index:] <= 0.15 * center_of_mass_val)[0][0]
+    peak_shift = center_of_mass_x - induction_loc
+    ramp_width = extended_interp_x[end_index] - extended_interp_x[start_index]
+    before_width = induction_loc - extended_interp_x[start_index]
+    after_width = extended_interp_x[end_index] - induction_loc
+    ratio = before_width / after_width
     print '%s:' % title
-    print '  amplitude: %.1f' % ramp[peak_index]
-    print '  peak_shift: %.1f' % (x[peak_index] - induction_loc)
-    ramp_width = x[end_index] - x[start_index]
+    print '  amplitude: %.1f' % center_of_mass_val
+    print '  peak_shift: %.1f' % peak_shift
     print '  ramp_width: %.1f' % ramp_width
-    before_width = induction_loc - x[start_index]
-    after_width = x[end_index] - induction_loc
-    print '  rise:decay ratio: %.1f' % (before_width / after_width)
+    print '  rise:decay ratio: %.1f' % ratio
+    if plot:
+        plt.plot(default_interp_x, interp_ramp)
+
+
+def process_plasticity_rule_continuous(output_filename, plot=False):
+    """
+
+    :param output_filename: str
+    :param plot: bool
+    """
+    with h5py.File(data_dir + output_filename + '.hdf5', 'r') as f:
+        for rule in f:
+            for cell_id in f[rule]:
+                track_length = f[rule][cell_id].attrs['track_length']
+                if 'run_vel' in f[rule][cell_id].attrs:
+                    run_vel = f[rule][cell_id].attrs['run_vel']
+                else:
+                    run_vel = 30.
+                dt = f[rule][cell_id].attrs['dt']
+                dx = dt * run_vel / 1000.
+                induction_loc = np.mean(f[rule][cell_id].attrs['induction_loc'])
+                ramp = f[rule][cell_id]['ramp'][:]
+                model_ramp = f[rule][cell_id]['model_ramp'][:]
+                for this_ramp, this_ramp_title in zip((ramp, model_ramp), ('exp', 'model')):
+                    x = np.arange(track_length / len(this_ramp) / 2., track_length, track_length / len(this_ramp))
+                    print_ramp_features(x, this_ramp, this_ramp_title+'_'+rule+cell_id, track_length, dx, induction_loc,
+                                        plot)
+                if plot:
+                    plt.title(cell_id)
+                    plt.show()
+                    plt.close()
 
