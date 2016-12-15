@@ -1,5 +1,6 @@
 __author__ = 'milsteina'
 from function_lib import *
+from matplotlib import cm
 import matplotlib.lines as mlines
 import matplotlib as mpl
 import numpy as np
@@ -405,7 +406,7 @@ def plot_Rinp(rec_file_list, description_list="", title=None):
     plt.show()
     plt.close()
 
-def plot_Rinp_general(rec_file_list, sectypes_list=None, features_list=None, labels=None):
+def plot_Rinp_general(rec_file_list, sectypes_list=None, features_list=None, features_labels=None, file_labels=None):
     """
 
     :return:
@@ -416,19 +417,21 @@ def plot_Rinp_general(rec_file_list, sectypes_list=None, features_list=None, lab
         sectypes_list = [sectypes_list]
     if isinstance(features_list, str):
         features_list = [features_list]
-    if isinstance(labels, str):
-        labels = [labels]
+    if isinstance(features_labels, str):
+        features_labels = [features_labels]
+    if isinstance(file_labels, str):
+        file_labels = [file_labels]
     if (sectypes_list is None):
         sectypes_list = ['axon','apical','soma']
     axon_types_list = ['axon','ais','axon_hill']
     dend_types_list = ['basal','apical','trunk','tuft']
     if features_list is None:
         features_list = ['Rinp_peak', 'Rinp_baseline', 'Rinp_steady', 'decay_50']
-    if labels is None:
-        labels_dict = {'Rinp_peak': 'Peak Rinp (MOhm)', 'Rinp_baseline': 'Baseline Vm (mV)',
+    if features_labels is None:
+        features_labels_dict = {'Rinp_peak': 'Peak Rinp (MOhm)', 'Rinp_baseline': 'Baseline Vm (mV)',
                        'Rinp_steady': 'Steady Rinp (MOhm)', 'decay_50': '50% Decay Point (ms)'}
     else:
-        labels_dict = {feature: label for (feature, label) in zip(features_list, labels)}
+        features_labels_dict = {feature: label for (feature, label) in zip(features_list, features_labels)}
 
     for file_index, rec_file in enumerate(rec_file_list):
         feature_dict = {feature: {} for feature in features_list}
@@ -455,12 +458,18 @@ def plot_Rinp_general(rec_file_list, sectypes_list=None, features_list=None, lab
                         feature_dict[feature][sectype].append(item.attrs[feature])
         for index, feature in enumerate(features_list):
             plt.figure(index)
-            colors = ['r', 'g', 'b', 'gray', 'darkviolet', 'goldenrod']
+            num_colors = len(rec_file_list)* len(distances_dict[features_list[0]])
+            color_x = np.linspace(0., 1., num_colors)
+            colors = [cm.jet(x) for x in color_x]
             for i, sectype in enumerate(sectypes_list):
+                if file_labels is None:
+                    label = sectype
+                else:
+                    label = file_labels[file_index] + ': ' + sectype
                 plt.scatter(distances_dict[feature][sectype], feature_dict[feature][sectype],
-                            label=sectype, color = colors[i + file_index*len(sectypes_list)])
+                            label=label, color = colors[i + file_index*len(sectypes_list)])
             plt.xlabel('Distance to soma')
-            plt.ylabel(labels_dict[feature])
+            plt.ylabel(features_labels_dict[feature])
             plt.legend(loc='best', scatterpoints = 1, frameon=False, framealpha=0.5)
     plt.show()
     plt.close()

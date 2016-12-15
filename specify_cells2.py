@@ -1362,6 +1362,12 @@ class HocCell(object):
                     syn = Synapse(self, node, type_list=syn_types, stochastic=stochastic, loc=loc)
                     node.synapse_locs[syn_category].remove(loc)
 
+    def correct_cell_for_spines(self):
+        for sec_type in ['basal', 'trunk', 'apical', 'tuft']:
+            self.reinitialize_subset_mechanisms(sec_type, 'cable')
+            for node in self.get_nodes_of_subtype(sec_type):
+                node.correct_for_spines()
+
     @property
     def gid(self):
         return self._gid
@@ -1458,6 +1464,29 @@ class SHocNode(btmorph.btstructs2.SNode2):
         if not self.get_diam_bounds() is None:
             [diam1, diam2] = self.get_diam_bounds()
             h('diam(0:1)={}:{}'.format(diam1, diam2), sec=self.sec)
+
+    def correct_for_spines(self):
+        """
+
+        """
+        SA_spine = math.pi * (1.58 * 0.077 + 0.5 * 0.5)
+        if 'excitatory' in self.synapse_locs:
+            excitatory_syn = self.synapse_locs['excitatory']
+            seg_width = 1. / self.sec.nseg
+            for i, segment in enumerate(self.sec):
+                self.sec.push()
+                SA_seg = h.area(segment.x)
+                h.pop_section()
+                num_spines = len(np.where((np.array(excitatory_syn) >= i * seg_width) &
+                                          (np.array(excitatory_syn) < (i + 1) * seg_width))[0])
+                cm_correct_factor = (SA_seg + num_spines * SA_spine) / SA_seg
+                soma_g_pas = self.sec.cell().mech_dict['soma']['pas']['g']['value']
+                gpas_correct_factor = (SA_seg * self.sec(segment.x).g_pas + num_spines * SA_spine * soma_g_pas) \
+                                      / (SA_seg * self.sec(segment.x).g_pas)
+                self.sec(segment.x).g_pas *= gpas_correct_factor
+                self.sec(segment.x).cm *= cm_correct_factor
+            self.init_nseg()
+            self.reinit_diam()
 
     def get_diam_bounds(self):
         """

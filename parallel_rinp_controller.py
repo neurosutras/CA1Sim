@@ -106,4 +106,4 @@ with h5py.File(data_dir+new_rec_filename+'.hdf5', 'w') as f:
 for filename in rec_file_list:
     os.remove(data_dir+filename+'.hdf5')
 
-plot_Rinp_general(new_rec_filename)
+#plot_Rinp_general(new_rec_filename)

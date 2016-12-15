@@ -4,6 +4,7 @@ import random
 import os
 import sys
 from ipyparallel import interactive
+import pprint
 """
 Builds a cell locally so each engine is ready to receive jobs one at a time, specified by string corresponding to the
 section type to test R_inp.
@@ -108,21 +109,32 @@ def update_pas_exp(x):
     cell.modify_mech_param('apical', 'pas', 'g', origin='soma', slope=x[1], tau=x[2], max=maxval)
     for sec_type in ['basal', 'axon_hill', 'axon', 'ais', 'trunk', 'apical', 'tuft', 'spine_neck', 'spine_head']:
         cell.reinitialize_subset_mechanisms(sec_type, 'pas')
-        if spines is False:
-            SA_spine = math.pi*(1.58*0.077 + 0.5*0.5)
+    print('Initial: ')
+    print_gpas_cm_values()
+    if spines is False:
+        for sec_type in ['basal', 'trunk', 'apical', 'tuft']:
+            cell.reinitialize_subset_mechanisms(sec_type, 'cable')
             for node in cell.get_nodes_of_subtype(sec_type):
-                if 'excitatory' in node.synapse_locs:
-                    excitatory_syn = node.synapse_locs['excitatory']
-                    seg_width = 1./node.sec.nseg
-                    for i, segment in enumerate(node.sec):
-                        node.sec.push()
-                        SA_seg = h.area(segment.x)
-                        h.pop_section()
-                        num_spines = len(np.where((np.array(excitatory_syn) >= i*seg_width) &
-                                                 (np.array(excitatory_syn) < (i+1)*seg_width))[0])
-                        correct_factor = (SA_seg + num_spines*SA_spine)/SA_seg
-                        node.sec(segment.x).g_pas *= correct_factor
+                node.correct_for_spines()
+        print('Updated: ')
+        print_gpas_cm_values()
 
+
+def print_gpas_cm_values():
+    sec_types = ['basal', 'trunk', 'apical', 'tuft']
+    gpas_values = {s: [] for s in sec_types}
+    cm_values = {s: [] for s in sec_types}
+    for i in [0, 10, 20]:
+        node = cell.get_nodes_of_subtype('apical')[i]
+        for i, segment in enumerate(node.sec):
+            node.sec.push()
+            h.pop_section()
+            gpas_values['apical'].append(node.sec(segment.x).g_pas)
+            cm_values['apical'].append(node.sec(segment.x).cm)
+    print 'g_pas: '
+    pprint.pprint(gpas_values)
+    print 'cm '
+    pprint.pprint(cm_values)
 
 
 @interactive

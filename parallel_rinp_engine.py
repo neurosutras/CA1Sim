@@ -91,6 +91,9 @@ v_init = -67.
 cell = DG_GC(morph_filename, mech_filename, full_spines=spines)
 cell.zero_na()
 
+if not spines:
+    cell.correct_cell_for_spines()
+
 nodes = cell.soma+cell.basal+cell.trunk+cell.apical+cell.tuft+cell.axon
 
 sim = QuickSim(duration, verbose=False)
