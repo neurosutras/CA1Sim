@@ -814,14 +814,21 @@ local_decay_tau = 100.
 
 x0 = {}
 
-x0['1'] = [1.737E+01, 2.500E+01, 1.361E+00, 2.231E-03]  # Error: 1.5179E+04
-x0['2'] = [1.677E+01, 8.723E+01, 7.000E-01, 1.052E-02]  # Error: 1.7429E+05
-x0['3'] = [1.199E+01, 1.507E+02, 1.042E+00, 2.543E-03]  # Error: 2.2592E+05
-x0['4'] = [1.000E+01, 2.546E+01, 1.029E+00, 6.641E-03]  # Error: 3.8659E+05
-x0['5'] = [3.052E+01, 4.872E+02, 7.007E-01, 3.324E-03]  # Error: 1.0790E+05
+# x0['1'] = [1.737E+01, 2.500E+01, 1.361E+00, 2.231E-03]  # Error: 1.5179E+04
+x0['1'] = [1.416E+01, 2.501E+01, 1.500E+00, 2.851E-03]  # Error: 1.0992E+04
+# x0['2'] = [1.677E+01, 8.723E+01, 7.000E-01, 1.052E-02]  # Error: 1.7429E+05
+x0['2'] = [1.809E+01, 7.193E+01, 1.000E+00, 1.529E-02]  # Error: 1.5884E+05
+# x0['3'] = [1.199E+01, 1.507E+02, 1.042E+00, 2.543E-03]  # Error: 2.2592E+05
+x0['3'] = [1.218E+01, 1.495E+02, 1.000E+00, 2.471E-03]  # Error: 2.3560E+05
+# x0['4'] = [1.000E+01, 2.546E+01, 1.029E+00, 6.641E-03]  # Error: 3.8659E+05
+x0['4'] = [1.000E+01, 2.528E+01, 1.035E+00, 6.953E-03]  # Error: 3.8239E+05
+# x0['5'] = [3.052E+01, 4.872E+02, 7.007E-01, 3.324E-03]  # Error: 1.0790E+05
+x0['5'] = [4.256E+01, 4.973E+02, 1.004E+00, 3.897E-03]  # Error: 1.1649E+05
 # x0['6'] = [2.455E+01, 1.386E+02, 7.000E-01, 5.212E-04]  # Error: 6.8511E+05
-x0['6'] = [1.848E+01, 1.401E+02, 7.492E-01, 8.142E-03]  # Err: 6.782E+05
-x0['7'] = [4.834E+01, 3.692E+02, 1.500E+00, 2.082E-02]  # Error: 5.4287E+05
+# x0['6'] = [1.848E+01, 1.401E+02, 7.492E-01, 8.142E-03]  # Err: 6.782E+05
+x0['6'] = [1.485E+01, 2.240E+02, 1.000E+00, 7.814E-03]  # Error: 7.0562E+05
+# x0['7'] = [4.834E+01, 3.692E+02, 1.500E+00, 2.082E-02]  # Error: 5.4287E+05
+x0['7'] = [4.946E+01, 3.605E+02, 1.500E+00, 2.670E-02]  # Error: 5.8322E+05
 
 # x0['mean'] = [2.301E+01, 1.240E+02, 1.241E+00, 1.221E-02]
 
@@ -839,7 +846,7 @@ xmax1 = [50., 500., 1.5, 5.e-2]
 
 induction = 1
 
-
+"""
 # ramp_error_cont(x1, xmin1, xmax1, ramp[induction], induction, plot=True)
 
 result = optimize_explore(x1, xmin1, xmax1, ramp_error_cont, ramp[induction], induction, maxfev=700)
@@ -852,12 +859,12 @@ hist.report_best()
 hist.export('121216_magee_data_optimization_short_cell_spont'+cell_id)
 """
 
-ramp_error_cont(polished_result['x'], xmin1, xmax1, ramp[induction], induction, plot=True)
+# ramp_error_cont(polished_result['x'], xmin1, xmax1, ramp[induction], induction, plot=True)
 
 local_kernel, global_kernel, weights, model_ramp = \
     ramp_error_cont(x1, xmin1, xmax1, ramp[induction], induction, plot=True, full_output=True)
 
-output_filename = '121116 plasticity rule optimization summary'
+output_filename = '121316 plasticity rule optimization summary'
 with h5py.File(data_dir+output_filename+'.hdf5', 'a') as f:
     if 'short' not in f:
         f.create_group('short')
@@ -869,4 +876,3 @@ with h5py.File(data_dir+output_filename+'.hdf5', 'a') as f:
     f['short']['s'+cell_id].attrs['dt'] = dt
     f['short']['s'+cell_id].create_dataset('ramp', compression='gzip', compression_opts=9, data=ramp[induction])
     f['short']['s'+cell_id].create_dataset('model_ramp', compression='gzip', compression_opts=9, data=model_ramp)
-"""

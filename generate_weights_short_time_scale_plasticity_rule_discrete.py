@@ -3,7 +3,7 @@ from specify_cells import *
 from plot_results import *
 import random
 import sys
-import scipy.signal as signal
+import mkl
 
 """
 In this version of the simulation, phase precession of CA3 inputs is implemented using the method from Chadwick et al.,
@@ -18,7 +18,7 @@ mech_filename = '043016 Type A - km2_NMDA_KIN5_Pr'
 synapses_seed = 0
 num_exc_syns = 1600
 num_inh_syns = 600
-weights_filename = '120316 induced field short rule weights'
+weights_filename = '121316 induced field short rule weights'
 
 if len(sys.argv) > 1:
     induction_run_vel = float(sys.argv[1])
@@ -30,6 +30,8 @@ if len(sys.argv) > 2:
     induction_seed = int(sys.argv[2])
 else:
     induction_seed = 0
+
+mkl.set_num_threads(8)
 
 
 class History(object):
@@ -48,7 +50,7 @@ class History(object):
         lowest_Err = min(self.Err)
         index = self.Err.index(lowest_Err)
         best_x = self.x[index]
-        formatted_x = '[' + ', '.join(['%.2E' % xi for xi in best_x]) + ']'
+        formatted_x = '[' + ', '.join(['%.3E' % xi for xi in best_x]) + ']'
         print 'best x: %s' % formatted_x
         print 'lowest Err: %.3E' % lowest_Err
         return best_x
@@ -62,6 +64,49 @@ class History(object):
 
 
 hist = History()
+
+
+def calculate_ramp_features(ramp, induction_loc):
+    """
+
+    :param x: array
+    :param ramp: array
+    :param induction_loc: float
+    """
+    extended_binned_x = np.concatenate([binned_x - track_length, binned_x, binned_x + track_length])
+    extended_binned_ramp = np.concatenate([ramp for i in range(3)])
+    extended_interp_x = np.concatenate([default_interp_x - track_length, default_interp_x,
+                                        default_interp_x + track_length])
+    dx = extended_interp_x[1] - extended_interp_x[0]
+    extended_ramp = np.interp(extended_interp_x, extended_binned_x, extended_binned_ramp)
+    interp_ramp = extended_ramp[len(default_interp_x):2*len(default_interp_x)]
+    baseline_indexes = np.where(interp_ramp <= np.percentile(interp_ramp, 10.))[0]
+    baseline = np.mean(interp_ramp[baseline_indexes])
+    interp_ramp -= baseline
+    extended_ramp -= baseline
+    peak_index = np.where(interp_ramp == np.max(interp_ramp))[0][0] + len(interp_ramp)
+    # use center of mass in 10 spatial bins instead of literal peak for determining peak_shift
+    before_peak_index = peak_index-int(track_length/10./2./dx)
+    after_peak_index = peak_index + int(track_length/10./2./dx)
+    area_around_peak = np.trapz(extended_ramp[before_peak_index:after_peak_index], dx=dx)
+    for i in range(before_peak_index+1, after_peak_index):
+        this_area = np.trapz(extended_ramp[before_peak_index:i], dx=dx)
+        if this_area/area_around_peak >= 0.5:
+            center_of_mass_index = i
+            break
+    center_of_mass_val = np.mean(extended_ramp[before_peak_index:after_peak_index])
+
+    if extended_interp_x[center_of_mass_index] > induction_loc + 30.:
+        center_of_mass_index -= len(interp_ramp)
+    center_of_mass_x = extended_interp_x[center_of_mass_index]
+    start_index = np.where(extended_ramp[:center_of_mass_index] <= 0.15*center_of_mass_val)[0][-1]
+    end_index = center_of_mass_index + np.where(extended_ramp[center_of_mass_index:] <= 0.15*center_of_mass_val)[0][0]
+    peak_shift = center_of_mass_x - induction_loc
+    ramp_width = extended_interp_x[end_index] - extended_interp_x[start_index]
+    before_width = induction_loc - extended_interp_x[start_index]
+    after_width = extended_interp_x[end_index] - induction_loc
+    ratio = before_width / after_width
+    return center_of_mass_val, ramp_width, peak_shift, ratio
 
 
 class Pr(object):
@@ -404,18 +449,20 @@ run_vel_gate = {}
 vel_window_dur = 10.  # ms
 vel_window_bins = int(vel_window_dur/dt)/2
 
+pause_duration = 3000.
+
 for induction in [1]:
-    interp_x[induction] = [np.append(np.zeros_like(np.arange(0., 5000., dt)), default_interp_x) for i in range(5)]
+    interp_x[induction] = [np.append(np.zeros_like(np.arange(0., pause_duration, dt)), default_interp_x) for i in range(5)]
     induction_locs[induction] = [field1_loc*track_length for i in range(5)]
     induction_durs[induction] = [300. for i in range(5)]
-    interp_t[induction] = [np.append(np.arange(0., 5000., dt), default_interp_t + 5000.) for i in range(5)]
+    interp_t[induction] = [np.append(np.arange(0., pause_duration, dt), default_interp_t + pause_duration) for i in range(5)]
     run_vel[induction] = []
     run_vel_gate[induction] = []
     for i in range(5):
         this_interp_x = interp_x[induction][i]
         this_interp_t = interp_t[induction][i]
-        padded_t = np.insert(this_interp_t, 0, this_interp_t[-vel_window_bins:]-generic_track_duration-5000.)
-        padded_t = np.append(padded_t, this_interp_t[:vel_window_bins + 1] + generic_track_duration+5000.)
+        padded_t = np.insert(this_interp_t, 0, this_interp_t[-vel_window_bins:]-generic_track_duration-pause_duration)
+        padded_t = np.append(padded_t, this_interp_t[:vel_window_bins + 1] + generic_track_duration+pause_duration)
         padded_x = np.insert(this_interp_x, 0, this_interp_x[-vel_window_bins:]-track_length)
         padded_x = np.append(padded_x, this_interp_x[:vel_window_bins+1]+track_length)
         this_run_vel = []
@@ -560,11 +607,9 @@ def build_kernels(x, plot=False):
     :param plot: bool
     :return: array, array
     """
-    local_rise_tau = x[0]
-    local_decay_tau = x[1]
-    global_rise_tau = x[2]
-    global_decay_tau = x[3]
-    filter_ratio = x[4]
+    global_rise_tau = x[0]
+    global_decay_tau = x[1]
+    filter_ratio = x[2]
 
     max_time_scale = np.max([local_rise_tau+local_decay_tau, global_rise_tau+global_decay_tau])
     filter_t = np.arange(0., 6.*max_time_scale, dt)
@@ -612,15 +657,15 @@ def calculate_plasticity_signal_discrete(x, local_kernel, global_kernel, inducti
     :return: plasticity_signal: array
     """
     saturation_factor = 0.02
-    filter_ratio = x[4]
-    kernel_scale = x[5]
+    filter_ratio = x[2]
+    # kernel_scale = x[3]
     global_signal = np.convolve(complete_induction_gates[induction], global_kernel)[:len(complete_t[induction])] * \
                     kernel_scale
     max_global_signal = np.max(global_signal)
     filter_t = np.arange(0., len(local_kernel) * dt, dt)
     plasticity_signal = {}
     for attempt in range(2):
-        max_local_signal = 0.
+        local_signal_array = []
         start_time = time.time()
         for group in peak_locs:
             plasticity_signal[group] = np.zeros_like(peak_locs[group])
@@ -630,7 +675,8 @@ def calculate_plasticity_signal_discrete(x, local_kernel, global_kernel, inducti
                 this_stim_force[indexes] = 1.
                 local_signal = np.convolve(this_stim_force, local_kernel)[:len(complete_t[induction])] / \
                                saturation_factor * kernel_scale / filter_ratio
-                max_local_signal = max(max_local_signal, np.max(local_signal))
+                if group == 'CA3':
+                    local_signal_array.append(np.max(local_signal))
                 this_signal = np.minimum(local_signal, global_signal)
                 this_area = np.trapz(this_signal, dx=dt)
                 plasticity_signal[group][j] += this_area
@@ -660,10 +706,12 @@ def calculate_plasticity_signal_discrete(x, local_kernel, global_kernel, inducti
                     plt.show()
                     plt.close()
         if attempt == 0:
+            local_signal_array = np.array(local_signal_array)
+            max_local_signal = np.mean(local_signal_array[np.where(local_signal_array >=
+                                                                   np.percentile(local_signal_array, 90.))[0]])
             saturation_factor *= filter_ratio * max_local_signal / max_global_signal
         # print 'Computed weights in %i s' % (time.time() - start_time)
-
-    print 'saturation_factor: %.3E' % saturation_factor
+    # print 'saturation_factor: %.3E' % saturation_factor
 
     if plot:
         x_start = np.mean(induction_locs[induction]) / track_length
@@ -693,7 +741,7 @@ def calculate_weights_discrete(x, induction=None, plot=False, full_output=False)
     :return: tuple of array
     """
     start_time = time.time()
-    formatted_x = '[' + ', '.join(['%.3f' % xi for xi in x]) + ']'
+    formatted_x = '[' + ', '.join(['%.3E' % xi for xi in x]) + ']'
     print 'Trying x: %s' % formatted_x
     if induction is None:
         induction = 1
@@ -723,15 +771,127 @@ def calculate_weights_discrete(x, induction=None, plot=False, full_output=False)
         plt.show()
         plt.close()
 
-    formatted_x = '[' + ', '.join(['%.4f' % xi for xi in x]) + ']'
-    print 'x: %s, took %i s' % (formatted_x, time.time()-start_time)
     if full_output:
         return local_kernel, global_kernel, this_weights, model_ramp
 
 
+def ramp_error_discrete(x, xmin, xmax, induction=None, plot=False, full_output=False):
+    """
+    Calculates a rule_waveform and set of weights to match the first place field induction.
+    :param x: array [local_rise_tau, local_decay_tau, global_rise_tau, global_decay_tau, filter_ratio, kernel_scale]
+    :param xmin: array
+    :param xmax: array
+    :param induction: int: key for dicts of arrays
+    :param plot: bool
+    :param full_output: bool: whether to return all relevant objects (True), or just Err (False)
+    :return: float
+    """
+    if not check_bounds(x, xmin, xmax):
+        print 'Aborting: Invalid parameter values.'
+        return 1e9
+    elif x[1] <= x[0]:
+        print 'Aborting: Invalid parameter values.'
+        return 1e9
+    start_time = time.time()
+    if induction is None:
+        induction = 1
+    local_kernel, global_kernel, this_weights, ramp = calculate_weights_discrete(x, induction, plot, True)
+    this_induction_loc = np.mean(induction_locs[induction])
+    amp, width, shift, ratio = calculate_ramp_features(ramp, this_induction_loc)
+    # center_indexes = np.where((peak_locs['CA3'] >= this_induction_loc - 5.) &
+    #                           (peak_locs['CA3'] < this_induction_loc + 5.))[0]
+    result = {'ramp_width': width, # 'peak_weights': np.mean(this_weights['CA3'][center_indexes]),
+              'peak_shift': shift,
+              'ratio': ratio,
+              'min_weights': np.min(this_weights['CA3'])}
+
+    Err = 0.
+    for feature in target_vals:
+        Err_piece = ((target_vals[feature] - result[feature]) / target_var[feature]) ** 2.
+        Err += Err_piece
+
+    formatted_x = '[' + ', '.join(['%.3E' % xi for xi in x]) + ']'
+    print 'x: %s, Err: %.4E took %i s' % (formatted_x, Err, time.time() - start_time)
+    # print 'ramp_width: %.1f, peak_weights: %.1f' % (result['ramp_width'], result['peak_weights'])
+    print 'ramp_width: %.1f, peak_shift: %.1f, ratio: %.1f' % (result['ramp_width'], result['peak_shift'],
+                                                               result['ratio'])
+    if full_output:
+        return local_kernel, global_kernel, this_weights, ramp
+    else:
+        hist.x.append(x)
+        hist.Err.append(Err)
+        return Err
+
+
+def optimize_polish(x, xmin, xmax, error_function, induction=None, maxfev=None):
+    """
+
+    :param x: array
+    :param xmin: array
+    :param xmax: array
+    :param error_function: callable
+    :param induction: int: key for dicts of arrays
+    :param maxfev: int
+    :return: dict
+    """
+    if maxfev is None:
+        maxfev = 400
+
+    result = optimize.minimize(error_function, x, method='Nelder-Mead', options={'ftol': 1e-3,
+                                                                                 'xtol': 1e-3, 'disp': True,
+                                                                                 'maxiter': maxfev},
+                               args=(xmin, xmax, induction))
+    formatted_x = '[' + ', '.join(['%.3E' % xi for xi in result.x]) + ']'
+    print 'Process: %i completed optimize_polish after %i iterations with Error: %.4E and x: %s' % (os.getpid(),
+                                                                                                    result.nit,
+                                                                                                    result.fun,
+                                                                                                    formatted_x)
+    return {'x': result.x, 'Err': result.fun}
+
+
+def optimize_explore(x, xmin, xmax, error_function, induction=None, maxfev=None):
+    """
+
+    :param x: array
+    :param xmin: array
+    :param xmax: array
+    :param error_function: callable
+    :param induction: int: key for dicts of arrays
+    :param maxfev: int
+    :return: dict
+    """
+    if maxfev is None:
+        maxfev = 700
+
+    take_step = Normalized_Step(x, xmin, xmax)
+    minimizer_kwargs = dict(method=null_minimizer, args=(xmin, xmax, induction))
+    result = optimize.basinhopping(error_function, x, niter=maxfev, niter_success=maxfev / 2,
+                                   disp=True, interval=min(20, int(maxfev / 20)), minimizer_kwargs=minimizer_kwargs,
+                                   take_step=take_step)
+    formatted_x = '[' + ', '.join(['%.3E' % xi for xi in result.x]) + ']'
+    print 'Process: %i completed optimize_explore after %i iterations with Error: %.4E and x: %s' % (os.getpid(),
+                                                                                                     result.nit,
+                                                                                                     result.fun,
+                                                                                                     formatted_x)
+    return {'x': result.x, 'Err': result.fun}
+
+
+# x1 = [2.795E+02, 1.236E+03, 2.268E+01, 4.522E+02, 1.397E+00, 2.763E-03]  # just induced
 # kernel_scale corrected to produce closer to 2.5 mean weight in center 10 spatial bins 6 mV with 30 cm/s during
 # induction laps
-x1 = [10., 100., 1.507E+01, 7.193E+01, 1.208E+00, 5.363E-03*1.0165]  # induced + spontaneous
+# x1 = [10., 100., 1.507E+01, 7.193E+01, 1.208E+00, 5.363E-03*1.0165]  # induced + spontaneous
+x1 = [2.031E+01, 1.820E+02, 1.088E+00]  # induced + spontaneous 121316
+
+xmin = [10., 25., 1.]  # , 5.e-4]
+xmax = [50., 500., 1.5]  # , 5.e-2]
+
+local_rise_tau = 10.
+local_decay_tau = 100.
+
+kernel_scale = 5.e-3
+
+target_vals = {'ramp_width': 140., 'peak_shift': -10., 'ratio': 1.7, 'min_weights': 0.}
+target_var = {'ramp_width': 0.1, 'peak_shift': 0.05, 'ratio': 0.05, 'min_weights': 0.05}
 
 # to avoid saturation and reduce variability of time courses across cells, constrain the relative amplitude
 # of global and local kernels:
@@ -739,7 +899,13 @@ x1 = [10., 100., 1.507E+01, 7.193E+01, 1.208E+00, 5.363E-03*1.0165]  # induced +
 
 induction = 1
 
-local_kernel, global_kernel, this_weights, model_ramp = calculate_weights_discrete(x1, 1, True, True)
+result = optimize_polish(x1, xmin, xmax, ramp_error_discrete, induction)
+hist.report_best()
+hist.export('121416_magee_data_optimization_short_discrete')
+
+# local_kernel, global_kernel, this_weights, ramp = ramp_error_discrete(x1, xmin, xmax, induction, True, True)
+
+# local_kernel, global_kernel, this_weights, model_ramp = calculate_weights_discrete(x1, 1, True, True)
 
 """
 with h5py.File(data_dir+weights_filename+'.hdf5', 'a') as f:

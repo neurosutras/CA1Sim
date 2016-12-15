@@ -813,13 +813,20 @@ model_ramp = {}
 
 x0 = {}
 
-x0['1'] = [1.282E+01, 3.000E+02, 4.998E+01, 5.399E+01, 1.483E+00, 2.374E-03]  # Error: 3.3204E+04
-x0['2'] = [4.046E+02, 4.524E+02, 4.268E+01, 4.269E+01, 1.211E+00, 7.534E-03]  # Error: 2.7987E+04
-x0['3'] = [1.979E+01, 1.276E+03, 4.995E+01, 5.041E+02, 1.500E+00, 2.733E-03]  # Error: 3.1331E+03
-x0['4'] = [2.898E+02, 3.778E+02, 1.455E+01, 1.231E+02, 1.436E+00, 9.229E-03]  # Error: 1.0266E+04
-x0['5'] = [4.126E+01, 6.555E+02, 3.921E+01, 1.563E+03, 1.132E+00, 3.035E-03]  # Error: 7.5100E+04
-x0['6'] = [3.759E+02, 9.731E+02, 1.264E+01, 2.640E+02, 7.000E-01, 9.073E-03]  # Error: 1.3611E+04
-x0['7'] = [1.610E+02, 7.280E+02, 1.000E+01, 3.131E+01, 1.435E+00, 2.000E-02]  # Error: 5.9883E+05
+# x0['1'] = [1.282E+01, 3.000E+02, 4.998E+01, 5.399E+01, 1.483E+00, 2.374E-03]  # Error: 3.3204E+04
+x0['1'] = [1.268E+01, 3.000E+02, 5.000E+01, 5.438E+01, 1.500E+00, 2.370E-03]  # Error: 2.6618E+04
+# x0['2'] = [4.046E+02, 4.524E+02, 4.268E+01, 4.269E+01, 1.211E+00, 7.534E-03]  # Error: 2.7987E+04
+x0['2'] = [4.150E+02, 4.372E+02, 3.794E+01, 3.873E+01, 1.500E+00, 9.555E-03]  # Error: 2.1676E+04
+# x0['3'] = [1.979E+01, 1.276E+03, 4.995E+01, 5.041E+02, 1.500E+00, 2.733E-03]  # Error: 3.1331E+03
+x0['3'] = [2.112E+01, 1.330E+03, 5.000E+01, 5.156E+02, 1.500E+00, 2.887E-03]  # Error: 3.5328E+03
+# x0['4'] = [2.898E+02, 3.778E+02, 1.455E+01, 1.231E+02, 1.436E+00, 9.229E-03]  # Error: 1.0266E+04
+x0['4'] = [3.163E+02, 3.418E+02, 1.202E+01, 1.205E+02, 1.479E+00, 9.795E-03]  # Error: 1.1131E+04
+# x0['5'] = [4.126E+01, 6.555E+02, 3.921E+01, 1.563E+03, 1.132E+00, 3.035E-03]  # Error: 7.5100E+04
+x0['5'] = [7.196E+01, 5.616E+02, 3.936E+01, 1.610E+03, 1.254E+00, 3.480E-03]  # Error: 6.3435E+04
+# x0['6'] = [3.759E+02, 9.731E+02, 1.264E+01, 2.640E+02, 7.000E-01, 9.073E-03]  # Error: 1.3611E+04
+x0['6'] = [2.921E+02, 1.205E+03, 1.223E+01, 1.243E+02, 7.063E-01, 9.374E-03]  # Error: 1.0710E+04
+# x0['7'] = [1.610E+02, 7.280E+02, 1.000E+01, 3.131E+01, 1.435E+00, 2.000E-02]  # Error: 5.9883E+05
+x0['7'] = [2.536E+01, 3.794E+02, 1.490E+01, 4.801E+02, 1.452E+00, 1.678E-02]  # Error: 6.0452E+05
 
 # x0['mean'] = [2.201E+02, 7.998E+02, 3.643E+01, 4.693E+02, 1.367E+00, 8.581E-03]
 
@@ -836,7 +843,7 @@ xmax1 = [500., 5000., 50., 2000., 1.5, 2.e-2]
 
 induction = 1
 
-
+"""
 # ramp_error_cont(x1, xmin1, xmax1, ramp[induction], induction, plot=True)
 
 result = optimize_explore(x1, xmin1, xmax1, ramp_error_cont, ramp[induction], induction, maxfev=700)
@@ -849,12 +856,12 @@ hist.report_best()
 hist.export('121216_magee_data_optimization_long_cell_spont'+cell_id)
 """
 
-ramp_error_cont(polished_result['x'], xmin1, xmax1, ramp[induction], induction, plot=True)
+# ramp_error_cont(polished_result['x'], xmin1, xmax1, ramp[induction], induction, plot=True)
 
 local_kernel, global_kernel, weights, model_ramp = \
     ramp_error_cont(x1, xmin1, xmax1, ramp[induction], induction, plot=True, full_output=True)
 
-output_filename = '121116 plasticity rule optimization summary'
+output_filename = '121316 plasticity rule optimization summary'
 with h5py.File(data_dir+output_filename+'.hdf5', 'a') as f:
     if 'long' not in f:
         f.create_group('long')
@@ -866,4 +873,3 @@ with h5py.File(data_dir+output_filename+'.hdf5', 'a') as f:
     f['long']['s'+cell_id].attrs['dt'] = dt
     f['long']['s'+cell_id].create_dataset('ramp', compression='gzip', compression_opts=9, data=ramp[induction])
     f['long']['s'+cell_id].create_dataset('model_ramp', compression='gzip', compression_opts=9, data=model_ramp)
-"""

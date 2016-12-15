@@ -816,28 +816,51 @@ local_decay_tau = 100.
 
 x0 = {}
 
-x0['1'] = [1.434E+01, 3.335E+02, 7.000E-01, 2.222E-03]  # Error: 4.8356E+05
-x0['2'] = [1.045E+01, 2.500E+01, 1.495E+00, 3.975E-03]  # Error: 1.2502E+05
+# x0['1'] = [1.434E+01, 3.335E+02, 7.000E-01, 2.222E-03]  # Error: 4.8356E+05
+x0['1'] = [1.245E+01, 4.104E+02, 1.000E+00, 2.401E-03]  # Error: 4.7901E+05
+# x0['2'] = [1.045E+01, 2.500E+01, 1.495E+00, 3.975E-03]  # Error: 1.2502E+05
+x0['2'] = [1.601E+01, 2.504E+01, 1.500E+00, 4.231E-03]  # Error: 8.5014E+04
 # Don't use cell3, it's the same as cell15
-x0['4'] = [3.554E+01, 4.840E+02, 7.000E-01, 5.874E-04]  # Error: 7.2991E+04
-x0['5'] = [1.000E+01, 8.845E+01, 7.000E-01, 1.165E-03]  # Error: 4.9222E+05
-x0['6'] = [1.000E+01, 6.974E+01, 1.354E+00, 3.603E-03]  # Error: 6.7061E+04
-x0['7'] = [1.000E+01, 2.503E+02, 7.087E-01, 1.310E-03]  # Error: 5.5460E+05
-x0['8'] = [1.159E+01, 5.200E+01, 7.000E-01, 1.385E-03]  # Error: 3.8851E+05
-x0['9'] = [1.013E+01, 1.482E+02, 7.000E-01, 1.828E-03]  # Error: 3.4405E+05
-x0['10'] = [1.000E+01, 4.757E+01, 7.001E-01, 1.610E-03]  # Error: 1.7557E+06
-x0['11'] = [1.000E+01, 2.509E+01, 1.499E+00, 1.729E-03]  # Error: 3.3409E+04
-x0['12'] = [1.252E+01, 5.856E+01, 7.000E-01, 3.077E-03]  # Error: 1.5987E+05
-x0['13'] = [1.161E+01, 4.150E+01, 1.084E+00, 2.939E-03]  # Error: 4.5294E+05
-x0['14'] = [1.131E+01, 1.112E+02, 7.000E-01, 1.065E-03]  # Error: 1.6080E+04
-x0['15'] = [1.164E+01, 5.248E+01, 7.000E-01, 1.332E-03]  # Error: 5.3043E+05
+# x0['4'] = [3.554E+01, 4.840E+02, 7.000E-01, 5.874E-04]  # Error: 7.2991E+04
+x0['4'] = [4.932E+01, 5.000E+02, 1.014E+00, 6.292E-04]  # Error: 7.4474E+04
+# x0['5'] = [1.000E+01, 8.845E+01, 7.000E-01, 1.165E-03]  # Error: 4.9222E+05
+x0['5'] = [1.000E+01, 8.442E+01, 1.027E+00, 1.344E-03]  # Error: 5.0603E+05
+# x0['6'] = [1.000E+01, 6.974E+01, 1.354E+00, 3.603E-03]  # Error: 6.7061E+04
+x0['6'] = [1.039E+01, 6.900E+01, 1.000E+00, 2.844E-03]  # Error: 6.5406E+04
+# x0['7'] = [1.000E+01, 2.503E+02, 7.087E-01, 1.310E-03]  # Error: 5.5460E+05
+x0['7'] = [2.339E+01, 1.475E+02, 1.000E+00, 1.341E-03]  # Error: 6.0451E+05
+# x0['8'] = [1.159E+01, 5.200E+01, 7.000E-01, 1.385E-03]  # Error: 3.8851E+05
+x0['8'] = [1.382E+01, 5.114E+01, 1.072E+00, 1.643E-03]  # Error: 4.0923E+05
+# x0['9'] = [1.013E+01, 1.482E+02, 7.000E-01, 1.828E-03]  # Error: 3.4405E+05
+x0['9'] = [2.056E+01, 2.142E+02, 1.000E+00, 1.823E-03]  # Error: 3.9353E+05
+# x0['10'] = [1.000E+01, 4.757E+01, 7.001E-01, 1.610E-03]  # Error: 1.7557E+06
+x0['10'] = [1.415E+01, 5.564E+01, 1.000E+00, 2.517E-03]  # Error: 3.5075E+05
+# x0['11'] = [1.000E+01, 2.509E+01, 1.499E+00, 1.729E-03]  # Error: 3.3409E+04
+x0['11'] = [1.010E+01, 2.500E+01, 1.500E+00, 1.762E-03]  # Error: 3.3780E+04
+# x0['12'] = [1.252E+01, 5.856E+01, 7.000E-01, 3.077E-03]  # Error: 1.5987E+05
+x0['12'] = [1.048E+01, 8.807E+01, 1.000E+00, 3.397E-03]  # Error: 1.8177E+05
+# x0['13'] = [1.161E+01, 4.150E+01, 1.084E+00, 2.939E-03]  # Error: 4.5294E+05
+x0['13'] = [1.558E+01, 3.560E+01, 1.143E+00, 3.480E-03]  # Error: 4.1562E+05
+# x0['14'] = [1.131E+01, 1.112E+02, 7.000E-01, 1.065E-03]  # Error: 1.6080E+04
+x0['14'] = [1.240E+01, 1.216E+02, 1.000E+00, 1.167E-03]  # Error: 2.1518E+04
+# x0['15'] = [1.164E+01, 5.248E+01, 7.000E-01, 1.332E-03]  # Error: 5.3043E+05
+x0['15'] = [1.303E+01, 5.116E+01, 1.123E+00, 1.717E-03]  # Error: 5.4412E+05
 # Don't use cell16, it's the same as cell8
-x0['17'] = [1.041E+01, 4.502E+01, 7.049E-01, 1.393E-03]  # Error: 1.0524E+06
-x0['18'] = [2.877E+01, 9.728E+01, 7.000E-01, 6.809E-04]  # Error: 9.1869E+05
+# x0['17'] = [1.041E+01, 4.502E+01, 7.049E-01, 1.393E-03]  # Error: 1.0524E+06
+x0['17'] = [2.159E+01, 8.992E+01, 1.000E+00, 1.462E-03]  # Error: 1.2438E+06
+# x0['18'] = [2.877E+01, 9.728E+01, 7.000E-01, 6.809E-04]  # Error: 9.1869E+05
+x0['18'] = [4.088E+01, 1.314E+02, 1.000E+00, 8.319E-04]  # Error: 9.3250E+05
+x0['19'] = [2.507E+01, 2.353E+02, 1.000E+00, 3.075E-03]  # Error: 1.0310E+05
+x0['20'] = [1.983E+01, 5.000E+02, 1.033E+00, 1.541E-03]  # Error: 1.0597E+05
+x0['21'] = [1.163E+01, 4.992E+02, 1.000E+00, 2.675E-03]  # Error: 3.9797E+05
+x0['22'] = [1.735E+01, 2.284E+02, 1.001E+00, 3.211E-03]  # Error: 4.4407E+04
+x0['23'] = [3.949E+01, 1.806E+02, 1.000E+00, 1.803E-03]  # Error: 3.0110E+05
 
 # x0['mean'] = [1.159E+01, 4.917E+01, 1.193E+00, 2.366E-03]  # just induced
 # x0['mean'] = [1.507E+01, 7.193E+01, 1.208E+00, 5.363E-03]  # induced + spontaneous 120416
-x0['mean'] = [1.643E+01, 1.397E+02, 9.078E-01, 3.326E-03]  # induced + spontaneous 121116
+# x0['mean'] = [1.643E+01, 1.397E+02, 9.078E-01, 3.326E-03]  # induced + spontaneous 121116
+x0['mean'] = [2.031E+01, 1.820E+02, 1.088E+00, 3.960E-03]  # induced + spontaneous 121316
+
 
 # to avoid saturation and reduce variability of time courses across cells, constrain the relative amplitude
 # of global and local kernels:
@@ -852,7 +875,7 @@ xmax1 = [50., 500., 1.5, 5.e-2]
 
 
 induction = 1
-
+"""
 # ramp_error_cont(x1, xmin1, xmax1, ramp[induction], induction, plot=True)
 
 result = optimize_explore(x1, xmin1, xmax1, ramp_error_cont, ramp[induction], induction, maxfev=700)
@@ -865,13 +888,13 @@ hist.report_best()
 hist.export('121216_magee_data_optimization_short_cell'+cell_id)
 """
 
-ramp_error_cont(polished_result['x'], xmin1, xmax1, ramp[induction], induction, plot=True)
+# ramp_error_cont(polished_result['x'], xmin1, xmax1, ramp[induction], induction, plot=True)
 
 
 local_kernel, global_kernel, weights, model_ramp = \
     ramp_error_cont(x1, xmin1, xmax1, ramp[induction], induction, plot=True, full_output=True)
 
-output_filename = '121116 plasticity rule optimization summary'
+output_filename = '121316 plasticity rule optimization summary'
 with h5py.File(data_dir+output_filename+'.hdf5', 'a') as f:
     if 'short' not in f:
         f.create_group('short')
@@ -883,7 +906,7 @@ with h5py.File(data_dir+output_filename+'.hdf5', 'a') as f:
     f['short'][cell_id].attrs['dt'] = dt
     f['short'][cell_id].create_dataset('ramp', compression='gzip', compression_opts=9, data=ramp[induction])
     f['short'][cell_id].create_dataset('model_ramp', compression='gzip', compression_opts=9, data=model_ramp)
-
+"""
 
 local_kernel, global_kernel, weights, model_ramp = \
     ramp_error_cont(x1, xmin1, xmax1, ramp[induction], induction, plot=True, full_output=True)
