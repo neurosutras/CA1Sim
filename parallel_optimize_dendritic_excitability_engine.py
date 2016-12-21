@@ -11,7 +11,10 @@ section type to test R_inp.
 """
 
 # morph_filename = 'EB2-late-bifurcation.swc'
-morph_filename = 'DG_GC_355549.swc'
+# morph_filename = 'DG_GC_355549.swc'
+neurotree_filename = '121516_DGC_trees.pkl'
+neurotree_dict = read_from_pkl(morph_dir+neurotree_filename)
+
 rec_filename = str(time.strftime('%m%d%Y', time.gmtime()))+'_'+str(time.strftime('%H%M%S', time.gmtime()))+\
                '_pid'+str(os.getpid())+'_sim_output'
 
@@ -23,11 +26,11 @@ else:
     spines = False
 
 if spines:
-    x = [3.63E-09, 9.15E-09, 2.82E+01, 3.00E+02]
-    mech_filename = '110316 DG_GC pas spines'
+    x = [5.06E-08, 9.32E-05, 1.73E+02, 1.00E+02]
+    mech_filename = '120116 DG_GC pas spines'
 else:
-    x = [2.00E-08, 9.03E-08, 3.63E+01, 3.00E+02]
-    mech_filename = '110316 DG_GC pas no_spines'
+    x = [1.00E-16, 2.35E-04, 3.71E+02, 1.00E+02]
+    mech_filename = '120116 DG_GC pas no_spines'
 
 i_holding = {'soma': 0., 'dend': 0., 'distal_dend': 0.}
 
@@ -104,20 +107,19 @@ def update_pas_exp(x):
     x0 = [2.28e-05, 1.58e-06, 58.4]
     :param x: array [soma.g_pas, dend.g_pas slope, dend.g_pas tau, dend.g_pas xmax]
     """
+    if spines is False:
+        cell.reinit_mechanisms(reset_cable=True)
     cell.modify_mech_param('soma', 'pas', 'g', x[0])
     maxval = x[0] + x[1] * (np.exp(x[3]/x[2]) - 1.)
     cell.modify_mech_param('apical', 'pas', 'g', origin='soma', slope=x[1], tau=x[2], max=maxval)
     for sec_type in ['basal', 'axon_hill', 'axon', 'ais', 'trunk', 'apical', 'tuft', 'spine_neck', 'spine_head']:
         cell.reinitialize_subset_mechanisms(sec_type, 'pas')
-    print('Initial: ')
-    print_gpas_cm_values()
     if spines is False:
-        for sec_type in ['basal', 'trunk', 'apical', 'tuft']:
-            cell.reinitialize_subset_mechanisms(sec_type, 'cable')
-            for node in cell.get_nodes_of_subtype(sec_type):
-                node.correct_for_spines()
-        print('Updated: ')
-        print_gpas_cm_values()
+        # print('Initial: ')
+        # print_gpas_cm_values()
+        cell.correct_for_spines()
+        # print('Updated: ')
+        # print_gpas_cm_values()
 
 
 def print_gpas_cm_values():
@@ -164,13 +166,11 @@ def get_Rinp_for_section(section, local_x=None):
     sim.parameters['optimization'] = 'pas'
     sim.parameters['description'] = sim_description
     amp = -0.05
-    cell.zero_na()
     if local_x is None:
-        # update_pas_sigmoid(x)
         update_pas_exp(x)
     else:
-        # update_pas_sigmoid(local_x)
-        update_pas_exp(x)
+        update_pas_exp(local_x)
+    cell.zero_na()
     offset_vm(section)
     loc = rec_locs[section]
     node = rec_nodes[section]
@@ -179,9 +179,10 @@ def get_Rinp_for_section(section, local_x=None):
     sim.run(v_init)
     Rinp = get_Rinp(np.array(sim.tvec), np.array(rec['vec']), equilibrate, duration, amp)[2]
     result = {section: Rinp}
-    print 'Process:', os.getpid(), 'calculated Rinp for %s in %i s, Rinp: %.1f' % (section, time.time() - start_time,
+    print 'Process:', os.getpid(), 'calculated Rinp for %s in %.1f s, Rinp: %.1f' % (section, time.time() - start_time,
                                                                                     Rinp)
     return result
+
 
 @interactive
 def export_sim_results():
@@ -206,7 +207,7 @@ if spines:
 else:
     sim_description = 'no_spines'
 
-cell = DG_GC(morph_filename, full_spines=spines)
+cell = DG_GC(neurotree_dict=neurotree_dict[0], full_spines=spines)
 
 # get the thickest apical dendrite ~200 um from the soma
 candidate_branches = []

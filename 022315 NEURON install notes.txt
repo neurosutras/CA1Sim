@@ -131,7 +131,7 @@ c.MPI.use = 'mpi4py'
 
 
 
-6) To run my simulations, make sure to execute nrnivmodl in the directory that contains the .mod and .py files.
+10) To run my simulations, make sure to execute nrnivmodl in the directory that contains the .mod and .py files.
 Make sure to put .swc files in the /morphologies directory and expect to find .pkl and .hdf5 data output files in the
 /data directory
 
@@ -187,5 +187,63 @@ then calling a plot function on the output file:
 plot_superimpose_conditions('str_with_name_of_output_file') # no suffix necessary
 
 
-7) PyCharm limits the size of the console output buffer. Change the value of idea.cycle.buffer.size in the idea.properties file in the /bin directory of the install package. To change the size of the terminal output buffer, change the registry key terminal.buffer.max.lines.count. Navigate to Help| Find action| Type "Registry"| Find terminal.buffer.max.lines.count.
+11) PyCharm limits the size of the console output buffer. Change the value of idea.cycle.buffer.size in the idea.properties file in the /bin directory of the install package. To change the size of the terminal output buffer, change the registry key terminal.buffer.max.lines.count. Navigate to Help| Find action| Type "Registry"| Find terminal.buffer.max.lines.count.
 
+12) Building h5py against a parallelized, MPI-enabled version of HDF5 is a giant headache. The anaconda packages do not allow this option. pip and homebrew can sort of be used for some pieces, but one has to be VERY careful to not have conflicting installs, and the PATH and LD_LIBRARY_PATH must be set correctly in .bash_profile
+
+- install mpich via homebrew:
+brew install mpich
+add this to $PATH:
+/usr/local/Cellar/mpich/3.2_2/bin
+add this to $LD_LIBRARY_PATH:
+/usr/local/Cellar/mpich/3.2_2/lib
+
+build parallel hdf5 from source, making sure that which mpicc refers to the above mpich installation directory. follow instructions from:
+https://support.hdfgroup.org/ftp/HDF5/current/src/unpacked/release_docs/INSTALL_parallel
+and
+http://docs.h5py.org/en/latest/mpi.html
+
+sudo mkdir /usr/local/hdf5
+CC=mpicc ./configure --enable-parallel --enable-shared --prefix=/usr/local/hdf5
+make
+make check
+sudo make install
+add this to $PATH:
+/usr/local/hdf5/bin
+add this to $LD_LIBRARY_PATH:
+/usr/local/hdf5/lib
+
+as long as the proper mpicc is in the search path, pip can work for mpi4py:
+http://pythonhosted.org/mpi4py/usrman/install.html#using-pip-or-easy-install
+pip install mpi4py
+
+test it with:
+# test_mpi.py
+from mpi4py import MPI
+rank = MPI.COMM_WORLD.rank  # The process ID (integer 0-3 for 4-process run)
+print "Hello World (from process %d)" % rank
+#
+run with:
+mpiexec -n 4 python test_mpi.py
+
+finally, build h5py to refer to parallel hdf5 and mpi4py:
+http://docs.h5py.org/en/latest/mpi.html
+
+export CC=mpicc
+python setup.py configure --mpi --hdf5=/usr/local/hdf5
+sudo python setup.py build --build-base=/Users/milsteina/anaconda2/
+sudo python setup.py install --prefix=/Users/milsteina/anaconda2/
+
+test it with:
+# test_phdf5.py
+from mpi4py import MPI
+import h5py
+f = h5py.File('parallel_test.hdf5', 'w', driver='mpio', comm=MPI.COMM_WORLD)
+dset = f.create_dataset('test', (4,), dtype='i')
+dset[rank] = rank
+f.close()
+#
+run with:
+mpiexec -n 4 python test_phdf5.py
+
+can use serial h5py to view the contents of the file in an ipython session.

@@ -10,7 +10,7 @@ import btmorph  # must be found in system $PYTHONPATH
 swc_types = [soma_type, axon_type, basal_type, apical_type, trunk_type, tuft_type] = [1, 2, 3, 4, 5, 6]
 sec_types = ['soma', 'axon_hill', 'ais', 'axon', 'basal', 'trunk', 'apical', 'tuft', 'spine_neck', 'spine_head']
 
-verbose = 0  # Turn on for text reporting during model initialization and simulation
+verbose = False  # Turn on for text reporting during model initialization and simulation
 
 #-------Wrapper for converting SWC --> BtMorph --> Skeleton morphology in NEURON hoc------------------------
 
@@ -119,8 +119,7 @@ class HocCell(object):
         :param morph_filename: str
         :param preserve_3d: bool
         """
-        raw_tree = btmorph.STree2()
-        raw_tree = self.read_neurotree_from_dict(raw_tree)
+        raw_tree = self.read_neurotree_from_dict()
         self.clean_swc_diams(raw_tree.root)
         for child in raw_tree.root.children:
             if preserve_3d:
@@ -128,13 +127,13 @@ class HocCell(object):
             else:
                 self.make_skeleton(child, self.tree.root)
 
-    def read_neurotree_from_dict(self, raw_tree):
+    def read_neurotree_from_dict(self):
         """
         Populate a 'btmorph.STree2' object with 'btmorph.SNode2' objects containing standard swc content, as well as
-        potentially additional metadata.
-        :param raw_tree: :class:'STree2'
+        additional metadata from a dictionary read from neurotree.
         :return: :class:'STree2'
         """
+        raw_tree = btmorph.STree2()
         for i in range(len(self.neurotree_dict['x'])):
             swc_type = self.neurotree_dict['swc_type'][i]
             x = self.neurotree_dict['x'][i]
@@ -142,21 +141,37 @@ class HocCell(object):
             z = self.neurotree_dict['z'][i]
             radius = self.neurotree_dict['radius'][i]
             parent_index = self.neurotree_dict['parent'][i]
-            tP3D = btmorph.P3D2(np.array([x, y, z]), radius, swc_type)
-            t_node = btmorph.SNode2(i)
-            t_node.content = {'p3d': tP3D}
+            swc_point = btmorph.P3D2(np.array([x, y, z]), radius, swc_type)
+            raw_node = btmorph.SNode2(i)
+            raw_node.content = {'p3d': swc_point}
             if 'layer' in self.neurotree_dict:
                 layer = self.neurotree_dict['layer'][i]
-                t_node.content['layer'] = layer
-            if 'sec_index' in self.neurotree_dict:
-                sec_index = self.neurotree_dict['section_index'][i]
-                t_node.content['sec_index'] = sec_index
+                raw_node.content['layer'] = layer
+            if 'section' in self.neurotree_dict:
+                sec_index = self.neurotree_dict['section'][i]
+                raw_node.content['section'] = sec_index
             if parent_index == -1:
-                raw_tree.root = t_node
+                raw_tree.root = raw_node
             else:
-                raw_tree.add_node_with_parent(t_node, raw_tree.get_node_with_index(parent_index))
+                raw_tree.add_node_with_parent(raw_node, raw_tree.get_node_with_index(parent_index))
 
         return raw_tree
+
+    def get_mismatched_neurotree_sections(self):
+        """
+        Sanity check that the section indexes contained in the morphology specified in a neurotree_dict are the same
+        indexes in the section lists of this cell object. Either returns a dictionary of the number of points in each
+        section, to compare imported and exported, or returns None.
+
+        :return: dict
+        """
+        mismatched = {'imported': np.array([len(section) for section in
+                                            self.neurotree_dict['section_topology']['nodes'].itervalues()]),
+                      'exported': np.array([node.sec.n3d() for node in self.apical])}
+        if not np.all(mismatched['imported'] == mismatched['exported']):
+            return mismatched
+        else:
+            return None
 
     def clean_swc_diams(self, parent):
         """
@@ -354,6 +369,10 @@ class HocCell(object):
         if swc_type in dend_swc_types:
             sec_type = dend_sec_types[dend_swc_types.index(swc_type)]
             if current_node is None:
+                if 'section' in raw_node.content and len(self._node_dict[sec_type]) != raw_node.content['section'] and \
+                        verbose:
+                    print 'HocCell section index %i does not match neurotree section index %i' % \
+                          (len(self._node_dict[sec_type]), raw_node.content['section'])
                 current_node = self.make_section(sec_type)
                 current_node.sec.push()
                 # some SWC files contain duplicate xyz points at branch points
@@ -374,7 +393,7 @@ class HocCell(object):
             if (leaves > 1 or leaves == 0 or
                     (leaves == 1 and not raw_node.children[0].content['p3d'].type == swc_type) or
                     (leaves == 1 and np.all(swc.xyz == raw_node.children[0].content['p3d'].xyz))):
-                if (leaves ==1 and np.all(swc.xyz == raw_node.children[0].content['p3d'].xyz)):
+                if (leaves ==1 and np.all(swc.xyz == raw_node.children[0].content['p3d'].xyz) and verbose):
                     print 'Encountered duplicate point in ', current_node.name
                 if (self.tree.is_root(parent)) and (sec_type == 'basal'):
                     parent = self.soma[1]
@@ -395,6 +414,43 @@ class HocCell(object):
         else:
             for child in raw_node.children:
                 self.make_3d(child, parent)
+
+    def export_neurotree_synapse_attributes(self):
+        """
+        Output a python dictionary in the format expected by neurotrees.io.write_trees_attributes()
+        Contains section indexes, synapse locations, synapse types, and layer indexes for all putative synapses and/or
+        spines.
+        :return: dict
+        """
+        syn_type_enumerator = {'excitatory': 0, 'inhibitory': 1, 'neuromodulatory': 2}
+        syn_locs = []
+        section = []
+        layer = []
+        syn_type = []
+        for sec_type in self._node_dict:
+            for i, node in enumerate(self._node_dict[sec_type]):
+                for this_syn_type in node.synapse_locs:
+                    if node.synapse_locs[this_syn_type]:
+                        if this_syn_type not in syn_type_enumerator:
+                            raise Exception('Cannot export unknown synapse type')
+                        syn_locs.extend(node.synapse_locs[this_syn_type])
+                        section.extend([i for j in range(len(node.synapse_locs[this_syn_type]))])
+                        layer.extend([node.get_layer(this_syn_loc) for
+                                      this_syn_loc in node.synapse_locs[this_syn_type]])
+                        syn_type.extend([syn_type_enumerator[this_syn_type] for
+                                         j in range(len(node.synapse_locs[this_syn_type]))])
+                if node.spines:
+                    this_syn_type = 'excitatory'
+                    syn_locs.extend([spine.connection_loc for spine in node.spines])
+                    section.extend([i for j in range(len(node.spines))])
+                    layer.extend([node.get_layer(spine.connection_loc) for spine in node.spines])
+                    syn_type.extend([syn_type_enumerator[this_syn_type] for
+                                     j in range(len(node.spines))])
+
+        return {'syn_locs': np.array(syn_locs, dtype='float32'),
+                'section': np.array(section, dtype='uint32'),
+                'layer': np.array(layer, dtype='uint32'),
+                'syn_type': np.array(syn_type, dtype='uint32')}
 
     def get_nodes_of_subtype(self, sec_type):
         """
@@ -1424,11 +1480,20 @@ class HocCell(object):
                     syn = Synapse(self, node, type_list=syn_types, stochastic=stochastic, loc=loc)
                     node.synapse_locs[syn_category].remove(loc)
 
-    def correct_cell_for_spines(self):
-        for sec_type in ['basal', 'trunk', 'apical', 'tuft']:
-            self.reinitialize_subset_mechanisms(sec_type, 'cable')
-            for node in self.get_nodes_of_subtype(sec_type):
-                node.correct_for_spines()
+    def correct_for_spines(self):
+        """
+        If not explicitly modeling spine compartments for excitatory synapses, this method scales cm and g_pas in all
+        dendritic sections proportional to the number of excitatory synapses contained in each section.
+        """
+        for loop in range(2):
+            for sec_type in ['basal', 'trunk', 'apical', 'tuft']:
+                for node in self.get_nodes_of_subtype(sec_type):
+                    node.correct_for_spines()
+                    if loop == 0:
+                        node.init_nseg()
+                        node.reinit_diam()
+            if loop == 0:
+                self.reinit_mechanisms()
 
     @property
     def gid(self):
@@ -1529,26 +1594,25 @@ class SHocNode(btmorph.btstructs2.SNode2):
 
     def correct_for_spines(self):
         """
-
+        If not explicitly modeling spine compartments for excitatory synapses, this method scales cm and g_pas in this
+        dendritic section proportional to the number of excitatory synapses contained in the section.
         """
         SA_spine = math.pi * (1.58 * 0.077 + 0.5 * 0.5)
         if 'excitatory' in self.synapse_locs:
-            excitatory_syn = self.synapse_locs['excitatory']
+            these_synapse_locs = np.array(self.synapse_locs['excitatory'])
             seg_width = 1. / self.sec.nseg
             for i, segment in enumerate(self.sec):
                 self.sec.push()
                 SA_seg = h.area(segment.x)
                 h.pop_section()
-                num_spines = len(np.where((np.array(excitatory_syn) >= i * seg_width) &
-                                          (np.array(excitatory_syn) < (i + 1) * seg_width))[0])
-                cm_correct_factor = (SA_seg + num_spines * SA_spine) / SA_seg
+                num_spines = len(np.where((these_synapse_locs >= i * seg_width) &
+                                          (these_synapse_locs < (i + 1) * seg_width))[0])
+                cm_correction_factor = (SA_seg + num_spines * SA_spine) / SA_seg
                 soma_g_pas = self.sec.cell().mech_dict['soma']['pas']['g']['value']
-                gpas_correct_factor = (SA_seg * self.sec(segment.x).g_pas + num_spines * SA_spine * soma_g_pas) \
+                gpas_correction_factor = (SA_seg * self.sec(segment.x).g_pas + num_spines * SA_spine * soma_g_pas) \
                                       / (SA_seg * self.sec(segment.x).g_pas)
-                self.sec(segment.x).g_pas *= gpas_correct_factor
-                self.sec(segment.x).cm *= cm_correct_factor
-            self.init_nseg()
-            self.reinit_diam()
+                self.sec(segment.x).g_pas *= gpas_correction_factor
+                self.sec(segment.x).cm *= cm_correction_factor
 
     def get_diam_bounds(self):
         """
@@ -1676,6 +1740,21 @@ class SHocNode(btmorph.btstructs2.SNode2):
         :return: dict of list of float
         """
         return self.content['synapse_locs']
+
+    @property
+    def connection_loc(self):
+        """
+        Returns the location along the parent section of the connection with this section, except if the sec_type
+        is spine_head, in which case it reports the connection_loc of the spine neck.
+        :return: int or float
+        """
+        if self.type == 'spine_head':
+            self.parent.sec.push()
+        else:
+            self.sec.push()
+        loc = h.parent_connection()
+        h.pop_section()
+        return loc
 
 
 class Synapse(object):
@@ -2258,10 +2337,15 @@ class DG_GC(HocCell):
         densities = {}
         for sec_type in (sec_type for sec_type in sec_type_list if self.get_nodes_of_subtype(sec_type)):
             if sec_type == 'apical':
-                densities[sec_type] = {'layer': {1: 3.36, 2: 2.28, 3: 2.02}}  # units: synapses / um length
+                densities[sec_type] = {'layer': {1: 3.36, 2: 2.28, 3: 2.02},
+                                       'default': 2.55}  # units: synapses / um length
         if 'apical' in sec_type_list:
             for node in self.apical:
-                self.generate_synapse_locs_by_layer(node, 'excitatory', densities['apical']['layer'])
+                if node.get_layer() is not None:
+                    self.generate_synapse_locs_by_layer(node, 'excitatory', densities['apical']['layer'])
+                else:
+                    node.synapse_locs['excitatory'] = self.generate_synapse_locs_every(node,
+                                                                                       densities['apical']['default'])
 
     def generate_inhibitory_synapse_locs(self, sec_type_list=None):
         """

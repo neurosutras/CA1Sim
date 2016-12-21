@@ -8,7 +8,9 @@ Builds a cell locally so each engine is ready to receive jobs one at a time, spe
 which section to simulate (full sampling of sections).
 """
 
-morph_filename = 'DG_GC_355549.swc'
+# morph_filename = 'DG_GC_355549.swc'
+neurotree_filename = '121516_DGC_trees.pkl'
+neurotree_dict = read_from_pkl(morph_dir+neurotree_filename)
 rec_filename = 'output'+datetime.datetime.today().strftime('%m%d%Y%H%M')+'-pid'+str(os.getpid())
 
 if len(sys.argv) > 1:
@@ -20,6 +22,7 @@ if len(sys.argv) > 2:
     mech_filename = str(sys.argv[2])
 else:
     mech_filename = None
+
 
 @interactive
 def test_single_section(sec_index, loc=None):
@@ -39,7 +42,8 @@ def test_single_section(sec_index, loc=None):
     sim.parameters['Rinp_baseline'] = Rinp_params[0]
     sim.parameters['Rinp_steady'] = Rinp_params[1]
     sim.parameters['Rinp_peak'] = Rinp_params[2]
-    sim.parameters['decay_50'] = calc_decay(0.5, sim.tvec, sim.rec_list[0]['vec'], equilibrate + delay, equilibrate + delay + stim_dur)
+    sim.parameters['decay_50'] = calc_decay(0.5, sim.tvec, sim.rec_list[0]['vec'], equilibrate + delay,
+                                            equilibrate + delay + stim_dur)
     with h5py.File(data_dir+rec_filename+'.hdf5', 'a') as f:
         sim.export_to_file(f, sec_index)
     print 'Process:', os.getpid(), 'completed Iteration:', sec_index, 'Node:', node.name, 'in', \
@@ -77,7 +81,7 @@ def calc_decay(decay_degree, tvec, vec, start, stop, dt = 0.02):
     interp_vm /= amp
     interp_t -= interp_t[0]
     decay_point = np.where(interp_vm[0:t_peak] >= decay_degree)[0][0]
-    return interp_t[decay_point];
+    return interp_t[decay_point]
 
 
 equilibrate = 250.  # time to steady-state
@@ -88,11 +92,10 @@ amp = -0.15
 v_init = -67.
 
 #cell = CA1_Pyr(morph_filename, mech_filename, full_spines=True)
-cell = DG_GC(morph_filename, mech_filename, full_spines=spines)
-cell.zero_na()
-
+cell = DG_GC(neurotree_dict=neurotree_dict[0], mech_filename=mech_filename, full_spines=spines)
 if not spines:
-    cell.correct_cell_for_spines()
+    cell.correct_for_spines()
+cell.zero_na()
 
 nodes = cell.soma+cell.basal+cell.trunk+cell.apical+cell.tuft+cell.axon
 

@@ -407,9 +407,11 @@ def plot_Rinp(rec_file_list, description_list="", title=None):
     plt.show()
     plt.close()
 
+
 def plot_Rinp_general(rec_file_list, sectypes_list=None, features_list=None, features_labels=None, file_labels=None):
     """
-
+    Superimpose features across cells recorded from simulated step current injections to probe input resistance and
+    membrane time constant.
     :return:
     """
     if isinstance(rec_file_list, str):
@@ -1382,7 +1384,7 @@ def plot_synaptic_param_distribution(cell, syn_type, param_name, scale_factor=1.
         mpl.rcParams['font.size'] = remember_font_size
 
 
-def plot_mech_param_distribution(cell, mech_name, param_name, scale_factor=10000., param_label=None,
+def plot_mech_param_distribution_old(cell, mech_name, param_name, scale_factor=10000., param_label=None,
                                  ylabel='Conductance density', yunits='pS/um2', svg_title=None):
     """
     Takes a cell as input rather than a file. No simulation is required, this method just takes a fully specified cell
@@ -1448,7 +1450,7 @@ def plot_mech_param_distribution(cell, mech_name, param_name, scale_factor=10000
         mpl.rcParams['font.size'] = remember_font_size
 
 
-def new_plot_mech_param_distribution(cell, mech_name, param_name, export=None, file_exists=False, scale_factor=10000.,
+def plot_mech_param_distribution(cell, mech_name, param_name, export=None, overwrite=False, scale_factor=10000.,
                         param_label=None, ylabel='Conductance density', yunits='pS/um2', svg_title=None):
     """
     cell = DG_GC(morph_filename = 'DG_GC_355549.swc', mech_filename='120116 DG_GC pas no_spines', full_spines=False)
@@ -1459,8 +1461,7 @@ def new_plot_mech_param_distribution(cell, mech_name, param_name, export=None, f
     :param mech_name: str
     :param param_name: str
     :param export: str (name of hdf5 file for export)
-    :param file_exists: bool (whether hdf5 file already exists and should be modified, or whether a new one
-                                must be created)
+    :param overwrite: bool (whether to overwrite or append to potentially existing hdf5 file)
     :param scale_factor: float
     :param param_label: str
     :param ylabel: str
@@ -1527,10 +1528,10 @@ def new_plot_mech_param_distribution(cell, mech_name, param_name, export=None, f
         mpl.rcParams['font.size'] = remember_font_size
 
     if export is not None:
-        if file_exists is False:
+        if overwrite:
             f = h5py.File(data_dir + export + '.hdf5', 'w')
         else:
-            f = h5py.File(data_dir + export + '.hdf5', 'r+')
+            f = h5py.File(data_dir + export + '.hdf5', 'a')
         if 'mech_filename' in f.attrs.keys():
             if not (f.attrs['mech_filename'] == '{}'.format(cell.mech_filename)):
                 raise Exception('Specified mechanism filename {} does not match the mechanism filename '
@@ -1553,7 +1554,7 @@ def new_plot_mech_param_distribution(cell, mech_name, param_name, export=None, f
             for sec_type in distances.keys():
                 f['distances'].create_group(sec_type)
                 f['distances'][sec_type].create_dataset('values', data=distances[sec_type])
-    f.close()
+        f.close()
 
 
 def plot_mech_param_from_file(mech_name, param_name, filenames, filename_labels = None,

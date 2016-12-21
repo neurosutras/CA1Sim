@@ -646,7 +646,8 @@ def build_kernels(x, plot=False):
     return local_filter, global_filter
 
 
-def calculate_plasticity_signal_discrete(x, local_kernel, global_kernel, induction, plot=False):
+def calculate_plasticity_signal_discrete(x, local_kernel, global_kernel, induction, plot=False,
+                                         use_global_saturation_factor=False):
     """
     Given the local and global kernels, convolve each input spike train (successes) with the local kernel, and convolve
     the current injection with the global kernel. The weight change for each input is proportional to the area under the
@@ -656,9 +657,17 @@ def calculate_plasticity_signal_discrete(x, local_kernel, global_kernel, inducti
     :param global_kernel: array
     :param induction: int: key for dicts of arrays
     :param plot: bool
+    :param use_global_saturation_factor: bool  : calculate locally during optimization. use one global value for all
+                                                running speeds for simulations (use 30. cm/s and peak_weights=3.
+                                                as a reference)
     :return: plasticity_signal: array
     """
-    saturation_factor = 0.02
+    if use_global_saturation_factor:
+        saturation_factor = global_saturation_factor
+        attempt_range = range(1,2)
+    else:
+        saturation_factor = 0.02
+        attempt_range = range(2)
     filter_ratio = x[4]
     # kernel_scale = x[5]
     global_signal = np.convolve(complete_induction_gates[induction], global_kernel)[:len(complete_t[induction])] * \
@@ -666,7 +675,7 @@ def calculate_plasticity_signal_discrete(x, local_kernel, global_kernel, inducti
     max_global_signal = np.max(global_signal)
     filter_t = np.arange(0., len(local_kernel) * dt, dt)
     plasticity_signal = {}
-    for attempt in range(2):
+    for attempt in attempt_range:
         local_signal_array = []
         start_time = time.time()
         for group in peak_locs:
@@ -713,7 +722,7 @@ def calculate_plasticity_signal_discrete(x, local_kernel, global_kernel, inducti
                                                                    np.percentile(local_signal_array, 90.))[0]])
             saturation_factor *= filter_ratio * max_local_signal / max_global_signal
         # print 'Computed weights in %i s' % (time.time() - start_time)
-    # print 'saturation_factor: %.3E' % saturation_factor
+        print 'saturation_factor after attempt %i: %.3E' % (attempt, saturation_factor)
 
     if plot:
         x_start = np.mean(induction_locs[induction]) / track_length
@@ -732,7 +741,7 @@ def calculate_plasticity_signal_discrete(x, local_kernel, global_kernel, inducti
     return plasticity_signal
 
 
-def calculate_weights_discrete(x, induction=None, plot=False, full_output=False):
+def calculate_weights_discrete(x, induction=None, plot=False, full_output=False, use_global_saturation_factor=False):
     """
     Calculates a rule_waveform and set of weights to match the first place field induction from trains of spike times
     (successes).
@@ -740,6 +749,7 @@ def calculate_weights_discrete(x, induction=None, plot=False, full_output=False)
     :param induction: int: key for dicts of arrays
     :param plot: bool
     :param full_output: bool: whether to return all relevant objects (True), or just Err (False)
+    :param use_global_saturation_factor: bool
     :return: tuple of array
     """
     start_time = time.time()
@@ -748,7 +758,8 @@ def calculate_weights_discrete(x, induction=None, plot=False, full_output=False)
     if induction is None:
         induction = 1
     local_kernel, global_kernel = build_kernels(x, plot)
-    this_weights = calculate_plasticity_signal_discrete(x, local_kernel, global_kernel, induction, plot)
+    this_weights = calculate_plasticity_signal_discrete(x, local_kernel, global_kernel, induction, plot,
+                                                        use_global_saturation_factor)
     model_ramp = get_expected_depolarization(default_rate_maps,
                                              {group: this_weights[group] + 1. for group in this_weights},
                                              default_interp_x)
@@ -777,7 +788,8 @@ def calculate_weights_discrete(x, induction=None, plot=False, full_output=False)
         return local_kernel, global_kernel, this_weights, model_ramp
 
 
-def ramp_error_discrete(x, xmin, xmax, induction=None, plot=False, full_output=False):
+def ramp_error_discrete(x, xmin, xmax, induction=None, plot=False, full_output=False,
+                        use_global_saturation_factor=False):
     """
     Calculates a rule_waveform and set of weights to match the first place field induction.
     :param x: array [local_rise_tau, local_decay_tau, global_rise_tau, global_decay_tau, filter_ratio, kernel_scale]
@@ -786,6 +798,7 @@ def ramp_error_discrete(x, xmin, xmax, induction=None, plot=False, full_output=F
     :param induction: int: key for dicts of arrays
     :param plot: bool
     :param full_output: bool: whether to return all relevant objects (True), or just Err (False)
+    :param use_global_saturation_factor: bool
     :return: float
     """
     if not check_bounds(x, xmin, xmax):
@@ -797,12 +810,13 @@ def ramp_error_discrete(x, xmin, xmax, induction=None, plot=False, full_output=F
     start_time = time.time()
     if induction is None:
         induction = 1
-    local_kernel, global_kernel, this_weights, ramp = calculate_weights_discrete(x, induction, plot, True)
+    local_kernel, global_kernel, this_weights, ramp = calculate_weights_discrete(x, induction, plot,
+                                                                                 full_output=True,
+                                                                                 use_global_saturation_factor=
+                                                                                 use_global_saturation_factor)
     this_induction_loc = np.mean(induction_locs[induction])
     amp, width, shift, ratio = calculate_ramp_features(ramp, this_induction_loc)
-    # center_indexes = np.where((peak_locs['CA3'] >= this_induction_loc - 5.) &
-    #                           (peak_locs['CA3'] < this_induction_loc + 5.))[0]
-    result = {'ramp_width': width, # 'peak_weights': np.mean(this_weights['CA3'][center_indexes]),
+    result = {'ramp_width': width,
               'peak_shift': shift,
               'ratio': ratio,
               'min_weights': np.min(this_weights['CA3'])}
@@ -884,12 +898,14 @@ def optimize_explore(x, xmin, xmax, error_function, induction=None, maxfev=None)
 # x1 = [2.614E+02, 1.103E+03, 2.686E+01, 4.574E+02, 1.388E+00, 4.533E-03*0.4619]  # induced + spontaneous
 # x1 = [2.066E+02, 1.033E+03, 2.861E+01, 4.317E+02, 1.205E+00, 3.708E-03]  # induced + spontaneous 121316
 # x1 = [4.136E+02, 1.870E+03, 4.407E+01, 3.376E+02, 8.294E-01, 5.298E-04]
-x1 = [3.016E+02, 1.166E+03, 4.640E+01, 4.363E+02, 9.224E-01]
+# x1 = [3.016E+02, 1.166E+03, 4.640E+01, 4.363E+02, 9.224E-01]
+x1 = [1.002E+01, 1.996E+03, 3.104E+01, 6.577E+02, 8.169E-01]  # Error: 8.2169E+01
 
 xmin = [10., 300., 10., 25., 0.7]  # , 5.e-4]
 xmax = [500., 5000., 50., 2000., 1.5]  # , 2.e-2]
 
-kernel_scale = 2.5e-3
+kernel_scale = 2.5e-3 * 0.9804 # 121416 target weights: 3.
+global_saturation_factor = 2.747E-02
 
 target_vals = {'ramp_width': 140., 'peak_shift': -10., 'ratio': 1.7, 'min_weights': 0.}
 target_var = {'ramp_width': 0.1, 'peak_shift': 0.05, 'ratio': 0.05, 'min_weights': 0.05}
@@ -900,15 +916,21 @@ target_var = {'ramp_width': 0.1, 'peak_shift': 0.05, 'ratio': 0.05, 'min_weights
 
 induction = 1
 
+"""
 result = optimize_polish(x1, xmin, xmax, ramp_error_discrete, induction)
 hist.report_best()
 hist.export('121416_magee_data_optimization_long_discrete')
-
-# local_kernel, global_kernel, this_weights, ramp = ramp_error_discrete(x1, xmin, xmax, induction, True, True)
-
-# local_kernel, global_kernel, this_weights, model_ramp = calculate_weights_discrete(x1, 1, True, True)
-
 """
+
+local_kernel, global_kernel, this_weights, ramp = ramp_error_discrete(x1, xmin, xmax, induction, plot=False,
+                                                                                   full_output=True,
+                                                                                   use_global_saturation_factor=True)
+peak_weight_index = np.where(this_weights['CA3'] == np.max(this_weights['CA3']))[0][0]
+center_indexes = np.where((peak_locs['CA3'] >= peak_locs['CA3'][peak_weight_index] - 5.) &
+                          (peak_locs['CA3'] < peak_locs['CA3'][peak_weight_index] + 5.))[0]
+print 'peak_weights: %.2f' %  np.mean(this_weights['CA3'][center_indexes])
+
+
 with h5py.File(data_dir+weights_filename+'.hdf5', 'a') as f:
     run_vel_key = str(int(induction_run_vel))
     if run_vel_key not in f:
@@ -920,4 +942,3 @@ with h5py.File(data_dir+weights_filename+'.hdf5', 'a') as f:
                                                                   data=this_weights[group]+1.)
         f[run_vel_key][str(induction_seed)][group].create_dataset('peak_locs', compression='gzip', compression_opts=9,
                                                                   data=peak_locs[group])
-"""

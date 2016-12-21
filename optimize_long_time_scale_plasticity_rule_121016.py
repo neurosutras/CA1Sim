@@ -5,6 +5,7 @@ import random
 import sys
 import scipy.signal as signal
 import mkl
+import matplotlib.gridspec as gridspec
 
 """
 In this version of the simulation, phase precession of CA3 inputs is implemented using the method from Chadwick et al.,
@@ -655,6 +656,7 @@ def calculate_plasticity_signal(x, local_kernel, global_kernel, induction, plot=
                 plt.show()
                 plt.close()
         saturation_factor *= filter_ratio * max_local_signal / max_global_signal
+        # print 'saturation factor after attempt %i: %.3E' % (attempt, saturation_factor)
         # print 'Computed weights in %i s' % (time.time() - start_time)
 
     if plot:
@@ -888,9 +890,10 @@ hist.export('121216_magee_data_optimization_long_cell'+cell_id)
 
 
 # ramp_error_cont(polished_result['x'], xmin1, xmax1, ramp[induction], induction, plot=True)
-
+"""
 local_kernel, global_kernel, weights, model_ramp = \
     ramp_error_cont(x1, xmin1, xmax1, ramp[induction], induction, plot=True, full_output=True)
+
 
 output_filename = '121316 plasticity rule optimization summary'
 with h5py.File(data_dir+output_filename+'.hdf5', 'a') as f:
@@ -904,33 +907,33 @@ with h5py.File(data_dir+output_filename+'.hdf5', 'a') as f:
     f['long'][cell_id].attrs['dt'] = dt
     f['long'][cell_id].create_dataset('ramp', compression='gzip', compression_opts=9, data=ramp[induction])
     f['long'][cell_id].create_dataset('model_ramp', compression='gzip', compression_opts=9, data=model_ramp)
-
 """
-local_kernel, global_kernel, weights, model_ramp = \
-    ramp_error_cont(x1, xmin1, xmax1, ramp[induction], induction, plot=True, full_output=True)
 
-fig, axes = plt.subplots(2, 2)
-fig.set_size_inches(5.2, 3.9)
+local_kernel, global_kernel, weights, model_ramp = \
+    ramp_error_cont(x1, xmin1, xmax1, ramp[induction], induction, plot=False, full_output=True)
+
+fig = plt.figure()
+gs = gridspec.GridSpec(3, 5)
+ax0 = plt.subplot(gs[0, :2])
 mean_induction_loc = np.mean(induction_locs[induction])
 mean_induction_dur = np.mean(induction_durs[induction])
 start_index = np.where(interp_x[induction][0] >= mean_induction_loc)[0][0]
 end_index = start_index + int(mean_induction_dur / dt)
 x_start = mean_induction_loc/track_length
 x_end = interp_x[induction][0][end_index] / track_length
-ylim = max(np.max(ramp[induction]), np.max(model_ramp))
+ylim = max(np.max(ramp[induction]), np.max(model_ramp), 11.0579693599)
 print 'ylim: ', ylim
 ymin = min(np.min(ramp[induction]), np.min(model_ramp))
-axes[0][0].plot(binned_x, ramp[induction], label='Experiment', color='k')
-axes[0][0].plot(binned_x, model_ramp, label='Long model', color='b')
-axes[0][0].axhline(y=ylim + 0.25, xmin=x_start, xmax=x_end, linewidth=2, c='k')
-axes[0][0].set_ylabel('Depolarization (mV)')
-axes[0][0].set_xlabel('Location (cm)')
-axes[0][0].set_xlim(0., track_length)
-axes[0][0].set_ylim(-0.5, ylim + 0.5)
-axes[0][0].set_title('Induced Vm ramp', fontsize=12.)
-axes[0][0].legend(loc='best', frameon=False, framealpha=0.5, fontsize=12.)
-clean_axes(axes[0])
-plt.tight_layout()
+ax0.plot(binned_x, ramp[induction], label='Experiment', color='k', linewidth=2)
+ax0.plot(binned_x, model_ramp, label='Long model', color='b', linewidth=2)
+ax0.axhline(y=ylim + 0.25, xmin=x_start, xmax=x_end, linewidth=2, c='k')
+ax0.set_ylabel('Depolarization (mV)')
+ax0.set_xlabel('Location (cm)')
+ax0.set_xlim(0., track_length)
+ax0.set_ylim(-0.5, ylim + 0.5)
+ax0.set_title('Induced Vm ramp', fontsize=12.)
+ax0.legend(loc='best', frameon=False, framealpha=0.5, fontsize=12.)
+clean_axes(ax0)
+gs.tight_layout(fig)
 plt.show()
 plt.close()
-"""

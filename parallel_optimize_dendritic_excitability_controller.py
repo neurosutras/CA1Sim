@@ -145,13 +145,16 @@ def pas_error(x):
     formatted_x = '[' + ', '.join(['%.2E' % xi for xi in x]) + ']'
     print 'Process %i using current x: %s: %s' % (os.getpid(), str(xlabels['pas']), formatted_x)
     result = v.map_async(parallel_optimize_dendritic_excitability_engine.get_Rinp_for_section, sec_list)
+    last = ''
     while not result.ready():
-        time.sleep(10.)
+        time.sleep(0.1)
         clear_output()
         for stdout in [stdout for stdout in result.stdout if stdout][-len(c):]:
             lines = stdout.split('\n')
             if lines[-2]:
-                print lines[-2]
+                if lines[-2] != last:
+                    last = lines[-2]
+                    print lines[-2]
         sys.stdout.flush()
     result = result.get()
 
@@ -214,7 +217,7 @@ soma_ek = -77.
 target_val = {}
 target_range = {}
 target_val['pas'] = {'soma': 295., 'dend': 375.}
-target_range['pas'] = {'soma': 10., 'dend': 10.}
+target_range['pas'] = {'soma': 1., 'dend': 5.}
 target_val['v_rest'] = {'soma': v_init, 'tuft_offset': 0.}
 target_range['v_rest'] = {'soma': 0.25, 'tuft_offset': 0.1}
 target_val['na_ka'] = {'v_rest': v_init, 'th_v': -51., 'soma_peak': 40., 'trunk_amp': 0.6, 'ADP': 0., 'AHP': 4.,
@@ -238,36 +241,20 @@ if len(sys.argv) > 2:
 else:
     c = Client()
 
-xlabels['pas'] = ['soma.g_pas', 'dend.g_pas slope', 'dend.g_pas tau', 'dend.gpas max_loc']
-if spines:
-    # x0['pas'] = [9.38E-15, 9.51E-10, 2.59E+01, 2.98E+02]
-    # x0['pas'] = [3.63E-09, 9.15E-09, 2.82E+01, 3.00E+02]  # Err: 7.259E+01
-    x0['pas'] = [2.25E-09, 9.25E-09, 2.82E+01, 3.00E+02]  # Err: 7.261E+01
-    xmin['pas'] = [1.0E-17, 1.0E-12, 25., 200.]
-    xmax['pas'] = [2.0E-8, 2.0E-04, 300., 300.]
-else:
-    # x0['pas'] = [1.05E-13, 3.64E-07, 4.86E+01, 4.00E+02]
-    # x0['pas'] = [1.78E-13, 6.18E-10, 2.50E+01, 2.95E+02]  # Err: 5.575
-    x0['pas'] = [2.00E-08, 9.03E-08, 3.63E+01, 3.00E+02]  # Err: 8.017E+01
-    xmin['pas'] = [1.0E-17, 1.0E-12, 25., 200.]
-    xmax['pas'] = [2.0E-8, 2.0E-04, 300., 300.]
 
-"""
-xlabels['pas'] = ['soma.g_pas', 'dend.g_pas slope', 'dend.g_pas tau', 'dend.gpas xhalf']
+xlabels['pas'] = ['soma.g_pas', 'dend.g_pas slope', 'dend.g_pas tau', 'dend.gpas max_loc']
+
 if spines:
-    # x0['pas'] = [1.52E-06, 5.63E-04, 67., 220.]
-    # x0['pas'] = [1.165e-06, 5.317e-04, 2.07e+02, 2.89e+01]
-    # x0['pas'] = [1.85E-07, 5.15E-03, 2.13E+01, 3.85E+02]  # Err: 7.588
-    x0['pas'] = [1.39E-07, 7.85E-03, 12.2, 370.8]  # Err: 7.510E-10
-    xmin['pas'] = [1.0E-8, 1.0E-07, 5., 25.]
-    xmax['pas'] = [2.0E-4, 2.0E-02, 400., 500.]
+    # x0['pas'] = [2.25E-09, 9.25E-09, 2.82E+01, 3.00E+02]  # Err: 7.261E+01
+    x0['pas'] = [5.06E-08, 9.32E-05, 1.73E+02, 1.00E+02]  # Err: 1.260E+02
+    xmin['pas'] = [1.0E-18, 1.0E-12, 25., 100.]
+    xmax['pas'] = [1.0E-6, 1.0E-2, 400., 400.]
 else:
-    # x0['pas'] = [1.50E-06, 3.33E-04, 1.50E+02, 1.04E+02]
-    # x0['pas'] = [1.66E-06, 3.83E-04, 1.71E+02, 1.69E+02]
-    x0['pas'] = [2.80E-08, 5.25E-03, 9.46E+00, 3.58E+02]  # Err: 1.004E-07
-    xmin['pas'] = [1.0E-9, 1.0E-07, 5., 25.]
-    xmax['pas'] = [2.0E-4, 2.0E-02, 400., 500.]
-"""
+    # x0['pas'] = [2.00E-08, 9.03E-08, 3.63E+01, 3.00E+02]  # Err: 8.017E+01
+    x0['pas'] = [1.00E-16, 2.35E-04, 3.71E+02, 1.00E+02]  # Err: 1.112E+02
+    xmin['pas'] = [1.0E-18, 1.0E-12, 25., 100.]
+    xmax['pas'] = [1.0E-6, 1.0E-2, 400., 400.]
+
 
 # [soma.gkabar, soma.gkdrbar, axon.gkabar_kap factor, axon.gbar_nax factor]
 x0['na_ka_stability'] = [0.0305, 0.0478, 2.97, 2.34]  # Error: 4.2416E+02
@@ -306,17 +293,14 @@ v = c.load_balanced_view()
 """
 result = optimize.basinhopping(pas_error, x0['pas'], niter=explore_niter, niter_success=400,
                                disp=True, interval=40, minimizer_kwargs=minimizer_kwargs, take_step=take_step)
-print result
-
 
 polished_result = optimize.minimize(pas_error, result.x, method='Nelder-Mead', options={'ftol': 1e-5,
                                                     'disp': True, 'maxiter': polish_niter})
-print polished_result
+
 """
-
-
 polished_result = optimize.minimize(pas_error, x0['pas'], method='Nelder-Mead', options={'ftol': 1e-5, 'disp': True,
                                                                                          'maxiter': polish_niter})
+
 print polished_result
 
 hist.report_best()

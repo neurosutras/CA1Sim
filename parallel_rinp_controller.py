@@ -20,7 +20,7 @@ else:
 if len(sys.argv) > 2:
     mech_filename = str(sys.argv[2])
 else:
-    mech_filename = '110316 DG_GC pas spines'
+    mech_filename = '121516 DG_GC pas spines'
 if len(sys.argv) > 3:
     description = str(sys.argv[3])
     new_rec_filename = datetime.datetime.today().strftime('%m%d%Y%H%M') + '_Rinp_' + description
@@ -45,13 +45,16 @@ num_secs = len(parallel_rinp_engine.nodes)
 
 result = v.map_async(parallel_rinp_engine.test_single_section, range(num_secs))
 #result = v.map_async(parallel_rinp_engine.test_single_section, range(40))
+last = ''
 while not result.ready():
-    time.sleep(30)
+    time.sleep(5.)
     clear_output()
     for stdout in [stdout for stdout in result.stdout if stdout][-len(c):]:
         lines = stdout.split('\n')
         if lines[-2]:
-            print lines[-2]
+            if lines[-2] != last:
+                last = lines[-2]
+                print lines[-2]
     sys.stdout.flush()
 print 'Parallel execution took: ', time.time()-start_time, ' s'
 rec_file_list = [filename for filename in dv['rec_filename'] if os.path.isfile(data_dir+filename+'.hdf5')]
