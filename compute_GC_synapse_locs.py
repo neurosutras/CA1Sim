@@ -4,14 +4,18 @@ from neurotrees.io import read_trees
 from neurotrees.io import write_tree_attributes
 import mkl
 import sys
+import os
 
 mkl.set_num_threads(1)
 
 comm = MPI.COMM_WORLD
 rank = comm.rank  # The process ID (integer 0-3 for 4-process run)
 
-forest_file = '122016_DGC_forest_test_copy.h5'
-morph_dict = read_trees(MPI._addressof(comm), morph_dir+forest_file, 'GC')
+# neurotrees_dir = morph_dir
+# forest_file = '122016_DGC_forest_test_copy.h5'
+neurotrees_dir = os.environ['PI_SCRATCH']+'/DGC_forest/hdf5/'
+forest_file = 'DGC_forest.h5'
+morph_dict = read_trees(MPI._addressof(comm), neurotrees_dir+forest_file, 'GC')
 
 GID = morph_dict.keys()
 
