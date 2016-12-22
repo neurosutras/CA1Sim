@@ -155,6 +155,7 @@ class AxonProb(object):
         target_gid_index = np.searchsorted(soma_coords[target]['GID'], target_gid)
         target_u_index = np.where(u == soma_coords[target]['u'][target_gid_index])[0][0]
         target_v_index = np.where(v == soma_coords[target]['v'][target_gid_index])[0][0]
+
         source_u_indexes = np.searchsorted(u, soma_coords['MEC']['u'])
         source_v_indexes = np.searchsorted(u, soma_coords['MEC']['v'])
         distance_u, distance_v = self.get_approximate_arc_distances(target_u_index, target_v_index, source_u_indexes,

@@ -25,7 +25,7 @@ synapse_dict = {}
 mismatched_section_dict = {}
 
 start_time = time.time()
-for gid in GID:
+for gid in GID[:1]:
     print 'Rank: %d, gid: %i' % (rank, gid)
     cell = DG_GC(neurotree_dict=morph_dict[gid], gid=gid, full_spines=True)
     this_mismatched_sections = cell.get_mismatched_neurotree_sections()
@@ -34,7 +34,7 @@ for gid in GID:
     synapse_dict[gid] = cell.export_neurotree_synapse_attributes()
     sys.stdout.flush()
 
-write_tree_attributes(MPI._addressof(comm), morph_dir+forest_file, 'GC', synapse_dict)
+write_tree_attributes(MPI._addressof(comm), neurotrees_dir+forest_file, 'GC', synapse_dict)
 
 mismatched_section_dict_fragments = comm.gather(mismatched_section_dict, root=0)
 if rank == 0:
