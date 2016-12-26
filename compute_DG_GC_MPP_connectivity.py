@@ -19,6 +19,9 @@ Algorithm:
     ii. Write to a neurotree file a the source_gids and synapse_indexes for all the connections that have been
         specified in this step. Iterating through connection types will keep appending to this edge data structure.
 
+f['Populations']['GC']['Attributes']['layer']['ptr'][:]
+Out[18]: array([   0, 6968], dtype=uint64)
+[u'gid', u'ptr', u'value']
 """
 
 comm = MPI.COMM_WORLD

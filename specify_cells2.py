@@ -427,7 +427,8 @@ class HocCell(object):
         section = []
         layer = []
         syn_type = []
-        for sec_type in self._node_dict:
+        for sec_type in [sec_type for sec_type in ['soma', 'axon', 'basal', 'trunk', 'apical', 'tuft'] if
+                         sec_type in self._node_dict]:
             for i, node in enumerate(self._node_dict[sec_type]):
                 for this_syn_type in node.synapse_locs:
                     if node.synapse_locs[this_syn_type]:
