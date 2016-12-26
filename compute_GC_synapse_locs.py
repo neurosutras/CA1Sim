@@ -9,7 +9,7 @@ import os
 mkl.set_num_threads(1)
 
 comm = MPI.COMM_WORLD
-rank = comm.rank  # The process ID (integer 0-3 for 4-process run)
+rank = comm.rank
 
 if rank == 0:
     print '%i ranks have been allocated' % comm.size
@@ -54,15 +54,9 @@ while start_index < len(GID):
     start_index += block_size
     end_index += block_size
 
-# comm.barrier()
 len_mismatched_section_dict_fragments = comm.gather(len(mismatched_section_dict), root=0)
 len_GID_fragments = comm.gather(len(GID), root=0)
 if rank == 0:
-    # mismatched_section_dict = {key: value for piece in mismatched_section_dict_fragments for
-    #                           key, value in piece.items()}
     print '%i ranks took %i s to compute synapse locations for %i morphologies' % (comm.size,
                                                                                    time.time() - start_time, np.sum(len_GID_fragments))
     print '%i morphologies have mismatched section indexes' % np.sum(len_mismatched_section_dict_fragments)
-
-# append_tree_attributes(MPI._addressof(comm), neurotrees_dir+forest_file, 'GC', synapse_dict)
-# print 'Wrote synapse locations to %s' % forest_file
