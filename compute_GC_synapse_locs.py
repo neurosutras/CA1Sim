@@ -5,6 +5,7 @@ from neurotrees.io import append_tree_attributes
 import mkl
 import sys
 import os
+import gc
         
 mkl.set_num_threads(1)
 
@@ -44,6 +45,7 @@ count = 0
 
 #while start_index < len(GID):
 while start_index < final_index:
+    synapse_dict = {}
     for gid in GID[start_index:end_index]:
         print 'Rank: %d, gid: %i' % (rank, gid)
         cell = DG_GC(neurotree_dict=morph_dict[gid], gid=gid, full_spines=False)
@@ -52,22 +54,23 @@ while start_index < final_index:
             mismatched_section_dict[gid] = this_mismatched_sections
         synapse_dict[gid] = cell.export_neurotree_synapse_attributes()
         del cell
+        gc.collect()
         sys.stdout.flush()
         count += 1
     append_tree_attributes(MPI._addressof(comm), neurotrees_dir+forest_file, 'GC', synapse_dict,
-                           cache_size=12*1024*1024)
+                           namespace='Synapse_Attributes')
     if end_index >= len(GID):
         last_index = len(GID)-1
     else:
         last_index = end_index-1
     print 'MPI rank %d wrote to file synapse locations for GCs: [%i:%i]' % (rank, GID[start_index], GID[last_index])
     del synapse_dict
-    synapse_dict = {}
+    gc.collect()
     start_index += block_size
     end_index += block_size
 
 len_mismatched_section_dict_fragments = comm.gather(len(mismatched_section_dict), root=0)
-len_GID_fragments = comm.gather(len(GID), root=0)
+# len_GID_fragments = comm.gather(len(GID), root=0)
 count_fragments = comm.gather(count, root=0)
 if rank == 0:
     print '%i ranks took %i s to compute synapse locations for %i morphologies' % (comm.size,

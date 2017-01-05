@@ -451,7 +451,8 @@ class HocCell(object):
         return {'syn_locs': np.array(syn_locs, dtype='float32'),
                 'section': np.array(section, dtype='uint32'),
                 'layer': np.array(layer, dtype='uint32'),
-                'syn_type': np.array(syn_type, dtype='uint32')}
+                'syn_type': np.array(syn_type, dtype='uint32'),
+                'syn_id': np.arange(0, len(syn_locs), 1, dtype='uint32')}
 
     def get_nodes_of_subtype(self, sec_type):
         """

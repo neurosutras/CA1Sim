@@ -6,6 +6,7 @@ from neurotrees.io import read_tree_attributes
 import mkl
 import sys
 import os
+import gc
 
 """
 Determine MPP-DG_GC synaptic connectivity based on target convergences, divergences, and axonal distances.
@@ -43,7 +44,8 @@ forest_file = 'DGC_forest_test2.h5'
 coords_dir = os.environ['PI_SCRATCH']+'/DG/'
 
 # synapse_dict = read_from_pkl(neurotrees_dir+'010117_GC_test_synapse_attrs.pkl')
-synapse_dict = read_tree_attributes(MPI._addressof(comm), neurotrees_dir+forest_file, 'GC')
+synapse_dict = read_tree_attributes(MPI._addressof(comm), neurotrees_dir+forest_file, 'GC',
+                                    namespace='Synapse_Attributes')
 
 # coords_dir = data_dir
 coords_dir = os.environ['PI_SCRATCH']+'/DG/'
@@ -371,7 +373,7 @@ start_time = time.time()
 connection_dict = {}
 target = 'GC'
 
-# block_size = 40
+# block_size = int(7000/comm.size)
 block_size = 1
 if 'SYN_START_INDEX' in os.environ:
     start_index = int(os.environ['SYN_START_INDEX'])
@@ -382,27 +384,28 @@ end_index = start_index+block_size
 count = 0
 while start_index < block_size:
 #while start_index < len(target_GID):
+    connection_dict = {}
     for target_gid in target_GID[start_index:end_index]:
         this_synapse_dict = synapse_dict[target_gid]
-        if 'synapse_id' not in this_synapse_dict:
-            this_synapse_dict['synapse_id'] = np.array(range(len(this_synapse_dict['syn_locs'])))
+        if 'syn_id' not in this_synapse_dict:
+            this_synapse_dict['syn_id'] = np.array(range(len(this_synapse_dict['syn_locs'])))
         connection_dict[target_gid] = {}
-        connection_dict[target_gid]['synapse_id'] = np.array([], dtype='int32')
+        connection_dict[target_gid]['syn_id'] = np.array([], dtype='int32')
         connection_dict[target_gid]['source_gid'] = np.array([], dtype='int32')
         for source in convergence[target]:
             target_layers = layers[target][source]
             target_syn_type = syn_types[target][source]
             target_indexes = np.where((np.in1d(this_synapse_dict['layer'], target_layers)) &
                                       (this_synapse_dict['syn_type'] == target_syn_type))[0]
-            connection_dict[target_gid]['synapse_id'] = np.append(connection_dict[target_gid]['synapse_id'],
-                                                                  this_synapse_dict['synapse_id'][target_indexes])
+            connection_dict[target_gid]['syn_id'] = np.append(connection_dict[target_gid]['syn_id'],
+                                                                  this_synapse_dict['syn_id'][target_indexes])
             these_source_gids = p_connect.choose_sources(target, source, target_gid, len(target_indexes), soma_coords,
                                                          axon_width, u, v, distance_U, distance_V, local_np_random)
             connection_dict[target_gid]['source_gid'] = np.append(connection_dict[target_gid]['source_gid'],
                                                                   these_source_gids)
         count += 1
     append_tree_attributes(MPI._addressof(comm), neurotrees_dir + forest_file, 'GC', connection_dict,
-                           cache_size=12 * 1024 * 1024)
+                           namespace='Connectivity')
     if end_index >= len(target_GID):
         last_index = len(target_GID) - 1
     else:
@@ -411,7 +414,7 @@ while start_index < block_size:
                                                                                          count)
     sys.stdout.flush()
     del connection_dict
-    connection_dict = {}
+    gc.collect()
     start_index += block_size
     end_index += block_size
 
