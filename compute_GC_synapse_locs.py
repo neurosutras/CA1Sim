@@ -5,7 +5,7 @@ from neurotrees.io import append_tree_attributes
 import mkl
 import sys
 import os
-
+        
 mkl.set_num_threads(1)
 
 comm = MPI.COMM_WORLD
@@ -30,10 +30,17 @@ synapse_dict = {}
 mismatched_section_dict = {}
 
 start_time = time.time()
-block_size = 100
-start_index = 0
-end_index = block_size
-while start_index < len(GID):
+block_size = 40
+if 'SYN_START_INDEX' in os.environ:
+    start_index = int(os.environ['SYN_START_INDEX'])
+else:
+    start_index = 0
+end_index = start_index+block_size
+final_index = start_index+600
+if final_index >= len(GID):
+    final_index = len(GID)
+#while start_index < len(GID):
+while start_index < final_index:
     for gid in GID[start_index:end_index]:
         print 'Rank: %d, gid: %i' % (rank, gid)
         cell = DG_GC(neurotree_dict=morph_dict[gid], gid=gid, full_spines=False)
@@ -43,7 +50,8 @@ while start_index < len(GID):
         synapse_dict[gid] = cell.export_neurotree_synapse_attributes()
         del cell
         sys.stdout.flush()
-    append_tree_attributes(MPI._addressof(comm), neurotrees_dir+forest_file, 'GC', synapse_dict)
+    append_tree_attributes(MPI._addressof(comm), neurotrees_dir+forest_file, 'GC', synapse_dict,
+                           cache_size=12*1024*1024)
     if end_index >= len(GID):
         last_index = len(GID)-1
     else:
