@@ -6,7 +6,7 @@ import mkl
 import sys
 import os
 
-mkl.set_num_threads(1)
+mkl.set_num_threads(2)
 
 comm = MPI.COMM_WORLD
 rank = comm.rank
@@ -14,10 +14,10 @@ rank = comm.rank
 if rank == 0:
     print '%i ranks have been allocated' % comm.size
 
-# neurotrees_dir = morph_dir
-# forest_file = '122016_DGC_forest_test_copy.h5'
-neurotrees_dir = os.environ['PI_SCRATCH']+'/DGC_forest/hdf5/'
-forest_file = 'DGC_forest.h5'
+neurotrees_dir = morph_dir
+forest_file = '122016_DGC_forest_with_syn_locs.h5'
+# neurotrees_dir = os.environ['PI_SCRATCH']+'/DGC_forest/hdf5/'
+# forest_file = 'DGC_forest.h5'
 # forest_file = 'DGC_forest_test.h5'
 morph_dict = read_trees(MPI._addressof(comm), neurotrees_dir+forest_file, 'GC')
 
@@ -31,9 +31,14 @@ mismatched_section_dict = {}
 
 start_time = time.time()
 block_size = 100
+# block_size = 25
 start_index = 0
 end_index = block_size
+
+count = 0
+
 while start_index < len(GID):
+# while start_index < block_size:
     for gid in GID[start_index:end_index]:
         print 'Rank: %d, gid: %i' % (rank, gid)
         cell = DG_GC(neurotree_dict=morph_dict[gid], gid=gid, full_spines=False)
@@ -43,6 +48,7 @@ while start_index < len(GID):
         synapse_dict[gid] = cell.export_neurotree_synapse_attributes()
         del cell
         sys.stdout.flush()
+        count += 1
     append_tree_attributes(MPI._addressof(comm), neurotrees_dir+forest_file, 'GC', synapse_dict)
     if end_index >= len(GID):
         last_index = len(GID)-1
@@ -56,7 +62,8 @@ while start_index < len(GID):
 
 len_mismatched_section_dict_fragments = comm.gather(len(mismatched_section_dict), root=0)
 len_GID_fragments = comm.gather(len(GID), root=0)
+count_fragments = comm.gather(count, root=0)
 if rank == 0:
-    print '%i ranks took %i s to compute synapse locations for %i morphologies' % (comm.size,
-                                                                                   time.time() - start_time, np.sum(len_GID_fragments))
+    print '%i ranks took %i s to compute synapse locations for %i morphologies' % (comm.size, time.time() - start_time,
+                                                                                   np.sum(count_fragments))
     print '%i morphologies have mismatched section indexes' % np.sum(len_mismatched_section_dict_fragments)
