@@ -1,8 +1,11 @@
 from function_lib import *
 from mpi4py import MPI
-from neurotrees.io import read_trees
+# from neurotrees.io import read_trees
 from neurotrees.io import append_tree_attributes
+from neurotrees.io import read_tree_attributes
 import mkl
+import sys
+import os
 
 """
 Determine MPP-DG_GC synaptic connectivity based on target convergences, divergences, and axonal distances.
@@ -33,12 +36,23 @@ rank = comm.rank  # The process ID (integer 0-3 for 4-process run)
 if rank == 0:
     print '%i ranks have been allocated' % comm.size
 
-neurotrees_dir = morph_dir
-forest_file = '122016_DGC_forest_with_syn_locs.h5'
-# synapse_dict = read_synapses(MPI._addressof(comm), neurotrees_dir+forest_file, 'GC')
-synapse_dict = read_from_pkl(neurotrees_dir+'010117_GC_test_synapse_attrs.pkl')
+#neurotrees_dir = morph_dir
+neurotrees_dir = os.environ['PI_SCRATCH']+'/DGC_forest/hdf5/'
+# forest_file = '122016_DGC_forest_with_syn_locs.h5'
+forest_file = 'DGC_forest_test2.h5'
+coords_dir = os.environ['PI_SCRATCH']+'/DG/'
+
+# synapse_dict = read_from_pkl(neurotrees_dir+'010117_GC_test_synapse_attrs.pkl')
+synapse_dict = read_tree_attributes(MPI._addressof(comm), neurotrees_dir+forest_file, 'GC')
+
+# coords_dir = data_dir
+coords_dir = os.environ['PI_SCRATCH']+'/DG/'
 coords_file = 'dentate_Full_Scale_Control_coords_PP.h5'
 
+target_GID = synapse_dict.keys()
+target_GID.sort()
+
+"""
 target_GID_all = synapse_dict.keys()
 target_GID_all.sort()
 target_GID = []
@@ -51,11 +65,12 @@ for i in range(comm.size):
         target_GID.append(target_GID_all[start:start+block_size])
     start += block_size
 target_GID = comm.scatter(target_GID, root=0)
+"""
 
 print 'MPI rank %i received %i GCs: [%i:%i]' % (rank, len(target_GID), target_GID[0], target_GID[-1])
 
 soma_coords = {}
-with h5py.File(data_dir+coords_file, 'r') as f:
+with h5py.File(coords_dir+coords_file, 'r') as f:
     for import_pop_key, local_pop_key in zip (['Granule Cells', 'MEC Cells'], ['GC', 'MEC']):
         soma_coords[local_pop_key] = {'u': f['Coordinates'][import_pop_key]['U Coordinate'][:],
                                       'v': f['Coordinates'][import_pop_key]['V Coordinate'][:],
@@ -345,7 +360,7 @@ def plot_population_density(population, soma_coords, u, v, U, V, distance_U, dis
     plt.show()
     plt.close()
 
-"""
+
 p_connect = AxonProb(divergence, convergence, axon_width, pop_density)
 
 local_np_random = np.random.RandomState()
@@ -355,36 +370,59 @@ start_time = time.time()
 
 connection_dict = {}
 target = 'GC'
+
+# block_size = 40
+block_size = 1
+if 'SYN_START_INDEX' in os.environ:
+    start_index = int(os.environ['SYN_START_INDEX'])
+else:
+    start_index = 0
+end_index = start_index+block_size
+
 count = 0
-for target_gid in target_GID:
-    this_synapse_dict = synapse_dict[target_gid]
-    if 'synapse_id' not in this_synapse_dict:
-        this_synapse_dict['synapse_id'] = np.array(range(len(this_synapse_dict['syn_locs'])))
-    connection_dict[target_gid] = {}
-    connection_dict[target_gid]['synapse_id'] = np.array([], dtype='int32')
-    connection_dict[target_gid]['source_gid'] = np.array([], dtype='int32')
-    for source in convergence[target]:
-        target_layers = layers[target][source]
-        target_syn_type = syn_types[target][source]
-        target_indexes = np.where((np.in1d(this_synapse_dict['layer'], target_layers)) &
-                                  (this_synapse_dict['syn_type'] == target_syn_type))[0]
-        connection_dict[target_gid]['synapse_id'] = np.append(connection_dict[target_gid]['synapse_id'],
-                                                              this_synapse_dict['synapse_id'][target_indexes])
-        these_source_gids = p_connect.choose_sources(target, source, target_gid, len(target_indexes), soma_coords,
-                                                     axon_width, u, v, distance_U, distance_V, local_np_random)
-        connection_dict[target_gid]['source_gid'] = np.append(connection_dict[target_gid]['source_gid'],
-                                                              these_source_gids)
-    count += 1
-    if count % 100 == 0:
-        print 'MPI rank %i completed cell gid: %i (count: %i)' % (rank, target_gid, count)
+while start_index < block_size:
+#while start_index < len(target_GID):
+    for target_gid in target_GID[start_index:end_index]:
+        this_synapse_dict = synapse_dict[target_gid]
+        if 'synapse_id' not in this_synapse_dict:
+            this_synapse_dict['synapse_id'] = np.array(range(len(this_synapse_dict['syn_locs'])))
+        connection_dict[target_gid] = {}
+        connection_dict[target_gid]['synapse_id'] = np.array([], dtype='int32')
+        connection_dict[target_gid]['source_gid'] = np.array([], dtype='int32')
+        for source in convergence[target]:
+            target_layers = layers[target][source]
+            target_syn_type = syn_types[target][source]
+            target_indexes = np.where((np.in1d(this_synapse_dict['layer'], target_layers)) &
+                                      (this_synapse_dict['syn_type'] == target_syn_type))[0]
+            connection_dict[target_gid]['synapse_id'] = np.append(connection_dict[target_gid]['synapse_id'],
+                                                                  this_synapse_dict['synapse_id'][target_indexes])
+            these_source_gids = p_connect.choose_sources(target, source, target_gid, len(target_indexes), soma_coords,
+                                                         axon_width, u, v, distance_U, distance_V, local_np_random)
+            connection_dict[target_gid]['source_gid'] = np.append(connection_dict[target_gid]['source_gid'],
+                                                                  these_source_gids)
+        count += 1
+    append_tree_attributes(MPI._addressof(comm), neurotrees_dir + forest_file, 'GC', connection_dict,
+                           cache_size=12 * 1024 * 1024)
+    if end_index >= len(target_GID):
+        last_index = len(target_GID) - 1
+    else:
+        last_index = end_index - 1
+    print 'MPI rank %i completed computing connectivity for cell gid: %i (count: %i)' % (rank, target_GID[last_index],
+                                                                                         count)
+    sys.stdout.flush()
+    del connection_dict
+    connection_dict = {}
+    start_index += block_size
+    end_index += block_size
+
 
 count_fragments = comm.gather(count, root=0)
-connection_dict_fragments = comm.gather(connection_dict, root=0)
+# connection_dict_fragments = comm.gather(connection_dict, root=0)
 if rank == 0:
     print '%i ranks took took %.2f s to compute connectivity for %i cells' % (comm.size, time.time() - start_time,
                                                                               np.sum(count_fragments))
-    connection_dict = {key: value for piece in connection_dict_fragments for key, value in piece.items()}
-    write_to_pkl(neurotrees_dir+'010117_DG_GC_MEC_connectivity_test.pkl', connection_dict)
+    # connection_dict = {key: value for piece in connection_dict_fragments for key, value in piece.items()}
+    # write_to_pkl(neurotrees_dir+'010117_DG_GC_MEC_connectivity_test.pkl', connection_dict)
 
 """
 from plot_results import *
@@ -398,7 +436,7 @@ plot_source_soma_locs(target_gid, 'GC', 'MEC', connection_dict, soma_coords, u, 
 # plot_population_density('MEC', soma_coords, u, v, U, V, distance_U, distance_V)
 
 
-"""
+
 start_time = time.time()
 syn_in_degree = {target: {source: {i: 0 for i in range(len(pop_locs_X[target]))}
                           for source in convergence[target]} for target in convergence}

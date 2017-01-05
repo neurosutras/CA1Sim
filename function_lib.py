@@ -13,7 +13,7 @@ import scipy.optimize as optimize
 import scipy.signal as signal
 import random
 import pprint
-from neuron import h  # must be found in system $PYTHONPATH
+# from neuron import h  # must be found in system $PYTHONPATH
 
 
 #---------------------------------------Some global variables and functions------------------------------

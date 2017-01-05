@@ -39,6 +39,9 @@ end_index = start_index+block_size
 final_index = start_index+600
 if final_index >= len(GID):
     final_index = len(GID)
+
+count = 0
+
 #while start_index < len(GID):
 while start_index < final_index:
     for gid in GID[start_index:end_index]:
@@ -50,6 +53,7 @@ while start_index < final_index:
         synapse_dict[gid] = cell.export_neurotree_synapse_attributes()
         del cell
         sys.stdout.flush()
+        count += 1
     append_tree_attributes(MPI._addressof(comm), neurotrees_dir+forest_file, 'GC', synapse_dict,
                            cache_size=12*1024*1024)
     if end_index >= len(GID):
@@ -64,7 +68,9 @@ while start_index < final_index:
 
 len_mismatched_section_dict_fragments = comm.gather(len(mismatched_section_dict), root=0)
 len_GID_fragments = comm.gather(len(GID), root=0)
+count_fragments = comm.gather(count, root=0)
 if rank == 0:
     print '%i ranks took %i s to compute synapse locations for %i morphologies' % (comm.size,
-                                                                                   time.time() - start_time, np.sum(len_GID_fragments))
+                                                                                   time.time() - start_time,
+                                                                                   np.sum(count_fragments))
     print '%i morphologies have mismatched section indexes' % np.sum(len_mismatched_section_dict_fragments)
