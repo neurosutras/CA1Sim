@@ -7,7 +7,7 @@ import sys
 import os
 import gc
         
-mkl.set_num_threads(1)
+mkl.set_num_threads(2)
 
 comm = MPI.COMM_WORLD
 rank = comm.rank
@@ -31,13 +31,13 @@ synapse_dict = {}
 mismatched_section_dict = {}
 
 start_time = time.time()
-block_size = 40
+block_size = int(6000/comm.size)
 if 'SYN_START_INDEX' in os.environ:
     start_index = int(os.environ['SYN_START_INDEX'])
 else:
     start_index = 0
 end_index = start_index+block_size
-final_index = start_index+600
+final_index = start_index+1200
 if final_index >= len(GID):
     final_index = len(GID)
 
