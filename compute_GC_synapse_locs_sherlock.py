@@ -29,7 +29,7 @@ morph_dict = read_trees(MPI._addressof(comm), neurotrees_dir+forest_file, 'GC')
 
 GID = morph_dict.keys()
 GID.sort()
-# GID = GID[:int(1000/comm.size)]
+GID = GID[:5]
 
 if rank == 0:
     print 'Rank %d: Neurotrees read took %.2f s' % (rank, time.time() - start_time)
@@ -87,8 +87,9 @@ while start_index < len(GID):
                     dataset_size = len(synapse_dict[gid][group])
                 else:
                     dataset_size = 0
+                dataset_type = synapse_dict.itervalues().next()[group].dtype
                 dataset_size = max(comm.allgather(dataset_size))
-                f[str(gid)].create_dataset(group, (dataset_size,))
+                f[str(gid)].create_dataset(group, (dataset_size,), dtype=dataset_type)
                 if this_rank:
                     f[str(gid)][group][0:] = synapse_dict[gid][group]
     if end_index >= len(GID):
