@@ -93,8 +93,8 @@ v_init = -67.
 
 #cell = CA1_Pyr(morph_filename, mech_filename, full_spines=True)
 cell = DG_GC(neurotree_dict=neurotree_dict[0], mech_filename=mech_filename, full_spines=spines)
-if not spines:
-    cell.correct_for_spines()
+# if not spines:
+#    cell.correct_for_spines()
 cell.zero_na()
 
 nodes = cell.soma+cell.basal+cell.trunk+cell.apical+cell.tuft+cell.axon

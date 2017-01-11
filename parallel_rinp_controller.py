@@ -45,16 +45,18 @@ num_secs = len(parallel_rinp_engine.nodes)
 
 result = v.map_async(parallel_rinp_engine.test_single_section, range(num_secs))
 #result = v.map_async(parallel_rinp_engine.test_single_section, range(40))
-last = ''
+last = []
 while not result.ready():
-    time.sleep(5.)
+    time.sleep(0.1)
     clear_output()
-    for stdout in [stdout for stdout in result.stdout if stdout][-len(c):]:
+    for i, stdout in enumerate([stdout for stdout in result.stdout if stdout][-len(c):]):
         lines = stdout.split('\n')
         if lines[-2]:
-            if lines[-2] != last:
-                last = lines[-2]
+            if lines[-2] not in last:
                 print lines[-2]
+                last.append(lines[-2])
+    if len(last) > len(c):
+        last = last[-len(c):]
     sys.stdout.flush()
 print 'Parallel execution took: ', time.time()-start_time, ' s'
 rec_file_list = [filename for filename in dv['rec_filename'] if os.path.isfile(data_dir+filename+'.hdf5')]

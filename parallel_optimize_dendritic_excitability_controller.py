@@ -6,7 +6,6 @@ import math
 from ipyparallel import Client
 from IPython.display import clear_output
 from plot_results import *
-import matplotlib.pyplot as plt
 import scipy.optimize as optimize
 
 """
@@ -49,7 +48,7 @@ class History(object):
         self.xlabels = []
         self.x_values = []
         self.error_values = []
-        self.Rinp_values = {section: [] for section in ['soma', 'dend']}
+        self.Rinp_values = {}
 
     def report_best(self):
         """
@@ -70,7 +69,8 @@ class History(object):
         Save the history to .pkl
         :param hist_filename: str
         """
-        saved_history = {'xlabels': self.xlabels, 'x_values': self.x_values, 'error_values': self.error_values, 'Rinp_values': self.Rinp_values}
+        saved_history = {'xlabels': self.xlabels, 'x_values': self.x_values, 'error_values': self.error_values,
+                         'Rinp_values': self.Rinp_values}
         write_to_pkl(data_dir+hist_filename+'.pkl', saved_history)
 
     def import_from_pkl(self, hist_filename):
@@ -79,8 +79,8 @@ class History(object):
         :param hist_filename: str
         """
         previous_history = read_from_pkl(data_dir+hist_filename +'.pkl')
-        #self.xlabels = previous_history['xlabels']
-        self.xlabels = ['soma.g_pas', 'dend.g_pas slope']
+        self.xlabels = previous_history['xlabels']
+        #self.xlabels = ['soma.g_pas', 'dend.g_pas slope']
         self.x_values = previous_history['x_values']
         self.error_values = previous_history['error_values']
         self.Rinp_values = previous_history['Rinp_values']
@@ -141,20 +141,22 @@ def pas_error(x):
     dv['x'] = x
     hist.x_values.append(x)
 
-    sec_list = ['soma', 'dend']
+    sec_list = ['soma', 'dend', 'distal_dend']
     formatted_x = '[' + ', '.join(['%.2E' % xi for xi in x]) + ']'
     print 'Process %i using current x: %s: %s' % (os.getpid(), str(xlabels['pas']), formatted_x)
     result = v.map_async(parallel_optimize_dendritic_excitability_engine.get_Rinp_for_section, sec_list)
-    last = ''
+    last = []
     while not result.ready():
         time.sleep(0.1)
         clear_output()
-        for stdout in [stdout for stdout in result.stdout if stdout][-len(c):]:
+        for i, stdout in enumerate([stdout for stdout in result.stdout if stdout][-len(c):]):
             lines = stdout.split('\n')
             if lines[-2]:
-                if lines[-2] != last:
-                    last = lines[-2]
+                if lines[-2] not in last:
                     print lines[-2]
+                    last.append(lines[-2])
+        if len(last) > len(c):
+            last = last[-len(c):]
         sys.stdout.flush()
     result = result.get()
 
@@ -163,15 +165,22 @@ def pas_error(x):
     final_result = {}
     for dict in result:
         final_result.update(dict)
-    for section in final_result:
+    for section in target_val['pas']:
         Err += ((target_val['pas'][section] - final_result[section]) / target_range['pas'][section]) ** 2.
+        if section not in hist.Rinp_values:
+            hist.Rinp_values[section] = []
         hist.Rinp_values[section].append(final_result[section])
+    # add catch for decreasing terminal end input resistance too much
+    if final_result['distal_dend'] < final_result['dend']:
+        Err += ((final_result['dend'] - final_result['distal_dend']) / target_range['pas'][section]) ** 2.
     hist.error_values.append(Err)
 
     print('Simulation took %.3f s' % (time.time() - start_time))
-    print 'Process %i: %s: %s; soma R_inp: %.1f, dend R_inp: %.1f; Err: %.3E' % (os.getpid(), str(xlabels['pas']),
-                                                                                 formatted_x, final_result['soma'],
-                                                                                 final_result['dend'], Err)
+    print 'Process %i: %s: %s; soma R_inp: %.1f, dend R_inp: %.1f, distal_dend R_inp: %.1f; Err: %.3E' % (os.getpid(),
+                                                                                str(xlabels['pas']), formatted_x,
+                                                                                final_result['soma'],
+                                                                                final_result['dend'],
+                                                                                final_result['distal_dend'], Err)
     return Err
 
 
@@ -217,7 +226,7 @@ soma_ek = -77.
 target_val = {}
 target_range = {}
 target_val['pas'] = {'soma': 295., 'dend': 375.}
-target_range['pas'] = {'soma': 1., 'dend': 5.}
+target_range['pas'] = {'soma': 0.5, 'dend': 1.}
 target_val['v_rest'] = {'soma': v_init, 'tuft_offset': 0.}
 target_range['v_rest'] = {'soma': 0.25, 'tuft_offset': 0.1}
 target_val['na_ka'] = {'v_rest': v_init, 'th_v': -51., 'soma_peak': 40., 'trunk_amp': 0.6, 'ADP': 0., 'AHP': 4.,
@@ -242,18 +251,17 @@ else:
     c = Client()
 
 
-xlabels['pas'] = ['soma.g_pas', 'dend.g_pas slope', 'dend.g_pas tau', 'dend.gpas max_loc']
+# xlabels['pas'] = ['soma.g_pas', 'dend.g_pas slope', 'dend.g_pas tau', 'dend.gpas max_loc']
+xlabels['pas'] = ['soma.g_pas', 'dend.g_pas slope', 'dend.g_pas tau']
 
 if spines:
-    # x0['pas'] = [2.25E-09, 9.25E-09, 2.82E+01, 3.00E+02]  # Err: 7.261E+01
-    x0['pas'] = [5.06E-08, 9.32E-05, 1.73E+02, 1.00E+02]  # Err: 1.260E+02
-    xmin['pas'] = [1.0E-18, 1.0E-12, 25., 100.]
-    xmax['pas'] = [1.0E-6, 1.0E-2, 400., 400.]
+    x0['pas'] = [3.80E-08, 8.08E-07, 6.78E+01]  # Err: 2.527E-09
+    xmin['pas'] = [1.0E-18, 1.0E-12, 25.]
+    xmax['pas'] = [1.0E-7, 1.0E-4, 400.]
 else:
-    # x0['pas'] = [2.00E-08, 9.03E-08, 3.63E+01, 3.00E+02]  # Err: 8.017E+01
-    x0['pas'] = [1.00E-16, 2.35E-04, 3.71E+02, 1.00E+02]  # Err: 1.112E+02
-    xmin['pas'] = [1.0E-18, 1.0E-12, 25., 100.]
-    xmax['pas'] = [1.0E-6, 1.0E-2, 400., 400.]
+    x0['pas'] = [1.00E-16, 2.35E-04, 3.71E+02]  # Err: 1.112E+02
+    xmin['pas'] = [1.0E-18, 1.0E-12, 25.]
+    xmax['pas'] = [1.0E-6, 1.0E-4, 400.]
 
 
 # [soma.gkabar, soma.gkdrbar, axon.gkabar_kap factor, axon.gbar_nax factor]
@@ -277,7 +285,7 @@ xmax['v_rest'] = [-63., -63.]
 
 hist.xlabels = xlabels['pas']
 
-explore_niter = 1000  # max number of iterations to run
+explore_niter = 400  # max number of iterations to run
 polish_niter = 200
 take_step = Normalized_Step(x0['pas'], xmin['pas'], xmax['pas'])
 minimizer_kwargs = dict(method=null_minimizer)
@@ -290,9 +298,8 @@ dv.execute('run parallel_optimize_dendritic_excitability_engine %i' % int(spines
 # time.sleep(120)
 v = c.load_balanced_view()
 
-"""
-result = optimize.basinhopping(pas_error, x0['pas'], niter=explore_niter, niter_success=400,
-                               disp=True, interval=40, minimizer_kwargs=minimizer_kwargs, take_step=take_step)
+result = optimize.basinhopping(pas_error, x0['pas'], niter=explore_niter, niter_success=explore_niter,
+                               disp=True, interval=20, minimizer_kwargs=minimizer_kwargs, take_step=take_step)
 
 polished_result = optimize.minimize(pas_error, result.x, method='Nelder-Mead', options={'ftol': 1e-5,
                                                     'disp': True, 'maxiter': polish_niter})
@@ -302,5 +309,5 @@ polished_result = optimize.minimize(pas_error, x0['pas'], method='Nelder-Mead', 
                                                                                          'maxiter': polish_niter})
 
 print polished_result
-
+"""
 hist.report_best()

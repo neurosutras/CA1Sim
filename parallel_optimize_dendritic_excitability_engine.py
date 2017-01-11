@@ -101,7 +101,7 @@ def update_pas_linear(x):
 
 
 @interactive
-def update_pas_exp(x):
+def update_pas_exp_saturates(x):
     """
 
     x0 = [2.28e-05, 1.58e-06, 58.4]
@@ -120,6 +120,23 @@ def update_pas_exp(x):
         cell.correct_for_spines()
         # print('Updated: ')
         # print_gpas_cm_values()
+
+
+@interactive
+def update_pas_exp(x):
+    """
+
+    x0 = [2.28e-05, 1.58e-06, 58.4]
+    :param x: array [soma.g_pas, dend.g_pas slope, dend.g_pas tau]
+    """
+    if spines is False:
+        cell.reinit_mechanisms(reset_cable=True)
+    cell.modify_mech_param('soma', 'pas', 'g', x[0])
+    cell.modify_mech_param('apical', 'pas', 'g', origin='soma', slope=x[1], tau=x[2])
+    for sec_type in ['basal', 'axon_hill', 'axon', 'ais', 'trunk', 'apical', 'tuft', 'spine_neck', 'spine_head']:
+        cell.reinitialize_subset_mechanisms(sec_type, 'pas')
+    if spines is False:
+        cell.correct_for_spines()
 
 
 def print_gpas_cm_values():
@@ -214,25 +231,7 @@ candidate_branches = []
 candidate_diams = []
 candidate_locs = []
 for branch in cell.apical:
-    if ((cell.get_distance_to_node(cell.tree.root, branch, 0.) < 200.) &
-            (cell.get_distance_to_node(cell.tree.root, branch, 1.) > 200.)):
-        candidate_branches.append(branch)
-        for seg in branch.sec:
-            loc = seg.x
-            if cell.get_distance_to_node(cell.tree.root, branch, loc) > 200.:
-                candidate_diams.append(branch.sec(loc).diam)
-                candidate_locs.append(loc)
-                break
-index = candidate_diams.index(max(candidate_diams))
-dend = candidate_branches[index]
-dend_loc = candidate_locs[index]
-
-# get the thickest terminal branch > 300 um from the soma
-candidate_branches = []
-candidate_diams = []
-candidate_locs = []
-for branch in (branch for branch in cell.apical if cell.is_terminal(branch)):
-    if ((cell.get_distance_to_node(cell.tree.root, branch, 0.) < 300.) &
+    if ((cell.get_distance_to_node(cell.tree.root, branch, 0.) >= 250.) &
             (cell.get_distance_to_node(cell.tree.root, branch, 1.) > 300.)):
         candidate_branches.append(branch)
         for seg in branch.sec:
@@ -242,8 +241,19 @@ for branch in (branch for branch in cell.apical if cell.is_terminal(branch)):
                 candidate_locs.append(loc)
                 break
 index = candidate_diams.index(max(candidate_diams))
+dend = candidate_branches[index]
+dend_loc = candidate_locs[index]
+
+# get the thickest terminal branch > 300 um from the soma
+candidate_branches = []
+candidate_end_distances = []
+for branch in (branch for branch in cell.apical if cell.is_terminal(branch)):
+    if cell.get_distance_to_node(cell.tree.root, branch, 0.) >= 300.:
+        candidate_branches.append(branch)
+        candidate_end_distances.append(cell.get_distance_to_node(cell.tree.root, branch, 1.))
+index = candidate_end_distances.index(max(candidate_end_distances))
 distal_dend = candidate_branches[index]
-distal_dend_loc = candidate_locs[index]
+distal_dend_loc = 1.
 
 rec_locs = {'soma': 0., 'dend': dend_loc, 'distal_dend': distal_dend_loc}
 rec_nodes = {'soma': cell.tree.root, 'dend': dend, 'distal_dend': distal_dend}
