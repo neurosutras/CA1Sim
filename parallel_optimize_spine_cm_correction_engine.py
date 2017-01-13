@@ -13,15 +13,58 @@ neurotree_filename = '121516_DGC_trees.pkl'
 neurotree_dict = read_from_pkl(morph_dir+neurotree_filename)
 rec_filename = 'output'+datetime.datetime.today().strftime('%m%d%Y%H%M')+'-pid'+str(os.getpid())
 
-if len(sys.argv) > 1:
-    spines = bool(int(sys.argv[1]))
-else:
-    spines = False
+spines = False
 
-if len(sys.argv) > 2:
-    mech_filename = str(sys.argv[2])
+if len(sys.argv) > 1:
+    mech_filename = str(sys.argv[1])
 else:
     mech_filename = None
+
+
+@interactive
+def correct_for_spines_node(node, cm_correction_fraction):
+    """
+    If not explicitly modeling spine compartments for excitatory synapses, this method scales cm and g_pas in this
+    dendritic section proportional to the number of excitatory synapses contained in the section.
+    :param node: :class:'SHocNode'
+    :param cm_correction_fraction: float in [0., 1.]
+    """
+    SA_spine = math.pi * (1.58 * 0.077 + 0.5 * 0.5)
+    if 'excitatory' in node.synapse_locs:
+        these_synapse_locs = np.array(node.synapse_locs['excitatory'])
+        seg_width = 1. / node.sec.nseg
+        for i, segment in enumerate(node.sec):
+            node.sec.push()
+            SA_seg = h.area(segment.x)
+            h.pop_section()
+            num_spines = len(np.where((these_synapse_locs >= i * seg_width) &
+                                      (these_synapse_locs < (i + 1) * seg_width))[0])
+            cm_correction_factor = (SA_seg + cm_correction_fraction * num_spines * SA_spine) / SA_seg
+            soma_g_pas = node.sec.cell().mech_dict['soma']['pas']['g']['value']
+            gpas_correction_factor = (SA_seg * node.sec(segment.x).g_pas + num_spines * SA_spine * soma_g_pas) \
+                                     / (SA_seg * node.sec(segment.x).g_pas)
+            node.sec(segment.x).g_pas *= gpas_correction_factor
+            node.sec(segment.x).cm *= cm_correction_factor
+
+
+@interactive
+def correct_for_spines_cell(cm_correction_fraction):
+    """
+    If not explicitly modeling spine compartments for excitatory synapses, this method scales cm and g_pas in all
+    dendritic sections proportional to the number of excitatory synapses contained in each section.
+    :param cell: :class:'SHocCell'
+    :param cm_correction_fraction: float in [0., 1.]
+    """
+    cell.reinit_mechanisms(reset_cable=True)
+    for loop in range(2):
+        for sec_type in ['basal', 'trunk', 'apical', 'tuft']:
+            for node in cell.get_nodes_of_subtype(sec_type):
+                correct_for_spines_node(node, cm_correction_fraction)
+                if loop == 0:
+                    node.init_nseg()
+                    node.reinit_diam()
+        if loop == 0:
+            cell.reinit_mechanisms()
 
 
 @interactive
@@ -97,7 +140,7 @@ if not spines:
     cell.correct_for_spines()
 cell.zero_na()
 
-nodes = cell.soma+cell.basal+cell.trunk+cell.apical+cell.tuft+cell.axon
+nodes = cell.basal+cell.trunk+cell.apical+cell.tuft
 
 sim = QuickSim(duration, verbose=False)
 sim.append_rec(cell, cell.tree.root, 0.)

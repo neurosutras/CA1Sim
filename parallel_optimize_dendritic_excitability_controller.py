@@ -147,16 +147,15 @@ def pas_error(x):
     result = v.map_async(parallel_optimize_dendritic_excitability_engine.get_Rinp_for_section, sec_list)
     last = []
     while not result.ready():
-        time.sleep(0.1)
+        time.sleep(1.)
         clear_output()
-        for i, stdout in enumerate([stdout for stdout in result.stdout if stdout][-len(c):]):
-            lines = stdout.split('\n')
-            if lines[-2]:
-                if lines[-2] not in last:
-                    print lines[-2]
-                    last.append(lines[-2])
-        if len(last) > len(c):
-            last = last[-len(c):]
+        for i, stdout in enumerate([stdout for stdout in result.stdout if stdout][-len(sec_list):]):
+            line = stdout.splitlines()[-1]
+            if line not in last:
+                print line
+                last.append(line)
+        if len(last) > len(sec_list):
+            last = last[-len(sec_list):]
         sys.stdout.flush()
     result = result.get()
 
@@ -259,7 +258,7 @@ if spines:
     xmin['pas'] = [1.0E-18, 1.0E-12, 25.]
     xmax['pas'] = [1.0E-7, 1.0E-4, 400.]
 else:
-    x0['pas'] = [1.00E-16, 2.35E-04, 3.71E+02]  # Err: 1.112E+02
+    x0['pas'] = [4.94E-08, 3.74E-06, 9.67E+01]  # Err: 3.995E-11
     xmin['pas'] = [1.0E-18, 1.0E-12, 25.]
     xmax['pas'] = [1.0E-6, 1.0E-4, 400.]
 

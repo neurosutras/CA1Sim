@@ -1599,6 +1599,8 @@ class SHocNode(btmorph.btstructs2.SNode2):
         If not explicitly modeling spine compartments for excitatory synapses, this method scales cm and g_pas in this
         dendritic section proportional to the number of excitatory synapses contained in the section.
         """
+        cm_fraction = 0.40  # arrived at via optimization. spine neck appears to shield dendrite from spine head
+                            # contribution to membrane capacitance and time constant
         SA_spine = math.pi * (1.58 * 0.077 + 0.5 * 0.5)
         if 'excitatory' in self.synapse_locs:
             these_synapse_locs = np.array(self.synapse_locs['excitatory'])
@@ -1609,7 +1611,7 @@ class SHocNode(btmorph.btstructs2.SNode2):
                 h.pop_section()
                 num_spines = len(np.where((these_synapse_locs >= i * seg_width) &
                                           (these_synapse_locs < (i + 1) * seg_width))[0])
-                cm_correction_factor = (SA_seg + num_spines * SA_spine) / SA_seg
+                cm_correction_factor = (SA_seg + cm_fraction * num_spines * SA_spine) / SA_seg
                 soma_g_pas = self.sec.cell().mech_dict['soma']['pas']['g']['value']
                 gpas_correction_factor = (SA_seg * self.sec(segment.x).g_pas + num_spines * SA_spine * soma_g_pas) \
                                       / (SA_seg * self.sec(segment.x).g_pas)
