@@ -1,9 +1,8 @@
 from function_lib import *
 from mpi4py import MPI
-# from neurotrees.io import read_trees
 from neurotrees.io import append_tree_attributes
 from neurotrees.io import read_tree_attributes
-import mkl
+# import mkl
 import sys
 import os
 import gc
@@ -22,14 +21,12 @@ Algorithm:
     ii. Load from a neurotree file the synapses metadata, including layer, type, syn_loc, and unique indexes for each
         synapse.
     ii. Write to a neurotree file a the source_gids and synapse_indexes for all the connections that have been
-        specified in this step. Iterating through connection types will keep appending to this edge data structure.
+        specified in this step. Iterating through connection types will keep appending to this data structure.
+    TODO: Implement a parallel write method to the separate connection edge data structure, use that instead.
 
-f['Populations']['GC']['Attributes']['layer']['ptr'][:]
-Out[18]: array([   0, 6968], dtype=uint64)
-[u'gid', u'ptr', u'value']
 """
 
-mkl.set_num_threads(2)
+# mkl.set_num_threads(2)
 
 comm = MPI.COMM_WORLD
 rank = comm.rank  # The process ID (integer 0-3 for 4-process run)
@@ -37,37 +34,23 @@ rank = comm.rank  # The process ID (integer 0-3 for 4-process run)
 if rank == 0:
     print '%i ranks have been allocated' % comm.size
 
-#neurotrees_dir = morph_dir
-neurotrees_dir = os.environ['PI_SCRATCH']+'/DGC_forest/hdf5/'
+# neurotrees_dir = morph_dir
+# neurotrees_dir = os.environ['PI_SCRATCH']+'/DGC_forest/hdf5/'
+neurotrees_dir = os.environ['PI_HOME']+'/'
 # forest_file = '122016_DGC_forest_with_syn_locs.h5'
-forest_file = 'DGC_forest_test2.h5'
-coords_dir = os.environ['PI_SCRATCH']+'/DG/'
+forest_file = 'DGC_forest_syns_test.h5'
 
 # synapse_dict = read_from_pkl(neurotrees_dir+'010117_GC_test_synapse_attrs.pkl')
 synapse_dict = read_tree_attributes(MPI._addressof(comm), neurotrees_dir+forest_file, 'GC',
                                     namespace='Synapse_Attributes')
 
-# coords_dir = data_dir
-coords_dir = os.environ['PI_SCRATCH']+'/DG/'
+# coords_dir = morph_dir
+# coords_dir = os.environ['PI_SCRATCH']+'/DG/'
+coords_dir = os.environ['PI_HOME']+'/'
 coords_file = 'dentate_Full_Scale_Control_coords_PP.h5'
 
 target_GID = synapse_dict.keys()
 target_GID.sort()
-
-"""
-target_GID_all = synapse_dict.keys()
-target_GID_all.sort()
-target_GID = []
-start = 0
-block_size = int(len(target_GID_all)/comm.size)
-for i in range(comm.size):
-    if i == comm.size:
-        target_GID.append(target_GID_all[start:])
-    else:
-        target_GID.append(target_GID_all[start:start+block_size])
-    start += block_size
-target_GID = comm.scatter(target_GID, root=0)
-"""
 
 print 'MPI rank %i received %i GCs: [%i:%i]' % (rank, len(target_GID), target_GID[0], target_GID[-1])
 
@@ -374,7 +357,7 @@ connection_dict = {}
 target = 'GC'
 
 # block_size = int(7000/comm.size)
-block_size = 1
+block_size = 5
 if 'SYN_START_INDEX' in os.environ:
     start_index = int(os.environ['SYN_START_INDEX'])
 else:
@@ -382,30 +365,31 @@ else:
 end_index = start_index+block_size
 
 count = 0
-while start_index < block_size:
-#while start_index < len(target_GID):
+#while start_index < block_size:
+while start_index < len(target_GID):
     connection_dict = {}
     for target_gid in target_GID[start_index:end_index]:
         this_synapse_dict = synapse_dict[target_gid]
         if 'syn_id' not in this_synapse_dict:
             this_synapse_dict['syn_id'] = np.array(range(len(this_synapse_dict['syn_locs'])))
         connection_dict[target_gid] = {}
-        connection_dict[target_gid]['syn_id'] = np.array([], dtype='int32')
-        connection_dict[target_gid]['source_gid'] = np.array([], dtype='int32')
+        connection_dict[target_gid]['syn_id'] = np.array([], dtype='uint32')
+        connection_dict[target_gid]['source_gid'] = np.array([], dtype='uint32')
         for source in convergence[target]:
             target_layers = layers[target][source]
             target_syn_type = syn_types[target][source]
             target_indexes = np.where((np.in1d(this_synapse_dict['layer'], target_layers)) &
                                       (this_synapse_dict['syn_type'] == target_syn_type))[0]
-            connection_dict[target_gid]['syn_id'] = np.append(connection_dict[target_gid]['syn_id'],
-                                                                  this_synapse_dict['syn_id'][target_indexes])
+            connection_dict[target_gid]['syn_id'] = \
+                np.append(connection_dict[target_gid]['syn_id'],
+                          this_synapse_dict['syn_id'][target_indexes]).astype('uint32', copy=False)
             these_source_gids = p_connect.choose_sources(target, source, target_gid, len(target_indexes), soma_coords,
                                                          axon_width, u, v, distance_U, distance_V, local_np_random)
             connection_dict[target_gid]['source_gid'] = np.append(connection_dict[target_gid]['source_gid'],
-                                                                  these_source_gids)
+                                                                  these_source_gids).astype('uint32', copy=False)
         count += 1
     append_tree_attributes(MPI._addressof(comm), neurotrees_dir + forest_file, 'GC', connection_dict,
-                           namespace='Connectivity')
+                           namespace='Connectivity', value_chunk_size=48000)
     if end_index >= len(target_GID):
         last_index = len(target_GID) - 1
     else:
