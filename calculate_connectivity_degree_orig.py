@@ -5,8 +5,8 @@ from collections import Counter
 comm = MPI.COMM_WORLD
 rank = comm.rank
 
-# projections_dir = data_dir
-projections_dir = os.environ['PI_HOME']+'/'
+projections_dir = morph_dir
+# projections_dir = os.environ['PI_HOME']+'/'
 projections_file = '100716_dentate_MPPtoDGC.h5'
 degree_file = 'DGC_forest_connectivity_degrees_orig.h5'
 
@@ -18,25 +18,25 @@ def pulse_read_iterator(chunk_size, total_size):
     piece_size = int(np.ceil(float(chunk_size)/comm.size))
     global_start = 0
     global_end = min(total_size, chunk_size)
-    if rank == 0:
-        print 'total_size: %i' % total_size
+    # if rank == 0:
+    #    print 'total_size: %i' % total_size
     while global_start < total_size:
-        if rank == 0:
-            print 'global_start: %i' % global_start
+        #if rank == 0:
+        #    print 'global_start: %i' % global_start
         pieces_indexes = []
         pieces_sizes = []
         local_start = global_start
         if global_end > total_size:
             global_end = total_size
         while local_start < global_end:
-            if rank == 0:
-                print 'local_start: %i' % local_start
+            # if rank == 0:
+            #    print 'local_start: %i' % local_start
             pieces_indexes.append(local_start)
             this_piece_size = min(piece_size, global_end-local_start)
             pieces_sizes.append(this_piece_size)
             local_start += piece_size
         while len(pieces_indexes) < comm.size:
-            pieces_indexes.append(0)
+            pieces_indexes.append(global_end-1)
             pieces_sizes.append(0)
         if rank == 0:
             print 'Scattering chunk %i' % count
@@ -46,7 +46,7 @@ def pulse_read_iterator(chunk_size, total_size):
         yield pieces_indexes, pieces_sizes
 
 # chunk = pulse_read_iterator(100000000, len(f['Projections']['MPPtoGC']['Source']))
-chunk = pulse_read_iterator(1000000, len(f['Projections']['MPPtoGC']['Source']))
+chunk = pulse_read_iterator(1000000, int(len(f['Projections']['MPPtoGC']['Source'])/100))
 
 if rank == 0:
     in_degree = Counter()
@@ -55,23 +55,29 @@ else:
     in_degree, out_degree = None, None
 
 global_start_time = time.time()
-# for chunk_count, (pieces_indexes, pieces_sizes) in enumerate(chunk):
-for chunk_count, (pieces_indexes, pieces_sizes) in [enumerate(chunk).next()]:
+for chunk_count, (pieces_indexes, pieces_sizes) in enumerate(chunk):
+# for chunk_count, (pieces_indexes, pieces_sizes) in [enumerate(chunk).next()]:
     start_time = time.time()
     if rank == 0:
         print 'Chunk %i: Indexes: %s, Sizes: %s' % (chunk_count, str(pieces_indexes), str(pieces_sizes))
 
     this_piece_index = comm.scatter(pieces_indexes, root=0)
     this_piece_size = comm.scatter(pieces_sizes, root=0)
-
+    """
+    dset = f['Projections']['MPPtoGC']['Source']
+    with dset.collective:
+        sources = dset[this_piece_index:this_piece_index+this_piece_size]
+    dset = f['Projections']['MPPtoGC']['Destination']
+    with dset.collective:
+        destinations = dset[this_piece_index:this_piece_index+this_piece_size]
     if this_piece_size > 0:
-        dset = f['Projections']['MPPtoGC']['Source']
-        with dset.collective:
-            sources = dset[this_piece_index:this_piece_index+this_piece_size]
-        dset = f['Projections']['MPPtoGC']['Destination']
-        with dset.collective:
-            destinations = dset[this_piece_index:this_piece_index+this_piece_size]
-        print 'Rank %i recieved %i data points' % (rank, len(sources))
+        print 'Rank %i received %i data points' % (rank, len(sources))
+        print 'Index: %i, Destination: %i, Source: %i' % (this_piece_index, destinations[0], sources[0])
+    """
+    if this_piece_size > 0:
+        sources = f['Projections']['MPPtoGC']['Source'][this_piece_index:this_piece_index+this_piece_size]
+        destinations = f['Projections']['MPPtoGC']['Destination'][this_piece_index:this_piece_index + this_piece_size]
+        print 'Rank %i received %i data points' % (rank, len(sources))
         print 'Index: %i, Destination: %i, Source: %i' % (this_piece_index, destinations[0], sources[0])
     else:
         sources = np.array([], dtype='uint32')
@@ -97,6 +103,7 @@ for chunk_count, (pieces_indexes, pieces_sizes) in [enumerate(chunk).next()]:
         print 'Processed chunk %i in %i s (Elapsed time: %i s)' % (chunk_count, time.time() - start_time,
                                                                    time.time() - global_start_time)
 
+comm.barrier()
 f.close()
 
 if rank == 0:
