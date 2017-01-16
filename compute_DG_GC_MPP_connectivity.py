@@ -33,26 +33,28 @@ rank = comm.rank  # The process ID (integer 0-3 for 4-process run)
 
 if rank == 0:
     print '%i ranks have been allocated' % comm.size
+sys.stdout.flush()
 
-# neurotrees_dir = morph_dir
+neurotrees_dir = morph_dir
 # neurotrees_dir = os.environ['PI_SCRATCH']+'/DGC_forest/hdf5/'
-neurotrees_dir = os.environ['PI_HOME']+'/'
+# neurotrees_dir = os.environ['PI_HOME']+'/'
 # forest_file = '122016_DGC_forest_with_syn_locs.h5'
-forest_file = 'DGC_forest_syns_test.h5'
+forest_file = 'DGC_forest_connectivity_test.h5'
 
 # synapse_dict = read_from_pkl(neurotrees_dir+'010117_GC_test_synapse_attrs.pkl')
 synapse_dict = read_tree_attributes(MPI._addressof(comm), neurotrees_dir+forest_file, 'GC',
                                     namespace='Synapse_Attributes')
 
-# coords_dir = morph_dir
+coords_dir = morph_dir
 # coords_dir = os.environ['PI_SCRATCH']+'/DG/'
-coords_dir = os.environ['PI_HOME']+'/'
-coords_file = 'dentate_Full_Scale_Control_coords_PP.h5'
+# coords_dir = os.environ['PI_HOME']+'/'
+coords_file = 'DG_Soma_Coordinates.h5'
 
 target_GID = synapse_dict.keys()
 target_GID.sort()
 
 print 'MPI rank %i received %i GCs: [%i:%i]' % (rank, len(target_GID), target_GID[0], target_GID[-1])
+sys.stdout.flush()
 
 soma_coords = {}
 with h5py.File(coords_dir+coords_file, 'r') as f:
@@ -225,127 +227,6 @@ class AxonProb(object):
         return local_random.choice(source_gid, num_syns, p=source_p)
 
 
-def plot_source_soma_locs(target_gid, target, source, connection_dict, soma_coords, u, v, U, V, distance_U,
-                          distance_V, X, Y, Z):
-    """
-
-    :param target_gid: int
-    :param target: str
-    :param source: str
-    :param connection_dict: dict
-    :param soma_coords: dict
-    :param u: array
-    :param v: array
-    :param U: array
-    :param V: array
-    :param distance_U: array
-    :param distance_V: array
-    :param X: array
-    :param Y: array
-    :param Z: array
-    """
-    target_gid_index = np.where(soma_coords[target]['GID'] == target_gid)[0][0]
-    target_index_u = np.where(u >= soma_coords[target]['u'][target_gid_index])[0][0]
-    target_index_v = np.where(v >= soma_coords[target]['v'][target_gid_index])[0][0]
-    source_gids = connection_dict[target_gid]['source_gid']
-    source_indexes_gid = get_array_index(soma_coords[source]['GID'], source_gids)
-    source_indexes_u = get_array_index(u, soma_coords[source]['u'][source_indexes_gid])
-    source_indexes_v = get_array_index(v, soma_coords[source]['v'][source_indexes_gid])
-
-    fig1 = plt.figure(1)
-    ax = fig1.add_subplot(111, projection='3d')
-    ax.scatter(X[::100, ::50], Y[::100, ::50], Z[::100, ::50], c='grey', alpha=0.1, zorder=0)
-    ax.scatter(X[source_indexes_u, source_indexes_v], Y[source_indexes_u, source_indexes_v],
-               Z[source_indexes_u, source_indexes_v], c='b', zorder=1)
-    ax.scatter(X[target_index_u, target_index_v], Y[target_index_u, target_index_v],
-               Z[target_index_u, target_index_v], c='r', s=10, zorder=2)
-
-    fig2 = plt.figure(2)
-    H, u_edges, v_edges = np.histogram2d(soma_coords[source]['u'][source_indexes_gid],
-                                         soma_coords[source]['v'][source_indexes_gid], 100)
-    # H, u_edges, v_edges = np.histogram2d(u[source_indexes_u], v[source_indexes_v], 100)
-    H = np.rot90(H)
-    H = np.flipud(H)
-    Hmasked = np.ma.masked_where(H == 0, H)
-    plt.pcolormesh(u_edges, v_edges, Hmasked)
-    plt.xlabel('U')
-    plt.ylabel('V')
-    plt.title(source+':'+target)
-    cbar = plt.colorbar()
-    cbar.ax.set_ylabel('Counts')
-
-    fig3 = plt.figure(3)
-    H, u_edges, v_edges = np.histogram2d(distance_U[source_indexes_u, source_indexes_v],
-                                         distance_V[source_indexes_u, source_indexes_v], 100)
-    H = np.rot90(H)
-    H = np.flipud(H)
-    Hmasked = np.ma.masked_where(H == 0, H)
-    plt.pcolormesh(u_edges, v_edges, Hmasked)
-    plt.xlabel('Arc_distance U (um)')
-    plt.ylabel('Arc_distance V (um)')
-    plt.title(source + ':' + target)
-    cbar = plt.colorbar()
-    cbar.ax.set_ylabel('Counts')
-
-    fig4 = plt.figure(4)
-    unique_source_indexes_gid, counts = np.unique(source_indexes_gid, return_counts=True)
-    unique_source_indexes_u = get_array_index(u, soma_coords[source]['u'][unique_source_indexes_gid])
-    unique_source_indexes_v = get_array_index(v, soma_coords[source]['v'][unique_source_indexes_gid])
-    plt.scatter(distance_U[unique_source_indexes_u, unique_source_indexes_v],
-                     distance_V[unique_source_indexes_u, unique_source_indexes_v], c=counts, linewidths=0)
-    plt.xlabel('Arc_distance U (um)')
-    plt.ylabel('Arc_distance V (um)')
-    plt.title(source + ':' + target)
-    cbar = plt.colorbar()
-    cbar.ax.set_ylabel('Counts')
-    plt.show()
-    plt.close()
-
-
-def plot_population_density(population, soma_coords, u, v, U, V, distance_U, distance_V):
-    """
-
-    :param population: str
-    :param soma_coords: dict of array
-    :param u: array
-    :param v: array
-    :param U: array
-    :param V: array
-    :param distance_U: array
-    :param distance_V: array
-    :return:
-    """
-    population_indexes_u = get_array_index(u, soma_coords[population]['u'])
-    population_indexes_v = get_array_index(v, soma_coords[population]['v'])
-    fig1 = plt.figure(1)
-    H, u_edges, v_edges = np.histogram2d(soma_coords[population]['u'], soma_coords[population]['v'], 100)
-    # H, u_edges, v_edges = np.histogram2d(u[population_indexes_u], v[population_indexes_v], 100)
-    H = np.rot90(H)
-    H = np.flipud(H)
-    Hmasked = np.ma.masked_where(H == 0, H)
-    plt.pcolormesh(u_edges, v_edges, Hmasked)
-    plt.xlabel('U')
-    plt.ylabel('V')
-    plt.title(population)
-    cbar = plt.colorbar()
-    cbar.ax.set_ylabel('Counts')
-
-    fig2 = plt.figure(2)
-    H, u_edges, v_edges = np.histogram2d(distance_U[population_indexes_u, population_indexes_v],
-                                         distance_V[population_indexes_u, population_indexes_v], 100)
-    H = np.rot90(H)
-    H = np.flipud(H)
-    Hmasked = np.ma.masked_where(H == 0, H)
-    plt.pcolormesh(u_edges, v_edges, Hmasked)
-    plt.xlabel('Arc_distance U (um)')
-    plt.ylabel('Arc_distance V (um)')
-    plt.title(population)
-    cbar = plt.colorbar()
-    cbar.ax.set_ylabel('Counts')
-    plt.show()
-    plt.close()
-
-
 p_connect = AxonProb(divergence, convergence, axon_width, pop_density)
 
 local_np_random = np.random.RandomState()
@@ -365,8 +246,8 @@ else:
 end_index = start_index+block_size
 
 count = 0
-#while start_index < block_size:
-while start_index < len(target_GID):
+while start_index < block_size:
+#while start_index < len(target_GID):
     connection_dict = {}
     for target_gid in target_GID[start_index:end_index]:
         this_synapse_dict = synapse_dict[target_gid]
@@ -394,7 +275,7 @@ while start_index < len(target_GID):
         last_index = len(target_GID) - 1
     else:
         last_index = end_index - 1
-    print 'MPI rank %i completed computing connectivity for cell gid: %i (count: %i)' % (rank, target_GID[last_index],
+    print 'MPI rank %i wrote to file connectivity for cell gid: %i (count: %i)' % (rank, target_GID[last_index],
                                                                                          count)
     sys.stdout.flush()
     del connection_dict
@@ -412,17 +293,10 @@ if rank == 0:
     # write_to_pkl(neurotrees_dir+'010117_DG_GC_MEC_connectivity_test.pkl', connection_dict)
 
 """
-from plot_results import *
-from mpl_toolkits.mplot3d import Axes3D
-
 connection_dict = read_from_pkl(neurotrees_dir+'010117_DG_GC_MEC_connectivity_test.pkl')
 target_gid = 500
 plot_source_soma_locs(target_gid, 'GC', 'MEC', connection_dict, soma_coords, u, v, U, V, distance_U, distance_V,
                      X, Y, Z)
-# plot_population_density('GC', soma_coords, u, v, U, V, distance_U, distance_V)
-# plot_population_density('MEC', soma_coords, u, v, U, V, distance_U, distance_V)
-
-
 
 start_time = time.time()
 syn_in_degree = {target: {source: {i: 0 for i in range(len(pop_locs_X[target]))}
@@ -463,20 +337,5 @@ for source in divergence:
         plt.colorbar(sc)
         plt.show()
         plt.close()
-
-
-fig = plt.figure()
-ax = fig.add_subplot(111, projection='3d')
-sc = ax.scatter(X[::250], Y[::250], Z[::250], c=distance_U[::250], linewidth=0)
-plt.colorbar(sc)
-plt.show()
-plt.close()
-
-fig = plt.figure()
-ax = fig.add_subplot(111, projection='3d')
-sc = ax.scatter(X[::250], Y[::250], Z[::250], c=distance_V[::250], linewidth=0)
-plt.colorbar(sc)
-plt.show()
-plt.close()
 
 """
