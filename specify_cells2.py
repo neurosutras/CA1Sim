@@ -2608,3 +2608,71 @@ class DG_GC(HocCell):
                    if na_type in self.mech_dict['apical']).next()
         self.set_special_mech_param_linear_gradient(na_type, 'gbar', ['apical'],
                                                     self.is_terminal, gmin)
+
+class optimize_history(object):
+    def __init__(self):
+        """
+
+        """
+        self.xlabels = []
+        self.x_values = []
+        self.error_values = []
+        self.features = {}
+
+    def report_best(self):
+        """
+        Report the input parameters and output values with the lowest error.
+        :param feature: string
+        :return:
+        """
+        lowest_Err = min(self.error_values)
+        index = self.error_values.index(lowest_Err)
+        best_x = self.x_values[index]
+        formatted_x = '[' + ', '.join(['%.2E' % xi for xi in best_x]) + ']'
+        print 'best x: %s' % formatted_x
+        print 'lowest Err: %.3E' % lowest_Err
+        return best_x
+
+    def export_to_pkl(self, hist_filename):
+        """
+        Save the history to .pkl
+        :param hist_filename: str
+        """
+        saved_history = {'xlabels': self.xlabels, 'x_values': self.x_values, 'error_values': self.error_values,
+                         'features': self.features}
+        write_to_pkl(data_dir+hist_filename+'.pkl', saved_history)
+
+    def import_from_pkl(self, hist_filename):
+        """
+        Update a history object with data from a .pkl file
+        :param hist_filename: str
+        """
+        previous_history = read_from_pkl(data_dir+hist_filename +'.pkl')
+        self.xlabels = previous_history['xlabels']
+        #self.xlabels = ['soma.g_pas', 'dend.g_pas slope']
+        self.x_values = previous_history['x_values']
+        self.error_values = previous_history['error_values']
+        self.features = previous_history['features']
+
+    def plot(self):
+        """
+        Remember to : also plot each value in x against error, and against input resistance
+        """
+        num_x_param = len(self.xlabels)
+        num_plot_rows = math.floor(math.sqrt(num_x_param))
+        print(num_plot_rows)
+        num_plot_cols = math.ceil(num_x_param/num_plot_rows)
+        print(num_plot_cols)
+
+        #plot x-values against error
+        plt.figure(1)
+        for i, x_param in enumerate(self.xlabels):
+            plt.subplot(num_plot_rows, num_plot_cols, i+1)
+            x_param_vals = [x_val[i] for x_val in self.x_values]
+            range_param_vals = max(x_param_vals) - min(x_param_vals)
+            plt.scatter(x_param_vals, self.error_values)
+            plt.xlim((min(x_param_vals)-0.1*range_param_vals, max(x_param_vals)+0.1*range_param_vals))
+            plt.xlabel(x_param)
+            plt.ylabel("Error values")
+        plt.show()
+        plt.close()

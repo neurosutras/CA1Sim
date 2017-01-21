@@ -225,6 +225,7 @@ else:
     sim_description = 'no_spines'
 
 cell = DG_GC(neurotree_dict=neurotree_dict[0], full_spines=spines)
+cell.zero_na()
 
 # get the thickest apical dendrite ~200 um from the soma
 candidate_branches = []
