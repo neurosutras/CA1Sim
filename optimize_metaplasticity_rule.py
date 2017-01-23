@@ -1027,7 +1027,7 @@ x0['5'] = [3.747E+02, 8.444E+02, 1.338E+01, 4.710E+02, 1.500E+00, 1.510E-03]  # 
 # x0['6'] = [1.260E+02, 1.109E+03, 4.557E+01, 1.682E+03, 1.402E+00, 7.828E-04]  # Error:
 x0['6'] = [1.075E+02, 2.395E+03, 2.360E+02, 2.373E+02, 1.436E+00, 9.375E-04]  # Error: 1.622E+05 * cell4
 
-x0['mean'] = [2.066E+02, 1.033E+03, 2.861E+01, 4.317E+02, 1.205E+00, 3.708E-03]  # induced + spontaneous 121316
+x0['mean'] = [2.252E+02, 1.387E+03, 5.967E+01, 6.431E+02, 1.322E+00, 1.850E-03]  # Just these 6 cells 012317
 
 # to avoid saturation and reduce variability of time courses across cells, constrain the relative amplitude
 # of global and local kernels:
@@ -1036,7 +1036,7 @@ x0['mean'] = [2.066E+02, 1.033E+03, 2.861E+01, 4.317E+02, 1.205E+00, 3.708E-03] 
 if cell_id in x0:
     x1 = x0[cell_id]
 else:
-    x1 = x0['1']
+    x1 = x0['mean']
 xmin1 = [10., 500., 10., 100., 0.7, 5.e-4]
 xmax1 = [500., 5000., 300., 2000., 1.5, 2.e-2]
 
@@ -1063,13 +1063,15 @@ ramp_error_cont(polished_result['x'], xmin1, xmax1, ramp[induction], induction, 
 
 
 for induction in position:
-    if induction == 2:
+    if induction == 2 and 1 in position:
         this_model_baseline = model_baseline[1]
     else:
         this_model_baseline = None
     local_kernel[induction], global_kernel[induction], plasticity_signal[induction], model_ramp[induction], \
         model_baseline[induction] = ramp_error_cont(x1, xmin1, xmax1, ramp[induction], induction,
                                                     baseline=this_model_baseline, plot=False, full_output=True)
+if 1 not in plasticity_signal:
+    plasticity_signal[1] = np.zeros_like(peak_locs['CA3'])
 
 w0 = {this_cell_id: {} for this_cell_id in x0}
 binned_w1 = {}
