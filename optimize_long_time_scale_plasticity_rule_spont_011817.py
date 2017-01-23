@@ -750,6 +750,7 @@ def ramp_error_cont(x, xmin, xmax, ramp, induction=None, plot=False, full_output
           (amp['exp'], width['exp'], peak_shift['exp'], ratio['exp'], min_loc['exp'])
     print 'model: amp: %.1f, ramp_width: %.1f, peak_shift: %.1f, asymmetry: %.1f, min_loc: %.1f' % \
           (amp['model'], width['model'], peak_shift['model'], ratio['model'], min_loc['model'])
+    sys.stdout.flush()
     if full_output:
         return local_kernel, global_kernel, this_weights, model_ramp, model_baseline
     else:
