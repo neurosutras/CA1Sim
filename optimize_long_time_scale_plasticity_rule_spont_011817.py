@@ -4,8 +4,8 @@ from plot_results import *
 import random
 import sys
 import scipy.signal as signal
-import mkl
 import matplotlib.gridspec as gridspec
+import mkl
 
 """
 In this version of the simulation, phase precession of CA3 inputs is implemented using the method from Chadwick et al.,
@@ -29,9 +29,7 @@ if len(sys.argv) > 1:
 else:
     cell_id = None
 
-# experimental_filename = '112116 magee lab first induction'
-# experimental_filename = '112516 magee lab first induction'
-experimental_filename = '121216 magee lab first induction'
+experimental_filename = '120216 magee lab spont'
 
 rule_max_timescale = 9000.
 
@@ -556,11 +554,15 @@ def build_kernels(x, plot=False):
     Construct two kernels with exponential rise and decay:
     1) Local kernel that generates a plasticity signal at each spine
     2) Global kernal that generates a plasticity signal during dendritic calcium spiking
-    :param x: array: [filter_ratio, global_scale]
+    :param x: array: [local_rise_tau, local_decay_tau, global_rise_tau, global_decay_tau, filter_ratio, global_scale]
     :param plot: bool
     :return: array, array
     """
-    filter_ratio = x[0]
+    local_rise_tau = x[0]
+    local_decay_tau = x[1]
+    global_rise_tau = x[2]
+    global_decay_tau = x[3]
+    filter_ratio = x[4]
 
     max_time_scale = np.max([local_rise_tau+local_decay_tau, global_rise_tau+global_decay_tau])
     filter_t = np.arange(0., 6.*max_time_scale, dt)
@@ -600,7 +602,7 @@ def calculate_plasticity_signal(x, local_kernel, global_kernel, induction, plot=
     Given the local and global kernels, convolve each input rate_map with the local kernel, and convolve the
     current injection with the global kernel. The weight change for each input is proportional to the area under the
     product of the two signals. Incremental weight changes accrue across multiple induction trials.
-    :param x: array: [filter_ratio, global_scale]
+    :param x: array: [local_rise_tau, local_decay_tau, global_rise_tau, global_decay_tau, filter_ratio, kernel_scale]
     :param local_kernel: array
     :param global_kernel: array
     :param induction: int: key for dicts of arrays
@@ -608,8 +610,8 @@ def calculate_plasticity_signal(x, local_kernel, global_kernel, induction, plot=
     :return: plasticity_signal: array
     """
     saturation_factor = 0.02
-    filter_ratio = x[0]
-    kernel_scale = x[1]
+    filter_ratio = x[4]
+    kernel_scale = x[5]
     group = 'CA3'
     for attempt in range(2):
         plasticity_signal = np.zeros_like(peak_locs[group])
@@ -657,7 +659,6 @@ def calculate_plasticity_signal(x, local_kernel, global_kernel, induction, plot=
                 plt.show()
                 plt.close()
         saturation_factor *= filter_ratio * max_local_signal / max_global_signal
-        # print 'saturation factor after attempt %i: %.3E' % (attempt, saturation_factor)
         # print 'Computed weights in %i s' % (time.time() - start_time)
 
     if plot:
@@ -680,7 +681,7 @@ def calculate_plasticity_signal(x, local_kernel, global_kernel, induction, plot=
 def ramp_error_cont(x, xmin, xmax, ramp, induction=None, plot=False, full_output=False):
     """
     Calculates a rule_waveform and set of weights to match the first place field induction.
-    :param x: array [filter_ratio, kernel_scale]
+    :param x: array [local_rise_tau, local_decay_tau, global_rise_tau, global_decay_tau, filter_ratio, kernel_scale]
     :param xmin: array
     :param xmax: array
     :param ramp: array
@@ -690,8 +691,11 @@ def ramp_error_cont(x, xmin, xmax, ramp, induction=None, plot=False, full_output
     :return: float
     """
     formatted_x = '[' + ', '.join(['%.3f' % xi for xi in x]) + ']'
-    print 'Trying x: %s for cell %s' % (formatted_x, cell_id)
+    print 'Trying x: %s for spont cell %s' % (formatted_x, cell_id)
     if not check_bounds(x, xmin, xmax):
+        print 'Aborting: Invalid parameter values.'
+        return 1e9
+    elif x[3] <= x[2]:
         print 'Aborting: Invalid parameter values.'
         return 1e9
     start_time = time.time()
@@ -773,7 +777,7 @@ def optimize_polish(x, xmin, xmax, error_function, ramp, induction=None, maxfev=
                                                     'xtol': 1e-3, 'disp': True, 'maxiter': maxfev},
                                args=(xmin, xmax, ramp, induction))
     formatted_x = '['+', '.join(['%.3E' % xi for xi in result.x])+']'
-    print 'Process: %i completed optimize_polish on cell %s after %i iterations with Error: %.4E and x: %s' % \
+    print 'Process: %i completed optimize_polish on spont cell %s after %i iterations with Error: %.4E and x: %s' % \
           (os.getpid(), cell_id, result.nit, result.fun, formatted_x)
     return {'x': result.x, 'Err': result.fun}
 
@@ -799,52 +803,33 @@ def optimize_explore(x, xmin, xmax, error_function, ramp, induction=None, maxfev
                                    disp=True, interval=min(20, int(maxfev/20)), minimizer_kwargs=minimizer_kwargs,
                                    take_step=take_step)
     formatted_x = '['+', '.join(['%.3E' % xi for xi in result.x])+']'
-    print 'Process: %i completed optimize_explore on cell %s after %i iterations with Error: %.4E and x: %s' % \
+    print 'Process: %i completed optimize_explore on spont cell %s after %i iterations with Error: %.4E and x: %s' % \
           (os.getpid(), cell_id, result.nit, result.fun, formatted_x)
     return {'x': result.x, 'Err': result.fun}
 
 
-local_rise_tau = 10.
-local_decay_tau = 100.
-global_rise_tau = 10.
-global_decay_tau = 100.
-
 x0 = {}
 
-x0['1'] = [0.7000, 0.0022]  # Error: 5.0514E+05
-x0['2'] = [1.500E+00, 4.231E-03]  # Error:
-# Don't use cell3, it's the same as cell15
-x0['4'] = [1.014E+00, 6.292E-04]  # Error:
-x0['5'] = [1.027E+00, 1.344E-03]  # Error:
-x0['6'] = [1.000E+00, 2.844E-03]  # Error:
-x0['7'] = [1.000E+00, 1.341E-03]  # Error:
-x0['8'] = [1.072E+00, 1.643E-03]  # Error:
-x0['9'] = [1.000E+00, 1.823E-03]  # Error:
-x0['10'] = [1.000E+00, 2.517E-03]  # Error:
-x0['11'] = [1.500E+00, 1.762E-03]  # Error:
-x0['12'] = [1.000E+00, 3.397E-03]  # Error:
-x0['13'] = [1.143E+00, 3.480E-03]  # Error:
-x0['14'] = [1.000E+00, 1.167E-03]  # Error:
-x0['15'] = [1.123E+00, 1.717E-03]  # Error:
-# Don't use cell16, it's the same as cell8
-x0['17'] = [1.000E+00, 1.462E-03]  # Error:
-x0['18'] = [1.000E+00, 8.319E-04]  # Error:
-x0['19'] = [1.000E+00, 3.075E-03]  # Error:
-x0['20'] = [1.033E+00, 1.541E-03]  # Error:
-x0['21'] = [1.000E+00, 2.675E-03]  # Error:
-x0['22'] = [1.001E+00, 3.211E-03]  # Error:
-x0['23'] = [1.000E+00, 1.803E-03]  # Error:
+x0['1'] = [1.268E+01, 3.000E+02, 5.000E+01, 5.438E+01, 1.500E+00, 2.370E-03]  # Error: 2.6618E+04
+x0['2'] = [4.150E+02, 4.372E+02, 3.794E+01, 3.873E+01, 1.500E+00, 9.555E-03]  # Error: 2.1676E+04
+x0['3'] = [2.112E+01, 1.330E+03, 5.000E+01, 5.156E+02, 1.500E+00, 2.887E-03]  # Error: 3.5328E+03
+x0['4'] = [3.163E+02, 3.418E+02, 1.202E+01, 1.205E+02, 1.479E+00, 9.795E-03]  # Error: 1.1131E+04
+x0['5'] = [7.196E+01, 5.616E+02, 3.936E+01, 1.610E+03, 1.254E+00, 3.480E-03]  # Error: 6.3435E+04
+x0['6'] = [2.921E+02, 1.205E+03, 1.223E+01, 1.243E+02, 7.063E-01, 9.374E-03]  # Error: 1.0710E+04
+x0['7'] = [2.536E+01, 3.794E+02, 1.490E+01, 4.801E+02, 1.452E+00, 1.678E-02]  # Error: 6.0452E+05
+
+# x0['mean'] = [2.201E+02, 7.998E+02, 3.643E+01, 4.693E+02, 1.367E+00, 8.581E-03]
 
 # to avoid saturation and reduce variability of time courses across cells, constrain the relative amplitude
 # of global and local kernels:
-# [filter_ratio, kernel_scale]
+# [local_rise_tau, local_decay_tau, global_rise_tau, global_decay_tau, filter_ratio, kernel_scale]
 
 if cell_id in x0:
     x1 = x0[cell_id]
 else:
     x1 = x0['1']
-xmin1 = [1., 5.e-4]
-xmax1 = [1.5, 5.e-2]
+xmin1 = [10., 500., 10., 100., 1., 5.e-4]
+xmax1 = [500., 5000., 300., 2000., 1.5, 2.e-2]
 
 for i in range(len(x1)):
     if x1[i] < xmin1[i]:
@@ -863,8 +848,8 @@ polished_result = optimize_polish(result['x'], xmin1, xmax1, ramp_error_cont, ra
 # polished_result = optimize_polish(x1, xmin1, xmax1, ramp_error_cont, ramp[induction], induction)
 
 hist.report_best()
-# hist.export('011817_magee_data_optimization_short_cell'+cell_id)
 """
+hist.export('121216_magee_data_optimization_long_cell_spont'+cell_id)
 
 local_kernel, global_kernel, weights, model_ramp, model_baseline = \
     ramp_error_cont(polished_result['x'], xmin1, xmax1, ramp[induction], induction, plot=True, full_output=True)
@@ -872,20 +857,18 @@ local_kernel, global_kernel, weights, model_ramp, model_baseline = \
 local_kernel, global_kernel, weights, model_ramp, model_baseline = \
     ramp_error_cont(x1, xmin1, xmax1, ramp[induction], induction, plot=True, full_output=True)
 
-
 output_filename = '121316 plasticity rule optimization summary'
 with h5py.File(data_dir+output_filename+'.hdf5', 'a') as f:
-    if 'short' not in f:
-        f.create_group('short')
-    f['short'].create_group(cell_id)
-    f['short'][cell_id].attrs['track_length'] = track_length
-    f['short'][cell_id].attrs['induction_loc'] = induction_locs[induction]
-    f['short'][cell_id].create_dataset('local_kernel', compression='gzip', compression_opts=9, data=local_kernel)
-    f['short'][cell_id].create_dataset('global_kernel', compression='gzip', compression_opts=9, data=global_kernel)
-    f['short'][cell_id].attrs['dt'] = dt
-    f['short'][cell_id].create_dataset('ramp', compression='gzip', compression_opts=9, data=ramp[induction])
-    f['short'][cell_id].create_dataset('model_ramp', compression='gzip', compression_opts=9, data=model_ramp)
-
+    if 'long' not in f:
+        f.create_group('long')
+    f['long'].create_group('s'+cell_id)
+    f['long']['s'+cell_id].attrs['track_length'] = track_length
+    f['long']['s'+cell_id].attrs['induction_loc'] = induction_locs[induction]
+    f['long']['s'+cell_id].create_dataset('local_kernel', compression='gzip', compression_opts=9, data=local_kernel)
+    f['long']['s'+cell_id].create_dataset('global_kernel', compression='gzip', compression_opts=9, data=global_kernel)
+    f['long']['s'+cell_id].attrs['dt'] = dt
+    f['long']['s'+cell_id].create_dataset('ramp', compression='gzip', compression_opts=9, data=ramp[induction])
+    f['long']['s'+cell_id].create_dataset('model_ramp', compression='gzip', compression_opts=9, data=model_ramp)
 
 local_kernel, global_kernel, weights, model_ramp, model_baseline = \
     ramp_error_cont(x1, xmin1, xmax1, ramp[induction], induction, plot=False, full_output=True)
@@ -899,11 +882,11 @@ start_index = np.where(interp_x[induction][0] >= mean_induction_loc)[0][0]
 end_index = start_index + int(mean_induction_dur / dt)
 x_start = mean_induction_loc/track_length
 x_end = interp_x[induction][0][end_index] / track_length
-ylim = max(np.max(ramp[induction]), np.max(model_ramp), 11.0579693599)
+ylim = max(np.max(ramp[induction]), np.max(model_ramp), 14.5236130638)  # cell s4
 print 'ylim: ', ylim
 ymin = min(np.min(ramp[induction]), np.min(model_ramp))
 ax0.plot(binned_x, ramp[induction], label='Experiment', color='k', linewidth=2)
-ax0.plot(binned_x, model_ramp, label='Short model', color='r', linewidth=2)
+ax0.plot(binned_x, model_ramp, label='Long model', color='b', linewidth=2)
 ax0.axhline(y=ylim + 0.25, xmin=x_start, xmax=x_end, linewidth=2, c='k')
 ax0.set_ylabel('Depolarization (mV)')
 ax0.set_xlabel('Location (cm)')

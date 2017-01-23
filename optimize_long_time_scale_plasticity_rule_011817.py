@@ -794,7 +794,6 @@ def optimize_explore(x, xmin, xmax, error_function, ramp, induction=None, maxfev
     :param error_function: callable
     :param ramp: array
     :param induction: int: key for dicts of arrays
-    :param orig_weights: array
     :param maxfev: int
     :return: dict
     """
@@ -811,12 +810,6 @@ def optimize_explore(x, xmin, xmax, error_function, ramp, induction=None, maxfev
           (os.getpid(), cell_id, result.nit, result.fun, formatted_x)
     return {'x': result.x, 'Err': result.fun}
 
-
-local_kernel = {}
-global_kernel = {}
-weights = {}
-model_ramp = {}
-model_baseline = {}
 
 x0 = {}
 
@@ -877,13 +870,11 @@ hist.report_best()
 # hist.export('011817_magee_data_optimization_long_cell'+cell_id)
 
 """
-local_kernel[induction], global_kernel[induction], weights[induction], model_ramp[induction], \
-    model_baseline[induction] = ramp_error_cont(polished_result['x'], xmin1, xmax1, ramp[induction], induction,
-                                                plot=True, full_output=True)
+local_kernel, global_kernel, weights, model_ramp, model_baseline = \
+    ramp_error_cont(polished_result['x'], xmin1, xmax1, ramp[induction], induction, plot=True, full_output=True)
 
-local_kernel[induction], global_kernel[induction], weights[induction], model_ramp[induction], \
-    model_baseline[induction] = ramp_error_cont(x1, xmin1, xmax1, ramp[induction], induction, plot=True,
-                                                full_output=True)
+local_kernel, global_kernel, weights, model_ramp, model_baseline = \
+    ramp_error_cont(x1, xmin1, xmax1, ramp[induction], induction, plot=True, full_output=True)
 
 output_filename = '121316 plasticity rule optimization summary'
 with h5py.File(data_dir+output_filename+'.hdf5', 'a') as f:
@@ -899,7 +890,7 @@ with h5py.File(data_dir+output_filename+'.hdf5', 'a') as f:
     f['long'][cell_id].create_dataset('model_ramp', compression='gzip', compression_opts=9, data=model_ramp)
 
 
-local_kernel, global_kernel, weights, model_ramp = \
+local_kernel, global_kernel, weights, model_ramp, model_baseline = \
     ramp_error_cont(x1, xmin1, xmax1, ramp[induction], induction, plot=False, full_output=True)
 
 fig = plt.figure()
