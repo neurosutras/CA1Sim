@@ -267,6 +267,34 @@ def read_from_pkl(fname):
         raise Exception('File: {} does not exist.'.format(fname))
 
 
+class CheckBounds(object):
+    """
+
+    """
+
+    def __init__(self, xmin, xmax):
+        """
+
+        :param xmin: dict of float
+        :param xmax: dict of float
+        """
+        self.xmin = xmin
+        self.xmax = xmax
+
+    def within_bounds(self, x, param_name):
+        """
+        For optimize_polish, based on simplex algorithm, check that the current set of parameters are within the bounds.
+        :param x: array
+        :param param_name: str
+        :return: bool
+        """
+        for i in range(len(x)):
+            if ((self.xmin[param_name][i] is not None and x[i] < self.xmin[param_name][i]) or
+                    (self.xmax[param_name][i] is not None and x[i] > self.xmax[param_name][i])):
+                return False
+        return True
+
+
 class Normalized_Step(object):
     """
     For use with scipy.optimize packages like basinhopping that allow a customized step-taking method.

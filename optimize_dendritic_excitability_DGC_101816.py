@@ -38,18 +38,7 @@ class best_param_tracker(object):
         print 'Error: %.2f and x: %s' % (self.Err, formatted_x)
 
 
-def check_bounds(x, param_name):
-    """
-    For optimize_polish, based on simplex algorithm, check that the current set of parameters are within the bounds.
-    :param x: array
-    :param param_name: str
-    :return: bool
-    """
-    for i in range(len(x)):
-        if ((xmin[param_name][i] is not None and x[i] < xmin[param_name][i]) or
-            (xmax[param_name][i] is not None and x[i] > xmax[param_name][i])):
-            return False
-    return True
+
 
 
 def update_pas(x):
@@ -650,7 +639,7 @@ def ais_delay_error(x, plot=0):
     :param plot: int
     :return: float
     """
-    if x[0] > 0. or x[0] < -5. or x[1] < 1. or x[1] > 5.:
+    if not check_bounds.within_bounds(x, 'ais_delay'):
         print 'Process %i: Aborting - Parameters outside optimization bounds.' % (os.getpid())
         return 1e9
     start_time = time.time()
@@ -1092,6 +1081,9 @@ xmax['ais_delay'] = [-1., 5.]
 x0['v_rest'] = [-63., -77.]
 xmin['v_rest'] = [v_init, soma_ek]
 xmax['v_rest'] = [-63., -63.]
+
+check_bounds = CheckBounds(xmin, xmax)
+
 
 x1 = dict(x0)
 
