@@ -44,8 +44,6 @@ else:
 experimental_file_dir = data_dir
 experimental_filename = '011717 magee lab multiple field data'
 
-rule_max_timescale = 9000.
-
 mkl.set_num_threads(2)
 
 
