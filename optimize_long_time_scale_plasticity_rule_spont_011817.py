@@ -76,10 +76,10 @@ def calculate_ramp_features(ramp, induction_loc, offset=False):
     :param offset: bool
     """
     extended_binned_x = np.concatenate([binned_x - track_length, binned_x, binned_x + track_length])
-    extended_binned_ramp = np.concatenate([ramp for i in range(3)])
+    smoothed_ramp = signal.savgol_filter(ramp, 19, 3, mode='wrap')
+    extended_binned_ramp = np.concatenate([smoothed_ramp for i in range(3)])
     extended_interp_x = np.concatenate([default_interp_x - track_length, default_interp_x,
                                         default_interp_x + track_length])
-    dx = extended_interp_x[1] - extended_interp_x[0]
     extended_ramp = np.interp(extended_interp_x, extended_binned_x, extended_binned_ramp)
     interp_ramp = extended_ramp[len(default_interp_x):2*len(default_interp_x)]
     min_index = np.where(interp_ramp == np.min(interp_ramp))[0][0] + len(interp_ramp)
@@ -90,21 +90,11 @@ def calculate_ramp_features(ramp, induction_loc, offset=False):
         interp_ramp -= baseline
         extended_ramp -= baseline
     peak_index = np.where(interp_ramp == np.max(interp_ramp))[0][0] + len(interp_ramp)
-    # use center of mass in 10 spatial bins instead of literal peak for determining peak_shift
-    before_peak_index = peak_index-int(track_length/10./2./dx)
-    after_peak_index = peak_index + int(track_length/10./2./dx)
-    area_around_peak = np.trapz(extended_ramp[before_peak_index:after_peak_index], dx=dx)
-    for i in range(before_peak_index+1, after_peak_index):
-        this_area = np.trapz(extended_ramp[before_peak_index:i], dx=dx)
-        if this_area/area_around_peak >= 0.5:
-            center_of_mass_index = i
-            break
-    center_of_mass_val = np.mean(extended_ramp[center_of_mass_index-int(track_length/5./2./dx):
-                                                center_of_mass_index+int(track_length/5./2./dx)])
-    center_of_mass_x = extended_interp_x[center_of_mass_index]
-    start_index = np.where(extended_ramp[:center_of_mass_index] <= 0.15*center_of_mass_val)[0][-1]
-    end_index = center_of_mass_index + np.where(extended_ramp[center_of_mass_index:] <= 0.15*center_of_mass_val)[0][0]
-    peak_shift = center_of_mass_x - induction_loc
+    peak_val = extended_ramp[peak_index]
+    peak_x = extended_interp_x[peak_index]
+    start_index = np.where(extended_ramp[:peak_index] <= 0.15*peak_val)[0][-1]
+    end_index = peak_index + np.where(extended_ramp[peak_index:] <= 0.15*peak_val)[0][0]
+    peak_shift = peak_x - induction_loc
     if peak_shift > track_length / 2.:
         peak_shift = -(track_length - peak_shift)
     elif peak_shift < -track_length / 2.:
@@ -113,7 +103,7 @@ def calculate_ramp_features(ramp, induction_loc, offset=False):
     before_width = induction_loc - extended_interp_x[start_index]
     after_width = extended_interp_x[end_index] - induction_loc
     ratio = before_width / after_width
-    return center_of_mass_val, ramp_width, peak_shift, ratio, min_loc
+    return peak_val, ramp_width, peak_shift, ratio, min_loc
 
 
 def wrap_around_and_compress(waveform, interp_x):
@@ -811,13 +801,21 @@ def optimize_explore(x, xmin, xmax, error_function, ramp, induction=None, maxfev
 
 x0 = {}
 
-x0['1'] = [1.268E+01, 3.000E+02, 5.000E+01, 5.438E+01, 1.500E+00, 2.370E-03]  # Error: 2.6618E+04
-x0['2'] = [4.150E+02, 4.372E+02, 3.794E+01, 3.873E+01, 1.500E+00, 9.555E-03]  # Error: 2.1676E+04
-x0['3'] = [2.112E+01, 1.330E+03, 5.000E+01, 5.156E+02, 1.500E+00, 2.887E-03]  # Error: 3.5328E+03
-x0['4'] = [3.163E+02, 3.418E+02, 1.202E+01, 1.205E+02, 1.479E+00, 9.795E-03]  # Error: 1.1131E+04
-x0['5'] = [7.196E+01, 5.616E+02, 3.936E+01, 1.610E+03, 1.254E+00, 3.480E-03]  # Error: 6.3435E+04
-x0['6'] = [2.921E+02, 1.205E+03, 1.223E+01, 1.243E+02, 7.063E-01, 9.374E-03]  # Error: 1.0710E+04
-x0['7'] = [2.536E+01, 3.794E+02, 1.490E+01, 4.801E+02, 1.452E+00, 1.678E-02]  # Error: 6.0452E+05
+# x0['1'] = [1.268E+01, 3.000E+02, 5.000E+01, 5.438E+01, 1.500E+00, 2.370E-03]  # Error: 2.6618E+04
+x0['1'] = [1.340E+01, 5.000E+02, 1.084E+02, 1.111E+02, 1.495E+00, 1.772E-03]  # Error: 3.7526E+04
+# x0['2'] = [4.150E+02, 4.372E+02, 3.794E+01, 3.873E+01, 1.500E+00, 9.555E-03]  # Error: 2.1676E+04
+x0['2'] = [4.619E+02, 9.630E+02, 2.875E+01, 1.000E+02, 1.450E+00, 7.703E-03]  # Error: 1.1981E+05
+# x0['3'] = [2.112E+01, 1.330E+03, 5.000E+01, 5.156E+02, 1.500E+00, 2.887E-03]  # Error: 3.5328E+03
+x0['3'] = [2.155E+01, 1.597E+03, 1.863E+02, 2.959E+02, 1.455E+00, 2.799E-03]  # Error: 1.4204E+04
+# x0['4'] = [3.163E+02, 3.418E+02, 1.202E+01, 1.205E+02, 1.479E+00, 9.795E-03]  # Error: 1.1131E+04
+x0['4'] = [2.568E+02, 5.051E+02, 4.253E+01, 1.000E+02, 1.461E+00, 1.033E-02]  # Error: 2.0535E+04
+# x0['5'] = [7.196E+01, 5.616E+02, 3.936E+01, 1.610E+03, 1.254E+00, 3.480E-03]  # Error: 6.3435E+04
+x0['5'] = [1.028E+01, 2.044E+03, 3.000E+02, 6.268E+02, 1.288E+00, 2.803E-03]  # Error: 8.6119E+04
+# x0['6'] = [2.921E+02, 1.205E+03, 1.223E+01, 1.243E+02, 7.063E-01, 9.374E-03]  # Error: 1.0710E+04
+x0['6'] = [3.015E+02, 1.218E+03, 1.406E+01, 2.545E+02, 1.107E+00, 1.084E-02]  # Error: 2.3581E+04
+# x0['7'] = [2.536E+01, 3.794E+02, 1.490E+01, 4.801E+02, 1.452E+00, 1.678E-02]  # Error: 6.0452E+05
+# x0['7'] = [2.837E+01, 5.000E+02, 1.143E+02, 4.329E+02, 1.499E+00, 1.127E-02]  # Error: 4.8452E+05
+x0['7'] = [2.538E+01, 5.000E+02, 1.102E+02, 4.762E+02, 1.219E+00, 1.397E-02]  # Error: 6.0728E+05
 
 # x0['mean'] = [2.201E+02, 7.998E+02, 3.643E+01, 4.693E+02, 1.367E+00, 8.581E-03]
 
@@ -846,7 +844,7 @@ result = optimize_explore(x1, xmin1, xmax1, ramp_error_cont, ramp[induction], in
 
 polished_result = optimize_polish(result['x'], xmin1, xmax1, ramp_error_cont, ramp[induction], induction, maxfev=600)
 
-# polished_result = optimize_polish(x1, xmin1, xmax1, ramp_error_cont, ramp[induction], induction)
+# polished_result = optimize_polish(x1, xmin1, xmax1, ramp_error_cont, ramp[induction], induction, maxfev=600)
 
 hist.report_best()
 """

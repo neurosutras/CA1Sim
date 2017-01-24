@@ -76,10 +76,10 @@ def calculate_ramp_features(ramp, induction_loc, offset=False):
     :param offset: bool
     """
     extended_binned_x = np.concatenate([binned_x - track_length, binned_x, binned_x + track_length])
-    extended_binned_ramp = np.concatenate([ramp for i in range(3)])
+    smoothed_ramp = signal.savgol_filter(ramp, 19, 3, mode='wrap')
+    extended_binned_ramp = np.concatenate([smoothed_ramp for i in range(3)])
     extended_interp_x = np.concatenate([default_interp_x - track_length, default_interp_x,
                                         default_interp_x + track_length])
-    dx = extended_interp_x[1] - extended_interp_x[0]
     extended_ramp = np.interp(extended_interp_x, extended_binned_x, extended_binned_ramp)
     interp_ramp = extended_ramp[len(default_interp_x):2*len(default_interp_x)]
     min_index = np.where(interp_ramp == np.min(interp_ramp))[0][0] + len(interp_ramp)
@@ -90,21 +90,11 @@ def calculate_ramp_features(ramp, induction_loc, offset=False):
         interp_ramp -= baseline
         extended_ramp -= baseline
     peak_index = np.where(interp_ramp == np.max(interp_ramp))[0][0] + len(interp_ramp)
-    # use center of mass in 10 spatial bins instead of literal peak for determining peak_shift
-    before_peak_index = peak_index-int(track_length/10./2./dx)
-    after_peak_index = peak_index + int(track_length/10./2./dx)
-    area_around_peak = np.trapz(extended_ramp[before_peak_index:after_peak_index], dx=dx)
-    for i in range(before_peak_index+1, after_peak_index):
-        this_area = np.trapz(extended_ramp[before_peak_index:i], dx=dx)
-        if this_area/area_around_peak >= 0.5:
-            center_of_mass_index = i
-            break
-    center_of_mass_val = np.mean(extended_ramp[center_of_mass_index-int(track_length/5./2./dx):
-                                                center_of_mass_index+int(track_length/5./2./dx)])
-    center_of_mass_x = extended_interp_x[center_of_mass_index]
-    start_index = np.where(extended_ramp[:center_of_mass_index] <= 0.15*center_of_mass_val)[0][-1]
-    end_index = center_of_mass_index + np.where(extended_ramp[center_of_mass_index:] <= 0.15*center_of_mass_val)[0][0]
-    peak_shift = center_of_mass_x - induction_loc
+    peak_val = extended_ramp[peak_index]
+    peak_x = extended_interp_x[peak_index]
+    start_index = np.where(extended_ramp[:peak_index] <= 0.15*peak_val)[0][-1]
+    end_index = peak_index + np.where(extended_ramp[peak_index:] <= 0.15*peak_val)[0][0]
+    peak_shift = peak_x - induction_loc
     if peak_shift > track_length / 2.:
         peak_shift = -(track_length - peak_shift)
     elif peak_shift < -track_length / 2.:
@@ -113,7 +103,7 @@ def calculate_ramp_features(ramp, induction_loc, offset=False):
     before_width = induction_loc - extended_interp_x[start_index]
     after_width = extended_interp_x[end_index] - induction_loc
     ratio = before_width / after_width
-    return center_of_mass_val, ramp_width, peak_shift, ratio, min_loc
+    return peak_val, ramp_width, peak_shift, ratio, min_loc
 
 
 def wrap_around_and_compress(waveform, interp_x):

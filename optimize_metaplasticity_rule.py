@@ -4,6 +4,7 @@ from plot_results import *
 import random
 import sys
 import scipy.signal as signal
+import mkl
 
 """
 In this version of the simulation, phase precession of CA3 inputs is implemented using the method from Chadwick et al.,
@@ -44,6 +45,8 @@ experimental_file_dir = data_dir
 experimental_filename = '011717 magee lab multiple field data'
 
 rule_max_timescale = 9000.
+
+mkl.set_num_threads(2)
 
 
 class History(object):
@@ -86,10 +89,10 @@ def calculate_ramp_features(ramp, induction_loc, offset=False):
     :param offset: bool
     """
     extended_binned_x = np.concatenate([binned_x - track_length, binned_x, binned_x + track_length])
-    extended_binned_ramp = np.concatenate([ramp for i in range(3)])
+    smoothed_ramp = signal.savgol_filter(ramp, 19, 3, mode='wrap')
+    extended_binned_ramp = np.concatenate([smoothed_ramp for i in range(3)])
     extended_interp_x = np.concatenate([default_interp_x - track_length, default_interp_x,
                                         default_interp_x + track_length])
-    dx = extended_interp_x[1] - extended_interp_x[0]
     extended_ramp = np.interp(extended_interp_x, extended_binned_x, extended_binned_ramp)
     interp_ramp = extended_ramp[len(default_interp_x):2*len(default_interp_x)]
     min_index = np.where(interp_ramp == np.min(interp_ramp))[0][0] + len(interp_ramp)
@@ -100,26 +103,15 @@ def calculate_ramp_features(ramp, induction_loc, offset=False):
         interp_ramp -= baseline
         extended_ramp -= baseline
     peak_index = np.where(interp_ramp == np.max(interp_ramp))[0][0] + len(interp_ramp)
-    # use center of mass in 10 spatial bins instead of literal peak for determining peak_shift
-    before_peak_index = peak_index-int(track_length/10./2./dx)
-    after_peak_index = peak_index + int(track_length/10./2./dx)
-    area_around_peak = np.trapz(extended_ramp[before_peak_index:after_peak_index], dx=dx)
-    for i in range(before_peak_index+1, after_peak_index):
-        this_area = np.trapz(extended_ramp[before_peak_index:i], dx=dx)
-        if this_area/area_around_peak >= 0.5:
-            center_of_mass_index = i
-            break
-    center_of_mass_val = np.mean(extended_ramp[center_of_mass_index-int(track_length/5./2./dx):
-                                                center_of_mass_index+int(track_length/5./2./dx)])
-    center_of_mass_x = extended_interp_x[center_of_mass_index]
-    start_index = np.where(extended_ramp[:center_of_mass_index] <=
-                           0.15*(center_of_mass_val - baseline) + baseline)[0][-1]
-    end_index = center_of_mass_index + np.where(extended_ramp[center_of_mass_index:] <= 0.15*
-                                                (center_of_mass_val - baseline) + baseline)[0][0]
+    peak_val = extended_ramp[peak_index]
+    peak_x = extended_interp_x[peak_index]
+    start_index = np.where(extended_ramp[:peak_index] <=
+                           0.15*(peak_val - baseline) + baseline)[0][-1]
+    end_index = peak_index + np.where(extended_ramp[peak_index:] <= 0.15*
+                                                (peak_val - baseline) + baseline)[0][0]
     start_loc = float(start_index % len(default_interp_x)) / float(len(default_interp_x)) * track_length
     end_loc = float(end_index % len(default_interp_x)) / float(len(default_interp_x)) * track_length
-    # print 'Center of mass: %.1f' % center_of_mass_x
-    peak_shift = center_of_mass_x - induction_loc
+    peak_shift = peak_x - induction_loc
     if peak_shift > track_length / 2.:
         peak_shift = -(track_length - peak_shift)
     elif peak_shift < -track_length / 2.:
@@ -128,7 +120,7 @@ def calculate_ramp_features(ramp, induction_loc, offset=False):
     before_width = induction_loc - extended_interp_x[start_index]
     after_width = extended_interp_x[end_index] - induction_loc
     ratio = before_width / after_width
-    return center_of_mass_val, ramp_width, peak_shift, ratio, min_loc, start_loc, end_loc
+    return peak_val, ramp_width, peak_shift, ratio, min_loc, start_loc, end_loc
 
 
 def wrap_around_and_compress(waveform, interp_x):
@@ -375,42 +367,50 @@ if cell_id is not None:
         binned_dx = track_length / 100.  # cm
         binned_x = np.arange(0., track_length + binned_dx / 2., binned_dx)[:100] + binned_dx / 2.
         for induction in f[cell_id]:
-            sampling_rate = f[cell_id][induction].attrs['sampling_rate']
-            position_dt = 1000. / sampling_rate  # convert s to ms
-            position[int(induction)] = []
             induction_locs[int(induction)] = []
             induction_durs[int(induction)] = []
-            t[int(induction)] = []
-            induction_locs[int(induction)].append(None)
-            induction_durs[int(induction)].append(None)
-            for trial in f[cell_id][induction]['position'].itervalues():
-                this_position = np.array(trial) / np.max(trial) * track_length
-                position[int(induction)].append(this_position)
-                t[int(induction)].append(
-                    np.arange(0., len(this_position)*position_dt, position_dt)[:len(this_position)])
-                induction_locs[int(induction)].append(trial.attrs['induction_loc'])
-                induction_durs[int(induction)].append(trial.attrs['induction_dur'])
-            if 'pre_position' in f[cell_id][induction]:
-                for i, trial in enumerate(f[cell_id][induction]['pre_position'].itervalues()):
-                    this_position = np.array(trial) / np.max(trial) * track_length
-                    position[int(induction)].insert(i, this_position)
-                    t[int(induction)].insert(i,
-                        np.arange(0., len(this_position) * position_dt, position_dt)[:len(this_position)])
-            else:
-                position[int(induction)].insert(0, position[int(induction)][0])
-                t[int(induction)].insert(0, t[int(induction)][0])
-            if 'post_position' in f[cell_id][induction]:
-                for trial in f[cell_id][induction]['post_position'].itervalues():
+            if 'position' in f[cell_id][induction]:
+                sampling_rate = f[cell_id][induction].attrs['sampling_rate']
+                position_dt = 1000. / sampling_rate  # convert s to ms
+                position[int(induction)] = []
+                t[int(induction)] = []
+                induction_locs[int(induction)].append(None)
+                induction_durs[int(induction)].append(None)
+                for trial in f[cell_id][induction]['position'].itervalues():
                     this_position = np.array(trial) / np.max(trial) * track_length
                     position[int(induction)].append(this_position)
                     t[int(induction)].append(
-                        np.arange(0., len(this_position) * position_dt, position_dt)[:len(this_position)])
-            else:
-                position[int(induction)].append(position[int(induction)][-1])
-                t[int(induction)].append(t[int(induction)][-1])
-            induction_locs[int(induction)].append(None)
-            induction_durs[int(induction)].append(None)
+                        np.arange(0., len(this_position)*position_dt, position_dt)[:len(this_position)])
+                    induction_locs[int(induction)].append(trial.attrs['induction_loc'])
+                    induction_durs[int(induction)].append(trial.attrs['induction_dur'])
+                if 'pre_position' in f[cell_id][induction]:
+                    for i, trial in enumerate(f[cell_id][induction]['pre_position'].itervalues()):
+                        this_position = np.array(trial) / np.max(trial) * track_length
+                        position[int(induction)].insert(i, this_position)
+                        t[int(induction)].insert(i,
+                            np.arange(0., len(this_position) * position_dt, position_dt)[:len(this_position)])
+                else:
+                    position[int(induction)].insert(0, position[int(induction)][0])
+                    t[int(induction)].insert(0, t[int(induction)][0])
+                if 'post_position' in f[cell_id][induction]:
+                    for trial in f[cell_id][induction]['post_position'].itervalues():
+                        this_position = np.array(trial) / np.max(trial) * track_length
+                        position[int(induction)].append(this_position)
+                        t[int(induction)].append(
+                            np.arange(0., len(this_position) * position_dt, position_dt)[:len(this_position)])
+                else:
+                    position[int(induction)].append(position[int(induction)][-1])
+                    t[int(induction)].append(t[int(induction)][-1])
+                induction_locs[int(induction)].append(None)
+                induction_durs[int(induction)].append(None)
             ramp[int(induction)] = signal.savgol_filter(f[cell_id][induction]['ramp'][:], 19, 4, mode='wrap')
+            # Placeholder induction_loc for pre-existing place fields (no first induction)
+            if int(induction) not in position:
+                peak_index = np.where(ramp[int(induction)] == np.max(ramp[int(induction)]))[0][0]
+                this_induction_loc = binned_x[peak_index] + 10.
+                if this_induction_loc > track_length:
+                    this_induction_loc -= track_length
+                induction_locs[int(induction)].append(this_induction_loc)
             plt.plot(binned_x, f[cell_id][induction]['ramp'], binned_x, ramp[int(induction)])
             plt.title(induction)
             plt.show()
@@ -562,7 +562,7 @@ for induction in position:
 default_rate_maps = generate_default_rate_maps(trial_seed, spatial_rate_maps, phase_maps, default_global_phase_offset)
 
 baseline = None
-for induction in position:
+for induction in ramp:
     if baseline is None:
         ramp_baseline_indexes = np.where(np.array(ramp[induction]) <= np.percentile(ramp[induction], 10.))[0]
         baseline = np.mean(ramp[induction][ramp_baseline_indexes])
@@ -1016,16 +1016,22 @@ asymmetry = {}
 
 x0 = {}
 
-x0['1'] = [1.741E+01, 1.167E+03, 4.960E+01, 2.717E+02, 1.000E+00, 2.822E-03]  # Error: 1.007E+05 * cell1
-x0['2'] = [4.699E+02, 5.102E+02, 1.850E+01, 1.765E+02, 1.500E+00, 1.855E-03]  # Error: 6.294E+04 * cell15
+# x0['1'] = [1.741E+01, 1.167E+03, 4.960E+01, 2.717E+02, 1.000E+00, 2.822E-03]  # Error: 1.007E+05 * cell1
+x0['1'] = [1.732E+01, 1.169E+03, 5.054E+01, 2.728E+02, 1.002E+00, 2.822E-03]  # Error: 1.0074E+05 * cell1
+# x0['2'] = [4.699E+02, 5.102E+02, 1.850E+01, 1.765E+02, 1.500E+00, 1.855E-03]  # Error: 6.294E+04 * cell15
+x0['2'] = [4.851E+02, 5.273E+02, 1.006E+01, 2.199E+02, 1.474E+00, 1.800E-03]  # Error: 5.4097E+04 * cell15
 # x0['3'] = [3.006E+02, 2.072E+03, 2.326E+01, 7.880E+02, 1.500E+00, 1.959E-03]  # Error:
-x0['3'] = [2.138E+02, 1.616E+03, 1.643E+01, 1.005E+03, 1.494E+00, 1.936E-03]  # Error: 2.308E+05 * cell7
+# x0['3'] = [2.138E+02, 1.616E+03, 1.643E+01, 1.005E+03, 1.494E+00, 1.936E-03]  # Error: 2.308E+05 * cell7
+x0['3'] = [2.138E+02, 1.614E+03, 1.646E+01, 1.002E+03, 1.500E+00, 1.955E-03]  # Error: 2.3074E+05 * cell7
 # x0['4'] = [8.912E+01, 1.651E+03, 1.137E+01, 1.220E+03, 7.057E-01, 1.663E-03]  # Error:
-x0['4'] = [1.681E+02, 1.788E+03, 2.410E+01, 1.697E+03, 1.002E+00, 2.042E-03]  # Error: 9.6546E+04 * cell9
+# x0['4'] = [1.681E+02, 1.788E+03, 2.410E+01, 1.697E+03, 1.002E+00, 2.042E-03]  # Error: 9.6546E+04 * cell9
+x0['4'] = [1.729E+02, 1.961E+03, 2.326E+01, 1.723E+03, 1.000E+00, 2.052E-03]  # Error: 8.7946E+04 * cell9
 # x0['5'] = [4.820E+02, 6.828E+02, 1.000E+01, 1.565E+02, 1.418E+00, 1.474E-03]  # Error:
-x0['5'] = [3.747E+02, 8.444E+02, 1.338E+01, 4.710E+02, 1.500E+00, 1.510E-03]  # Error: 5.8753E+04 * cell5
+# x0['5'] = [3.747E+02, 8.444E+02, 1.338E+01, 4.710E+02, 1.500E+00, 1.510E-03]  # Error: 5.8753E+04 * cell5
+x0['5'] = [3.452E+02, 7.208E+02, 1.000E+01, 4.004E+02, 1.500E+00, 1.474E-03]  # Error: 6.2414E+04 * cell5
 # x0['6'] = [1.260E+02, 1.109E+03, 4.557E+01, 1.682E+03, 1.402E+00, 7.828E-04]  # Error:
-x0['6'] = [1.075E+02, 2.395E+03, 2.360E+02, 2.373E+02, 1.436E+00, 9.375E-04]  # Error: 1.622E+05 * cell4
+# x0['6'] = [1.075E+02, 2.395E+03, 2.360E+02, 2.373E+02, 1.436E+00, 9.375E-04]  # Error: 1.622E+05 * cell4
+x0['6'] = [7.717E+01, 2.574E+03, 2.526E+02, 3.077E+02, 1.499E+00, 9.751E-04]  # Error: 1.4488E+05 * cell4
 
 x0['mean'] = [2.252E+02, 1.387E+03, 5.967E+01, 6.431E+02, 1.322E+00, 1.850E-03]  # Just these 6 cells 012317
 
@@ -1074,6 +1080,8 @@ if 1 not in plasticity_signal:
     plasticity_signal[1] = np.zeros_like(peak_locs['CA3'])
 
 w0 = {this_cell_id: {} for this_cell_id in x0}
+if cell_id not in w0:
+    w0[cell_id] = {}
 binned_w1 = {}
 binned_w2 = {}
 
@@ -1109,20 +1117,21 @@ w0['6'][1] = [3.264E+00, 1.720E+00, 1.023E+00, 2.285E+00, 3.685E+00, 1.785E+00, 
               1.824E+00, 3.255E+00]  # Error: 7.8322E+04
 w0['6'][2] = [1.519E+00, 1.833E+00, 1.907E+00, 2.115E+00, 5.258E+00, 3.127E+00, 1.829E+00, 1.831E+00, 3.596E+00,
               4.382E+00, 4.379E+00]  # Error: 2.0410E+04
+w0['7'][1] = [2.717E+00, 2.993E+00, 2.519E+00, 1.206E+00, 1.087E+00, 1.339E+00, 1.705E+00, 1.751E+00, 2.945E+00,
+              2.939E+00, 3.440E+00]  # Error: 1.8074E+04
+w0['7'][2] = [1.646E+00, 1.194E+00, 1.187E+00, 3.289E+00, 3.233E+00, 3.234E+00, 3.190E+00, 3.688E+00, 4.119E+00,
+              3.452E+00, 3.503E+00]  # Error: 1.0075E+04
 
 wmin1 = [1. for element in range(11)]
 wmax1 = [7. for element in range(11)]
 
-if cell_id in w0:
-    w1 = w0[cell_id]
-else:
-    raise Exception('Unknown cell id')
+w1 = w0[cell_id]
 
 binned_weights_dx = track_length / 10.
 binned_weights_x = np.arange(0., track_length + binned_weights_dx / 2., binned_weights_dx)
 
 
-for induction in position:
+for induction in ramp:
     if induction in w1:
         binned_w1[induction] = w1[induction]
     else:
@@ -1133,8 +1142,8 @@ for induction in position:
         this_model_baseline = None
     weights[induction], model_ramp[induction], model_baseline[induction], asymmetry[induction] = \
         ramp_error_ignore_kernel(binned_w1[induction], wmin1, wmax1, ramp[induction], induction,
-                                 baseline=this_model_baseline, plot=False, full_output=True)
-
+                                 baseline=this_model_baseline, plot=True, full_output=True)
+    """
     if induction in [1, 2]:  # [2]:
 
         result = optimize_explore(binned_w1[induction], wmin1, wmax1, ramp_error_ignore_kernel, ramp[induction],
@@ -1150,8 +1159,9 @@ for induction in position:
         weights[induction], model_ramp[induction], model_baseline[induction], asymmetry[induction] = \
             ramp_error_ignore_kernel(binned_w1[induction], wmin1, wmax1, ramp[induction], induction,
                                      baseline=this_model_baseline, plot=False, full_output=True)
+    """
 
-
+"""
 fig1, axes1 = plt.subplots(1)
 fig2, axes2 = plt.subplots(1)
 
@@ -1204,7 +1214,7 @@ for induction in ramp:
         axes4.legend(handles=label_handles, framealpha=0.5, frameon=False)
 plt.show()
 plt.close()
-
+"""
 
 """
 output_filename = '011817 metaplasticity rule optimization summary'
