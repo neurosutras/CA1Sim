@@ -24,13 +24,19 @@ if len(sys.argv) > 1:
     spines = bool(int(sys.argv[1]))
 else:
     spines = False
+if len(sys.argv) > 2:
+    mech_filename = str(sys.argv[2])
+else:
+    if spines:
+        mech_filename = '120116 DG_GC pas spines'
+    else:
+        mech_filename = '120116 DG_GC pas no_spines'
 
 if spines:
     x = [5.06E-08, 9.32E-05, 1.73E+02]
-    mech_filename = '120116 DG_GC pas spines'
 else:
     x = [1.00E-16, 2.35E-04, 3.71E+02]
-    mech_filename = '120116 DG_GC pas no_spines'
+
 
 i_holding = {'soma': 0., 'dend': 0., 'distal_dend': 0.}
 

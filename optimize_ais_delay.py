@@ -7,8 +7,15 @@ import random
 
 morph_filename = 'DG_GC_355549.swc'
 
+if len(sys.argv) > 1:
+    spines = bool(int(sys.argv[1]))
+else:
+    spines = False
+if len(sys.argv) > 2:
+    mech_filename = str(sys.argv[2])
+else:
+    mech_filename = None
 #Start with a mechanism dictionary that has soma_ek = -77., soma_na_gbar = 0.04 and has set the other parameters accordingly
-mech_filename = ''
 
 def offset_vm(description, vm_target=None):
     """
@@ -244,7 +251,6 @@ amp = 0.3
 th_dvdt = 10.
 v_init = -67.
 v_active = -61.
-spines = False  # True
 
 cell = DG_GC(morph_filename, mech_filename, full_spines=spines)
 

@@ -1,5 +1,5 @@
 __author__ = 'Grace Ng'
-import parallel_optimize_dendritic_excitability_engine
+import parallel_optimize_leak_engine
 import sys
 import os
 import math
@@ -144,7 +144,7 @@ def pas_error(x):
     sec_list = ['soma', 'dend', 'distal_dend']
     formatted_x = '[' + ', '.join(['%.2E' % xi for xi in x]) + ']'
     print 'Process %i using current x: %s: %s' % (os.getpid(), str(xlabels['pas']), formatted_x)
-    result = v.map_async(parallel_optimize_dendritic_excitability_engine.get_Rinp_for_section, sec_list)
+    result = v.map_async(parallel_optimize_leak_engine.get_Rinp_for_section, sec_list)
     last = []
     while not result.ready():
         time.sleep(1.)
@@ -244,11 +244,14 @@ if len(sys.argv) > 1:
 else:
     spines = False
 if len(sys.argv) > 2:
-    cluster_id = sys.argv[2]
+    mech_filename = str(sys.argv[2])
+else:
+    mech_filename = '121516 DG_GC pas spines'
+if len(sys.argv) > 3:
+    cluster_id = sys.argv[3]
     c = Client(cluster_id=cluster_id)
 else:
     c = Client()
-
 
 # xlabels['pas'] = ['soma.g_pas', 'dend.g_pas slope', 'dend.g_pas tau', 'dend.gpas max_loc']
 xlabels['pas'] = ['soma.g_pas', 'dend.g_pas slope', 'dend.g_pas tau']
@@ -293,7 +296,7 @@ dv = c[:]
 dv.clear()
 dv.block = True
 global_start_time = time.time()
-dv.execute('run parallel_optimize_dendritic_excitability_engine %i' % int(spines))
+dv.execute('run parallel_optimize_leak_engine %i \"%s\"' % (int(spines), mech_filename))
 # time.sleep(120)
 v = c.load_balanced_view()
 

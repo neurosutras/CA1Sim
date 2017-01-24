@@ -146,7 +146,12 @@ if len(sys.argv) > 1:
 else:
     spines = False
 if len(sys.argv) > 2:
-    cluster_id = sys.argv[2]
+    mech_filename = str(sys.argv[2])
+else:
+    # Need to change this!! Mechanism dictionary must contain information for soma_ek, and must adjust the ek values for other sections accordingly
+    mech_filename = '121516 DG_GC pas spines'
+if len(sys.argv) > 3:
+    cluster_id = sys.argv[3]
     c = Client(cluster_id=cluster_id)
 else:
     c = Client()
@@ -185,7 +190,7 @@ dv = c[:]
 dv.clear()
 dv.block = True
 global_start_time = time.time()
-dv.execute('run parallel_optimize_spike_stability_engine %i' % int(spines))
+dv.execute('run parallel_optimize_spike_stability_engine %i \"%s\"' % (int(spines), mech_filename))
 # time.sleep(120)
 v = c.load_balanced_view()
 
@@ -199,4 +204,6 @@ polished_result = optimize.minimize(na_ka_stability_error, result.x, method='Nel
 print polished_result
 """
 
-hist.report_best()
+best_x = hist.report_best()
+dv['x'] = best_x
+c[0].apply(parallel_optimize_spike_stability_engine.update_mech_dict)

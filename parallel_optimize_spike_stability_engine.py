@@ -48,9 +48,12 @@ if len(sys.argv) > 1:
     spines = bool(int(sys.argv[1]))
 else:
     spines = False
+if len(sys.argv) > 2:
+    mech_filename = str(sys.argv[2])
+else:
+    mech_filename = None
 
 #Need to change this!! Mechanism dictionary must contain information for soma_ek, and must adjust the ek values for other sections accordingly
-mech_filename = ''
 
 def get_spike_shape(vm):
     """

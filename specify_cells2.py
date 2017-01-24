@@ -2299,6 +2299,8 @@ class CA1_Pyr(HocCell):
         self.generate_inhibitory_synapse_locs()
         if full_spines:
             self.insert_spines()
+        else:
+            self.correct_for_spines()
 
     def generate_excitatory_synapse_locs(self, sec_type_list=None):
         """
@@ -2487,6 +2489,8 @@ class DG_GC(HocCell):
         # self.generate_inhibitory_synapse_locs()
         if full_spines:
             self.insert_spines(sec_type_list=['apical'])
+        else:
+            self.correct_for_spines()
 
     def generate_synapse_locs_by_layer(self, node, syn_type, density_dict):
         """
