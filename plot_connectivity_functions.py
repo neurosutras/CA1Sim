@@ -1,10 +1,6 @@
-from function_lib import *
-from mpi4py import MPI
-from neurotrees.io import append_tree_attributes
-from neurotrees.io import read_tree_attributes
-# import mkl
-import sys
 from plot_results import *
+import sys
+
 from mpl_toolkits.mplot3d import Axes3D
 from mpl_toolkits.axes_grid1 import make_axes_locatable
 import os
@@ -29,35 +25,27 @@ Algorithm:
 
 """
 
-# mkl.set_num_threads(2)
-
-comm = MPI.COMM_WORLD
-rank = comm.rank  # The process ID (integer 0-3 for 4-process run)
-
-if rank == 0:
-    print '%i ranks have been allocated' % comm.size
-sys.stdout.flush()
-
 neurotrees_dir = morph_dir
 # neurotrees_dir = os.environ['PI_SCRATCH']+'/DGC_forest/hdf5/'
 # neurotrees_dir = os.environ['PI_HOME']+'/'
 # forest_file = '122016_DGC_forest_with_syn_locs.h5'
-forest_file = 'DGC_forest_connectivity_test.h5'
-
-# synapse_dict = read_from_pkl(neurotrees_dir+'010117_GC_test_synapse_attrs.pkl')
-synapse_dict = read_tree_attributes(MPI._addressof(comm), neurotrees_dir+forest_file, 'GC',
-                                    namespace='Synapse_Attributes')
+# forest_file = 'DGC_forest_connectivity.h5'
+# degrees_file = 'DGC_forest_connectivity_degrees_new.h5'
 
 coords_dir = morph_dir
 # coords_dir = os.environ['PI_SCRATCH']+'/DG/'
 # coords_dir = os.environ['PI_HOME']+'/'
 coords_file = 'DG_Soma_Coordinates.h5'
 
-target_GID = synapse_dict.keys()
-target_GID.sort()
+forest_file = '100716_dentate_MPPtoDGC.h5'
+degrees_file = 'DGC_forest_connectivity_degrees_orig.h5'
 
-print 'MPI rank %i received %i GCs: [%i:%i]' % (rank, len(target_GID), target_GID[0], target_GID[-1])
-sys.stdout.flush()
+
+# target_GID = synapse_dict.keys()
+# target_GID.sort()
+
+# print 'MPI rank %i received %i GCs: [%i:%i]' % (rank, len(target_GID), target_GID[0], target_GID[-1])
+# sys.stdout.flush()
 
 soma_coords = {}
 with h5py.File(coords_dir+coords_file, 'r') as f:
@@ -66,7 +54,6 @@ with h5py.File(coords_dir+coords_file, 'r') as f:
                                       'v': f['Coordinates'][import_pop_key]['V Coordinate'][:],
                                       'l': f['Coordinates'][import_pop_key]['L Coordinate'][:],
                                       'GID': f['Coordinates'][import_pop_key]['GID'][:]}
-
 
 spatial_resolution = 1.  # um
 max_u = 10826.
@@ -96,99 +83,325 @@ distance_V = np.cumsum(np.insert(delta_V, 0, 0., axis=1), axis=1)
 width_U = np.mean(np.max(distance_U, axis=0))
 width_V = np.mean(np.max(distance_V, axis=1))
 
-# MEC layer II stellate cells: Gatome et al., Neuroscience, 2010
-pop_size = {'GC': 1000000, 'MEC': 38000}
-
-pop_density = {pop: pop_size[pop] / width_U / width_V for pop in pop_size}  # cell density per um^2
-# Sloviter, Lomo, Frontiers, 2012. says GCs might only project 200 um S-T..., MEC less than 1500.
-axon_width = {'GC': (900., 900.), 'MEC': (1500., 1500.)}  # full width in um (S-T, M-L)
-
-# based on EM synapse density and dendritic length in MML
-convergence = {'GC': {'MEC': 3000}}  # {target: {source: # of synapses from source cell population onto 1 target cell}}
-# can't find good estimate of MEC divergence. circular reasoning: convergence onto GC * # of GCs / # of MEC cells
-divergence = {'MEC': {'GC': 79000}}  # {source: {target: # of synapses from 1 source cell to target cell population}}
-layers = {'GC': {'MEC': [2]}}
-syn_types = {'GC': {'MEC': 0}}
-
-
 get_array_index = np.vectorize(lambda val_array, this_val: np.where(val_array >= this_val)[0][0], excluded=[0])
 
 
-def plot_source_soma_locs(target_gid, target, source, connection_dict, soma_coords, u, v, U, V, distance_U,
-                          distance_V, X, Y, Z):
+def plot_in_degree_single_target(target_gid, target, source, forest_file, soma_coords, u, v, distance_U, distance_V):
     """
 
     :param target_gid: int
     :param target: str
     :param source: str
-    :param connection_dict: dict
+    :param forest_file: str
     :param soma_coords: dict
     :param u: array
     :param v: array
-    :param U: array
-    :param V: array
     :param distance_U: array
     :param distance_V: array
-    :param X: array
-    :param Y: array
-    :param Z: array
     """
-    target_gid_index = np.where(soma_coords[target]['GID'] == target_gid)[0][0]
-    target_index_u = np.where(u >= soma_coords[target]['u'][target_gid_index])[0][0]
-    target_index_v = np.where(v >= soma_coords[target]['v'][target_gid_index])[0][0]
-    source_gids = connection_dict[target_gid]['source_gid']
-    source_indexes_gid = get_array_index(soma_coords[source]['GID'], source_gids)
-    source_indexes_u = get_array_index(u, soma_coords[source]['u'][source_indexes_gid])
-    source_indexes_v = get_array_index(v, soma_coords[source]['v'][source_indexes_gid])
+    raw_source_gids = soma_coords[source]['GID'][:]
+    sorted_source_indexes = range(len(raw_source_gids))
+    sorted_source_indexes.sort(key=raw_source_gids.__getitem__)
+    with h5py.File(neurotrees_dir+forest_file, 'r') as f:
+        target_connection_index = np.where(f['Populations'][target]['Connectivity']['source_gid']['gid'][:] ==
+                                           target_gid)[0][0]
+        start_index = f['Populations'][target]['Connectivity']['source_gid']['ptr'][target_connection_index]
+        end_index = f['Populations'][target]['Connectivity']['source_gid']['ptr'][target_connection_index + 1]
+        source_indexes_gid = get_array_index(raw_source_gids[sorted_source_indexes],
+                                             f['Populations'][target]['Connectivity']['source_gid']['value'][
+                                             start_index:end_index])
+    source_indexes_u = get_array_index(u, soma_coords[source]['u'][sorted_source_indexes][source_indexes_gid])
+    source_indexes_v = get_array_index(v, soma_coords[source]['v'][sorted_source_indexes][source_indexes_gid])
 
     fig1 = plt.figure(1)
-    ax = fig1.add_subplot(111, projection='3d')
-    ax.scatter(X[::100, ::50], Y[::100, ::50], Z[::100, ::50], c='grey', alpha=0.1, zorder=0)
-    ax.scatter(X[source_indexes_u, source_indexes_v], Y[source_indexes_u, source_indexes_v],
-               Z[source_indexes_u, source_indexes_v], c='b', zorder=1)
-    ax.scatter(X[target_index_u, target_index_v], Y[target_index_u, target_index_v],
-               Z[target_index_u, target_index_v], c='r', s=10, zorder=2)
-
-    fig2 = plt.figure(2)
-    H, u_edges, v_edges = np.histogram2d(soma_coords[source]['u'][source_indexes_gid],
-                                         soma_coords[source]['v'][source_indexes_gid], 100)
-    # H, u_edges, v_edges = np.histogram2d(u[source_indexes_u], v[source_indexes_v], 100)
-    H = np.rot90(H)
-    H = np.flipud(H)
-    Hmasked = np.ma.masked_where(H == 0, H)
-    plt.pcolormesh(u_edges, v_edges, Hmasked)
-    plt.xlabel('U')
-    plt.ylabel('V')
-    plt.title(source+':'+target)
-    cbar = plt.colorbar()
-    cbar.ax.set_ylabel('Counts')
-
-    fig3 = plt.figure(3)
     H, u_edges, v_edges = np.histogram2d(distance_U[source_indexes_u, source_indexes_v],
                                          distance_V[source_indexes_u, source_indexes_v], 100)
     H = np.rot90(H)
     H = np.flipud(H)
     Hmasked = np.ma.masked_where(H == 0, H)
-    plt.pcolormesh(u_edges, v_edges, Hmasked)
-    plt.xlabel('Arc_distance U (um)')
-    plt.ylabel('Arc_distance V (um)')
-    plt.title(source + ':' + target)
-    cbar = plt.colorbar()
+    ax = plt.gca()
+    pcm = ax.pcolormesh(u_edges, v_edges, Hmasked)
+    ax.set_xlabel('Arc distance (Septal - Temporal) (um)')
+    ax.set_ylabel('Arc distance (Suprapyramidal - Infrapyramidal)  (um)')
+    ax.set_title(target + ' <-- ' + source + ' (in degree)')
+    ax.set_aspect('equal', 'box')
+    clean_axes(ax)
+    divider = make_axes_locatable(ax)
+    cax = divider.append_axes("right", size="3%", pad=0.05)
+    cbar = plt.colorbar(pcm, cax=cax)
+    cbar.ax.set_ylabel('Counts (100 bins)')
+
+    fig2 = plt.figure(2)
+    unique_source_indexes_gid, counts = np.unique(source_indexes_gid, return_counts=True)
+    unique_source_indexes_u = \
+        get_array_index(u, soma_coords[source]['u'][sorted_source_indexes][unique_source_indexes_gid])
+    unique_source_indexes_v = \
+        get_array_index(v, soma_coords[source]['v'][sorted_source_indexes][unique_source_indexes_gid])
+    ax = plt.gca()
+    ax.scatter(distance_U[unique_source_indexes_u, unique_source_indexes_v],
+                     distance_V[unique_source_indexes_u, unique_source_indexes_v], c=counts, linewidths=0)
+    ax.set_xlabel('Arc distance (Septal - Temporal) (um)')
+    ax.set_ylabel('Arc distance (Suprapyramidal - Infrapyramidal)  (um)')
+    ax.set_title(target + ' <-- ' + source + ' (multiple innervation)')
+    ax.set_aspect('equal', 'box')
+    clean_axes(ax)
+    divider = make_axes_locatable(ax)
+    cax = divider.append_axes("right", size="3%", pad=0.05)
+    cbar = plt.colorbar(pcm, cax=cax)
     cbar.ax.set_ylabel('Counts')
 
-    fig4 = plt.figure(4)
-    unique_source_indexes_gid, counts = np.unique(source_indexes_gid, return_counts=True)
-    unique_source_indexes_u = get_array_index(u, soma_coords[source]['u'][unique_source_indexes_gid])
-    unique_source_indexes_v = get_array_index(v, soma_coords[source]['v'][unique_source_indexes_gid])
-    plt.scatter(distance_U[unique_source_indexes_u, unique_source_indexes_v],
-                     distance_V[unique_source_indexes_u, unique_source_indexes_v], c=counts, linewidths=0)
-    plt.xlabel('Arc_distance U (um)')
-    plt.ylabel('Arc_distance V (um)')
-    plt.title(source + ':' + target)
-    cbar = plt.colorbar()
-    cbar.ax.set_ylabel('Counts')
     plt.show()
     plt.close()
+
+
+def plot_in_degree_single_target_orig(target_gid, target, source, projection, forest_file, width_U):
+    """
+    TODO: Requires parallel read.
+    :param target_gid: int
+    :param target: str
+    :param source: str
+    :param projection: str
+    :param forest_file: str
+    :param width_U: array
+
+    with h5py.File(neurotrees_dir + forest_file, 'r') as f:
+        start_index = 0
+        while start_index < len(f['Projections'][projection]['Destination']):
+            if f['Projections'][projection]['Destination']['']
+        raw_source_gids = soma_coords[source]['GID'][:]
+        sorted_source_indexes = range(len(raw_source_gids))
+        sorted_source_indexes.sort(key=raw_source_gids.__getitem__)
+
+        source_distances_U = np.arange(0., width_U, width_U / len(raw_source_gids))
+
+
+            target_connection_index = np.where(f['Populations'][target]['Connectivity']['source_gid']['gid'][:] ==
+                                               target_gid)[0][0]
+            start_index = f['Populations'][target]['Connectivity']['source_gid']['ptr'][target_connection_index]
+            end_index = f['Populations'][target]['Connectivity']['source_gid']['ptr'][target_connection_index + 1]
+            source_indexes_gid = get_array_index(raw_source_gids[sorted_source_indexes],
+                                                 f['Populations'][target]['Connectivity']['source_gid']['value'][
+                                                 start_index:end_index])
+        source_indexes_u = get_array_index(u, soma_coords[source]['u'][sorted_source_indexes][source_indexes_gid])
+        source_indexes_v = get_array_index(v, soma_coords[source]['v'][sorted_source_indexes][source_indexes_gid])
+
+        fig1 = plt.figure(1)
+        H, u_edges, v_edges = np.histogram2d(distance_U[source_indexes_u, source_indexes_v],
+                                             distance_V[source_indexes_u, source_indexes_v], 100)
+        H = np.rot90(H)
+        H = np.flipud(H)
+        Hmasked = np.ma.masked_where(H == 0, H)
+        ax = plt.gca()
+        pcm = ax.pcolormesh(u_edges, v_edges, Hmasked)
+        ax.set_xlabel('Arc distance (Septal - Temporal) (um)')
+        ax.set_ylabel('Arc distance (Suprapyramidal - Infrapyramidal)  (um)')
+        ax.set_title(target + ' <-- ' + source + ' (in degree)')
+        ax.set_aspect('equal', 'box')
+        clean_axes(ax)
+        divider = make_axes_locatable(ax)
+        cax = divider.append_axes("right", size="3%", pad=0.05)
+        cbar = plt.colorbar(pcm, cax=cax)
+        cbar.ax.set_ylabel('Counts (100 bins)')
+
+        fig2 = plt.figure(2)
+        unique_source_indexes_gid, counts = np.unique(source_indexes_gid, return_counts=True)
+        unique_source_indexes_u = \
+            get_array_index(u, soma_coords[source]['u'][sorted_source_indexes][unique_source_indexes_gid])
+        unique_source_indexes_v = \
+            get_array_index(v, soma_coords[source]['v'][sorted_source_indexes][unique_source_indexes_gid])
+        ax = plt.gca()
+        ax.scatter(distance_U[unique_source_indexes_u, unique_source_indexes_v],
+                         distance_V[unique_source_indexes_u, unique_source_indexes_v], c=counts, linewidths=0)
+        ax.set_xlabel('Arc distance (Septal - Temporal) (um)')
+        ax.set_ylabel('Arc distance (Suprapyramidal - Infrapyramidal)  (um)')
+        ax.set_title(target + ' <-- ' + source + ' (multiple innervation)')
+        ax.set_aspect('equal', 'box')
+        clean_axes(ax)
+        divider = make_axes_locatable(ax)
+        cax = divider.append_axes("right", size="3%", pad=0.05)
+        cbar = plt.colorbar(pcm, cax=cax)
+        cbar.ax.set_ylabel('Counts')
+
+        plt.show()
+        plt.close()
+    """
+
+def plot_out_degree_single_source(source_gid, target, source, forest_file, soma_coords, u, v, distance_U, distance_V):
+    """
+    TODO: This requires parallel read. Should just write a script that inverts the connectivity.
+    :param source_gid: int
+    :param target: str
+    :param source: str
+    :param forest_file: str
+    :param soma_coords: dict
+    :param u: array
+    :param v: array
+    :param distance_U: array
+    :param distance_V: array
+    """
+    raw_target_gids = soma_coords[target]['GID'][:]
+    sorted_target_indexes = range(len(raw_target_gids))
+    sorted_target_indexes.sort(key=raw_target_gids.__getitem__)
+    with h5py.File(neurotrees_dir+forest_file, 'r') as f:
+        target_connection_index = np.where(f['Populations'][target]['Connectivity']['source_gid']['gid'][:] ==
+                                           target_gid)[0][0]
+        start_index = f['Populations'][target]['Connectivity']['source_gid']['ptr'][target_connection_index]
+        end_index = f['Populations'][target]['Connectivity']['source_gid']['ptr'][target_connection_index + 1]
+        source_indexes_gid = get_array_index(raw_source_gids[sorted_source_indexes],
+                                             f['Populations'][target]['Connectivity']['source_gid']['value'][
+                                             start_index:end_index])
+    source_indexes_u = get_array_index(u, soma_coords[source]['u'][sorted_source_indexes][source_indexes_gid])
+    source_indexes_v = get_array_index(v, soma_coords[source]['v'][sorted_source_indexes][source_indexes_gid])
+
+    fig1 = plt.figure(1)
+    H, u_edges, v_edges = np.histogram2d(distance_U[source_indexes_u, source_indexes_v],
+                                         distance_V[source_indexes_u, source_indexes_v], 100)
+    H = np.rot90(H)
+    H = np.flipud(H)
+    Hmasked = np.ma.masked_where(H == 0, H)
+    ax = plt.gca()
+    pcm = ax.pcolormesh(u_edges, v_edges, Hmasked)
+    ax.set_xlabel('Arc distance (Septal - Temporal) (um)')
+    ax.set_ylabel('Arc distance (Suprapyramidal - Infrapyramidal)  (um)')
+    ax.set_title(target + ' <-- ' + source + ' (in degree)')
+    ax.set_aspect('equal', 'box')
+    clean_axes(ax)
+    divider = make_axes_locatable(ax)
+    cax = divider.append_axes("right", size="3%", pad=0.05)
+    cbar = plt.colorbar(pcm, cax=cax)
+    cbar.ax.set_ylabel('Counts (100 bins)')
+
+    fig2 = plt.figure(2)
+    unique_source_indexes_gid, counts = np.unique(source_indexes_gid, return_counts=True)
+    unique_source_indexes_u = \
+        get_array_index(u, soma_coords[source]['u'][sorted_source_indexes][unique_source_indexes_gid])
+    unique_source_indexes_v = \
+        get_array_index(v, soma_coords[source]['v'][sorted_source_indexes][unique_source_indexes_gid])
+    ax = plt.gca()
+    ax.scatter(distance_U[unique_source_indexes_u, unique_source_indexes_v],
+                     distance_V[unique_source_indexes_u, unique_source_indexes_v], c=counts, linewidths=0)
+    ax.set_xlabel('Arc distance (Septal - Temporal) (um)')
+    ax.set_ylabel('Arc distance (Suprapyramidal - Infrapyramidal)  (um)')
+    ax.set_title(target + ' <-- ' + source + ' (multiple innervation)')
+    ax.set_aspect('equal', 'box')
+    clean_axes(ax)
+    divider = make_axes_locatable(ax)
+    cax = divider.append_axes("right", size="3%", pad=0.05)
+    cbar = plt.colorbar(pcm, cax=cax)
+    cbar.ax.set_ylabel('Counts')
+
+    plt.show()
+    plt.close()
+
+
+def plot_in_degree(target, source, projection, degrees_file, soma_coords, u, v, distance_U, distance_V):
+    """
+
+    :param target: str
+    :param source: str
+    :param projection: str
+    :param degrees_file: :class:'h5py.Group'
+    :param soma_coords: dict
+    :param u: array
+    :param v: array
+    :param distance_U: array
+    :param distance_V: array
+    """
+    with h5py.File(neurotrees_dir+degrees_file, 'r') as f:
+        in_degree_group = f['Projections'][projection]['In degree']
+        raw_target_gids = soma_coords[target]['GID'][:]
+        sorted_target_indexes = range(len(raw_target_gids))
+        sorted_target_indexes.sort(key=raw_target_gids.__getitem__)
+
+        target_indexes_gid = get_array_index(raw_target_gids[sorted_target_indexes], in_degree_group['gid'][:])
+        target_indexes_u = get_array_index(u, soma_coords[target]['u'][sorted_target_indexes][target_indexes_gid])
+        target_indexes_v = get_array_index(v, soma_coords[target]['v'][sorted_target_indexes][target_indexes_gid])
+
+        fig1 = plt.figure(1, figsize=plt.figaspect(1.) * 2.)
+        ax = plt.gca()
+        pcm = ax.scatter(distance_U[target_indexes_u, target_indexes_v], distance_V[target_indexes_u, target_indexes_v],
+                            c=in_degree_group['count'][:], linewidths=0)
+        ax.set_xlabel('Arc distance (Septal - Temporal) (um)')
+        ax.set_ylabel('Arc distance (Suprapyramidal - Infrapyramidal)  (um)')
+        ax.set_title(target+' <-- '+source+' (in degree)')
+        ax.set_aspect('equal', 'box')
+        clean_axes(ax)
+        divider = make_axes_locatable(ax)
+        cax = divider.append_axes("right", size="3%", pad=0.05)
+        cbar = plt.colorbar(pcm, cax=cax)
+        cbar.ax.set_ylabel('Counts')
+
+        plt.show()
+        plt.close()
+
+
+def plot_out_degree(target, source, projection, degrees_file, soma_coords, u, v, distance_U, distance_V):
+    """
+
+    :param target: str
+    :param source: str
+    :param projection: str
+    :param degrees_file: :class:'h5py.Group'
+    :param soma_coords: dict
+    :param u: array
+    :param v: array
+    :param distance_U: array
+    :param distance_V: array
+    """
+    with h5py.File(neurotrees_dir+degrees_file, 'r') as f:
+        out_degree_group = f['Projections'][projection]['Out degree']
+        raw_source_gids = soma_coords[source]['GID'][:]
+        sorted_source_indexes = range(len(raw_source_gids))
+        sorted_source_indexes.sort(key=raw_source_gids.__getitem__)
+
+        source_indexes_gid = get_array_index(raw_source_gids[sorted_source_indexes], out_degree_group['gid'][:])
+        source_indexes_u = get_array_index(u, soma_coords[source]['u'][sorted_source_indexes][source_indexes_gid])
+        source_indexes_v = get_array_index(v, soma_coords[source]['v'][sorted_source_indexes][source_indexes_gid])
+
+        fig1 = plt.figure(1, figsize=plt.figaspect(1.) * 2.)
+        ax = plt.gca()
+        pcm = ax.scatter(distance_U[source_indexes_u, source_indexes_v], distance_V[source_indexes_u, source_indexes_v],
+                            c=out_degree_group['count'][:], linewidths=0)
+        ax.set_xlabel('Arc distance (Septal - Temporal) (um)')
+        ax.set_ylabel('Arc distance (Suprapyramidal - Infrapyramidal)  (um)')
+        ax.set_title(source+' --> '+target+' (out degree)')
+        ax.set_aspect('equal', 'box')
+        clean_axes(ax)
+        divider = make_axes_locatable(ax)
+        cax = divider.append_axes("right", size="3%", pad=0.05)
+        cbar = plt.colorbar(pcm, cax=cax)
+        cbar.ax.set_ylabel('Counts')
+
+        plt.show()
+        plt.close()
+
+
+def plot_out_degree_orig(target, source, projection, degrees_file, width_U):
+    """
+
+    :param target: str
+    :param source: str
+    :param projection: str
+    :param degrees_file: :class:'h5py.Group'
+    :param width_U: array
+    """
+    with h5py.File(neurotrees_dir+degrees_file, 'r') as f:
+        out_degree_group = f['Projections'][projection]['Out degree']
+        raw_source_gids = out_degree_group['gid'][:]
+        sorted_source_indexes = range(len(raw_source_gids))
+        sorted_source_indexes.sort(key=raw_source_gids.__getitem__)
+        source_distances_U = np.arange(0., width_U, width_U / len(raw_source_gids))
+
+        fig1 = plt.figure(1, figsize=plt.figaspect(1.) * 2.)
+        ax = plt.gca()
+        ax.scatter(source_distances_U[sorted_source_indexes], out_degree_group['count'][:], linewidths=0)
+        ax.set_xlabel('Arc distance (Septal - Temporal) (um)')
+        ax.set_ylabel('Synapse count')
+        ax.set_title(source+' --> '+target+' (out degree)')
+        clean_axes(ax)
+
+        plt.show()
+        plt.close()
 
 
 def plot_population_density(population, soma_coords, u, v, U, V, distance_U, distance_V):
@@ -267,37 +480,21 @@ def plot_population_density(population, soma_coords, u, v, U, V, distance_U, dis
     plt.close()
 
 
-plot_population_density('GC', soma_coords, u, v, U, V, distance_U, distance_V)
-plot_population_density('MEC', soma_coords, u, v, U, V, distance_U, distance_V)
+# plot_population_density('GC', soma_coords, u, v, U, V, distance_U, distance_V)
 
+# plot_population_density('MEC', soma_coords, u, v, U, V, distance_U, distance_V)
+
+plot_in_degree('GC', 'MEC', 'MPPtoGC', degrees_file, soma_coords, u, v, distance_U, distance_V)
+
+
+# plot_out_degree('GC', 'MEC', 'MPPtoGC', degrees_file, soma_coords, u, v, distance_U, distance_V)
+# plot_out_degree_orig('GC', 'MEC', 'MPPtoGC', degrees_file, width_U)
 """
-connection_dict = read_from_pkl(neurotrees_dir+'010117_DG_GC_MEC_connectivity_test.pkl')
-target_gid = 500
-plot_source_soma_locs(target_gid, 'GC', 'MEC', connection_dict, soma_coords, u, v, U, V, distance_U, distance_V,
-                     X, Y, Z)
-
-
-for target in convergence:
-    for source in convergence[target]:
-        sc = plt.scatter(pop_locs_X[target], pop_locs_Y[target], c=np.array(syn_in_degree[target][source].values()),
-                         linewidths=0)
-        plt.xlabel('Location S-T (um)')
-        plt.ylabel('Location M-L (um)')
-        plt.title(source+' -> '+target+' Convergence (# of Synapses)')
-        plt.colorbar(sc)
-        plt.show()
-        plt.close()
-
-for source in divergence:
-    for target in divergence[source]:
-        sc = plt.scatter(pop_locs_X[source], pop_locs_Y[source], c=np.array(syn_out_degree[source][target].values()),
-                         linewidths=0)
-        plt.xlabel('Location S-T (um)')
-        plt.ylabel('Location M-L (um)')
-        plt.title(source + ' -> ' + target + ' Divergence (# of Synapses)')
-        plt.colorbar(sc)
-        plt.show()
-        plt.close()
+target_gid_index = np.where((soma_coords['GC']['u'] > u[0] + (u[-1]-u[0])/2.) &
+                            (soma_coords['GC']['v'] > v[0] + (v[-1]-v[0])/2.))[0][0]
+target_gid = soma_coords['GC']['GID'][target_gid_index]
+# plot_in_degree_single_target(target_gid, 'GC', 'MEC', forest_file, soma_coords, u, v, distance_U, distance_V)
+plot_in_degree_single_target_orig(target_gid, 'GC', 'MEC', 'MPPtoGC', forest_file, width_U)
 
 
 fig = plt.figure()

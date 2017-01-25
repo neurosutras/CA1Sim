@@ -45,8 +45,8 @@ def pulse_read_iterator(chunk_size, total_size):
         global_end += chunk_size
         yield pieces_indexes, pieces_sizes
 
-# chunk = pulse_read_iterator(100000000, len(f['Projections']['MPPtoGC']['Source']))
-chunk = pulse_read_iterator(1000000, int(len(f['Projections']['MPPtoGC']['Source'])/100))
+chunk = pulse_read_iterator(100000000, len(f['Projections']['MPPtoGC']['Destination']))
+# chunk = pulse_read_iterator(1000000, int(len(f['Projections']['MPPtoGC']['Source'])/100))
 
 if rank == 0:
     in_degree = Counter()

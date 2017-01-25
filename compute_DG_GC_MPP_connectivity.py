@@ -182,8 +182,8 @@ class AxonProb(object):
         :param distance_V: array of float
         :return: tuple of array of int
         """
-        source_indexes_u_all = get_array_index(u, soma_coords['MEC']['u'])
-        source_indexes_v_all = get_array_index(v, soma_coords['MEC']['v'])
+        source_indexes_u_all = get_array_index(u, soma_coords[source]['u'])
+        source_indexes_v_all = get_array_index(v, soma_coords[source]['v'])
         source_distance_u_all, source_distance_v_all = self.get_approximate_arc_distances(target_index_u,
                                                                                           target_index_v,
                                                                                           source_indexes_u_all,
