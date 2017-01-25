@@ -51,9 +51,8 @@ else:
 if len(sys.argv) > 2:
     mech_filename = str(sys.argv[2])
 else:
-    mech_filename = None
+    mech_filename = '012416 GC optimizing excitability'
 
-#Need to change this!! Mechanism dictionary must contain information for soma_ek, and must adjust the ek values for other sections accordingly
 
 def get_spike_shape(vm):
     """

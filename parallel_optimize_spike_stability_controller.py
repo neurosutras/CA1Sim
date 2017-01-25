@@ -6,7 +6,6 @@ import math
 from ipyparallel import Client
 from IPython.display import clear_output
 from plot_results import *
-from specify_cells2 import optimize_history
 import scipy.optimize as optimize
 
 """
@@ -21,6 +20,7 @@ Parallel version dynamically submits jobs to available cores.
 Assumes a controller is already running in another process with:
 ipcluster start -n num_cores
 """
+
 
 def na_ka_stability_error(x, plot=0):
     """
@@ -149,7 +149,7 @@ if len(sys.argv) > 2:
     mech_filename = str(sys.argv[2])
 else:
     # Need to change this!! Mechanism dictionary must contain information for soma_ek, and must adjust the ek values for other sections accordingly
-    mech_filename = '121516 DG_GC pas spines'
+    mech_filename = '012416 GC optimizing excitability'
 if len(sys.argv) > 3:
     cluster_id = sys.argv[3]
     c = Client(cluster_id=cluster_id)
@@ -193,17 +193,18 @@ global_start_time = time.time()
 dv.execute('run parallel_optimize_spike_stability_engine %i \"%s\"' % (int(spines), mech_filename))
 # time.sleep(120)
 v = c.load_balanced_view()
-
+"""
 result = optimize.basinhopping(na_ka_stability_error, x0['na_ka_stability'], niter=explore_niter, niter_success=explore_niter,
                                disp=True, interval=20, minimizer_kwargs=minimizer_kwargs, take_step=take_step)
 
-"""
+
 polished_result = optimize.minimize(na_ka_stability_error, result.x, method='Nelder-Mead', options={'ftol': 1e-5,
                                                     'disp': True, 'maxiter': polish_niter})
 
 print polished_result
-"""
+
 
 best_x = hist.report_best()
 dv['x'] = best_x
 c[0].apply(parallel_optimize_spike_stability_engine.update_mech_dict)
+"""
