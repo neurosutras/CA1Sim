@@ -35,10 +35,14 @@ def na_ka_stability_error(x, plot=0):
     start_time = time.time()
     dv['x'] = x
     hist.x_values.append(x)
-
+    this_dv = c[0]
+    this_dv.block = True
     formatted_x = '[' + ', '.join(['%.2E' % xi for xi in x]) + ']'
     print 'Process %i using current x: %s: %s' % (os.getpid(), str(xlabels['na_ka_stability']), formatted_x)
-    result = c[0].apply(parallel_optimize_spike_stability_engine.compute_spike_shape_features)
+    result = this_dv.apply(parallel_optimize_spike_stability_engine.compute_spike_shape_features)
+    if result is None:
+        print 'Cell is spontaneously firing, or parameters are out of bounds.'
+        return 1e9
     final_result = result[0]
     result = v.map_async(parallel_optimize_spike_stability_engine.compute_spike_stability_features,
                          [final_result['amp'] + amp for amp in [0.25, 0.5, 0.75]])

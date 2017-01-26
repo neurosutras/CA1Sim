@@ -60,7 +60,7 @@ class HocCell(object):
         if self.axon:
             self.init_spike_detector()
 
-    def make_standard_soma_and_axon(self, soma_length = 14., soma_diam = 9., ais_length = 15.):
+    def make_standard_soma_and_axon(self, soma_length=16., soma_diam=9., ais_length=30., axon_length=500.):
         """
         This method implements a standardized soma and axon:
         The soma consists of two cylindrical hoc sections of equal length and diameter, connected (0) to (0).
@@ -72,6 +72,7 @@ class HocCell(object):
         :param soma_length: float
         :param soma_diam: float
         :param ais_length: float
+        :param axon_length: float
         """
         for index in range(2):
             node = self.make_section('soma')
@@ -88,7 +89,7 @@ class HocCell(object):
         self.axon[1].type = 'ais'
         self.axon[1].sec.L = ais_length
         self.axon[1].set_diam_bounds(2., 0.5)  # (2., 1.)
-        self.axon[2].sec.L = 500.
+        self.axon[2].sec.L = axon_length
         self.axon[2].sec.diam = 0.5  # 1.
         self.axon[0].connect(self.soma[0], 0, 0)
         self.axon[1].connect(self.axon[0], 1, 0)
@@ -2293,7 +2294,7 @@ class CA1_Pyr(HocCell):
         HocCell.__init__(self, morph_filename, mech_filename, gid, existing_hoc_cell)
         self.random.seed(self.gid)  # This cell will always have the same spine and GABA_A synapse locations as long as
                                     # they are inserted in the same order
-        self.make_standard_soma_and_axon(soma_length=16., soma_diam=9., ais_length=30.)
+        self.make_standard_soma_and_axon(soma_length=16., soma_diam=9., ais_length=30., axon_length=500.)
         self.load_morphology(preserve_3d=preserve_3d)
         self.generate_excitatory_synapse_locs()
         self.generate_inhibitory_synapse_locs()
@@ -2483,10 +2484,10 @@ class DG_GC(HocCell):
         HocCell.__init__(self, morph_filename, mech_filename, gid, existing_hoc_cell, neurotree_dict)
         self.random.seed(self.gid)  # This cell will always have the same spine and GABA_A synapse locations as long as
                                     # they are inserted in the same order
-        self.make_standard_soma_and_axon(soma_length=16., soma_diam=10., ais_length=30.)
+        self.make_standard_soma_and_axon(soma_length=18.6, soma_diam=10.3, ais_length=20., axon_length=1000.)
         self.load_morphology(preserve_3d=preserve_3d)
         self.generate_excitatory_synapse_locs()
-        # self.generate_inhibitory_synapse_locs()
+        self.generate_inhibitory_synapse_locs()
         if full_spines:
             self.insert_spines(sec_type_list=['apical'])
         else:

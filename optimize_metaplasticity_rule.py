@@ -409,10 +409,12 @@ if cell_id is not None:
                 if this_induction_loc > track_length:
                     this_induction_loc -= track_length
                 induction_locs[int(induction)].append(this_induction_loc)
+            """
             plt.plot(binned_x, f[cell_id][induction]['ramp'], binned_x, ramp[int(induction)])
             plt.title(induction)
             plt.show()
             plt.close()
+            """
 else:
     raise Exception('No data imported')
 
@@ -1015,23 +1017,30 @@ asymmetry = {}
 x0 = {}
 
 # x0['1'] = [1.741E+01, 1.167E+03, 4.960E+01, 2.717E+02, 1.000E+00, 2.822E-03]  # Error: 1.007E+05 * cell1
-x0['1'] = [1.732E+01, 1.169E+03, 5.054E+01, 2.728E+02, 1.002E+00, 2.822E-03]  # Error: 1.0074E+05 * cell1
+# x0['1'] = [1.732E+01, 1.169E+03, 5.054E+01, 2.728E+02, 1.002E+00, 2.822E-03]  # Error: 1.0074E+05 * cell1
+x0['1'] = [1.907E+01, 1.168E+03, 5.378E+01, 2.813E+02, 1.000E+00, 2.818E-03]  # Error: 1.0811E+05 * cell1
 # x0['2'] = [4.699E+02, 5.102E+02, 1.850E+01, 1.765E+02, 1.500E+00, 1.855E-03]  # Error: 6.294E+04 * cell15
-x0['2'] = [4.851E+02, 5.273E+02, 1.006E+01, 2.199E+02, 1.474E+00, 1.800E-03]  # Error: 5.4097E+04 * cell15
+# x0['2'] = [4.851E+02, 5.273E+02, 1.006E+01, 2.199E+02, 1.474E+00, 1.800E-03]  # Error: 5.4097E+04 * cell15
+x0['2'] = [4.769E+02, 5.342E+02, 1.000E+01, 2.212E+02, 1.463E+00, 1.826E-03]  # Error: 1.3157E+04 * cell15
 # x0['3'] = [3.006E+02, 2.072E+03, 2.326E+01, 7.880E+02, 1.500E+00, 1.959E-03]  # Error:
 # x0['3'] = [2.138E+02, 1.616E+03, 1.643E+01, 1.005E+03, 1.494E+00, 1.936E-03]  # Error: 2.308E+05 * cell7
-x0['3'] = [2.138E+02, 1.614E+03, 1.646E+01, 1.002E+03, 1.500E+00, 1.955E-03]  # Error: 2.3074E+05 * cell7
+# x0['3'] = [2.138E+02, 1.614E+03, 1.646E+01, 1.002E+03, 1.500E+00, 1.955E-03]  # Error: 2.3074E+05 * cell7
+x0['3'] = [3.656E+02, 1.068E+03, 7.596E+01, 9.424E+02, 1.481E+00, 1.873E-03]  # Error: 2.1695E+05 * cell7
 # x0['4'] = [8.912E+01, 1.651E+03, 1.137E+01, 1.220E+03, 7.057E-01, 1.663E-03]  # Error:
 # x0['4'] = [1.681E+02, 1.788E+03, 2.410E+01, 1.697E+03, 1.002E+00, 2.042E-03]  # Error: 9.6546E+04 * cell9
-x0['4'] = [1.729E+02, 1.961E+03, 2.326E+01, 1.723E+03, 1.000E+00, 2.052E-03]  # Error: 8.7946E+04 * cell9
+# x0['4'] = [1.729E+02, 1.961E+03, 2.326E+01, 1.723E+03, 1.000E+00, 2.052E-03]  # Error: 8.7946E+04 * cell9
+x0['4'] = [1.731E+02, 1.958E+03, 2.330E+01, 1.723E+03, 1.000E+00, 2.094E-03]  # Error: 1.0521E+05 * cell9
 # x0['5'] = [4.820E+02, 6.828E+02, 1.000E+01, 1.565E+02, 1.418E+00, 1.474E-03]  # Error:
 # x0['5'] = [3.747E+02, 8.444E+02, 1.338E+01, 4.710E+02, 1.500E+00, 1.510E-03]  # Error: 5.8753E+04 * cell5
-x0['5'] = [3.452E+02, 7.208E+02, 1.000E+01, 4.004E+02, 1.500E+00, 1.474E-03]  # Error: 6.2414E+04 * cell5
+# x0['5'] = [3.452E+02, 7.208E+02, 1.000E+01, 4.004E+02, 1.500E+00, 1.474E-03]  # Error: 6.2414E+04 * cell5
+x0['5'] = [3.778E+02, 7.870E+02, 2.342E+01, 5.514E+02, 1.500E+00, 1.540E-03]  # Error: 2.7011E+04 * cell5
 # x0['6'] = [1.260E+02, 1.109E+03, 4.557E+01, 1.682E+03, 1.402E+00, 7.828E-04]  # Error:
 # x0['6'] = [1.075E+02, 2.395E+03, 2.360E+02, 2.373E+02, 1.436E+00, 9.375E-04]  # Error: 1.622E+05 * cell4
-x0['6'] = [7.717E+01, 2.574E+03, 2.526E+02, 3.077E+02, 1.499E+00, 9.751E-04]  # Error: 1.4488E+05 * cell4
+# x0['6'] = [7.717E+01, 2.574E+03, 2.526E+02, 3.077E+02, 1.499E+00, 9.751E-04]  # Error: 1.4488E+05 * cell4
+x0['6'] = [1.007E+01, 2.294E+03, 1.329E+02, 3.341E+02, 1.224E+00, 8.160E-04]  # Error: 1.2760E+05 * cell4
 
-x0['mean'] = [2.252E+02, 1.387E+03, 5.967E+01, 6.431E+02, 1.322E+00, 1.850E-03]  # Just these 6 cells 012317
+# x0['mean'] = [2.252E+02, 1.387E+03, 5.967E+01, 6.431E+02, 1.322E+00, 1.850E-03]  # Just these 6 cells 012317
+x0['mean'] = [2.093E+02, 1.342E+03, 7.888E+01, 3.992E+02, 1.316E+00, 3.584E-03]  # Induced + Spontaneous
 
 # to avoid saturation and reduce variability of time courses across cells, constrain the relative amplitude
 # of global and local kernels:
@@ -1077,7 +1086,7 @@ for induction in position:
 if 1 not in plasticity_signal:
     plasticity_signal[1] = np.zeros_like(peak_locs['CA3'])
 
-w0 = {this_cell_id: {} for this_cell_id in x0}
+w0 = {this_cell_id: {} for this_cell_id in x0.keys()+['7', '8', '9', '10', '11']}
 if cell_id not in w0:
     w0[cell_id] = {}
 binned_w1 = {}
@@ -1140,8 +1149,8 @@ for induction in ramp:
         this_model_baseline = None
     weights[induction], model_ramp[induction], model_baseline[induction], asymmetry[induction] = \
         ramp_error_ignore_kernel(binned_w1[induction], wmin1, wmax1, ramp[induction], induction,
-                                 baseline=this_model_baseline, plot=True, full_output=True)
-    """
+                                 baseline=this_model_baseline, plot=False, full_output=True)
+
     if induction in [1, 2]:  # [2]:
 
         result = optimize_explore(binned_w1[induction], wmin1, wmax1, ramp_error_ignore_kernel, ramp[induction],
@@ -1157,7 +1166,7 @@ for induction in ramp:
         weights[induction], model_ramp[induction], model_baseline[induction], asymmetry[induction] = \
             ramp_error_ignore_kernel(binned_w1[induction], wmin1, wmax1, ramp[induction], induction,
                                      baseline=this_model_baseline, plot=False, full_output=True)
-    """
+
 
 """
 fig1, axes1 = plt.subplots(1)

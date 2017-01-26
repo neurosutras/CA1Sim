@@ -54,6 +54,7 @@ else:
     mech_filename = '012416 GC optimizing excitability'
 
 
+@interactive
 def get_spike_shape(vm):
     """
 
@@ -83,6 +84,7 @@ def get_spike_shape(vm):
     else:
         ADP = 0.
     return v_peak, th_v, ADP, AHP
+
 
 @interactive
 def offset_vm(description, vm_target=None):
@@ -167,20 +169,23 @@ def update_na_ka_stability(x):
         cell.modify_mech_param(sec_type, 'kdr', 'gkdrbar', origin='soma')
         cell.modify_mech_param(sec_type, 'kap', 'gkabar', x[0] * x[2])
 
+
 @interactive
 def compute_spike_shape_features(local_x=None, plot=0):
     """
 
-    :param x: array [soma.gkabar, soma.gkdrbar, axon.gkabar_kap factor, axon.gbar_nax factor]
+    :param local_x: array [soma.gkabar, soma.gkdrbar, axon.gkabar_kap factor, axon.gbar_nax factor]
     :return: float
     """
-    if local_x is not None:
-        x = local_x
-    if not check_bounds.within_bounds(x, 'na_ka_stability'):
+    if local_x is None:
+        local_x = x
+    print x
+    print local_x
+    if not check_bounds.within_bounds(local_x, 'na_ka_stability'):
         print 'Process %i: Aborting - Parameters outside optimization bounds.' % (os.getpid())
-        return 1e9
+        return None
     start_time = time.time()
-    update_na_ka_stability(x)
+    update_na_ka_stability(local_x)
     soma_vm = offset_vm('soma', v_active)
     result = {'v_rest': soma_vm}
     sim.modify_stim(0, node=cell.tree.root, loc=0., dur=100.)
@@ -195,7 +200,7 @@ def compute_spike_shape_features(local_x=None, plot=0):
         vm = np.interp(t, sim.tvec, sim.rec_list[0]['vec'])
         if amp == 0.05 and np.any(vm[:int(equilibrate/dt)] > -30.):
             print 'Process %i: Aborting - spontaneous firing' % (os.getpid())
-            return 1e9
+            return None
         if np.any(vm[int(equilibrate/dt):int((equilibrate+50.)/dt)] > -30.):
             spike = True
         else:
@@ -239,6 +244,7 @@ def compute_spike_stability_features(amp, plot=0):
     result['v_min_late'] = v_min_late
     return result
 
+
 @interactive
 def export_sim_results():
     """
@@ -255,7 +261,8 @@ dt = 0.01
 amp = 0.3
 th_dvdt = 10.
 v_init = -67.
-v_active = -61.
+# v_active = -61.
+v_active = -67.
 
 cell = DG_GC(neurotree_dict=neurotree_dict[0], mech_filename=mech_filename, full_spines=spines)
 
@@ -271,6 +278,11 @@ for description, node in rec_nodes.iteritems():
 
 i_holding = {'soma': 0., 'dend': 0., 'distal_dend': 0.}
 
-orig_ka_dend_slope = cell.mech_dict['apical']['kap']['gkabar']['slope']
+if type(cell.mech_dict['apical']['kap']['gkabar']) == list:
+    orig_ka_dend_slope = \
+        (element for element in cell.mech_dict['apical']['kap']['gkabar'] if 'slope' in element).next()['slope']
+else:
+    orig_ka_dend_slope = cell.mech_dict['apical']['kap']['gkabar']['slope']
+
 orig_ka_soma_gkabar = cell.mech_dict['soma']['kap']['gkabar']['value']
 orig_ka_dend_gkabar = orig_ka_soma_gkabar + orig_ka_dend_slope * 300.
