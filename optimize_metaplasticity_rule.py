@@ -1092,42 +1092,74 @@ if cell_id not in w0:
 binned_w1 = {}
 binned_w2 = {}
 
-# w0['1'][1] = [1.007E+00, 2.045E+00, 2.611E+00, 2.172E+00, 3.504E+00, 3.588E+00, 2.930E+00, 6.000E+00, 2.124E+00,
-#              1.129E+00, 1.177E+00]
-#w0['1'][1] = [1.050E+00, 1.414E+00, 2.645E+00, 2.603E+00, 2.635E+00, 3.540E+00, 3.464E+00, 4.505E+00, 3.124E+00,
-#              1., 1.]  # Error: 1.4312E+04
-w0['1'][1] = [1.0530, 1.0519, 2.6067, 3.2128, 3.1777, 3.0347, 3.7553, 5.5801, 3.1213, 1.0425, 1.0600]
-        # Error: 7.0857E+04
-# w0['1'][2] = [4.960E+00, 4.987E+00, 2.029E+00, 2.552E+00, 2.533E+00, 2.216E+00, 1.916E+00, 2.432E+00, 2.813E+00,
-#              1.264E+00, 3.094E+00]  # Error: 1.4393E+04
-# w0['1'][2] = [4.8430, 3.7643, 3.3739, 3.8567, 1.5617, 3.5641, 2.4796, 1.3632, 4.2335, 2.0795, 2.3184]
-#        # Error: 2.3270E+05
-w0['1'][2] = [4.106E+00, 4.177E+00, 5.043E+00, 2.002E+00, 1.654E+00, 1.577E+00, 4.445E+00, 1.807E+00, 1.495E+00,
-              2.310E+00, 3.116E+00]  # Error: 4.9474E+04
-w0['2'][1] = [2.663E+00, 2.661E+00, 1.280E+00, 1.280E+00, 3.258E+00, 3.254E+00, 1.210E+00, 1.141E+00, 1.141E+00,
-              1.146E+00, 2.064E+00]  # Error: 7.7499E+03
-w0['2'][2] = [3.153E+00, 1.047E+00, 2.259E+00, 2.742E+00, 2.366E+00, 1.691E+00, 1.520E+00, 1.296E+00, 1.636E+00,
-              2.839E+00, 2.519E+00]  # Error: 1.2036E+04
-w0['3'][1] = [1.003E+00, 1.000E+00, 1.724E+00, 4.276E+00, 2.942E+00, 2.088E+00, 3.293E+00, 3.499E+00, 2.662E+00,
-              1.483E+00, 1.508E+00]  # Error: 1.5349E+04
-w0['3'][2] = [1.012E+00, 1.011E+00, 1.004E+00, 2.621E+00, 3.760E+00, 3.929E+00, 2.144E+00, 2.224E+00, 3.136E+00,
-              3.069E+00, 2.564E+00]  # Error: 1.3052E+04
-w0['4'][1] = [2.367E+00, 1.198E+00, 1.000E+00, 1.086E+00, 2.255E+00, 3.899E+00, 3.900E+00, 3.128E+00, 2.133E+00,
-              1.955E+00, 4.017E+00]  # Error: 2.5967E+04
-w0['4'][2] = [1.502E+00, 1.569E+00, 1.569E+00, 1.842E+00, 4.461E+00, 4.461E+00, 3.114E+00, 1.729E+00, 1.758E+00,
-              3.292E+00, 3.292E+00]  # Error: 9.5853E+03
-w0['5'][1] = [1.295E+00, 1.295E+00, 3.116E+00, 3.102E+00, 3.150E+00, 2.966E+00, 2.620E+00, 1.283E+00, 1.283E+00,
-              1.271E+00, 1.507E+00]  # Error: 3.6282E+03
-w0['5'][2] = [2.798E+00, 3.066E+00, 3.311E+00, 3.311E+00, 1.740E+00, 2.015E+00, 2.418E+00, 2.418E+00, 1.518E+00,
-              1.238E+00, 1.434E+00]  # Error: 4.4590E+03
-w0['6'][1] = [3.264E+00, 1.720E+00, 1.023E+00, 2.285E+00, 3.685E+00, 1.785E+00, 1.000E+00, 2.977E+00, 4.806E+00,
-              1.824E+00, 3.255E+00]  # Error: 7.8322E+04
-w0['6'][2] = [1.519E+00, 1.833E+00, 1.907E+00, 2.115E+00, 5.258E+00, 3.127E+00, 1.829E+00, 1.831E+00, 3.596E+00,
-              4.382E+00, 4.379E+00]  # Error: 2.0410E+04
-w0['7'][1] = [2.717E+00, 2.993E+00, 2.519E+00, 1.206E+00, 1.087E+00, 1.339E+00, 1.705E+00, 1.751E+00, 2.945E+00,
-              2.939E+00, 3.440E+00]  # Error: 1.8074E+04
-w0['7'][2] = [1.646E+00, 1.194E+00, 1.187E+00, 3.289E+00, 3.233E+00, 3.234E+00, 3.190E+00, 3.688E+00, 4.119E+00,
-              3.452E+00, 3.503E+00]  # Error: 1.0075E+04
+# w0['1'][1] = [1.0530, 1.0519, 2.6067, 3.2128, 3.1777, 3.0347, 3.7553, 5.5801, 3.1213, 1.0425, 1.0600]
+w0['1'][1] = [1.009E+00, 1.036E+00, 2.699E+00, 2.720E+00, 2.778E+00, 2.933E+00, 4.880E+00, 4.880E+00, 2.699E+00,
+              1.130E+00, 1.134E+00]  # Error: 5.7215E+04
+# w0['1'][2] = [4.106E+00, 4.177E+00, 5.043E+00, 2.002E+00, 1.654E+00, 1.577E+00, 4.445E+00, 1.807E+00, 1.495E+00,
+#              2.310E+00, 3.116E+00]  # Error: 4.9474E+04
+w0['1'][2] = [4.509E+00, 4.598E+00, 4.469E+00, 2.220E+00, 1.572E+00, 1.394E+00, 5.172E+00, 1.446E+00, 1.407E+00,
+               2.672E+00, 2.978E+00]  # Error: 4.1328E+04
+# w0['2'][1] = [2.663E+00, 2.661E+00, 1.280E+00, 1.280E+00, 3.258E+00, 3.254E+00, 1.210E+00, 1.141E+00, 1.141E+00,
+#              1.146E+00, 2.064E+00]  # Error: 7.7499E+03
+w0['2'][1] = [1.930E+00, 1.921E+00, 1.606E+00, 1.638E+00, 3.310E+00, 3.187E+00, 1.009E+00, 1.001E+00, 1.112E+00,
+              1.418E+00, 2.871E+00]  # Error: 5.6634E+03
+# w0['2'][2] = [3.153E+00, 1.047E+00, 2.259E+00, 2.742E+00, 2.366E+00, 1.691E+00, 1.520E+00, 1.296E+00, 1.636E+00,
+#              2.839E+00, 2.519E+00]  # Error: 1.2036E+04
+w0['2'][2] = [1.985E+00, 1.986E+00, 2.193E+00, 2.272E+00, 1.977E+00, 1.977E+00, 1.492E+00, 1.472E+00, 1.307E+00,
+              2.993E+00, 2.941E+00]  # Error: 2.1846E+03
+# w0['3'][1] = [1.003E+00, 1.000E+00, 1.724E+00, 4.276E+00, 2.942E+00, 2.088E+00, 3.293E+00, 3.499E+00, 2.662E+00,
+#              1.483E+00, 1.508E+00]  # Error: 1.5349E+04
+w0['3'][1] = [1.110E+00, 1.079E+00, 1.457E+00, 3.945E+00, 3.690E+00, 2.396E+00, 2.396E+00, 3.643E+00, 3.044E+00,
+              1.412E+00, 1.181E+00]  # Error: 1.1389E+04
+# w0['3'][2] = [1.012E+00, 1.011E+00, 1.004E+00, 2.621E+00, 3.760E+00, 3.929E+00, 2.144E+00, 2.224E+00, 3.136E+00,
+#              3.069E+00, 2.564E+00]  # Error: 1.3052E+04
+w0['3'][2] = [1.095E+00, 1.000E+00, 1.036E+00, 1.997E+00, 4.125E+00, 3.947E+00, 2.200E+00, 2.136E+00, 2.948E+00,
+              2.897E+00, 2.896E+00]  # Error: 1.1020E+04
+# w0['4'][1] = [2.367E+00, 1.198E+00, 1.000E+00, 1.086E+00, 2.255E+00, 3.899E+00, 3.900E+00, 3.128E+00, 2.133E+00,
+#              1.955E+00, 4.017E+00]  # Error: 2.5967E+04
+w0['4'][1] = [2.924E+00, 1.026E+00, 1.019E+00, 1.066E+00, 1.653E+00, 4.205E+00, 4.419E+00, 2.689E+00, 1.560E+00,
+              2.123E+00, 4.143E+00]  # Error: 2.7947E+04
+# w0['4'][2] = [1.502E+00, 1.569E+00, 1.569E+00, 1.842E+00, 4.461E+00, 4.461E+00, 3.114E+00, 1.729E+00, 1.758E+00,
+#              3.292E+00, 3.292E+00]  # Error: 9.5853E+03
+w0['4'][2] = [1.352E+00, 1.352E+00, 1.698E+00, 1.860E+00, 3.653E+00, 4.598E+00, 3.606E+00, 1.332E+00, 1.823E+00,
+              3.440E+00, 3.440E+00]  # Error: 1.1517E+04
+# w0['5'][1] = [1.295E+00, 1.295E+00, 3.116E+00, 3.102E+00, 3.150E+00, 2.966E+00, 2.620E+00, 1.283E+00, 1.283E+00,
+#              1.271E+00, 1.507E+00]  # Error: 3.6282E+03
+w0['5'][1] = [1.146E+00, 1.146E+00, 2.154E+00, 3.945E+00, 3.318E+00, 2.369E+00, 2.367E+00, 1.543E+00, 1.257E+00,
+              1.257E+00, 1.257E+00]  # Error: 4.6300E+03
+# w0['5'][2] = [2.798E+00, 3.066E+00, 3.311E+00, 3.311E+00, 1.740E+00, 2.015E+00, 2.418E+00, 2.418E+00, 1.518E+00,
+#              1.238E+00, 1.434E+00]  # Error: 4.4590E+03
+w0['5'][2] = [2.454E+00, 2.709E+00, 3.415E+00, 3.415E+00, 1.924E+00, 1.457E+00, 2.322E+00, 2.644E+00, 1.389E+00,
+              1.159E+00, 1.432E+00]  # Error: 5.2998E+03
+# w0['6'][1] = [3.264E+00, 1.720E+00, 1.023E+00, 2.285E+00, 3.685E+00, 1.785E+00, 1.000E+00, 2.977E+00, 4.806E+00,
+#              1.824E+00, 3.255E+00]  # Error: 7.8322E+04
+w0['6'][1] = [2.633E+00, 1.200E+00, 1.026E+00, 1.523E+00, 3.816E+00, 1.104E+00, 1.002E+00, 3.014E+00, 3.503E+00,
+              1.859E+00, 3.597E+00]  # Error: 6.3231E+04
+# w0['6'][2] = [1.519E+00, 1.833E+00, 1.907E+00, 2.115E+00, 5.258E+00, 3.127E+00, 1.829E+00, 1.831E+00, 3.596E+00,
+#              4.382E+00, 4.379E+00]  # Error: 2.0410E+04
+w0['6'][2] = [1.387E+00, 1.784E+00, 1.702E+00, 1.672E+00, 4.671E+00, 3.334E+00, 1.225E+00, 1.377E+00, 3.782E+00,
+              3.786E+00, 3.785E+00]  # Error: 1.9045E+04
+# w0['7'][1] = [2.717E+00, 2.993E+00, 2.519E+00, 1.206E+00, 1.087E+00, 1.339E+00, 1.705E+00, 1.751E+00, 2.945E+00,
+#              2.939E+00, 3.440E+00]  # Error: 1.8074E+04
+w0['7'][1] = [4.093E+00, 4.093E+00, 1.398E+00, 1.129E+00, 1.129E+00, 1.591E+00, 1.423E+00, 1.302E+00, 2.522E+00,
+              2.718E+00, 2.787E+00]  # Error: 2.5141E+04
+# w0['7'][2] = [1.646E+00, 1.194E+00, 1.187E+00, 3.289E+00, 3.233E+00, 3.234E+00, 3.190E+00, 3.688E+00, 4.119E+00,
+#              3.452E+00, 3.503E+00]  # Error: 1.0075E+04
+w0['7'][2] = [1.276E+00, 1.276E+00, 1.417E+00, 4.277E+00, 2.998E+00, 1.794E+00, 2.768E+00, 4.796E+00, 4.796E+00,
+              2.271E+00, 2.206E+00]  # Error: 3.6525E+04
+w0['8'][1] = [2.867E+00, 2.059E+00, 2.108E+00, 3.599E+00, 1.310E+00, 2.189E+00, 1.358E+00, 1.525E+00, 1.804E+00,
+              1.010E+00, 2.506E+00]  # Error: 2.1018E+04
+w0['8'][2] = [1.653E+00, 1.710E+00, 1.710E+00, 2.332E+00, 2.347E+00, 2.503E+00, 2.802E+00, 5.638E+00, 5.638E+00,
+              1.489E+00, 1.489E+00]  # Error: 1.9957E+04
+w0['10'][1] = [4.853E+00, 1.889E+00, 1.789E+00, 1.724E+00, 1.764E+00, 3.015E+00, 4.101E+00, 1.429E+00, 1.330E+00,
+               1.291E+00, 2.338E+00]  # Error: 1.0682E+05
+w0['10'][2] = [3.242E+00, 1.579E+00, 2.591E+00, 3.578E+00, 1.977E+00, 1.963E+00, 2.989E+00, 2.923E+00, 3.495E+00,
+               2.864E+00, 2.227E+00]  # Error: 1.5536E+04
+w0['11'][1] = [4.802E+00, 4.045E+00, 3.116E+00, 1.584E+00, 1.478E+00, 1.037E+00, 1.307E+00, 1.282E+00, 1.278E+00,
+               1.593E+00, 4.614E+00]  # Error: 2.1412E+04
+w0['11'][2] = [5.739E+00, 4.740E+00, 1.895E+00, 1.197E+00, 1.285E+00, 4.134E+00, 3.626E+00, 2.071E+00, 2.084E+00,
+               1.618E+00, 1.236E+00]  # Error: 4.6156E+04
+
 
 wmin1 = [1. for element in range(11)]
 wmax1 = [7. for element in range(11)]
@@ -1151,12 +1183,12 @@ for induction in ramp:
         ramp_error_ignore_kernel(binned_w1[induction], wmin1, wmax1, ramp[induction], induction,
                                  baseline=this_model_baseline, plot=False, full_output=True)
 
+    """
     if induction in [1, 2]:  # [2]:
-
         result = optimize_explore(binned_w1[induction], wmin1, wmax1, ramp_error_ignore_kernel, ramp[induction],
-                                 induction, baseline=this_model_baseline, maxfev=400)
+                                 induction, baseline=this_model_baseline, maxfev=700)
         polished_result = optimize_polish(result['x'], wmin1, wmax1, ramp_error_ignore_kernel, ramp[induction],
-                                          induction, baseline=this_model_baseline, maxfev=400)
+                                          induction, baseline=this_model_baseline, maxfev=600)
         binned_w1[induction] = polished_result['x']
 
         # result = optimize_polish(binned_w1[induction], wmin1, wmax1, ramp_error_ignore_kernel, ramp[induction],
@@ -1166,13 +1198,21 @@ for induction in ramp:
         weights[induction], model_ramp[induction], model_baseline[induction], asymmetry[induction] = \
             ramp_error_ignore_kernel(binned_w1[induction], wmin1, wmax1, ramp[induction], induction,
                                      baseline=this_model_baseline, plot=False, full_output=True)
+    """
 
 
-"""
 fig1, axes1 = plt.subplots(1)
 fig2, axes2 = plt.subplots(1)
 
 colors = ['black', 'r', 'c', 'grey']
+
+mean_induction_loc, mean_induction_dur = {}, {}
+
+for induction in ramp:
+    mean_induction_loc[induction] = np.mean([induction_loc for induction_loc in induction_locs[induction] if 
+                                             induction_loc is not None])
+    mean_induction_dur[induction] = np.mean([induction_dur for induction_dur in induction_durs[induction] if
+                                             induction_dur is not None])
 
 for induction in ramp:
     axes1.plot(binned_x, ramp[induction], label='Experiment: Induction '+str(induction))
@@ -1197,23 +1237,23 @@ label_handles = []
 label_handles.append(mlines.Line2D([], [], color=colors[0], label='Out of field'))
 label_handles.append(mlines.Line2D([], [], color=colors[1], label='Before induction loc'))
 label_handles.append(mlines.Line2D([], [], color=colors[2], label='After induction loc'))
+
+delta_weights = {1: weights[1] - 1., 2: np.subtract(weights[2], weights[1])}
+
 for induction in ramp:
     if induction == 1:
-        this_delta_weights = weights[induction] - 1.
         fig, axes3 = plt.subplots(1)
-        axes3.scatter(plasticity_signal[induction], this_delta_weights, c=asymmetry[induction], linewidth=0)
+        axes3.scatter(plasticity_signal[induction], delta_weights[induction], c=asymmetry[induction], linewidth=0)
         axes3.set_xlabel('Plasticity signal (a.u.)')
         axes3.set_ylabel('Change in synaptic weight')
         axes3.set_title('Metaplasticity - Induction '+str(induction))
         axes3.legend(handles=label_handles, framealpha=0.5, frameon=False)
         clean_axes(axes3)
-    else:
-        initial_weights = weights[induction-1]
-        this_delta_weights = np.subtract(weights[induction], weights[induction-1])
+    elif induction == 2:
         fig = plt.figure()
         axes4 = fig.add_subplot(111, projection='3d')
-        axes4.scatter(plasticity_signal[induction], initial_weights, this_delta_weights, c=asymmetry[induction],
-                           linewidth=0, label='Induction '+str(induction))
+        axes4.scatter(plasticity_signal[induction], weights[1], delta_weights[induction], c=asymmetry[induction],
+                      linewidth=0)
         axes4.set_xlabel('Plasticity signal (a.u.)')
         axes4.set_ylabel('Initial synaptic weight')
         axes4.set_zlabel('Change in synaptic weight')
@@ -1221,19 +1261,22 @@ for induction in ramp:
         axes4.legend(handles=label_handles, framealpha=0.5, frameon=False)
 plt.show()
 plt.close()
-"""
 
 """
-output_filename = '011817 metaplasticity rule optimization summary'
-with h5py.File(data_dir+output_filename+'.hdf5', 'a') as f:
-    if 'long' not in f:
-        f.create_group('long')
-    f['long'].create_group(cell_id)
-    f['long'][cell_id].attrs['track_length'] = track_length
-    f['long'][cell_id].attrs['induction_loc'] = induction_locs[induction]
-    f['long'][cell_id].create_dataset('local_kernel', compression='gzip', compression_opts=9, data=local_kernel)
-    f['long'][cell_id].create_dataset('global_kernel', compression='gzip', compression_opts=9, data=global_kernel)
-    f['long'][cell_id].attrs['dt'] = dt
-    f['long'][cell_id].create_dataset('ramp', compression='gzip', compression_opts=9, data=ramp[induction])
-    f['long'][cell_id].create_dataset('model_ramp', compression='gzip', compression_opts=9, data=model_ramp)
+with h5py.File(experimental_file_dir+experimental_filename+'.hdf5', 'a') as f:
+    for induction in ramp:
+        if cell_id not in f:
+            raise Exception('Cell id %s not in output file.' % cell_id)
+        f[cell_id][str(induction)].attrs['mean_induction_loc'] = mean_induction_loc[induction]
+        f[cell_id][str(induction)].attrs['mean_induction_dur'] = mean_induction_dur[induction]
+        f[cell_id][str(induction)].create_dataset('smooth_ramp', compression='gzip', compression_opts=9,
+                                                  data=ramp[induction])
+        f[cell_id][str(induction)].create_dataset('model_ramp', compression='gzip', compression_opts=9,
+                                                  data=model_ramp[induction])
+        f[cell_id][str(induction)].create_dataset('weights', compression='gzip', compression_opts=9,
+                                                  data=weights[induction])
+        f[cell_id][str(induction)].create_dataset('delta_weights', compression='gzip', compression_opts=9,
+                                                  data=delta_weights[induction])
+        f[cell_id][str(induction)].create_dataset('plasticity_signal', compression='gzip', compression_opts=9,
+                                                  data=plasticity_signal[induction])
 """

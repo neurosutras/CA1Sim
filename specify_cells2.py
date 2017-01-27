@@ -1,10 +1,9 @@
 __author__ = 'Aaron D. Milstein'
-# Includes modification of an early version of SWC_neuron.py by Daniele Linaro.
-# Includes an extension of BtMorph, created by Ben Torben-Nielsen and modified by Daniele Linaro.
+import btmorph  # must be found in system $PYTHONPATH
 from function_lib import *
 from neuron import h  # must be found in system $PYTHONPATH
-import pprint
-import btmorph  # must be found in system $PYTHONPATH
+# Includes modification of an early version of SWC_neuron.py by Daniele Linaro.
+# Includes an extension of BtMorph, created by Ben Torben-Nielsen and modified by Daniele Linaro.
 
 # SWC files must use this nonstandard convention to exploit trunk and tuft categorization
 swc_types = [soma_type, axon_type, basal_type, apical_type, trunk_type, tuft_type] = [1, 2, 3, 4, 5, 6]
@@ -78,11 +77,13 @@ class HocCell(object):
             node = self.make_section('soma')
             node.sec.L = soma_length / 2.
             node.sec.diam = soma_diam
+            node.append_layer(0)
             self._init_cable(node)  # consults the mech_dict to initialize Ra, cm, and nseg
         self.tree.root = self.soma[0]
         self.soma[1].connect(self.soma[0], 0, 0)
         for index in range(3):
             self.make_section('axon')
+            self.axon[index].append_layer(0)
         self.axon[0].type = 'axon_hill'
         self.axon[0].sec.L = 10.
         self.axon[0].set_diam_bounds(3., 2.)  # stores the diameter boundaries for a tapered cylindrical section
@@ -419,41 +420,48 @@ class HocCell(object):
     def export_neurotree_synapse_attributes(self):
         """
         Output a python dictionary in the format expected by neurotrees.io.write_trees_attributes()
-        Contains section indexes, synapse locations, synapse types, and layer indexes for all putative synapses and/or
-        spines.
+        For all putative synapses and/or spines, specifies section indexes (relative to swc_type), swc_type,
+        synapse locations (relative to section), synapse types, layer indexes, and unique synapse identifiers (relative
+        to cell).
         :return: dict
         """
+        swc_type_enumerator = {'soma': 1, 'axon': 2, 'basal': 3, 'trunk': 4, 'apical': 5, 'tuft': 6}
         syn_type_enumerator = {'excitatory': 0, 'inhibitory': 1, 'neuromodulatory': 2}
         syn_locs = []
         section = []
         layer = []
         syn_type = []
-        for sec_type in [sec_type for sec_type in ['soma', 'axon', 'basal', 'trunk', 'apical', 'tuft'] if
-                         sec_type in self._node_dict]:
-            for i, node in enumerate(self._node_dict[sec_type]):
-                for this_syn_type in node.synapse_locs:
-                    if node.synapse_locs[this_syn_type]:
-                        if this_syn_type not in syn_type_enumerator:
-                            raise Exception('Cannot export unknown synapse type')
-                        syn_locs.extend(node.synapse_locs[this_syn_type])
-                        section.extend([i for j in range(len(node.synapse_locs[this_syn_type]))])
-                        layer.extend([node.get_layer(this_syn_loc) for
-                                      this_syn_loc in node.synapse_locs[this_syn_type]])
-                        syn_type.extend([syn_type_enumerator[this_syn_type] for
-                                         j in range(len(node.synapse_locs[this_syn_type]))])
-                if node.spines:
-                    this_syn_type = 'excitatory'
-                    syn_locs.extend([spine.connection_loc for spine in node.spines])
-                    section.extend([i for j in range(len(node.spines))])
-                    layer.extend([node.get_layer(spine.connection_loc) for spine in node.spines])
-                    syn_type.extend([syn_type_enumerator[this_syn_type] for
-                                     j in range(len(node.spines))])
+        swc_type = []
+        syn_id = []
+        this_syn_id = 0
+        for this_syn_type in syn_type_enumerator:
+            for sec_type in [sec_type for sec_type in swc_type_enumerator if sec_type in self._node_dict]:
+                for i, node in enumerate(self._node_dict[sec_type]):
+                    if this_syn_type == 'excitatory' and node.spines:
+                        for spine in node.spines:
+                            syn_locs.append(spine.connection_loc)
+                            section.append(i)
+                            layer.append(node.get_layer(spine.connection_loc))
+                            syn_type.append(syn_type_enumerator[this_syn_type])
+                            swc_type.append(swc_type_enumerator[sec_type])
+                            syn_id.append(this_syn_id)
+                            this_syn_id += 1
+                    if this_syn_type in node.synapse_locs and node.synapse_locs[this_syn_type]:
+                        for this_syn_loc in node.synapse_locs[this_syn_type]:
+                            syn_locs.append(this_syn_loc)
+                            section.append(i)
+                            layer.append(node.get_layer(this_syn_loc))
+                            syn_type.append(syn_type_enumerator[this_syn_type])
+                            swc_type.append(swc_type_enumerator[sec_type])
+                            syn_id.append(this_syn_id)
+                            this_syn_id += 1
 
         return {'syn_locs': np.array(syn_locs, dtype='float32'),
                 'section': np.array(section, dtype='uint32'),
                 'layer': np.array(layer, dtype='uint32'),
                 'syn_type': np.array(syn_type, dtype='uint32'),
-                'syn_id': np.arange(0, len(syn_locs), 1, dtype='uint32')}
+                'syn_id': np.array(syn_id, dtype='uint32'),
+                'swc_type': np.array(swc_type, dtype='uint32')}
 
     def get_nodes_of_subtype(self, sec_type):
         """
@@ -523,7 +531,7 @@ class HocCell(object):
         be executed after inserting synapses. It traverses the dendritic tree in order of inheritance and just sets
         synaptic mechanism parameters specified in the mechanism dictionary.
         """
-        for dend_type in ['soma', 'basal', 'trunk', 'apical', 'tuft']:
+        for dend_type in ['soma', 'ais', 'basal', 'trunk', 'apical', 'tuft']:
             if dend_type in self.mech_dict and 'synapse' in self.mech_dict[dend_type] and \
                                                 self.sec_type_has_synapses(dend_type):
                 for node in self.get_nodes_of_subtype(dend_type):
@@ -2560,39 +2568,25 @@ class DG_GC(HocCell):
 
     def generate_inhibitory_synapse_locs(self, sec_type_list=None):
         """
-
-        :param sec_type_list: str
+        This method populates the cell tree with putative synapse locations following type and\or layer-specific rules
+        for synapse density.
+        Thind et al...Buckmaster, J. Comp. Neurol. 2010
+        :param sec_type_list: list of str
         """
         if sec_type_list is None:
-            sec_type_list = ['soma', 'ais', 'basal', 'apical']
-        densities = {}
+            sec_type_list = ['soma', 'ais', 'apical']
+        densities = {}  # units: synapses / um length
         for sec_type in (sec_type for sec_type in sec_type_list if self.get_nodes_of_subtype(sec_type)):
             if sec_type == 'soma':
-                densities[sec_type] = 4.375  # 2.857,  # 4.285,
-            elif sec_type == 'ais':
-                densities[sec_type] = 0.68  # 0.53,
-            elif sec_type == 'apical':
-                densities[sec_type] = {'min': 0.03885, 'max': 0.04512,
-                                       'start': min([self.get_distance_to_node(self.tree.root, branch) for branch in
-                                                                                                self.apical]),
-                                       'end': max([self.get_distance_to_node(self.tree.root, branch)
-                                                   for branch in self.apical if self.is_terminal(branch)])}
-        if 'soma' in sec_type_list:
-            for node in self.soma:
-                node.synapse_locs['inhibitory'] = []
-                node.synapse_locs['inhibitory'].extend(self.generate_synapse_locs_every(node, densities['soma']))
-        if 'ais' in sec_type_list:
-            for node in self.get_nodes_of_subtype('ais'):
-                node.synapse_locs['inhibitory'] = []
-                node.synapse_locs['inhibitory'].extend(self.generate_synapse_locs_every(node, densities['ais']))
-        if 'apical' in sec_type_list:
-            for node in self.apical:
-                node.synapse_locs['inhibitory'] = []
-                distance = self.get_distance_to_node(self.tree.root, self.get_dendrite_origin(node), loc=1.)
-                slope = (densities['apical']['max'] - densities['apical']['min']) / \
-                        (densities['apical']['end'] - densities['apical']['start'])
-                density = densities['apical']['min'] + slope * (distance - densities['apical']['start'])
-                node.synapse_locs['inhibitory'].extend(self.generate_synapse_locs_every(node, density))
+                densities[sec_type] = {'default': 10.22}
+            if sec_type == 'ais':
+                densities[sec_type] = {'default': 0.6}
+            if sec_type == 'apical':
+                densities[sec_type] = {'default': 0.83}  # uniform density across layers matches experimental
+                                                         # distribution of synapses per layer due to variable dendritic
+                                                         # length
+            for node in self.get_nodes_of_subtype(sec_type):
+                node.synapse_locs['inhibitory'] = self.generate_synapse_locs_every(node, densities[sec_type]['default'])
 
     def zero_na(self):
         """
