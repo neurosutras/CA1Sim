@@ -1237,7 +1237,9 @@ label_handles.append(mlines.Line2D([], [], color=colors[0], label='Out of field'
 label_handles.append(mlines.Line2D([], [], color=colors[1], label='Before induction loc'))
 label_handles.append(mlines.Line2D([], [], color=colors[2], label='After induction loc'))
 
-delta_weights = {1: weights[1] - 1., 2: np.subtract(weights[2], weights[1])}
+delta_weights = {1: weights[1] - 1.}
+if 2 in weights:
+    delta_weights[2] = np.subtract(weights[2], weights[1])
 
 for induction in ramp:
     if induction == 1:
