@@ -634,7 +634,6 @@ def calculate_plasticity_signal(x, local_kernel, global_kernel, induction, plot=
         local_signal.append(this_local_signal)
         max_local_signal = max(max_local_signal, np.max(this_local_signal))
     saturation_factor = filter_ratio * max_local_signal / max_global_signal
-    print 'Saturation factor: %.3E' % saturation_factor
     for j, stim_force in enumerate(complete_rate_maps[induction]):
         this_local_signal = local_signal[j] / saturation_factor
         this_signal = np.minimum(this_local_signal, global_signal)
@@ -772,166 +771,6 @@ def ramp_error_parametric(x, xmin, xmax, ramp, induction=None, baseline=None, pl
         return Err
 
 
-def ramp_error_nonparametric(x, xmin, xmax, ramp, induction=None, baseline=None, plot=False, full_output=False):
-    """
-    Calculates an arbitrary set of weights to match a place field ramp, agnostic about underlying kernel or induction
-    order.
-    :param x: array [binned synaptic weights]
-    :param xmin: array
-    :param xmax: array
-    :param ramp: array
-    :param induction: int: key for dicts of arrays
-    :param baseline: float
-    :param plot: bool
-    :param full_output: bool: whether to return all relevant objects (True), or just Err (False)
-    :return: float
-    """
-    formatted_x = '[' + ', '.join(['%.3E' % xi for xi in x]) + ']'
-    if induction is None:
-        induction = 1
-    this_induction_loc = np.mean([induction_loc for induction_loc in induction_locs[induction] if
-                                  induction_loc is not None])
-    print 'Trying x: %s for cell %s, induction_loc: %.1f' % (formatted_x, cell_id, this_induction_loc)
-    if not check_bounds(x, xmin, xmax):
-        print 'Aborting: Invalid parameter values.'
-        return 1e9
-    start_time = time.time()
-    amp, width, peak_shift, ratio, start_loc, end_loc = {}, {}, {}, {}, {}, {}
-    amp['exp'], width['exp'], peak_shift['exp'], ratio['exp'], start_loc['exp'], end_loc['exp'] = \
-        calculate_ramp_features(ramp, this_induction_loc)
-    binned_weights_dx = track_length / len(x)
-    binned_weights_x = np.arange(binned_weights_dx / 2., track_length, binned_weights_dx)
-    interp_weights = np.interp(peak_locs['CA3'], binned_weights_x, x)
-    smooth_weights = signal.savgol_filter(interp_weights, 701, 3, mode='wrap')
-    model_ramp = get_expected_depolarization(default_rate_maps, np.add(smooth_weights, 1.), default_interp_x)
-    if baseline is None:
-        model_baseline = subtract_baseline(model_ramp)
-    else:
-        model_baseline = baseline
-        model_ramp -= model_baseline
-    amp['model'], width['model'], peak_shift['model'], ratio['model'], start_loc['model'], end_loc['model'] = \
-        calculate_ramp_features(model_ramp, this_induction_loc)
-    asymmetry = np.zeros_like(peak_locs['CA3'])
-    start_index = int(start_loc['exp']/track_length*len(peak_locs['CA3']))
-    induction_index = int(this_induction_loc/track_length*len(peak_locs['CA3']))
-    end_index = int(end_loc['exp']/track_length*len(peak_locs['CA3']))
-    if start_loc['exp'] > this_induction_loc:
-        asymmetry[start_index:] = 1.
-        asymmetry[:induction_index] = 1.
-        asymmetry[induction_index:end_index] = 2.
-    else:
-        asymmetry[start_index:induction_index] = 1.
-        if end_loc['exp'] > this_induction_loc:
-            asymmetry[induction_index:end_index] = 2.
-        else:
-            asymmetry[:end_index] = 2.
-            asymmetry[induction_index:] = 2.
-    Err = 0.
-    Err += ((amp['exp'] - amp['model']) / 0.01) ** 2.
-
-    for j in range(len(ramp)):
-        Err += ((ramp[j] - model_ramp[j]) / 0.01) ** 2.
-
-    # penalize DC drifts in minimum weight
-    if induction == 1:
-        Err += (np.min(smooth_weights)/0.005) ** 2.
-    elif induction == 2:
-        Err += ((np.min(ramp) - np.min(model_ramp)) / 0.005) ** 2.
-
-    smooth_weights += 1.
-    if plot:
-        x_start = this_induction_loc/track_length
-        ylim = max(np.max(ramp), np.max(model_ramp))
-        ymin = min(np.min(ramp), np.min(model_ramp))
-        fig, axes = plt.subplots(1)
-        axes.plot(binned_x, ramp, label='Experiment', color='r')
-        axes.plot(binned_x, model_ramp, label='Model', color='k')
-        axes.axhline(y=ylim + 0.1, xmin=x_start, xmax=x_start + 0.02, linewidth=3, c='r')
-        axes.set_xlabel('Location (cm)')
-        axes.set_ylabel('Depolarization (mV)')
-        axes.set_xlim([0., track_length])
-        axes.set_ylim([math.floor(ymin) - 0.5, math.ceil(ylim) + 0.5])
-        axes.legend(loc='best', frameon=False, framealpha=0.5)
-        axes.set_title('Induced Vm depolarization')
-        clean_axes(axes)
-        plt.show()
-        plt.close()
-        fig, axes = plt.subplots(1)
-        axes.plot(peak_locs['CA3'], smooth_weights)
-        axes.set_xlabel('Location (cm)')
-        axes.set_ylabel('Candidate synaptic weights')
-        clean_axes(axes)
-        plt.show()
-        plt.close()
-
-    print 'x: %s, Err: %.4E took %i s' % (formatted_x, Err, time.time()-start_time)
-    print 'exp: amp: %.1f, ramp_width: %.1f, peak_shift: %.1f, asymmetry: %.1f, start_loc: %.1f, end_loc: %.1f' % \
-          (amp['exp'], width['exp'], peak_shift['exp'], ratio['exp'], start_loc['exp'], end_loc['exp'])
-    print 'model: amp: %.1f, ramp_width: %.1f, peak_shift: %.1f, asymmetry: %.1f, start_loc: %.1f, end_loc: %.1f' % \
-          (amp['model'], width['model'], peak_shift['model'], ratio['model'], start_loc['model'], end_loc['model'])
-    sys.stdout.flush()
-    if full_output:
-        return smooth_weights, model_ramp, model_baseline, asymmetry
-    else:
-        hist.x.append(x)
-        hist.Err.append(Err)
-        return Err
-
-
-def ramp_error_nested(val, x, xmin, xmax, index, ramp, induction=None, baseline=None, plot=False, full_output=False):
-    """
-    Calculates an arbitrary set of weights to match a place field ramp, agnostic about underlying kernel or induction
-    order.
-    :param val: array [single item]
-    :param x: array [binned synaptic weights]
-    :param xmin: array
-    :param xmax: array
-    :param index: int
-    :param ramp: array
-    :param induction: int: key for dicts of arrays
-    :param baseline: float
-    :param plot: bool
-    :param full_output: bool: whether to return all relevant objects (True), or just Err (False)
-    :return: float
-    """
-    local_x = np.array(x)
-    local_x[index] = val[0]
-    return ramp_error_nonparametric(local_x, xmin, xmax, ramp, induction, baseline, plot, full_output)
-
-
-def optimize_nested(x, xmin, xmax, error_function, ramp, induction=None, baseline=None, maxfev=None, passes=20):
-    """
-
-    :param x: array
-    :param xmin: array
-    :param xmax: array
-    :param error_function: callable
-    :param ramp: array
-    :param induction: int: key for dicts of arrays
-    :param baseline: float
-    :param maxfev: int
-    :param passes: int
-    :return: dict
-    """
-    if maxfev is None:
-        maxfev = 20
-    local_x = np.array(x)
-    indexes = range(len(local_x))
-    for this_pass in range(passes):
-        local_random.shuffle(indexes)
-        for index in indexes:
-            print 'Pass %i, index %i' % (this_pass, index)
-            result = optimize.minimize(error_function, [local_x[index]], method='Nelder-Mead', options={'fatol': 1e-3,
-                                                    'xatol': 1e-3, 'disp': True, 'maxiter': maxfev, 'maxfev': maxfev},
-                               args=(local_x, xmin, xmax, index, ramp, induction, baseline))
-
-            local_x[index] = result.x[0]
-    formatted_x = '['+', '.join(['%.3E' % xi for xi in local_x])+']'
-    print 'Process: %i completed optimize_polish for cell %s after %i iterations with Error: %.4E and x: %s' % \
-          (os.getpid(), cell_id, result.nit, result.fun, formatted_x)
-    return {'x': local_x, 'Err': result.fun}
-
-
 def optimize_polish(x, xmin, xmax, error_function, ramp, induction=None, baseline=None, maxfev=None):
     """
 
@@ -1020,7 +859,6 @@ x0['23'] = [4.066E+02, 5.477E+02, 2.579E+01, 8.494E+02, 1.205E+00, 2.489E-03]  #
 
 x0['mean'] = [2.093E+02, 1.342E+03, 7.888E+01, 3.992E+02, 1.316E+00, 3.584E-03]  # Induced + Spontaneous
 
-
 # to avoid saturation and reduce variability of time courses across cells, constrain the relative amplitude
 # of global and local kernels:
 # [local_rise_tau, local_decay_tau, global_rise_tau, global_decay_tau, filter_ratio, kernel_scale]
@@ -1037,121 +875,19 @@ for i in range(len(x1)):
     elif x1[i] > xmax1[i]:
         x1[i] = xmax1[i]
 
-for induction in position:
-    if induction == 2 and 1 in position:
-        this_model_baseline = model_baseline[1]
-    else:
-        this_model_baseline = None
-    local_kernel[induction], global_kernel[induction], plasticity_signal[induction], model_ramp[induction], \
-        model_baseline[induction] = ramp_error_parametric(x1, xmin1, xmax1, ramp[induction], induction,
-                                                    baseline=this_model_baseline, plot=False, full_output=True)
-if 1 not in plasticity_signal:
-    plasticity_signal[1] = np.zeros_like(peak_locs['CA3'])
 
-w0 = {this_cell_id: {} for this_cell_id in x0.keys()}
+induction = 1
+result = optimize_explore(x1, xmin1, xmax1, ramp_error_parametric, ramp[induction], induction, maxfev=700)
+x1 = result['x']
 
-#w0['2'][1] = [3.590E-01, 3.469E-18, 8.674E-19, 2.459E+00, 3.469E-18, 1.562E-01, 3.469E-18, 6.994E-16, 6.714E+00,
-#              5.655E+00, 2.875E+00, 8.611E-07, 9.651E-08, 1.985E-23, 1.178E+00]  # Error: 1.6632E+06
-
-if cell_id not in w0:
-    w0[cell_id] = {}
-binned_w1 = {}
-
-num_bins = 15
-wmin1 = [0. for element in range(num_bins)]
-wmax1 = [10. for element in range(num_bins)]
-
-w1 = w0[cell_id]
-
-binned_weights_dx = track_length / float(num_bins)
-binned_weights_x = np.arange(binned_weights_dx/2., track_length, binned_weights_dx)
-
-for induction in ramp:
-    if induction in w1:
-        binned_w1[induction] = w1[induction]
-    else:
-        binned_w1[induction] = np.interp(binned_weights_x, peak_locs['CA3'], plasticity_signal[induction])
-        binned_w1[induction] = np.maximum(binned_w1[induction], 0.)
-    if induction == 2:
-        this_model_baseline = model_baseline[1]
-    else:
-        this_model_baseline = None
-
-    polished_result = optimize_nested(binned_w1[induction], wmin1, wmax1, ramp_error_nested, ramp[induction],
-                                      induction, baseline=this_model_baseline)
-    binned_w1[induction] = polished_result['x']
-
-    weights[induction], model_ramp[induction], model_baseline[induction], asymmetry[induction] = \
-        ramp_error_nonparametric(binned_w1[induction], wmin1, wmax1, ramp[induction], induction,
-                                 baseline=this_model_baseline, plot=False, full_output=True)
-
-
+polished_result = optimize_polish(x1, xmin1, xmax1, ramp_error_parametric, ramp[induction], induction, maxfev=600)
+hist.report_best()
+# hist.export('011817_magee_data_optimization_long_cell'+cell_id)
 """
-fig1, axes1 = plt.subplots(1)
-fig2, axes2 = plt.subplots(1)
-
-colors = ['black', 'r', 'c', 'grey']
-
-mean_induction_loc, mean_induction_dur = {}, {}
-
-for induction in ramp:
-    mean_induction_loc[induction] = np.mean([induction_loc for induction_loc in induction_locs[induction] if
-                                             induction_loc is not None])
-    mean_induction_dur[induction] = np.mean([induction_dur for induction_dur in induction_durs[induction] if
-                                             induction_dur is not None])
-
-for induction in ramp:
-    axes1.plot(binned_x, ramp[induction], label='Experiment: Induction '+str(induction))
-    axes1.plot(binned_x, model_ramp[induction], label='Model fit: Induction '+str(induction))
-    axes1.set_xlabel('Location (cm)')
-    axes1.set_ylabel('Ramp depolarization (mV)')
-    axes1.set_xlim([0., track_length])
-    axes1.legend(loc='best', frameon=False, framealpha=0.5)
-    axes1.set_title('Induced Vm ramp depolarization')
-    clean_axes(axes1)
-    axes2.plot(peak_locs['CA3'], weights[induction], label='Induction '+str(induction))
-    axes2.set_xlabel('Location (cm)')
-    axes2.set_ylabel('Synaptic weight')
-    axes2.set_title('Synaptic weight distributions')
-    axes2.legend(loc='best', frameon=False, framealpha=0.5)
-    clean_axes(axes2)
-
-# plt.show()
-# plt.close()
-
-from matplotlib import cm
-this_cm = cm.get_cmap()
-colors = [this_cm(1.*i/2) for i in range(3)]
-label_handles = []
-label_handles.append(mlines.Line2D([], [], color=colors[0], label='Out of field'))
-label_handles.append(mlines.Line2D([], [], color=colors[1], label='Before induction loc'))
-label_handles.append(mlines.Line2D([], [], color=colors[2], label='After induction loc'))
-
-delta_weights = {1: weights[1] - 1.}
-if 2 in weights:
-    delta_weights[2] = np.subtract(weights[2], weights[1])
-
-for induction in ramp:
-    if induction == 1:
-        fig, axes3 = plt.subplots(1)
-        axes3.scatter(plasticity_signal[induction], delta_weights[induction], c=asymmetry[induction], linewidth=0)
-        axes3.set_xlabel('Plasticity signal (a.u.)')
-        axes3.set_ylabel('Change in synaptic weight')
-        axes3.set_title('Metaplasticity - Induction '+str(induction))
-        axes3.legend(handles=label_handles, framealpha=0.5, frameon=False)
-        clean_axes(axes3)
-    elif induction == 2:
-        fig = plt.figure()
-        axes4 = fig.add_subplot(111, projection='3d')
-        axes4.scatter(plasticity_signal[induction], weights[1], delta_weights[induction], c=asymmetry[induction],
-                      linewidth=0)
-        axes4.set_xlabel('Plasticity signal (a.u.)')
-        axes4.set_ylabel('Initial synaptic weight')
-        axes4.set_zlabel('Change in synaptic weight')
-        axes4.set_title('Metaplasticity - Induction ' + str(induction))
-        axes4.legend(handles=label_handles, framealpha=0.5, frameon=False)
-plt.show()
-plt.close()
+x1 = polished_result['x']
+local_kernel[induction], global_kernel[induction], plasticity_signal[induction], model_ramp[induction], \
+    model_baseline[induction] = ramp_error_parametric(x1, xmin1, xmax1, ramp[induction], induction, plot=True,
+                                                      full_output=True)
 """
 
 """
