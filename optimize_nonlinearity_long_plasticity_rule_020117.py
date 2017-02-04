@@ -634,7 +634,6 @@ def calculate_plasticity_signal(x, local_kernel, global_kernel, induction, plot=
         local_signal.append(this_local_signal)
         max_local_signal = max(max_local_signal, np.max(this_local_signal))
     saturation_factor = filter_ratio * max_local_signal / max_global_signal
-    print 'Saturation factor: %.3E' % saturation_factor
     for j, stim_force in enumerate(complete_rate_maps[induction]):
         this_local_signal = local_signal[j] / saturation_factor
         this_signal = np.minimum(this_local_signal, global_signal)
