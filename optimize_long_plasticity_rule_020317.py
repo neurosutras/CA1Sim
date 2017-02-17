@@ -5,7 +5,7 @@ import random
 import sys
 import scipy.signal as signal
 import mkl
-# import matplotlib.gridspec as gridspec
+import matplotlib.gridspec as gridspec
 
 """
 In this version of the simulation, phase precession of CA3 inputs is implemented using the method from Chadwick et al.,
@@ -833,11 +833,14 @@ asymmetry = {}
 
 x0 = {}
 
-x0['1'] = [1.907E+01, 1.168E+03, 5.378E+01, 2.813E+02, 1.000E+00, 2.818E-03]  # Error: 1.0811E+05 *
-x0['2'] = [1.496E+02, 3.404E+03, 1.114E+02, 1.194E+02, 1.500E+00, 2.534E-03]  # Error: 5.9257E+05
+# x0['1'] = [1.907E+01, 1.168E+03, 5.378E+01, 2.813E+02, 1.000E+00, 2.818E-03]  # Error: 1.0811E+05 *
+x0['1'] = [4.996E+02, 1.484E+03, 1.536E+02, 6.240E+02, 1.500E+00, 8.534E-03]  # Error: 2.2649E+06 *
+# x0['2'] = [1.496E+02, 3.404E+03, 1.114E+02, 1.194E+02, 1.500E+00, 2.534E-03]  # Error: 5.9257E+05
+x0['2'] = [2.624E+02, 1.131E+03, 1.000E+01, 1.150E+03, 1.294E+00, 4.749E-03]  # Error: 1.0466E+06
 # Don't use cell3, it's the same as cell15
 x0['4'] = [1.007E+01, 2.294E+03, 1.329E+02, 3.341E+02, 1.224E+00, 8.160E-04]  # Error: 1.2760E+05 *
-x0['5'] = [3.778E+02, 7.870E+02, 2.342E+01, 5.514E+02, 1.500E+00, 1.540E-03]  # Error: 2.7011E+04 *
+# x0['5'] = [3.778E+02, 7.870E+02, 2.342E+01, 5.514E+02, 1.500E+00, 1.540E-03]  # Error: 2.7011E+04 *
+x0['5'] = [4.861E+02, 8.188E+02, 1.000E+01, 5.368E+02, 1.483E+00, 2.903E-03]  # Error: 1.1205E+05 *
 x0['6'] = [1.165E+02, 5.000E+02, 2.342E+01, 4.019E+02, 1.500E+00, 2.753E-03]  # Error: 4.1047E+04
 x0['7'] = [3.656E+02, 1.068E+03, 7.596E+01, 9.424E+02, 1.481E+00, 1.873E-03]  # Error: 2.1695E+05 *
 x0['8'] = [2.859E+02, 5.008E+02, 1.620E+01, 3.197E+02, 1.435E+00, 1.995E-03]  # Error: 1.9599E+04
@@ -877,18 +880,20 @@ for i in range(len(x1)):
 
 
 induction = 1
+"""
 result = optimize_explore(x1, xmin1, xmax1, ramp_error_parametric, ramp[induction], induction, maxfev=700)
 x1 = result['x']
 
 polished_result = optimize_polish(x1, xmin1, xmax1, ramp_error_parametric, ramp[induction], induction, maxfev=600)
 hist.report_best()
 # hist.export('011817_magee_data_optimization_long_cell'+cell_id)
-"""
+
 x1 = polished_result['x']
+"""
 local_kernel[induction], global_kernel[induction], plasticity_signal[induction], model_ramp[induction], \
     model_baseline[induction] = ramp_error_parametric(x1, xmin1, xmax1, ramp[induction], induction, plot=True,
                                                       full_output=True)
-"""
+
 
 """
 output_filename = '121316 plasticity rule optimization summary'
@@ -908,9 +913,10 @@ with h5py.File(data_dir+output_filename+'.hdf5', 'a') as f:
 local_kernel, global_kernel, weights, model_ramp, model_baseline = \
     ramp_error_parametric(x1, xmin1, xmax1, ramp[induction], induction, plot=False, full_output=True)
 
-fig = plt.figure()
-gs = gridspec.GridSpec(3, 5)
-ax0 = plt.subplot(gs[0, :2])
+# fig = plt.figure()
+fig, ax0 = plt.subplots(1)
+# gs = gridspec.GridSpec(3, 5)
+# ax0 = plt.subplot(gs[0, :2])
 mean_induction_loc = np.mean(induction_locs[induction])
 mean_induction_dur = np.mean(induction_durs[induction])
 start_index = np.where(interp_x[induction][0] >= mean_induction_loc)[0][0]
@@ -918,7 +924,7 @@ end_index = start_index + int(mean_induction_dur / dt)
 x_start = mean_induction_loc/track_length
 x_end = interp_x[induction][0][end_index] / track_length
 ylim = max(np.max(ramp[induction]), np.max(model_ramp), 11.0579693599)
-print 'ylim: ', ylim
+# print 'ylim: ', ylim
 ymin = min(np.min(ramp[induction]), np.min(model_ramp))
 ax0.plot(binned_x, ramp[induction], label='Experiment', color='k', linewidth=2)
 ax0.plot(binned_x, model_ramp, label='Long model', color='b', linewidth=2)
@@ -930,7 +936,7 @@ ax0.set_ylim(-0.5, ylim + 0.5)
 ax0.set_title('Induced Vm ramp', fontsize=12.)
 ax0.legend(loc='best', frameon=False, framealpha=0.5, fontsize=12.)
 clean_axes(ax0)
-gs.tight_layout(fig)
+# gs.tight_layout(fig)
 plt.show()
 plt.close()
 """

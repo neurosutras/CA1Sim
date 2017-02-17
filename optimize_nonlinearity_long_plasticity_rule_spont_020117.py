@@ -632,7 +632,7 @@ def calculate_plasticity_signal(x, local_kernel, global_kernel, induction, plot=
         local_signal.append(this_local_signal)
         max_local_signal = max(max_local_signal, np.max(this_local_signal))
     saturation_factor = filter_ratio * max_local_signal / max_global_signal
-    print 'Saturation factor: %.3E' % saturation_factor
+    # print 'Saturation factor: %.3E' % saturation_factor
     for j, stim_force in enumerate(complete_rate_maps[induction]):
         this_local_signal = local_signal[j] / saturation_factor
         this_signal = np.minimum(this_local_signal, global_signal)
@@ -985,6 +985,7 @@ def optimize_explore(x, xmin, xmax, error_function, ramp, induction=None, baseli
 local_kernel = {}
 global_kernel = {}
 plasticity_signal = {}
+kernel_model_ramp = {}
 weights = {}
 model_ramp = {}
 model_baseline = {}
@@ -994,10 +995,12 @@ x0 = {}
 
 x0['1'] = [1.239E+01, 5.000E+02, 9.447E+01, 1.188E+02, 1.495E+00, 2.132E-03]  # Error: 3.8170E+04
 x0['2'] = [4.407E+02, 9.076E+02, 3.038E+01, 1.002E+02, 1.500E+00, 8.510E-03]  # Error: 1.2589E+05
-x0['3'] = [2.548E+01, 1.360E+03, 1.647E+02, 1.811E+02, 1.499E+00, 3.070E-03]  # Error: 7.9280E+03
+# x0['3'] = [2.548E+01, 1.360E+03, 1.647E+02, 1.811E+02, 1.499E+00, 3.070E-03]  # Error: 7.9280E+03
+x0['3'] = [2.913E+02, 1.353E+03, 2.464E+02, 6.853E+02, 1.000E+00, 4.440E-03]  # Error: 2.3865E+05
 x0['4'] = [2.408E+02, 5.055E+02, 4.309E+01, 1.000E+02, 1.486E+00, 1.054E-02]  # Error: 2.1957E+04
 x0['5'] = [3.696E+01, 1.940E+03, 3.000E+02, 7.755E+02, 1.368E+00, 3.092E-03]  # Error: 1.1568E+05
-x0['6'] = [3.334E+02, 1.196E+03, 1.885E+01, 1.883E+02, 1.000E+00, 1.081E-02]  # Error: 2.2398E+04
+# x0['6'] = [3.334E+02, 1.196E+03, 1.885E+01, 1.883E+02, 1.000E+00, 1.081E-02]  # Error: 2.2398E+04
+x0['6'] = [5.000E+02, 8.729E+02, 1.074E+01, 3.037E+02, 1.000E+00, 1.542E-02]  # Error: 5.5804E+05
 x0['7'] = [1.884E+01, 5.020E+02, 1.273E+02, 4.689E+02, 1.142E+00, 1.334E-02]  # Error: 6.0693E+05
 
 x0['mean'] = [2.201E+02, 7.998E+02, 3.643E+01, 4.693E+02, 1.367E+00, 8.581E-03]
@@ -1023,13 +1026,19 @@ for induction in position:
         this_model_baseline = model_baseline[1]
     else:
         this_model_baseline = None
-    local_kernel[induction], global_kernel[induction], plasticity_signal[induction], model_ramp[induction], \
+    local_kernel[induction], global_kernel[induction], plasticity_signal[induction], kernel_model_ramp[induction], \
         model_baseline[induction] = ramp_error_parametric(x1, xmin1, xmax1, ramp[induction], induction,
                                                     baseline=this_model_baseline, plot=False, full_output=True)
 if 1 not in plasticity_signal:
     plasticity_signal[1] = np.zeros_like(peak_locs['CA3'])
 
 w0 = {this_cell_id: {} for this_cell_id in x0.keys()}
+
+w0['3'][1] = [1.168E+00, 1.325E+00, 1.118E+00, 9.733E-01, 2.174E+00, 1.428E+00, 4.513E+00, 3.890E-01, 4.861E-02,
+              4.879E-19, 6.702E-01, 1.301E-18, 2.082E-16, 9.652E-01, 3.886E-16]  # Error: 1.4921E+05
+w0['6'][1] = [2.462E+00, 3.093E+00, 4.617E-01, 1.852E+00, 3.078E+00, 1.099E-01, 1.699E-01, 2.935E-01, 6.245E-17,
+              9.407E-02, 2.155E+00, 1.410E+00, 1.839E-01, 2.056E+00, 8.336E-01]  # Error: 9.8594E+04
+
 if cell_id not in w0:
     w0[cell_id] = {}
 binned_w1 = {}
@@ -1053,21 +1062,22 @@ for induction in ramp:
         this_model_baseline = model_baseline[1]
     else:
         this_model_baseline = None
-
+    """
     polished_result = optimize_nested(binned_w1[induction], wmin1, wmax1, ramp_error_nested, ramp[induction],
                                       induction, baseline=this_model_baseline)
     binned_w1[induction] = polished_result['x']
-
+    """
     weights[induction], model_ramp[induction], model_baseline[induction], asymmetry[induction] = \
         ramp_error_nonparametric(binned_w1[induction], wmin1, wmax1, ramp[induction], induction,
                                  baseline=this_model_baseline, plot=False, full_output=True)
 
 
-"""
 fig1, axes1 = plt.subplots(1)
 fig2, axes2 = plt.subplots(1)
 
-colors = ['black', 'r', 'c', 'grey']
+from matplotlib import cm
+this_cm = cm.get_cmap()
+colors = [this_cm(1.*i/2) for i in range(3)]
 
 mean_induction_loc, mean_induction_dur = {}, {}
 
@@ -1077,28 +1087,38 @@ for induction in ramp:
     mean_induction_dur[induction] = np.mean([induction_dur for induction_dur in induction_durs[induction] if
                                              induction_dur is not None])
 
+parametric_weights = {}
+for induction in plasticity_signal:
+    parametric_weights[induction] = np.array(plasticity_signal[induction])
+    plasticity_signal[induction] *= 3.584E-03 / x0[cell_id][-1]  # allow absolute comparison across cells
+
+ylim1 = max(np.max(ramp.values()), np.max(model_ramp.values()), np.max(kernel_model_ramp.values()))
+ylim2 = max(np.max(weights.values()), np.max(parametric_weights.values()))
+
 for induction in ramp:
-    axes1.plot(binned_x, ramp[induction], label='Experiment: Induction '+str(induction))
-    axes1.plot(binned_x, model_ramp[induction], label='Model fit: Induction '+str(induction))
-    axes1.set_xlabel('Location (cm)')
-    axes1.set_ylabel('Ramp depolarization (mV)')
-    axes1.set_xlim([0., track_length])
-    axes1.legend(loc='best', frameon=False, framealpha=0.5)
-    axes1.set_title('Induced Vm ramp depolarization')
-    clean_axes(axes1)
-    axes2.plot(peak_locs['CA3'], weights[induction], label='Induction '+str(induction))
-    axes2.set_xlabel('Location (cm)')
-    axes2.set_ylabel('Synaptic weight')
-    axes2.set_title('Synaptic weight distributions')
-    axes2.legend(loc='best', frameon=False, framealpha=0.5)
-    clean_axes(axes2)
+    start_index = np.where(interp_x[induction][0] >= mean_induction_loc[induction])[0][0]
+    end_index = start_index + int(mean_induction_dur[induction] / dt)
+    x_start = mean_induction_loc[induction] / track_length
+    x_end = interp_x[induction][0][end_index] / track_length
+    axes1.plot(binned_x, ramp[induction], label='Experiment', c=colors[0])
+    axes1.plot(binned_x, kernel_model_ramp[induction], label='Dual signal model fit', c=colors[1])
+    axes1.plot(binned_x, model_ramp[induction], label='Nonparametric model fit', c=colors[2])
+    axes1.axhline(y=ylim1 + 0.25, xmin=x_start, xmax=x_end, linewidth=2, c='k')
+    axes2.plot(peak_locs['CA3'], parametric_weights[induction]+1., label='Dual signal model fit', c=colors[1])
+    axes2.plot(peak_locs['CA3'], weights[induction], label='Nonparametric model fit', c=colors[2])
+    axes2.axhline(y=ylim2 + 0.25, xmin=x_start, xmax=x_end, linewidth=2, c='k')
+axes1.set_xlabel('Location (cm)')
+axes1.set_ylabel('Ramp depolarization (mV)')
+axes1.set_xlim([0., track_length])
+axes1.legend(loc='best', frameon=False, framealpha=0.5)
+axes1.set_title('Induction 1: Vm ramp')
+clean_axes(axes1)
+axes2.set_xlabel('Location (cm)')
+axes2.set_ylabel('Candidate synaptic weights')
+axes2.set_title('Induction 1: Synaptic weights')
+axes2.legend(loc='best', frameon=False, framealpha=0.5)
+clean_axes(axes2)
 
-# plt.show()
-# plt.close()
-
-from matplotlib import cm
-this_cm = cm.get_cmap()
-colors = [this_cm(1.*i/2) for i in range(3)]
 label_handles = []
 label_handles.append(mlines.Line2D([], [], color=colors[0], label='Out of field'))
 label_handles.append(mlines.Line2D([], [], color=colors[1], label='Before induction loc'))
@@ -1114,8 +1134,8 @@ for induction in ramp:
         axes3.scatter(plasticity_signal[induction], delta_weights[induction], c=asymmetry[induction], linewidth=0)
         axes3.set_xlabel('Plasticity signal (a.u.)')
         axes3.set_ylabel('Change in synaptic weight')
-        axes3.set_title('Metaplasticity - Induction '+str(induction))
-        axes3.legend(handles=label_handles, framealpha=0.5, frameon=False)
+        #axes3.set_title('Metaplasticity - Induction '+str(induction))
+        axes3.legend(loc='best', handles=label_handles, framealpha=0.5, frameon=False)
         clean_axes(axes3)
     elif induction == 2:
         fig = plt.figure()
@@ -1125,11 +1145,11 @@ for induction in ramp:
         axes4.set_xlabel('Plasticity signal (a.u.)')
         axes4.set_ylabel('Initial synaptic weight')
         axes4.set_zlabel('Change in synaptic weight')
-        axes4.set_title('Metaplasticity - Induction ' + str(induction))
-        axes4.legend(handles=label_handles, framealpha=0.5, frameon=False)
+        #axes4.set_title('Metaplasticity - Induction ' + str(induction))
+        axes4.legend(loc='center left', handles=label_handles, framealpha=0.5, frameon=False, bbox_to_anchor=(1, 0.5))
 plt.show()
 plt.close()
-"""
+
 
 """
 output_filename = '121316 plasticity rule optimization summary'

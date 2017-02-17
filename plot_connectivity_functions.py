@@ -1,10 +1,11 @@
 from plot_results import *
 import sys
-
+from scipy import interpolate
 from mpl_toolkits.mplot3d import Axes3D
 from mpl_toolkits.axes_grid1 import make_axes_locatable
 import os
 import gc
+
 
 """
 Determine MPP-DG_GC synaptic connectivity based on target convergences, divergences, and axonal distances.
@@ -29,16 +30,16 @@ neurotrees_dir = morph_dir
 # neurotrees_dir = os.environ['PI_SCRATCH']+'/DGC_forest/hdf5/'
 # neurotrees_dir = os.environ['PI_HOME']+'/'
 # forest_file = '122016_DGC_forest_with_syn_locs.h5'
-# forest_file = 'DGC_forest_connectivity.h5'
-# degrees_file = 'DGC_forest_connectivity_degrees_new.h5'
+forest_file = 'DGC_forest_connectivity.h5'
+degrees_file = 'DGC_forest_connectivity_degrees_new.h5'
 
 coords_dir = morph_dir
 # coords_dir = os.environ['PI_SCRATCH']+'/DG/'
 # coords_dir = os.environ['PI_HOME']+'/'
 coords_file = 'DG_Soma_Coordinates.h5'
 
-forest_file = '100716_dentate_MPPtoDGC.h5'
-degrees_file = 'DGC_forest_connectivity_degrees_orig.h5'
+# forest_file = '100716_dentate_MPPtoDGC.h5'
+# degrees_file = 'DGC_forest_connectivity_degrees_orig.h5'
 
 
 # target_GID = synapse_dict.keys()
@@ -294,7 +295,7 @@ def plot_out_degree_single_source(source_gid, target, source, forest_file, soma_
     plt.close()
 
 
-def plot_in_degree(target, source, projection, degrees_file, soma_coords, u, v, distance_U, distance_V):
+def plot_in_degree(target, source, projection, degrees_file, soma_coords, u, v, distance_U, distance_V, bin_size=50.):
     """
 
     :param target: str
@@ -306,6 +307,7 @@ def plot_in_degree(target, source, projection, degrees_file, soma_coords, u, v, 
     :param v: array
     :param distance_U: array
     :param distance_V: array
+    :param bin_size: float (um)
     """
     with h5py.File(neurotrees_dir+degrees_file, 'r') as f:
         in_degree_group = f['Projections'][projection]['In degree']
@@ -317,12 +319,18 @@ def plot_in_degree(target, source, projection, degrees_file, soma_coords, u, v, 
         target_indexes_u = get_array_index(u, soma_coords[target]['u'][sorted_target_indexes][target_indexes_gid])
         target_indexes_v = get_array_index(v, soma_coords[target]['v'][sorted_target_indexes][target_indexes_gid])
 
+        this_step_size = int(bin_size / spatial_resolution)
+        this_in_degree = interpolate.griddata((distance_U[target_indexes_u, target_indexes_v],
+                                                distance_V[target_indexes_u, target_indexes_v]),
+                                               in_degree_group['count'][:],
+                                               (distance_U[::this_step_size, ::this_step_size],
+                                                distance_V[::this_step_size, ::this_step_size]), method='nearest')
         fig1 = plt.figure(1, figsize=plt.figaspect(1.) * 2.)
         ax = plt.gca()
-        pcm = ax.scatter(distance_U[target_indexes_u, target_indexes_v], distance_V[target_indexes_u, target_indexes_v],
-                            c=in_degree_group['count'][:], linewidths=0)
-        ax.set_xlabel('Arc distance (Septal - Temporal) (um)')
-        ax.set_ylabel('Arc distance (Suprapyramidal - Infrapyramidal)  (um)')
+        pcm = plt.pcolormesh(distance_U[::this_step_size, ::this_step_size],
+                             distance_V[::this_step_size, ::this_step_size], this_in_degree)
+        ax.set_xlabel('Arc distance (septal - temporal) (um)')
+        ax.set_ylabel('Arc distance (supra - infrapyramidal)  (um)')
         ax.set_title(target+' <-- '+source+' (in degree)')
         ax.set_aspect('equal', 'box')
         clean_axes(ax)
@@ -335,7 +343,7 @@ def plot_in_degree(target, source, projection, degrees_file, soma_coords, u, v, 
         plt.close()
 
 
-def plot_out_degree(target, source, projection, degrees_file, soma_coords, u, v, distance_U, distance_V):
+def plot_out_degree(target, source, projection, degrees_file, soma_coords, u, v, distance_U, distance_V, bin_size=50.):
     """
 
     :param target: str
@@ -347,6 +355,7 @@ def plot_out_degree(target, source, projection, degrees_file, soma_coords, u, v,
     :param v: array
     :param distance_U: array
     :param distance_V: array
+    :param bin_size: float (um)
     """
     with h5py.File(neurotrees_dir+degrees_file, 'r') as f:
         out_degree_group = f['Projections'][projection]['Out degree']
@@ -358,12 +367,18 @@ def plot_out_degree(target, source, projection, degrees_file, soma_coords, u, v,
         source_indexes_u = get_array_index(u, soma_coords[source]['u'][sorted_source_indexes][source_indexes_gid])
         source_indexes_v = get_array_index(v, soma_coords[source]['v'][sorted_source_indexes][source_indexes_gid])
 
+        this_step_size = int(bin_size / spatial_resolution)
+        this_out_degree = interpolate.griddata((distance_U[source_indexes_u, source_indexes_v],
+                                               distance_V[source_indexes_u, source_indexes_v]),
+                                               out_degree_group['count'][:],
+                                               (distance_U[::this_step_size, ::this_step_size],
+                                                distance_V[::this_step_size, ::this_step_size]), method='nearest')
         fig1 = plt.figure(1, figsize=plt.figaspect(1.) * 2.)
         ax = plt.gca()
-        pcm = ax.scatter(distance_U[source_indexes_u, source_indexes_v], distance_V[source_indexes_u, source_indexes_v],
-                            c=out_degree_group['count'][:], linewidths=0)
-        ax.set_xlabel('Arc distance (Septal - Temporal) (um)')
-        ax.set_ylabel('Arc distance (Suprapyramidal - Infrapyramidal)  (um)')
+        pcm = plt.pcolormesh(distance_U[::this_step_size, ::this_step_size],
+                             distance_V[::this_step_size, ::this_step_size], this_out_degree)
+        ax.set_xlabel('Arc distance (septal - temporal) (um)')
+        ax.set_ylabel('Arc distance (supra - infrapyramidal)  (um)')
         ax.set_title(source+' --> '+target+' (out degree)')
         ax.set_aspect('equal', 'box')
         clean_axes(ax)
@@ -404,7 +419,7 @@ def plot_out_degree_orig(target, source, projection, degrees_file, width_U):
         plt.close()
 
 
-def plot_population_density(population, soma_coords, u, v, U, V, distance_U, distance_V):
+def plot_population_density(population, soma_coords, u, v, U, V, distance_U, distance_V, max_u, max_v, bin_size=50.):
     """
 
     :param population: str
@@ -415,6 +430,9 @@ def plot_population_density(population, soma_coords, u, v, U, V, distance_U, dis
     :param V: array
     :param distance_U: array
     :param distance_V: array
+    :param max_u: float: u_distance
+    :param max_v: float: v_distance
+    :param bin_size: float
     :return:
     """
     """
@@ -456,18 +474,19 @@ def plot_population_density(population, soma_coords, u, v, U, V, distance_U, dis
     ax.set_ylabel('Y (um)')
     ax.set_zlabel('Z (um)')
 
+    step_sizes = [int(max_u / bin_size), int(max_v / bin_size)]
     fig2 = plt.figure(2, figsize=plt.figaspect(1.)*2.)
     population_indexes_u = get_array_index(u, soma_coords[population]['u'])
     population_indexes_v = get_array_index(v, soma_coords[population]['v'])
     H, u_edges, v_edges = np.histogram2d(distance_U[population_indexes_u, population_indexes_v],
-                                         distance_V[population_indexes_u, population_indexes_v], 100)
+                                         distance_V[population_indexes_u, population_indexes_v], step_sizes)
     H = np.rot90(H)
     H = np.flipud(H)
     Hmasked = np.ma.masked_where(H == 0, H)
     ax = plt.gca()
     pcm = ax.pcolormesh(u_edges, v_edges, Hmasked)
-    ax.set_xlabel('Arc distance (Septal - Temporal) (um)')
-    ax.set_ylabel('Arc distance (Suprapyramidal - Infrapyramidal)  (um)')
+    ax.set_xlabel('Arc distance (septal - temporal) (um)')
+    ax.set_ylabel('Arc distance (supra - infrapyramidal)  (um)')
     ax.set_title(population)
     ax.set_aspect('equal', 'box')
     clean_axes(ax)
@@ -480,11 +499,11 @@ def plot_population_density(population, soma_coords, u, v, U, V, distance_U, dis
     plt.close()
 
 
-# plot_population_density('GC', soma_coords, u, v, U, V, distance_U, distance_V)
+plot_population_density('GC', soma_coords, u, v, U, V, distance_U, distance_V, max_u, max_v)
 
-# plot_population_density('MEC', soma_coords, u, v, U, V, distance_U, distance_V)
+# plot_population_density('MEC', soma_coords, u, v, U, V, distance_U, distance_V, max_u, max_v)
 
-plot_in_degree('GC', 'MEC', 'MPPtoGC', degrees_file, soma_coords, u, v, distance_U, distance_V)
+# plot_in_degree('GC', 'MEC', 'MPPtoGC', degrees_file, soma_coords, u, v, distance_U, distance_V)
 
 
 # plot_out_degree('GC', 'MEC', 'MPPtoGC', degrees_file, soma_coords, u, v, distance_U, distance_V)

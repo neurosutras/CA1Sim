@@ -190,7 +190,7 @@ class HocCell(object):
                 neighbor_radius_list.extend([grandchild.content['p3d'].radius for grandchild in child.children])
                 if np.all(neighbor_radius_list > threshold):
                     child.content['p3d'].radius = np.mean(neighbor_radius_list)
-                    print 'Replacing diam at point', child.index
+                    # print 'Replacing diam at point', child.index
             self.clean_swc_diams(child)
 
     def load_morphology_from_hoc(self, existing_hoc_cell):
@@ -425,7 +425,7 @@ class HocCell(object):
         to cell).
         :return: dict
         """
-        swc_type_enumerator = {'soma': 1, 'axon': 2, 'basal': 3, 'trunk': 4, 'apical': 5, 'tuft': 6}
+        swc_type_enumerator = {'soma': 1, 'axon': 2, 'basal': 3, 'apical': 4, 'trunk': 5, 'tuft': 6}
         syn_type_enumerator = {'excitatory': 0, 'inhibitory': 1, 'neuromodulatory': 2}
         syn_locs = []
         section = []
