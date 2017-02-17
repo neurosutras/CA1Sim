@@ -1,5 +1,6 @@
 __author__ = 'Grace Ng'
 import parallel_optimize_spike_stability_engine
+from function_lib import CheckBounds
 import sys
 import os
 import math
@@ -29,7 +30,7 @@ def na_ka_stability_error(x, plot=0):
     :param plot: int
     :return: float
     """
-    if not check_bounds(x, 'na_ka_stability'):
+    if not check_bounds.within_bounds(x, 'na_ka_stability'):
         print 'Process %i: Aborting - Parameters outside optimization bounds.' % (os.getpid())
         return 1e9
     start_time = time.time()
@@ -43,7 +44,7 @@ def na_ka_stability_error(x, plot=0):
     if result is None:
         print 'Cell is spontaneously firing, or parameters are out of bounds.'
         return 1e9
-    final_result = result[0]
+    final_result = result
     result = v.map_async(parallel_optimize_spike_stability_engine.compute_spike_stability_features,
                          [final_result['amp'] + amp for amp in [0.25, 0.5, 0.75]])
     last = []
@@ -72,9 +73,9 @@ def na_ka_stability_error(x, plot=0):
     Err = 0.
     for target in final_result:
         # don't penalize AHP or slow_depo less than target
-        if not ((target == 'AHP' and result[target] < target_val['na_ka'][target]) or
-                (target == 'slow_depo' and result[target] < target_val['na_ka'][target])):
-            Err += ((target_val['na_ka'][target] - result[target])/target_range['na_ka'][target])**2.
+        if not ((target == 'AHP' and final_result[target] < target_val['na_ka'][target]) or
+                (target == 'slow_depo' and final_result[target] < target_val['na_ka'][target])):
+            Err += ((target_val['na_ka'][target] - final_result[target])/target_range['na_ka'][target])**2.
             if target not in hist.features:
                 hist.features[target] = []
             hist.features[target].append(final_result[target])
@@ -82,8 +83,9 @@ def na_ka_stability_error(x, plot=0):
     print 'Simulation took %i s' % (time.time()-start_time)
     print 'Process %i: [soma.gkabar, soma.gkdrbar, axon.gkabar_kap, axon.gbar_nax]: ' \
           '[%.4f, %.4f, %.2f, %.2f], amp: %.3f, v_rest: %.1f, threshold: %.1f, ADP: %.1f, AHP: %.1f, ' \
-          'stability: %.2f, slow_depo: %.2f' % (os.getpid(), x[0], x[1], x[2], x[3], result['amp'], result['v_rest'],
-                                result['v_th'], result['ADP'], result['AHP'], result['stability'], result['slow_depo'])
+          'stability: %.2f, slow_depo: %.2f' % (os.getpid(), x[0], x[1], x[2], x[3], final_result['amp'], final_result['v_rest'],
+                                final_result['v_th'], final_result['ADP'], final_result['AHP'], final_result['stability'],
+                                                final_result['slow_depo'])
     print 'Process %i: Error: %.4E' % (os.getpid(), Err)
     hist.error_values.append(Err)
     return Err
@@ -134,11 +136,10 @@ target_val['pas'] = {'soma': 295., 'dend': 375.}
 target_range['pas'] = {'soma': 0.5, 'dend': 1.}
 target_val['v_rest'] = {'soma': v_init, 'tuft_offset': 0.}
 target_range['v_rest'] = {'soma': 0.25, 'tuft_offset': 0.1}
-target_val['na_ka'] = {'v_rest': v_init, 'v_th': -51., 'soma_peak': 40., 'trunk_amp': 0.6, 'ADP': 0., 'AHP': 4.,
+target_val['na_ka'] = {'v_rest': v_init, 'v_th': -51., 'soma_peak': 40., 'amp': 0.6, 'ADP': 0., 'AHP': 4.,
                        'stability': 0., 'ais_delay': 0., 'slow_depo': 25.}
-target_range['na_ka'] = {'v_rest': 0.25, 'v_th': .2, 'soma_peak': 2., 'trunk_amp': 0.01, 'ADP': 0.01, 'AHP': .2,
+target_range['na_ka'] = {'v_rest': 0.25, 'v_th': .2, 'soma_peak': 2., 'amp': 0.01, 'ADP': 0.01, 'AHP': .2,
                          'stability': 1., 'ais_delay': 0.001, 'slow_depo': 1.}
-
 
 x0 = {}
 xlabels = {}
@@ -197,18 +198,19 @@ global_start_time = time.time()
 dv.execute('run parallel_optimize_spike_stability_engine %i \"%s\"' % (int(spines), mech_filename))
 # time.sleep(120)
 v = c.load_balanced_view()
-"""
+
 result = optimize.basinhopping(na_ka_stability_error, x0['na_ka_stability'], niter=explore_niter, niter_success=explore_niter,
                                disp=True, interval=20, minimizer_kwargs=minimizer_kwargs, take_step=take_step)
 
 
+"""
 polished_result = optimize.minimize(na_ka_stability_error, result.x, method='Nelder-Mead', options={'ftol': 1e-5,
                                                     'disp': True, 'maxiter': polish_niter})
 
 print polished_result
+"""
 
 
 best_x = hist.report_best()
 dv['x'] = best_x
 c[0].apply(parallel_optimize_spike_stability_engine.update_mech_dict)
-"""
