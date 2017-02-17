@@ -2279,7 +2279,7 @@ class QuickSim(object):
             rec_out.attrs['ylabel'] = rec['ylabel']
             rec_out.attrs['units'] = rec['units']
             if 'description' in rec:
-                rec_out.attrs['description'] = rec['description']
+                rec_out.attrs['description'] = rec['descriptionrun pa']
         if self.verbose:
             print 'Simulation ', simiter, ': exporting took: ', time.time()-start_time, ' s'
 
