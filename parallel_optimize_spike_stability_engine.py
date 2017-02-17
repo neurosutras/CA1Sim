@@ -136,7 +136,7 @@ def offset_vm(description, vm_target=None):
             else:
                 offset = False
     sim.tstop = duration
-    return initial_v_rest
+    return v_rest
 
 
 @interactive
@@ -179,8 +179,8 @@ def compute_spike_shape_features(local_x=None, plot=0):
     """
     if local_x is None:
         local_x = x
-    print x
-    print local_x
+    # print x
+    # print local_x
     if not check_bounds.within_bounds(local_x, 'na_ka_stability'):
         print 'Process %i: Aborting - Parameters outside optimization bounds.' % (os.getpid())
         return None
@@ -197,7 +197,7 @@ def compute_spike_shape_features(local_x=None, plot=0):
     while not spike:
         sim.modify_stim(0, amp=amp)
         sim.run(v_active)
-        vm = np.interp(t, sim.tvec, sim.rec_list[0]['vec'])
+        vm = np.interp(t, sim.tvec, sim.get_rec('soma')['vec'])
         if amp == 0.05 and np.any(vm[:int(equilibrate/dt)] > -30.):
             print 'Process %i: Aborting - spontaneous firing' % (os.getpid())
             return None

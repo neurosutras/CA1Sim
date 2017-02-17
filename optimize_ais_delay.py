@@ -5,7 +5,10 @@ import sys
 import os
 import random
 
-morph_filename = 'DG_GC_355549.swc'
+# morph_filename = 'EB2-late-bifurcation.swc'
+# morph_filename = 'DG_GC_355549.swc'
+neurotree_filename = '121516_DGC_trees.pkl'
+neurotree_dict = read_from_pkl(morph_dir+neurotree_filename)
 
 if len(sys.argv) > 1:
     spines = bool(int(sys.argv[1]))
@@ -14,8 +17,8 @@ else:
 if len(sys.argv) > 2:
     mech_filename = str(sys.argv[2])
 else:
-    mech_filename = None
-#Start with a mechanism dictionary that has soma_ek = -77., soma_na_gbar = 0.04 and has set the other parameters accordingly
+    # Start with a mechanism dictionary that has soma_ek = -77., soma_na_gbar = 0.04 and has set the other parameters accordingly
+    mech_filename = '012416 GC optimizing excitability'
 
 def offset_vm(description, vm_target=None):
     """
@@ -38,7 +41,6 @@ def offset_vm(description, vm_target=None):
     sim.run(vm_target)
     vm = np.interp(t, sim.tvec, rec)
     v_rest = np.mean(vm[int((equilibrate - 3.)/dt):int((equilibrate - 1.)/dt)])
-    initial_v_rest = v_rest
     if v_rest < vm_target - 0.5:
         i_holding[description] += 0.01
         while offset:
@@ -66,7 +68,7 @@ def offset_vm(description, vm_target=None):
             else:
                 offset = False
     sim.tstop = duration
-    return initial_v_rest
+    return v_rest
 
 def get_spike_shape(vm):
     """
@@ -131,7 +133,7 @@ def ais_delay_error(x, plot=0):
     while not spike:
         sim.modify_stim(0, amp=amp)
         sim.run(v_active)
-        vm = np.interp(t, sim.tvec, sim.rec_list[0]['vec'])
+        vm = np.interp(t, sim.tvec, sim.get_rec('soma')['vec'])
         if amp == 0.05 and np.any(vm[:int(equilibrate/dt)] > -30.):
             print 'Process %i: Aborting - spontaneous firing' % (os.getpid())
             return 1e9
@@ -146,9 +148,9 @@ def ais_delay_error(x, plot=0):
     result['soma_peak'] = peak
     result['th_v'] = threshold
     th_x = np.where(vm[int(equilibrate/dt):] >= threshold)[0][0] + int(equilibrate/dt)
-    ais_vm = np.interp(t, sim.tvec, sim.rec_list[3]['vec'])
+    ais_vm = np.interp(t, sim.tvec, sim.get_rec('ais')['vec'])
     ais_dvdt = np.gradient(ais_vm, [dt])
-    axon_vm = np.interp(t, sim.tvec, sim.rec_list[4]['vec'])
+    axon_vm = np.interp(t, sim.tvec, sim.get_rec('axon')['vec'])
     axon_dvdt = np.gradient(axon_vm, [dt])
     left = th_x - int(2./dt)
     right = th_x + int(2./dt)
@@ -168,7 +170,7 @@ def ais_delay_error(x, plot=0):
     # attempt to find the minimal combination that produces the desired delay
     for i, x_i in enumerate(x):
         err_factor = 1.
-        Err += err_factor*(((x_i - xmin[i])/min(abs(xmin[i]), abs(xmax[i])))**2.)
+        Err += err_factor*(((x_i - xmin['ais_delay'][i])/min(abs(xmin['ais_delay'][i]), abs(xmax['ais_delay'][i])))**2.)
     print 'Simulation took %i s' % (time.time()-start_time)
     print 'Process %i: [ais.sha_nas, ais.gbar_nas]: [%.2f, %.2f], ais_delay: %.3E, soma_peak: %.1f, ' \
           'threshold: %.1f' % (os.getpid(), x[0], x[1], result['ais_delay'], peak, threshold)
@@ -203,7 +205,7 @@ def optimize_ais_delay(x):
         while not spike:
             sim.modify_stim(0, amp=amp)
             sim.run(v_active)
-            vm = np.interp(t, sim.tvec, sim.rec_list[0]['vec'])
+            vm = np.interp(t, sim.tvec, sim.get_rec('soma')['vec'])
             if amp == 0.05 and np.any(vm[:int(equilibrate / dt)] > -30.):
                 print 'Process %i: Aborting - spontaneous firing' % (os.getpid())
                 return 1e9
@@ -218,9 +220,9 @@ def optimize_ais_delay(x):
         result['soma_peak'] = peak
         result['th_v'] = threshold
         th_x = np.where(vm[int(equilibrate / dt):] >= threshold)[0][0] + int(equilibrate / dt)
-        ais_vm = np.interp(t, sim.tvec, sim.rec_list[3]['vec'])
+        ais_vm = np.interp(t, sim.tvec, sim.get_rec('ais')['vec'])
         ais_dvdt = np.gradient(ais_vm, [dt])
-        axon_vm = np.interp(t, sim.tvec, sim.rec_list[4]['vec'])
+        axon_vm = np.interp(t, sim.tvec, sim.get_rec('axon')['vec'])
         axon_dvdt = np.gradient(axon_vm, [dt])
         left = th_x - int(2. / dt)
         right = th_x + int(2. / dt)
@@ -250,9 +252,10 @@ dt = 0.01
 amp = 0.3
 th_dvdt = 10.
 v_init = -67.
-v_active = -61.
+# v_active = -61.
+v_active = -67.
 
-cell = DG_GC(morph_filename, mech_filename, full_spines=spines)
+cell = DG_GC(neurotree_dict=neurotree_dict[0], mech_filename=mech_filename, full_spines=spines)
 
 axon_seg_locs = [seg.x for seg in cell.axon[2].sec]
 
@@ -293,9 +296,9 @@ check_bounds = CheckBounds(xmin, xmax)
 
 history = optimize_history()
 history.xlabels = xlabels['ais_delay']
-history.error_values = 1e9
-history.x_values = x0['ais_delay']
-history.features['ais_delay'] = []
+history.error_values.append(1e9)
+history.x_values.append(x0['ais_delay'])
+history.features['ais_delay'] = [[]]
 
 update_ais_delay(x0['ais_delay'])
 

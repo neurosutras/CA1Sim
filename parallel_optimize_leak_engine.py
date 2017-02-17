@@ -1,5 +1,7 @@
 __author__ = 'Grace Ng'
 from specify_cells2 import *
+from function_lib import *
+import time
 import random
 import os
 import sys
@@ -18,8 +20,6 @@ neurotree_dict = read_from_pkl(morph_dir+neurotree_filename)
 rec_filename = str(time.strftime('%m%d%Y', time.gmtime()))+'_'+str(time.strftime('%H%M%S', time.gmtime()))+\
                '_pid'+str(os.getpid())+'_sim_output'
 
-# placeholder for optimization parameter, must be pushed to each engine on each iteration
-# x: array ['soma.g_pas', 'dend.g_pas slope', 'dend.g_pas tau', 'dend.gpas max_loc']
 if len(sys.argv) > 1:
     spines = bool(int(sys.argv[1]))
 else:
@@ -34,6 +34,9 @@ else:
 
 i_holding = {'soma': 0., 'dend': 0., 'distal_dend': 0.}
 
+# placeholder for optimization parameter, must be pushed to each engine on each iteration
+# x: array ['soma.g_pas', 'dend.g_pas slope', 'dend.g_pas tau', 'dend.gpas max_loc']
+x = []
 
 @interactive
 def offset_vm(description, vm_target=None):
@@ -85,7 +88,7 @@ def offset_vm(description, vm_target=None):
             else:
                 offset = False
     sim.tstop = duration
-    return initial_v_rest
+    return v_rest
 
 
 @interactive

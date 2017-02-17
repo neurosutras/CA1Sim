@@ -6,6 +6,7 @@ import math
 from ipyparallel import Client
 from IPython.display import clear_output
 from plot_results import *
+from function_lib import *
 import scipy.optimize as optimize
 
 """
@@ -300,6 +301,7 @@ dv.execute('run parallel_optimize_leak_engine %i \"%s\"' % (int(spines), mech_fi
 # time.sleep(120)
 v = c.load_balanced_view()
 
+"""
 result = optimize.basinhopping(pas_error, x0['pas'], niter=explore_niter, niter_success=explore_niter,
                                disp=True, interval=20, minimizer_kwargs=minimizer_kwargs, take_step=take_step)
 
@@ -311,5 +313,5 @@ polished_result = optimize.minimize(pas_error, x0['pas'], method='Nelder-Mead', 
                                                                                          'maxiter': polish_niter})
 
 print polished_result
-"""
+
 hist.report_best()
