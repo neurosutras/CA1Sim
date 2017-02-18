@@ -151,14 +151,15 @@ if len(sys.argv) > 1:
 else:
     spines = False
 if len(sys.argv) > 2:
-    cluster_id = sys.argv[2]
+    mech_filename = str(sys.argv[2])
+else:
+    # Need to change this!! Mechanism dictionary must contain information for soma_ek, and must adjust the ek values for other sections accordingly
+    mech_filename = '012416 GC optimizing excitability'
+if len(sys.argv) > 3:
+    cluster_id = sys.argv[3]
     c = Client(cluster_id=cluster_id)
 else:
     c = Client()
-if len(sys.argv) > 3:
-    mech_filename = str(sys.argv[3])
-else:
-    mech_filename = '012416 GC optimizing excitability'
 
 check_bounds = CheckBounds(xmin, xmax)
 xlabels['na_ka_stability'] = ['soma.gkabar', 'soma.gkdrbar', 'axon.gkabar_kap factor', 'axon.gbar_nax factor']
