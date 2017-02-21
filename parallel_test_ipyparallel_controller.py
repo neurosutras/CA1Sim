@@ -9,9 +9,12 @@ ipcluster start -n num_cores
 """
 
 if len(sys.argv) > 1:
-    cluster_id = sys.argv[1]
+    other_argument = str(sys.argv[1])
+if len(sys.argv) > 2:
+    cluster_id = sys.argv[2]
     c = Client(cluster_id=cluster_id)
 else:
     c = Client()
 
+print other_argument
 print c.ids

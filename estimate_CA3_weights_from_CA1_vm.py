@@ -21,8 +21,7 @@ V = Vh.T
 D = np.zeros_like(CA3_rate)
 
 D[np.where(np.eye(*D.shape))] = s / (s**2. + alpha**2.)
-CA3_inv = V.dot(D.conj().T)
-CA3_inv = CA3_inv.dot(U.conj().T)
+CA3_inv = V.dot(D.conj().T).dot(U.conj().T)
 
 weights = vm.dot(CA3_inv)
 model_vm = weights.dot(CA3_rate)
