@@ -303,6 +303,7 @@ history.features['ais_delay'] = [[]]
 update_ais_delay(x0['ais_delay'])
 
 optimize_ais_delay(x0['ais_delay'])
-history.report_best()
-
+best_x = history.report_best()
+update_ais_delay(best_x)
+cell.export_mech_dict(cell.mech_filename)
 

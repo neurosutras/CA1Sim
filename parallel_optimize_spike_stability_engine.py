@@ -138,6 +138,10 @@ def offset_vm(description, vm_target=None):
     sim.tstop = duration
     return v_rest
 
+@interactive
+def update_mech_dict():
+    update_na_ka_stability(x)
+    cell.export_mech_dict(cell.mech_filename)
 
 @interactive
 def update_na_ka_stability(x):

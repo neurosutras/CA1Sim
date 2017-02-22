@@ -88,6 +88,7 @@ def na_ka_stability_error(x, plot=0):
                                                 final_result['slow_depo'])
     print 'Process %i: Error: %.4E' % (os.getpid(), Err)
     hist.error_values.append(Err)
+    sys.stdout.flush()
     return Err
 
 
