@@ -45,6 +45,7 @@ def na_ka_stability_error(x, plot=0):
         print 'Cell is spontaneously firing, or parameters are out of bounds.'
         return 1e9
     final_result = result
+    print 'Getting here - test if failure is while engines are idle.'
     result = v.map_async(parallel_optimize_spike_stability_engine.compute_spike_stability_features,
                          [final_result['amp'] + amp for amp in [0.25, 0.5, 0.75]])
     last = []
@@ -137,7 +138,7 @@ target_val['pas'] = {'soma': 295., 'dend': 375.}
 target_range['pas'] = {'soma': 0.5, 'dend': 1.}
 target_val['v_rest'] = {'soma': v_init, 'tuft_offset': 0.}
 target_range['v_rest'] = {'soma': 0.25, 'tuft_offset': 0.1}
-target_val['na_ka'] = {'v_rest': v_init, 'v_th': -51., 'soma_peak': 40., 'amp': 0.6, 'ADP': 0., 'AHP': 4.,
+target_val['na_ka'] = {'v_rest': v_init, 'v_th': -49., 'soma_peak': 40., 'amp': 0.6, 'ADP': 0., 'AHP': 4.,
                        'stability': 0., 'ais_delay': 0., 'slow_depo': 25.}
 target_range['na_ka'] = {'v_rest': 0.25, 'v_th': .2, 'soma_peak': 2., 'amp': 0.01, 'ADP': 0.01, 'AHP': .2,
                          'stability': 1., 'ais_delay': 0.001, 'slow_depo': 1.}

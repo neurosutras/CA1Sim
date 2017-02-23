@@ -275,7 +275,7 @@ compartment_objects = {'soma': cell.tree.root}
 #the target values and acceptable ranges
 target_val = {}
 target_range = {}
-target_val['na_ka'] = {'v_rest': v_init, 'th_v': -51., 'soma_peak': 40., 'trunk_amp': 0.5, 'ADP': 0., 'AHP': 4.,
+target_val['na_ka'] = {'v_rest': v_init, 'th_v': -49., 'soma_peak': 40., 'trunk_amp': 0.5, 'ADP': 0., 'AHP': 4.,
                        'stability': 0., 'ais_delay': 0., 'slow_depo': 25.}
 target_range['na_ka'] = {'v_rest': 0.25, 'th_v': .2, 'soma_peak': 2., 'trunk_amp': 0.01, 'ADP': 0.01, 'AHP': .2,
                          'stability': 1., 'ais_delay': 0.001, 'slow_depo': 1.}
@@ -303,6 +303,10 @@ history.features['ais_delay'] = [[]]
 update_ais_delay(x0['ais_delay'])
 
 optimize_ais_delay(x0['ais_delay'])
+best_x = history.report_best()
+polished_result = optimize.minimize(ais_delay_error, best_x, method='Nelder-Mead', options={'ftol': 1e-5,
+                                                    'disp': True, 'maxiter': 400})
+print polished_result
 best_x = history.report_best()
 update_ais_delay(best_x)
 cell.export_mech_dict(cell.mech_filename)
