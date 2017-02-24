@@ -192,58 +192,62 @@ def optimize_ais_delay(x):
     ais_delay_error(x)
     while min(history.error_values) > 0.:
         index = random.randint(0, 1)
-        x[index] += perturb[index]
-        start_time = time.time()
-        update_ais_delay(x)
-        offset_vm('soma', v_active)
-        sim.modify_stim(0, node=cell.tree.root, loc=0., dur=100.)
-        duration = equilibrate + 200.
-        sim.tstop = duration
-        t = np.arange(0., duration, dt)
-        spike = False
-        amp = 0.05
-        while not spike:
-            sim.modify_stim(0, amp=amp)
-            sim.run(v_active)
-            vm = np.interp(t, sim.tvec, sim.get_rec('soma')['vec'])
-            if amp == 0.05 and np.any(vm[:int(equilibrate / dt)] > -30.):
-                print 'Process %i: Aborting - spontaneous firing' % (os.getpid())
-                return 1e9
-            if np.any(vm[int(equilibrate / dt):int((equilibrate + 50.) / dt)] > -30.):
-                spike = True
-            else:
-                amp += 0.05
-                if sim.verbose:
-                    print 'increasing amp to %.3f' % amp
-        peak, threshold, ADP, AHP = get_spike_shape(vm)
-        result = {}
-        result['soma_peak'] = peak
-        result['th_v'] = threshold
-        th_x = np.where(vm[int(equilibrate / dt):] >= threshold)[0][0] + int(equilibrate / dt)
-        ais_vm = np.interp(t, sim.tvec, sim.get_rec('ais')['vec'])
-        ais_dvdt = np.gradient(ais_vm, [dt])
-        axon_vm = np.interp(t, sim.tvec, sim.get_rec('axon')['vec'])
-        axon_dvdt = np.gradient(axon_vm, [dt])
-        left = th_x - int(2. / dt)
-        right = th_x + int(2. / dt)
-        ais_peak = np.max(ais_dvdt[left:right])
-        ais_peak_t = np.where(ais_dvdt[left:right] == ais_peak)[0][0] * dt
-        axon_peak = np.max(axon_dvdt[left:right])
-        axon_peak_t = np.where(axon_dvdt[left:right] == axon_peak)[0][0] * dt
-        if axon_peak_t > ais_peak_t + dt:
-            result['ais_delay'] = 0.
+        if not check_bounds.within_bounds(x, 'ais_delay'): #DISCUSS THIS!!!
+            print 'Process %i: Aborting - Parameters outside optimization bounds.' % (os.getpid())
+            return 1e9
         else:
-            result['ais_delay'] = ais_peak_t + dt - axon_peak_t
-        Err = 0.
-        target = 'ais_delay'
-        Err += ((target_val['na_ka'][target] - result[target]) / target_range['na_ka'][target]) ** 2.
-        # attempt to find the minimal combination that produces the desired delay
-        print 'Simulation took %i s' % (time.time() - start_time)
-        print 'Process %i: [ais.sha_nas, ais.gbar_nas]: [%.2f, %.2f], ais_delay: %.3E, soma_peak: %.1f, ' \
-              'threshold: %.1f' % (os.getpid(), x[0], x[1], result['ais_delay'], peak, threshold)
-        print 'Process %i: Error: %.4E' % (os.getpid(), Err)
-        if Err == 0.:
-            return x
+            x[index] += perturb[index]
+            start_time = time.time()
+            update_ais_delay(x)
+            offset_vm('soma', v_active)
+            sim.modify_stim(0, node=cell.tree.root, loc=0., dur=100.)
+            duration = equilibrate + 200.
+            sim.tstop = duration
+            t = np.arange(0., duration, dt)
+            spike = False
+            amp = 0.05
+            while not spike:
+                sim.modify_stim(0, amp=amp)
+                sim.run(v_active)
+                vm = np.interp(t, sim.tvec, sim.get_rec('soma')['vec'])
+                if amp == 0.05 and np.any(vm[:int(equilibrate / dt)] > -30.):
+                    print 'Process %i: Aborting - spontaneous firing' % (os.getpid())
+                    return 1e9
+                if np.any(vm[int(equilibrate / dt):int((equilibrate + 50.) / dt)] > -30.):
+                    spike = True
+                else:
+                    amp += 0.05
+                    if sim.verbose:
+                        print 'increasing amp to %.3f' % amp
+            peak, threshold, ADP, AHP = get_spike_shape(vm)
+            result = {}
+            result['soma_peak'] = peak
+            result['th_v'] = threshold
+            th_x = np.where(vm[int(equilibrate / dt):] >= threshold)[0][0] + int(equilibrate / dt)
+            ais_vm = np.interp(t, sim.tvec, sim.get_rec('ais')['vec'])
+            ais_dvdt = np.gradient(ais_vm, [dt])
+            axon_vm = np.interp(t, sim.tvec, sim.get_rec('axon')['vec'])
+            axon_dvdt = np.gradient(axon_vm, [dt])
+            left = th_x - int(2. / dt)
+            right = th_x + int(2. / dt)
+            ais_peak = np.max(ais_dvdt[left:right])
+            ais_peak_t = np.where(ais_dvdt[left:right] == ais_peak)[0][0] * dt
+            axon_peak = np.max(axon_dvdt[left:right])
+            axon_peak_t = np.where(axon_dvdt[left:right] == axon_peak)[0][0] * dt
+            if axon_peak_t > ais_peak_t + dt:
+                result['ais_delay'] = 0.
+            else:
+                result['ais_delay'] = ais_peak_t + dt - axon_peak_t
+            Err = 0.
+            target = 'ais_delay'
+            Err += ((target_val['na_ka'][target] - result[target]) / target_range['na_ka'][target]) ** 2.
+            # attempt to find the minimal combination that produces the desired delay
+            print 'Simulation took %i s' % (time.time() - start_time)
+            print 'Process %i: [ais.sha_nas, ais.gbar_nas]: [%.2f, %.2f], ais_delay: %.3E, soma_peak: %.1f, ' \
+                  'threshold: %.1f' % (os.getpid(), x[0], x[1], result['ais_delay'], peak, threshold)
+            print 'Process %i: Error: %.4E' % (os.getpid(), Err)
+            if Err == 0.:
+                return x
 
 equilibrate = 250.  # time to steady-state
 stim_dur = 500.
@@ -293,6 +297,7 @@ x0['ais_delay'] = [-1.20, 1.57*axon_gbar_nax]  # Error: 29.16
 xmin['ais_delay'] = [-5., 1.1*axon_gbar_nax]
 xmax['ais_delay'] = [-1., 5.*axon_gbar_nax]
 check_bounds = CheckBounds(xmin, xmax)
+print 'axon_gbar_nax %.3f' % axon_gbar_nax
 
 history = optimize_history()
 history.xlabels = xlabels['ais_delay']
