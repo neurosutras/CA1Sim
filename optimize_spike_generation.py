@@ -182,6 +182,7 @@ def na_ka_dend_error(x, plot=0):
     print 'Process %i: [sh_nax/s, trunk.ka factor]: [%.2f, %.2f], threshold: %.1f, trunk_amp: %.1f' % \
           (os.getpid(), x[0], x[1], threshold, result['distal_dend_amp'])
     print 'Process %i: Error: %.4E' % (os.getpid(), Err)
+    sys.stdout.flush()
     return Err
 
 
@@ -256,6 +257,7 @@ def ais_delay_error(x, plot=0):
         history.error_values.append(float(Err))
         history.x_values.append(x)
         history.features['ais_delay'].append(result['ais_delay'])
+    sys.stdout.flush()
     return Err
 
 
@@ -336,6 +338,7 @@ def optimize_ais_delay(x):
                 min_Err = Err
                 best_x = list(x)
         iter += 1
+        sys.stdout.flush()
     return best_x
 
 
