@@ -270,11 +270,11 @@ def optimize_ais_delay(x):
     :param x: array
     :return: array
     """
-    perturb = (-0.1, 0.2)
+    perturb = (-0.1, 0.01)
     #Should anything be done with the error value that is returned by ais_delay_error?
     ais_delay_error(x)
     min_Err = 1e9
-    max_iter = 20
+    max_iter = 80
     iter = 0
     best_x = list(x)
     while min_Err > 0. and iter < max_iter:
