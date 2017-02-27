@@ -253,10 +253,12 @@ def ais_delay_error(x, plot=0):
     print 'Process %i: [ais.sha_nas, ais.gbar_nas]: [%.2f, %.2f], ais_delay: %.3E, soma_peak: %.1f, ' \
           'threshold: %.1f' % (os.getpid(), x[0], x[1], result['ais_delay'], peak, threshold)
     print 'Process %i: Error: %.4E' % (os.getpid(), Err)
+    """
     if Err < min(history.error_values):
         history.error_values.append(float(Err))
         history.x_values.append(x)
         history.features['ais_delay'].append(result['ais_delay'])
+    """
     sys.stdout.flush()
     return Err
 
@@ -269,6 +271,7 @@ def optimize_ais_delay(x):
     :return: array
     """
     perturb = (-0.1, 0.2)
+    #Should anything be done with the error value that is returned by ais_delay_error?
     ais_delay_error(x)
     min_Err = 1e9
     max_iter = 20
