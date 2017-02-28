@@ -27,6 +27,8 @@ ipcluster start -n num_cores
 """
 
 
+os.environ['MKL_NUM_THREADS'] = 1
+
 def check_bounds(x, param_name):
     """
     Check that the current set of parameters for optimization are within the desired bounds.
@@ -299,7 +301,7 @@ dv.clear()
 dv.block = True
 global_start_time = time.time()
 dv.execute('run parallel_optimize_leak_engine %i \"%s\"' % (int(spines), mech_filename))
-# time.sleep(120)
+time.sleep(120)
 v = c.load_balanced_view()
 
 """

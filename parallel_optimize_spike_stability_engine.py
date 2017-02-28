@@ -10,6 +10,8 @@ Builds a cell locally so each engine is ready to receive jobs one at a time, spe
 section type, to test Na Ka stability.
 """
 
+os.environ['MKL_NUM_THREADS'] = 1
+
 # morph_filename = 'EB2-late-bifurcation.swc'
 # morph_filename = 'DG_GC_355549.swc'
 neurotree_filename = '121516_DGC_trees.pkl'
@@ -138,10 +140,12 @@ def offset_vm(description, vm_target=None):
     sim.tstop = duration
     return v_rest
 
+
 @interactive
 def update_mech_dict():
     update_na_ka_stability(x)
     cell.export_mech_dict(cell.mech_filename)
+
 
 @interactive
 def update_na_ka_stability(x):

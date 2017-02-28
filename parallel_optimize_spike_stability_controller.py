@@ -1,14 +1,14 @@
 __author__ = 'Grace Ng'
 import parallel_optimize_spike_stability_engine
-from function_lib import CheckBounds
 import sys
 import os
-import math
 from ipyparallel import Client
 from IPython.display import clear_output
 from plot_results import *
 import scipy.optimize as optimize
 
+
+os.environ['MKL_NUM_THREADS'] = 1
 """
 Aims for spike initiation at initial segment by increasing nax density and decreasing activation V1/2 relative to soma,
 axon_hill, and axon compartments. Extend linear kap gradient into basals and obliques, aim for 60% spike attenuation
@@ -38,12 +38,13 @@ def na_ka_stability_error(x, plot=0):
     hist.x_values.append(x)
     formatted_x = '[' + ', '.join(['%.2E' % xi for xi in x]) + ']'
     print 'Process %i using current x: %s: %s' % (os.getpid(), str(xlabels['na_ka_stability']), formatted_x)
-    result = v.map_async(parallel_optimize_spike_stability_engine.compute_spike_shape_features, [None])
+    result = c[0].apply(parallel_optimize_spike_stability_engine.compute_spike_shape_features)
+    #result = v.map_async(parallel_optimize_spike_stability_engine.compute_spike_shape_features, [None])
     last = []
     while not result.ready():
         time.sleep(1.)
         clear_output()
-        for i, stdout in enumerate([stdout for stdout in result.stdout if stdout][-len(x):]):
+        for i, stdout in enumerate([stdout for stdout in result.stdout if stdout][-1:]):
             line = stdout.splitlines()[-1]
             if line not in last:
                 print line
@@ -51,19 +52,18 @@ def na_ka_stability_error(x, plot=0):
         if len(last) > len(x):
             last = last[-len(x):]
         sys.stdout.flush()
-    result = result.get()[0]
+    result = result.get()
     if result is None:
         print 'Cell is spontaneously firing, or parameters are out of bounds.'
         return 1e9
     final_result = result
-    print 'Getting here - test if failure is while engines are idle.'
     result = v.map_async(parallel_optimize_spike_stability_engine.compute_spike_stability_features,
                          [final_result['amp'] + amp for amp in [0.25, 0.5, 0.75]])
     last = []
     while not result.ready():
         time.sleep(1.)
         clear_output()
-        for i, stdout in enumerate([stdout for stdout in result.stdout if stdout][-len(x):]):
+        for i, stdout in enumerate([stdout for stdout in result.stdout if stdout][-3:]):
             line = stdout.splitlines()[-1]
             if line not in last:
                 print line
@@ -210,7 +210,7 @@ dv.clear()
 dv.block = True
 global_start_time = time.time()
 dv.execute('run parallel_optimize_spike_stability_engine %i \"%s\"' % (int(spines), mech_filename))
-# time.sleep(120)
+time.sleep(120)
 v = c.load_balanced_view()
 
 result = optimize.basinhopping(na_ka_stability_error, x0['na_ka_stability'], niter=explore_niter, niter_success=explore_niter,
