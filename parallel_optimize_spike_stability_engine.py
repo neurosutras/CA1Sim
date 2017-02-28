@@ -5,11 +5,12 @@ import os
 import sys
 from ipyparallel import interactive
 import pprint
+import mkl
+
 """
 Builds a cell locally so each engine is ready to receive jobs one at a time, specified by string corresponding to the
 section type, to test Na Ka stability.
 """
-import mkl
 
 mkl.set_num_threads(1)
 #os.environ['MKL_NUM_THREADS'] = 1
