@@ -9,8 +9,10 @@ import pprint
 Builds a cell locally so each engine is ready to receive jobs one at a time, specified by string corresponding to the
 section type, to test Na Ka stability.
 """
+import mkl
 
-os.environ['MKL_NUM_THREADS'] = 1
+mkl.set_num_threads(1)
+#os.environ['MKL_NUM_THREADS'] = 1
 
 # morph_filename = 'EB2-late-bifurcation.swc'
 # morph_filename = 'DG_GC_355549.swc'

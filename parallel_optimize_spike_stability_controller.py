@@ -6,9 +6,10 @@ from ipyparallel import Client
 from IPython.display import clear_output
 from plot_results import *
 import scipy.optimize as optimize
+import mkl
 
-
-os.environ['MKL_NUM_THREADS'] = 1
+mkl.set_num_threads(1)
+#os.environ['MKL_NUM_THREADS'] = 1
 """
 Aims for spike initiation at initial segment by increasing nax density and decreasing activation V1/2 relative to soma,
 axon_hill, and axon compartments. Extend linear kap gradient into basals and obliques, aim for 60% spike attenuation
