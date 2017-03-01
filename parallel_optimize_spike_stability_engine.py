@@ -1,10 +1,8 @@
 __author__ = 'Grace Ng'
 from specify_cells2 import *
-import random
 import os
 import sys
 from ipyparallel import interactive
-import pprint
 import mkl
 
 """
@@ -24,28 +22,16 @@ rec_filename = str(time.strftime('%m%d%Y', time.gmtime()))+'_'+str(time.strftime
                '_pid'+str(os.getpid())+'_sim_output'
 
 # placeholder for optimization parameter, must be pushed to each engine on each iteration
-# x: array [soma.gkabar, soma.gkdrbar, axon.gkabar_kap, axon.gbar_nax]
+# x: array [soma.gkabar, soma.gkdrbar, axon.gkabar_kap factor, axon.gbar_nax factor, soma.sh_nas/x]
 x = None  # Placeholder for parameters pushed from controller.
 
 xmin = {}
 xmax = {}
 
 soma_na_gbar = 0.04
-# [soma.gkabar, soma.gkdrbar, axon.gkabar_kap factor, axon.gbar_nax factor]
-# x0['na_ka_stability'] = [0.0585, 0.0371*0.0585, 2.28, 4.82]  # Error: 88.40
-xmin['na_ka_stability'] = [0.01, 0.01, 1., 1.5]
-xmax['na_ka_stability'] = [0.06, 0.06, 5., 5.]
-
-# [soma.sh_nas, trunk.ka factor]
-# x0['na_ka_dend'] = [0., 2.9]
-# x0['na_ka_dend'] = [1.7, 2.8]
-xmin['na_ka_dend'] = [0., 1.5]
-xmax['na_ka_dend'] = [4., 5.]
-
-# [ais.sha_nas, ais.gbar_nax factor]
-# x0['ais_delay'] = [-1.20, 1.57]  # Error: 29.16
-xmin['ais_delay'] = [-5., 1.1]
-xmax['ais_delay'] = [-1., 5.]
+# [soma.gkabar, soma.gkdrbar, axon.gkabar_kap factor, axon.gbar_nax factor, soma.sh_nas/x]
+xmin['na_ka_stability'] = [0.01, 0.01, 1., 2., 0.1]
+xmax['na_ka_stability'] = [0.075, 0.05, 5., 5., 5.]
 
 check_bounds = CheckBounds(xmin, xmax)
 
@@ -154,12 +140,12 @@ def update_mech_dict():
 def update_na_ka_stability(x):
     """
 
-    :param x: array [soma.gkabar, soma.gkdrbar, axon.gkabar_kap factor, axon.gbar_nax factor]
+    :param x: array [soma.gkabar, soma.gkdrbar, axon.gkabar_kap factor, axon.gbar_nax factor, soma.sh_nas/x]
     """
     cell.modify_mech_param('soma', 'kdr', 'gkdrbar', x[1])
     cell.modify_mech_param('soma', 'kap', 'gkabar', x[0])
     slope = (orig_ka_dend_gkabar - x[0]) / 300.
-    # cell.modify_mech_param('soma', 'nas', 'gbar', soma_na_gbar)
+    cell.modify_mech_param('soma', 'nas', 'sh', x[4])
     for sec_type in ['basal', 'trunk', 'apical', 'tuft']:
         cell.reinitialize_subset_mechanisms(sec_type, 'nas')
         cell.modify_mech_param(sec_type, 'kap', 'gkabar', origin='soma', min_loc=75., value=0.)
@@ -170,22 +156,23 @@ def update_na_ka_stability(x):
         cell.modify_mech_param(sec_type, 'kad', 'gkabar', origin='soma', min_loc=300., value=x[0]+slope*300.,
                                replace=False)
         cell.modify_mech_param(sec_type, 'kdr', 'gkdrbar', origin='soma')
+        cell.reinitialize_subset_mechanisms(sec_type, 'nax')
     cell.set_terminal_branch_na_gradient()
-    # cell.modify_mech_param('axon_hill', 'nax', 'gbar', soma_na_gbar)
-    # cell.modify_mech_param('ais', 'nax', 'gbar', soma_na_gbar * x0['na_ka_stability'][3] * x0['ais_delay'][1])
-    cell.modify_mech_param('axon', 'nax', 'gbar', soma_na_gbar* x[3])
+    cell.modify_mech_param('axon', 'nax', 'gbar', soma_na_gbar * x[3])
     cell.modify_mech_param('axon_hill', 'kap', 'gkabar', origin='soma')
     cell.modify_mech_param('axon_hill', 'kdr', 'gkdrbar', origin='soma')
+    cell.modify_mech_param('axon_hill', 'nax', 'sh', x[4])
     for sec_type in ['ais', 'axon']:
         cell.modify_mech_param(sec_type, 'kdr', 'gkdrbar', origin='soma')
         cell.modify_mech_param(sec_type, 'kap', 'gkabar', x[0] * x[2])
+        cell.modify_mech_param(sec_type, 'nax', 'sh', origin='axon_hill')
 
 
 @interactive
 def compute_spike_shape_features(local_x=None, plot=0):
     """
 
-    :param local_x: array [soma.gkabar, soma.gkdrbar, axon.gkabar_kap factor, axon.gbar_nax factor]
+    :param local_x: array [soma.gkabar, soma.gkdrbar, axon.gkabar_kap factor, axon.gbar_nax factor, soma.sh_nas/x]
     :return: float
     """
     if local_x is None:
@@ -217,7 +204,7 @@ def compute_spike_shape_features(local_x=None, plot=0):
             if sim.verbose:
                 print 'increasing amp to %.3f' % amp
     peak, threshold, ADP, AHP = get_spike_shape(vm)
-    print 'Process %i took %s to find spike rheobase at amp: %.3f' % (os.getpid(), time.time() - start_time, amp)
+    print 'Process %i took %.1f s to find spike rheobase at amp: %.3f' % (os.getpid(), time.time() - start_time, amp)
     if plot:
         sim.plot()
     result['v_th'] = threshold
@@ -252,7 +239,7 @@ def compute_spike_stability_features(amp, plot=0):
     v_min_late = np.min(vm[int((equilibrate + 80.)/dt):int((equilibrate + 99.)/dt)])
     result['stability'] = stability
     result['v_min_late'] = v_min_late
-    print 'Process %i took %s to test spike stability with amp: %.3f' % (os.getpid(), time.time()-start_time, amp)
+    print 'Process %i took %.1f s to test spike stability with amp: %.3f' % (os.getpid(), time.time()-start_time, amp)
     return result
 
 

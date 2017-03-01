@@ -499,9 +499,9 @@ def plot_population_density(population, soma_coords, u, v, U, V, distance_U, dis
     plt.close()
 
 
-plot_population_density('GC', soma_coords, u, v, U, V, distance_U, distance_V, max_u, max_v)
+# plot_population_density('GC', soma_coords, u, v, U, V, distance_U, distance_V, max_u, max_v)
 
-# plot_population_density('MEC', soma_coords, u, v, U, V, distance_U, distance_V, max_u, max_v)
+plot_population_density('MEC', soma_coords, u, v, U, V, distance_U, distance_V, max_u, max_v)
 
 # plot_in_degree('GC', 'MEC', 'MPPtoGC', degrees_file, soma_coords, u, v, distance_U, distance_V)
 

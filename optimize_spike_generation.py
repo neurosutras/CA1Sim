@@ -100,14 +100,15 @@ def get_spike_shape(vm):
         ADP = 0.
     return v_peak, th_v, ADP, AHP
 
+
 def update_na_ka_dend(x):
     """
 
-    :param x: array [soma.sh_nas, trunk.ka factor]
+    :param x: array [trunk.ka factor]
     """
-    cell.modify_mech_param('soma', 'nas', 'sh', x[0])
+
     soma_gkabar = cell.mech_dict['soma']['kap']['gkabar']['value']
-    slope = (x[1] - 1.) * soma_gkabar / 300.
+    slope = (x[0] - 1.) * soma_gkabar / 300.
     for sec_type in ['basal', 'trunk', 'apical', 'tuft']:
         cell.modify_mech_param(sec_type, 'kap', 'gkabar', origin='soma', min_loc=75., value=0.)
         cell.modify_mech_param(sec_type, 'kap', 'gkabar', origin='soma', max_loc=75., slope=slope, replace=False)
@@ -116,10 +117,7 @@ def update_na_ka_dend(x):
                                value=soma_gkabar+slope*75., replace=False)
         cell.modify_mech_param(sec_type, 'kad', 'gkabar', origin='soma', min_loc=300., value=soma_gkabar+slope*300.,
                                replace=False)
-        cell.modify_mech_param(sec_type, 'nas', 'sh', origin='soma')
-    cell.modify_mech_param('axon_hill', 'nax', 'sh', x[0])
-    for sec_type in ['ais', 'axon']:
-        cell.modify_mech_param(sec_type, 'nax', 'sh', origin='axon_hill')
+
 
 def update_ais_delay(x):
     """
@@ -129,10 +127,11 @@ def update_ais_delay(x):
     cell.modify_mech_param('ais', 'nax', 'sha', x[0])
     cell.modify_mech_param('ais', 'nax', 'gbar', x[1])
 
+
 def na_ka_dend_error(x, plot=0):
     """
 
-    :param x: array [soma.sh_nas, trunk.ka factor]
+    :param x: array [trunk.ka factor]
     :param plot: int
     :return: float
     """
@@ -179,8 +178,8 @@ def na_ka_dend_error(x, plot=0):
         Err += ((target_val['na_ka'][target] - result[target])/target_range['na_ka'][target])**2.
     history.error_values.append(Err)
     print 'Simulation took %i s' % (time.time()-start_time)
-    print 'Process %i: [sh_nax/s, trunk.ka factor]: [%.2f, %.2f], threshold: %.1f, trunk_amp: %.1f' % \
-          (os.getpid(), x[0], x[1], threshold, result['distal_dend_amp'])
+    print 'Process %i: [trunk.ka factor]: [%.4f], threshold: %.1f, trunk_amp: %.2f' % \
+          (os.getpid(), x[0], threshold, result['distal_dend_amp'])
     print 'Process %i: Error: %.4E' % (os.getpid(), Err)
     sys.stdout.flush()
     return Err
@@ -357,16 +356,23 @@ v_active = -67.
 
 cell = DG_GC(neurotree_dict=neurotree_dict[0], mech_filename=mech_filename, full_spines=spines)
 
-# get the thickest terminal branch > 300 um from the soma
+# get the thickest apical dendrite ~200 um from the soma
 candidate_branches = []
-candidate_end_distances = []
-for branch in (branch for branch in cell.apical if cell.is_terminal(branch)):
-    if cell.get_distance_to_node(cell.tree.root, branch, 0.) >= 300.:
+candidate_diams = []
+candidate_locs = []
+for branch in cell.apical:
+    if ((cell.get_distance_to_node(cell.tree.root, branch, 0.) >= 250.) &
+            (cell.get_distance_to_node(cell.tree.root, branch, 1.) > 300.)):
         candidate_branches.append(branch)
-        candidate_end_distances.append(cell.get_distance_to_node(cell.tree.root, branch, 1.))
-index = candidate_end_distances.index(max(candidate_end_distances))
+        for seg in branch.sec:
+            loc = seg.x
+            if cell.get_distance_to_node(cell.tree.root, branch, loc) > 300.:
+                candidate_diams.append(branch.sec(loc).diam)
+                candidate_locs.append(loc)
+                break
+index = candidate_diams.index(max(candidate_diams))
 distal_dend = candidate_branches[index]
-distal_dend_loc = 1.
+distal_dend_loc = candidate_locs[index]
 
 axon_seg_locs = [seg.x for seg in cell.axon[2].sec]
 
@@ -399,30 +405,24 @@ axon_gbar_nax = cell.axon[2].sec.gbar_nax
 
 xlabels = {}
 xlabels['ais_delay'] = ['ais.sha_nas', 'ais.gbar_nax']
-xlabels['na_ka_dend'] = ['soma.sh_nas', 'trunk.ka factor']
+xlabels['na_ka_dend'] = ['trunk.ka factor']
 
 x0['ais_delay'] = [-1.20, 1.57*axon_gbar_nax]  # Error: 29.16
 xmin['ais_delay'] = [-5., 1.1*axon_gbar_nax]
 xmax['ais_delay'] = [-1., 5.*axon_gbar_nax]
 
-x0['na_ka_dend'] = [1.97, 1.21]  # Error: 13.57
-xmin['na_ka_dend'] = [0.1, 1.1]
-xmax['na_ka_dend'] = [4., 5.]
+x0['na_ka_dend'] = [1.52]  # Error: 1183.21
+xmin['na_ka_dend'] = [1.1]
+xmax['na_ka_dend'] = [5.]
 
 check_bounds = CheckBounds(xmin, xmax)
-print 'axon_gbar_nax %.3f' % axon_gbar_nax
 
-explore_niter = 600  # max number of iterations to run
 polish_niter = 400
-take_step = Normalized_Step(x0['na_ka_dend'], xmin['na_ka_dend'], xmax['na_ka_dend'])
-minimizer_kwargs = dict(method=null_minimizer)
 
 history = optimize_history()
 history.xlabels = xlabels['na_ka_dend']
 
-result = optimize.basinhopping(na_ka_dend_error, x0['na_ka_dend'], niter=explore_niter, niter_success=explore_niter,
-                               disp=True, interval=20, minimizer_kwargs=minimizer_kwargs, take_step=take_step)
-polished_result = optimize.minimize(na_ka_dend_error, result.x, method='Nelder-Mead', options={'ftol': 1e-5,
+polished_result = optimize.minimize(na_ka_dend_error, x0['na_ka_dend'], method='Nelder-Mead', options={'ftol': 1e-5,
                                                     'disp': True, 'maxiter': polish_niter})
 print polished_result
 best_x = history.report_best()
