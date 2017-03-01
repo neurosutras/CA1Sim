@@ -195,7 +195,7 @@ dv.clear()
 dv.block = True
 global_start_time = time.time()
 dv.execute('run parallel_optimize_spike_stability_engine %i \"%s\"' % (int(spines), mech_filename))
-#time.sleep(120)
+time.sleep(60)
 v = c.load_balanced_view()
 
 
