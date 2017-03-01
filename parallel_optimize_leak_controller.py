@@ -8,6 +8,9 @@ from IPython.display import clear_output
 from plot_results import *
 from function_lib import *
 import scipy.optimize as optimize
+import mkl
+
+mkl.set_num_threads(1)
 
 """
 Aims for spike initiation at initial segment by increasing nax density and decreasing activation V1/2 relative to soma,
@@ -247,7 +250,8 @@ else:
 if len(sys.argv) > 2:
     mech_filename = str(sys.argv[2])
 else:
-    mech_filename = '121516 DG_GC pas spines'
+    # mech_filename = '121516 DG_GC pas spines'
+    mech_filename = '012416 GC optimizing excitability'
 if len(sys.argv) > 3:
     cluster_id = sys.argv[3]
     c = Client(cluster_id=cluster_id)
@@ -298,7 +302,7 @@ dv.clear()
 dv.block = True
 global_start_time = time.time()
 dv.execute('run parallel_optimize_leak_engine %i \"%s\"' % (int(spines), mech_filename))
-# time.sleep(120)
+time.sleep(120)
 v = c.load_balanced_view()
 
 """

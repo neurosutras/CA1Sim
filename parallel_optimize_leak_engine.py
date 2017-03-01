@@ -7,6 +7,9 @@ import os
 import sys
 from ipyparallel import interactive
 import pprint
+import mkl
+
+mkl.set_num_threads(1)
 """
 Builds a cell locally so each engine is ready to receive jobs one at a time, specified by string corresponding to the
 section type to test R_inp.

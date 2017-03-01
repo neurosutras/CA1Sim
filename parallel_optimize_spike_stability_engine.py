@@ -5,10 +5,15 @@ import os
 import sys
 from ipyparallel import interactive
 import pprint
+import mkl
+
 """
 Builds a cell locally so each engine is ready to receive jobs one at a time, specified by string corresponding to the
 section type, to test Na Ka stability.
 """
+
+mkl.set_num_threads(1)
+#os.environ['MKL_NUM_THREADS'] = 1
 
 # morph_filename = 'EB2-late-bifurcation.swc'
 # morph_filename = 'DG_GC_355549.swc'
@@ -138,10 +143,12 @@ def offset_vm(description, vm_target=None):
     sim.tstop = duration
     return v_rest
 
+
 @interactive
 def update_mech_dict():
     update_na_ka_stability(x)
     cell.export_mech_dict(cell.mech_filename)
+
 
 @interactive
 def update_na_ka_stability(x):
