@@ -8,6 +8,9 @@ from IPython.display import clear_output
 from plot_results import *
 from function_lib import *
 import scipy.optimize as optimize
+import mkl
+
+mkl.set_num_threads(1)
 
 """
 Aims for spike initiation at initial segment by increasing nax density and decreasing activation V1/2 relative to soma,
@@ -26,8 +29,6 @@ Assumes a controller is already running in another process with:
 ipcluster start -n num_cores
 """
 
-
-os.environ['MKL_NUM_THREADS'] = 1
 
 def check_bounds(x, param_name):
     """

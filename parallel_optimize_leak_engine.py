@@ -7,12 +7,13 @@ import os
 import sys
 from ipyparallel import interactive
 import pprint
+import mkl
+
+mkl.set_num_threads(1)
 """
 Builds a cell locally so each engine is ready to receive jobs one at a time, specified by string corresponding to the
 section type to test R_inp.
 """
-
-os.environ['MKL_NUM_THREADS'] = 1
 
 # morph_filename = 'EB2-late-bifurcation.swc'
 # morph_filename = 'DG_GC_355549.swc'
