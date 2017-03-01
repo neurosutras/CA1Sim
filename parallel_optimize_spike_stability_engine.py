@@ -183,8 +183,6 @@ def compute_spike_shape_features(local_x=None, plot=0):
     """
     if local_x is None:
         local_x = x
-    # print x
-    # print local_x
     if not check_bounds.within_bounds(local_x, 'na_ka_stability'):
         print 'Process %i: Aborting - Parameters outside optimization bounds.' % (os.getpid())
         return None
@@ -212,6 +210,7 @@ def compute_spike_shape_features(local_x=None, plot=0):
             if sim.verbose:
                 print 'increasing amp to %.3f' % amp
     peak, threshold, ADP, AHP = get_spike_shape(vm)
+    print 'Process %i took %s to find spike rheobase at amp: %.3f' % (os.getpid(), time.time() - start_time, amp)
     if plot:
         sim.plot()
     result['v_th'] = threshold
@@ -226,6 +225,7 @@ def compute_spike_stability_features(amp, plot=0):
     if not check_bounds.within_bounds(x, 'na_ka_stability'):
         print 'Process %i: Aborting - Parameters outside optimization bounds.' % (os.getpid())
         return 1e9
+    start_time = time.time()
     update_na_ka_stability(x)
     sim.modify_stim(0, node=cell.tree.root, loc=0., dur=100.)
     duration = equilibrate + 200.
@@ -233,7 +233,6 @@ def compute_spike_stability_features(amp, plot=0):
     t = np.arange(0., duration, dt)
     stability = 0.
     result = {}
-    print 'increasing amp to %.3f' % amp
     sim.modify_stim(0, amp=amp)
     sim.run(v_active)
     if plot:
@@ -246,6 +245,7 @@ def compute_spike_stability_features(amp, plot=0):
     v_min_late = np.min(vm[int((equilibrate + 80.)/dt):int((equilibrate + 99.)/dt)])
     result['stability'] = stability
     result['v_min_late'] = v_min_late
+    print 'Process %i took %s to test spike stability with amp: %.3f' % (os.getpid(), time.time()-start_time, amp)
     return result
 
 
