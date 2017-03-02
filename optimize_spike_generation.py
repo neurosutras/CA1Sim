@@ -18,7 +18,7 @@ if len(sys.argv) > 2:
     mech_filename = str(sys.argv[2])
 else:
     # Start with a mechanism dictionary that has soma_ek = -77., soma_na_gbar = 0.04 and has set the other parameters accordingly
-    mech_filename = '012416 GC optimizing excitability'
+    mech_filename = '030217 GC optimizing excitability'
 
 
 def offset_vm(description, vm_target=None):
@@ -356,9 +356,9 @@ duration = equilibrate + stim_dur
 dt = 0.01
 amp = 0.3
 th_dvdt = 10.
-v_init = -67.
+v_init = -77.
 # v_active = -61.
-v_active = -67.
+v_active = -77.
 
 cell = DG_GC(neurotree_dict=neurotree_dict[0], mech_filename=mech_filename, full_spines=spines)
 if spines is False:
@@ -417,11 +417,12 @@ xlabels['ais_delay'] = ['ais.sha_nas', 'ais.gbar_nax']
 xlabels['na_ka_dend'] = ['trunk.ka factor']
 
 # x0['ais_delay'] = [-2.00, 0.31]  # Error: 0.
-x0['ais_delay'] = [-2., 1.57*axon_gbar_nax]  # Error: 29.16
+x0['ais_delay'] = [-2.80, 1.57*axon_gbar_nax]  # Error: 29.16
 xmin['ais_delay'] = [-5., 1.1*axon_gbar_nax]
 xmax['ais_delay'] = [-1., 5.*axon_gbar_nax]
 
-x0['na_ka_dend'] = [1.86700049]  # Error: 6.178E+01
+# x0['na_ka_dend'] = [1.86700049]  # Error: 6.178E+01
+x0['na_ka_dend'] = [1.12220514]  # Error: 2.003E+03
 xmin['na_ka_dend'] = [1.1]
 xmax['na_ka_dend'] = [5.]
 

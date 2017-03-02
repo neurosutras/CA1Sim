@@ -42,7 +42,7 @@ else:
 if len(sys.argv) > 2:
     mech_filename = str(sys.argv[2])
 else:
-    mech_filename = '012416 GC optimizing excitability'
+    mech_filename = '030217 GC optimizing excitability'
 
 
 @interactive
@@ -215,12 +215,14 @@ def compute_spike_shape_features(local_x=None, plot=0):
 
 
 @interactive
-def compute_spike_stability_features(amp, plot=0):
-    if not check_bounds.within_bounds(x, 'na_ka_stability'):
+def compute_spike_stability_features(amp, local_x=None, plot=0):
+    if local_x is None:
+        local_x = x
+    if not check_bounds.within_bounds(local_x, 'na_ka_stability'):
         print 'Process %i: Aborting - Parameters outside optimization bounds.' % (os.getpid())
         return 1e9
     start_time = time.time()
-    update_na_ka_stability(x)
+    update_na_ka_stability(local_x)
     sim.modify_stim(0, node=cell.tree.root, loc=0., dur=100.)
     duration = equilibrate + 200.
     sim.tstop = duration
@@ -258,9 +260,9 @@ duration = equilibrate + stim_dur
 dt = 0.01
 amp = 0.3
 th_dvdt = 10.
-v_init = -67.
+v_init = -77.
 # v_active = -61.
-v_active = -67.
+v_active = -77.
 
 cell = DG_GC(neurotree_dict=neurotree_dict[0], mech_filename=mech_filename, full_spines=spines)
 if spines is False:

@@ -243,7 +243,7 @@ def update_pas_exp(x):
         cell.correct_for_spines()
 
 
-v_init = -67.
+v_init = -77.
 soma_ek = -77.
 
 # the target values and acceptable ranges
@@ -267,7 +267,7 @@ if len(sys.argv) > 2:
     mech_filename = str(sys.argv[2])
 else:
     # mech_filename = '121516 DG_GC pas spines'
-    mech_filename = '012416 GC optimizing excitability'
+    mech_filename = '030217 GC optimizing excitability'
 if len(sys.argv) > 3:
     cluster_id = sys.argv[3]
     c = Client(cluster_id=cluster_id)

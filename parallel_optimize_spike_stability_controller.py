@@ -144,7 +144,7 @@ def plot_best(x=None, discard=True):
         os.remove(data_dir + rec_filename + '.hdf5')
 
 
-v_init = -67.
+v_init = -77.
 soma_ek = -77.
 
 # the target values and acceptable ranges
@@ -169,7 +169,7 @@ else:
 if len(sys.argv) > 2:
     mech_filename = str(sys.argv[2])
 else:
-    mech_filename = '012416 GC optimizing excitability'
+    mech_filename = '030217 GC optimizing excitability'
 if len(sys.argv) > 3:
     cluster_id = sys.argv[3]
     c = Client(cluster_id=cluster_id)

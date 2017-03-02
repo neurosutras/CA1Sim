@@ -33,13 +33,14 @@ else:
     if spines:
         mech_filename = '120116 DG_GC pas spines'
     else:
-        mech_filename = '012416 GC optimizing excitability'
+        mech_filename = '030217 GC optimizing excitability'
 
 i_holding = {'soma': 0., 'dend': 0., 'distal_dend': 0.}
 
 # placeholder for optimization parameter, must be pushed to each engine on each iteration
 # x: array ['soma.g_pas', 'dend.g_pas slope', 'dend.g_pas tau', 'dend.gpas max_loc']
 x = []
+
 
 @interactive
 def offset_vm(description, vm_target=None):
@@ -95,40 +96,6 @@ def offset_vm(description, vm_target=None):
 
 
 @interactive
-def update_pas_linear(x):
-    """
-    x0 = [1.52E-06, 0.]
-    :param x: array [soma.g_pas, dend.g_pas slope]
-    """
-    cell.modify_mech_param('soma', 'pas', 'g', x[0])
-    cell.modify_mech_param('apical', 'pas', 'g', origin='soma', slope=x[1])
-    for sec_type in ['basal', 'axon_hill', 'axon', 'ais', 'trunk', 'apical', 'tuft', 'spine_neck', 'spine_head']:
-        cell.reinitialize_subset_mechanisms(sec_type, 'pas')
-
-
-@interactive
-def update_pas_exp_saturates(x):
-    """
-
-    x0 = [2.28e-05, 1.58e-06, 58.4]
-    :param x: array [soma.g_pas, dend.g_pas slope, dend.g_pas tau, dend.g_pas xmax]
-    """
-    if spines is False:
-        cell.reinit_mechanisms(reset_cable=True)
-    cell.modify_mech_param('soma', 'pas', 'g', x[0])
-    maxval = x[0] + x[1] * (np.exp(x[3]/x[2]) - 1.)
-    cell.modify_mech_param('apical', 'pas', 'g', origin='soma', slope=x[1], tau=x[2], max=maxval)
-    for sec_type in ['basal', 'axon_hill', 'axon', 'ais', 'trunk', 'apical', 'tuft', 'spine_neck', 'spine_head']:
-        cell.reinitialize_subset_mechanisms(sec_type, 'pas')
-    if spines is False:
-        # print('Initial: ')
-        # print_gpas_cm_values()
-        cell.correct_for_spines()
-        # print('Updated: ')
-        # print_gpas_cm_values()
-
-
-@interactive
 def update_pas_exp(x):
     """
 
@@ -160,19 +127,6 @@ def print_gpas_cm_values():
     pprint.pprint(gpas_values)
     print 'cm '
     pprint.pprint(cm_values)
-
-
-@interactive
-def update_pas_sigmoid(x):
-    """
-
-    x0 = [2.28e-05, 1.58e-06, 58.4, 200.]
-    :param x: array (soma.g_pas, dend.g_pas slope, dend.g_pas tau, dend.g_pas xhalf)
-    """
-    cell.modify_mech_param('soma', 'pas', 'g', x[0])
-    cell.modify_mech_param('apical', 'pas', 'g', origin='soma', slope=x[1], tau=x[2], xhalf=x[3])
-    for sec_type in ['basal', 'axon_hill', 'axon', 'ais', 'trunk', 'apical', 'tuft', 'spine_neck', 'spine_head']:
-        cell.reinitialize_subset_mechanisms(sec_type, 'pas')
 
 
 @interactive
@@ -222,8 +176,8 @@ duration = equilibrate + stim_dur
 dt = 0.01
 amp = 0.3
 th_dvdt = 10.
-v_init = -67.
-v_active = -61.
+v_init = -77.
+v_active = -77.
 
 if spines:
     sim_description = 'with_spines'
