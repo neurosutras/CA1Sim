@@ -6,11 +6,9 @@ import math
 from ipyparallel import Client
 from IPython.display import clear_output
 from plot_results import *
-from function_lib import *
+from specify_cells2 import *
 import scipy.optimize as optimize
 import mkl
-
-mkl.set_num_threads(1)
 
 """
 Aims for spike initiation at initial segment by increasing nax density and decreasing activation V1/2 relative to soma,
@@ -28,6 +26,11 @@ Parallel version dynamically submits jobs to available cores.
 Assumes a controller is already running in another process with:
 ipcluster start -n num_cores
 """
+
+mkl.set_num_threads(1)
+
+neurotree_filename = '121516_DGC_trees.pkl'
+neurotree_dict = read_from_pkl(morph_dir+neurotree_filename)
 
 
 def check_bounds(x, param_name):
@@ -62,7 +65,7 @@ class History(object):
         index = self.error_values.index(lowest_Err)
         best_x = self.x_values[index]
         best_Rinp_values = {section: self.Rinp_values[section][index] for section in self.Rinp_values}
-        formatted_x = '[' + ', '.join(['%.2E' % xi for xi in best_x]) + ']'
+        formatted_x = '[' + ', '.join(['%.3E' % xi for xi in best_x]) + ']'
         print 'best x: %s' % formatted_x
         print 'lowest Err: %.3E' % lowest_Err
         print 'Rinp:', ['%s: %.1f' % (section, Rinp) for (section, Rinp) in best_Rinp_values.iteritems()]
@@ -84,7 +87,6 @@ class History(object):
         """
         previous_history = read_from_pkl(data_dir+hist_filename +'.pkl')
         self.xlabels = previous_history['xlabels']
-        #self.xlabels = ['soma.g_pas', 'dend.g_pas slope']
         self.x_values = previous_history['x_values']
         self.error_values = previous_history['error_values']
         self.Rinp_values = previous_history['Rinp_values']
@@ -146,7 +148,7 @@ def pas_error(x):
     hist.x_values.append(x)
 
     sec_list = ['soma', 'dend', 'distal_dend']
-    formatted_x = '[' + ', '.join(['%.2E' % xi for xi in x]) + ']'
+    formatted_x = '[' + ', '.join(['%.3E' % xi for xi in x]) + ']'
     print 'Process %i using current x: %s: %s' % (os.getpid(), str(xlabels['pas']), formatted_x)
     result = v.map_async(parallel_optimize_leak_engine.get_Rinp_for_section, sec_list)
     last = []
@@ -168,11 +170,14 @@ def pas_error(x):
     final_result = {}
     for dict in result:
         final_result.update(dict)
-    for section in target_val['pas']:
-        Err += ((target_val['pas'][section] - final_result[section]) / target_range['pas'][section]) ** 2.
+    for section in final_result:
         if section not in hist.Rinp_values:
             hist.Rinp_values[section] = []
+    for section in target_val['pas']:
+        Err += ((target_val['pas'][section] - final_result[section]) / target_range['pas'][section]) ** 2.
         hist.Rinp_values[section].append(final_result[section])
+    section = 'distal_dend'
+    hist.Rinp_values[section].append(final_result[section])
     # add catch for decreasing terminal end input resistance too much
     if final_result['distal_dend'] < final_result['dend']:
         Err += ((final_result['dend'] - final_result['distal_dend']) / target_range['pas'][section]) ** 2.
@@ -222,6 +227,22 @@ def plot_best(x=None, discard=True):
         os.remove(data_dir + rec_filename + '.hdf5')
 
 
+def update_pas_exp(x):
+    """
+
+    x0 = [2.28e-05, 1.58e-06, 58.4]
+    :param x: array [soma.g_pas, dend.g_pas slope, dend.g_pas tau]
+    """
+    if spines is False:
+        cell.reinit_mechanisms(reset_cable=True)
+    cell.modify_mech_param('soma', 'pas', 'g', x[0])
+    cell.modify_mech_param('apical', 'pas', 'g', origin='soma', slope=x[1], tau=x[2])
+    for sec_type in ['basal', 'axon_hill', 'axon', 'ais', 'trunk', 'apical', 'tuft', 'spine_neck', 'spine_head']:
+        cell.reinitialize_subset_mechanisms(sec_type, 'pas')
+    if spines is False:
+        cell.correct_for_spines()
+
+
 v_init = -67.
 soma_ek = -77.
 
@@ -232,11 +253,6 @@ target_val['pas'] = {'soma': 295., 'dend': 375.}
 target_range['pas'] = {'soma': 0.5, 'dend': 1.}
 target_val['v_rest'] = {'soma': v_init, 'tuft_offset': 0.}
 target_range['v_rest'] = {'soma': 0.25, 'tuft_offset': 0.1}
-target_val['na_ka'] = {'v_rest': v_init, 'th_v': -51., 'soma_peak': 40., 'trunk_amp': 0.6, 'ADP': 0., 'AHP': 4.,
-                       'stability': 0., 'ais_delay': 0., 'slow_depo': 25.}
-target_range['na_ka'] = {'v_rest': 0.25, 'th_v': .2, 'soma_peak': 2., 'trunk_amp': 0.01, 'ADP': 0.01, 'AHP': .2,
-                         'stability': 1., 'ais_delay': 0.001, 'slow_depo': 1.}
-
 
 x0 = {}
 xlabels = {}
@@ -258,7 +274,7 @@ if len(sys.argv) > 3:
 else:
     c = Client()
 
-# xlabels['pas'] = ['soma.g_pas', 'dend.g_pas slope', 'dend.g_pas tau', 'dend.gpas max_loc']
+# xlabels['pas'] = ['soma.g_pas', 'dend.g_pas slope', 'dend.g_pas tau']
 xlabels['pas'] = ['soma.g_pas', 'dend.g_pas slope', 'dend.g_pas tau']
 
 if spines:
@@ -266,34 +282,15 @@ if spines:
     xmin['pas'] = [1.0E-18, 1.0E-12, 25.]
     xmax['pas'] = [1.0E-7, 1.0E-4, 400.]
 else:
-    x0['pas'] = [4.94E-08, 3.74E-06, 9.67E+01]  # Err: 3.995E-11
+    # x0['pas'] = [4.94E-08, 3.74E-06, 9.67E+01]  # Err: 3.995E-11
+    x0['pas'] = [1.88486629e-07, 1.15951655e-06, 8.73328512e+01]  # Error: 2.231E+04
     xmin['pas'] = [1.0E-18, 1.0E-12, 25.]
     xmax['pas'] = [1.0E-6, 1.0E-4, 400.]
 
-
-# [soma.gkabar, soma.gkdrbar, axon.gkabar_kap factor, axon.gbar_nax factor]
-x0['na_ka_stability'] = [0.0305, 0.0478, 2.97, 2.34]  # Error: 4.2416E+02
-xmin['na_ka_stability'] = [0.01, 0.01, 1., 2.]
-xmax['na_ka_stability'] = [0.05, 0.05, 5., 5.]
-
-# [soma.sh_nas, trunk.ka factor]
-# x0['na_ka_dend'] = [0., 2.9]
-x0['na_ka_dend'] = [1.7, 2.8]
-xmin['na_ka_dend'] = [0., 1.5]
-xmax['na_ka_dend'] = [4., 5.]
-
-# [ais.sha_nas, ais.gbar_nax factor]
-x0['ais_delay'] = [-3.6, 4.4]
-
-# [soma.e_pas, tuft.e_pas]
-x0['v_rest'] = [-63., -77.]
-xmin['v_rest'] = [v_init, soma_ek]
-xmax['v_rest'] = [-63., -63.]
-
 hist.xlabels = xlabels['pas']
 
-explore_niter = 400  # max number of iterations to run
-polish_niter = 200
+explore_niter = 700  # max number of iterations to run
+polish_niter = 400
 take_step = Normalized_Step(x0['pas'], xmin['pas'], xmax['pas'])
 minimizer_kwargs = dict(method=null_minimizer)
 
@@ -302,20 +299,23 @@ dv.clear()
 dv.block = True
 global_start_time = time.time()
 dv.execute('run parallel_optimize_leak_engine %i \"%s\"' % (int(spines), mech_filename))
-time.sleep(120)
+# time.sleep(60)
 v = c.load_balanced_view()
 
-"""
+
 result = optimize.basinhopping(pas_error, x0['pas'], niter=explore_niter, niter_success=explore_niter,
                                disp=True, interval=20, minimizer_kwargs=minimizer_kwargs, take_step=take_step)
 
 polished_result = optimize.minimize(pas_error, result.x, method='Nelder-Mead', options={'ftol': 1e-5,
                                                     'disp': True, 'maxiter': polish_niter})
-
 """
+
 polished_result = optimize.minimize(pas_error, x0['pas'], method='Nelder-Mead', options={'ftol': 1e-5, 'disp': True,
                                                                                          'maxiter': polish_niter})
-
+"""
 print polished_result
-
-hist.report_best()
+best_x = hist.report_best()
+cell = DG_GC(neurotree_dict=neurotree_dict[0], mech_filename=mech_filename, full_spines=spines)
+update_pas_exp(best_x)
+# update_pas_exp(x0['pas'])
+cell.export_mech_dict(cell.mech_filename)

@@ -33,7 +33,10 @@ def na_ka_stability_error(x, plot=0):
     """
     if not check_bounds.within_bounds(x, 'na_ka_stability'):
         print 'Process %i: Aborting - Parameters outside optimization bounds.' % (os.getpid())
-        return 1e9
+        hist.x_values.append(x)
+        Err = 1e9
+        hist.error_values.append(Err)
+        return Err
     start_time = time.time()
     dv['x'] = x
     hist.x_values.append(x)
@@ -54,7 +57,9 @@ def na_ka_stability_error(x, plot=0):
     result = result.get()
     if result is None:
         print 'Cell is spontaneously firing, or parameters are out of bounds.'
-        return 1e9
+        Err = 1e9
+        hist.error_values.append(Err)
+        return Err
     final_result = result
     result = v.map_async(parallel_optimize_spike_stability_engine.compute_spike_stability_features,
                          [final_result['amp'] + amp for amp in [0.25, 0.5, 0.75]])
@@ -145,8 +150,6 @@ soma_ek = -77.
 # the target values and acceptable ranges
 target_val = {}
 target_range = {}
-target_val['pas'] = {'soma': 295., 'dend': 375.}
-target_range['pas'] = {'soma': 0.5, 'dend': 1.}
 target_val['v_rest'] = {'soma': v_init, 'tuft_offset': 0.}
 target_range['v_rest'] = {'soma': 0.25, 'tuft_offset': 0.1}
 target_val['na_ka'] = {'v_rest': v_init, 'v_th': -49., 'soma_peak': 40., 'amp': 0.6, 'ADP': 0., 'AHP': 4.,
@@ -181,7 +184,8 @@ hist.xlabels = xlabels['na_ka_stability']
 
 
 # [soma.gkabar, soma.gkdrbar, axon.gkabar_kap factor, axon.gbar_nax factor, soma.sh_nas/x]
-x0['na_ka_stability'] = [0.0483, 0.0100, 4.56, 4.90, 4.63]  # Error: 2.7284E+03
+# x0['na_ka_stability'] = [0.0483, 0.0100, 4.56, 4.90, 4.63]  # Error: 2.7284E+03
+x0['na_ka_stability'] = [0.02948262,  0.01003593,  4.66184288,  4.48235059,  4.91410208]  # Error: 2.644E+03
 xmin['na_ka_stability'] = [0.01, 0.01, 1., 2., 0.1]
 xmax['na_ka_stability'] = [0.075, 0.05, 5., 5., 6.]
 

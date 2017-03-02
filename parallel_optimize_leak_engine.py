@@ -33,7 +33,7 @@ else:
     if spines:
         mech_filename = '120116 DG_GC pas spines'
     else:
-        mech_filename = '120116 DG_GC pas no_spines'
+        mech_filename = '012416 GC optimizing excitability'
 
 i_holding = {'soma': 0., 'dend': 0., 'distal_dend': 0.}
 
@@ -271,10 +271,3 @@ sim.append_stim(cell, cell.tree.root, loc=0., amp=0., delay=0., dur=duration)
 
 for description, node in rec_nodes.iteritems():
     sim.append_rec(cell, node, loc=rec_locs[description], description=description)
-
-
-"""
-axon_seg_locs = [seg.x for seg in cell.axon[2].sec]
-sim.append_rec(cell, cell.axon[1], loc=1., description='ais')
-sim.append_rec(cell, cell.axon[2], loc=axon_seg_locs[0], description='axon')
-"""

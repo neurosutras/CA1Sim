@@ -145,6 +145,7 @@ def update_na_ka_stability(x):
     cell.modify_mech_param('soma', 'kdr', 'gkdrbar', x[1])
     cell.modify_mech_param('soma', 'kap', 'gkabar', x[0])
     slope = (orig_ka_dend_gkabar - x[0]) / 300.
+    cell.modify_mech_param('soma', 'nas', 'gbar', soma_na_gbar)
     cell.modify_mech_param('soma', 'nas', 'sh', x[4])
     for sec_type in ['basal', 'trunk', 'apical', 'tuft']:
         cell.reinitialize_subset_mechanisms(sec_type, 'nas')
@@ -156,7 +157,6 @@ def update_na_ka_stability(x):
         cell.modify_mech_param(sec_type, 'kad', 'gkabar', origin='soma', min_loc=300., value=x[0]+slope*300.,
                                replace=False)
         cell.modify_mech_param(sec_type, 'kdr', 'gkdrbar', origin='soma')
-        cell.reinitialize_subset_mechanisms(sec_type, 'nax')
     cell.set_terminal_branch_na_gradient()
     cell.modify_mech_param('axon', 'nax', 'gbar', soma_na_gbar * x[3])
     cell.modify_mech_param('axon_hill', 'kap', 'gkabar', origin='soma')
@@ -263,6 +263,8 @@ v_init = -67.
 v_active = -67.
 
 cell = DG_GC(neurotree_dict=neurotree_dict[0], mech_filename=mech_filename, full_spines=spines)
+if spines is False:
+    cell.correct_for_spines()
 
 rec_locs = {'soma': 0.}
 rec_nodes = {'soma': cell.tree.root}

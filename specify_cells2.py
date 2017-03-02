@@ -1252,7 +1252,7 @@ class HocCell(object):
         current set of mechanism parameters to be recalled later.
         """
         if mech_filename is None:
-            mech_filename = 'mech_dict_'+datetime.datetime.today().strftime('%m%d%Y%H%M')+'.pkl'
+            mech_filename = 'mech_dict_'+datetime.datetime.today().strftime('%m%d%Y%H%M')
         write_to_pkl(data_dir+mech_filename+'.pkl', self.mech_dict)
         print "Exported mechanism dictionary to "+mech_filename+'.pkl'
 

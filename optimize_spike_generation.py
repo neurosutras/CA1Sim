@@ -20,6 +20,7 @@ else:
     # Start with a mechanism dictionary that has soma_ek = -77., soma_na_gbar = 0.04 and has set the other parameters accordingly
     mech_filename = '012416 GC optimizing excitability'
 
+
 def offset_vm(description, vm_target=None):
     """
 
@@ -69,6 +70,7 @@ def offset_vm(description, vm_target=None):
                 offset = False
     sim.tstop = duration
     return v_rest
+
 
 def get_spike_shape(vm):
     """
@@ -137,7 +139,10 @@ def na_ka_dend_error(x, plot=0):
     """
     if not check_bounds.within_bounds(x, 'na_ka_dend'):
         print 'Process %i: Aborting - Parameters outside optimization bounds.' % (os.getpid())
-        return 1e9
+        history.x_values.append(x)
+        Err = 1e9
+        history.error_values.append(Err)
+        return Err
     start_time = time.time()
     update_na_ka_dend(x)
     history.x_values.append(x)
@@ -154,7 +159,9 @@ def na_ka_dend_error(x, plot=0):
         vm = np.interp(t, sim.tvec, sim.get_rec('soma')['vec'])
         if amp == 0.05 and np.any(vm[:int(equilibrate/dt)] > -30.):
             print 'Process %i: Aborting - spontaneous firing' % (os.getpid())
-            return 1e9
+            Err = 1e9
+            history.error_values.append(Err)
+            return Err
         if np.any(vm[int(equilibrate/dt):int((equilibrate+50.)/dt)] > -30.):
             spike = True
         else:
@@ -270,7 +277,6 @@ def optimize_ais_delay(x):
     :return: array
     """
     perturb = (-0.1, 0.01)
-    #Should anything be done with the error value that is returned by ais_delay_error?
     ais_delay_error(x)
     min_Err = 1e9
     max_iter = 80
@@ -355,6 +361,9 @@ v_init = -67.
 v_active = -67.
 
 cell = DG_GC(neurotree_dict=neurotree_dict[0], mech_filename=mech_filename, full_spines=spines)
+if spines is False:
+    cell.correct_for_spines()
+cell.set_terminal_branch_na_gradient()
 
 # get the thickest apical dendrite ~200 um from the soma
 candidate_branches = []
@@ -407,11 +416,12 @@ xlabels = {}
 xlabels['ais_delay'] = ['ais.sha_nas', 'ais.gbar_nax']
 xlabels['na_ka_dend'] = ['trunk.ka factor']
 
-x0['ais_delay'] = [-1.20, 1.57*axon_gbar_nax]  # Error: 29.16
+# x0['ais_delay'] = [-2.00, 0.31]  # Error: 0.
+x0['ais_delay'] = [-2., 1.57*axon_gbar_nax]  # Error: 29.16
 xmin['ais_delay'] = [-5., 1.1*axon_gbar_nax]
 xmax['ais_delay'] = [-1., 5.*axon_gbar_nax]
 
-x0['na_ka_dend'] = [1.52]  # Error: 1183.21
+x0['na_ka_dend'] = [1.86700049]  # Error: 6.178E+01
 xmin['na_ka_dend'] = [1.1]
 xmax['na_ka_dend'] = [5.]
 
