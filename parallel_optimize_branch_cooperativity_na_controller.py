@@ -115,7 +115,6 @@ minimizer_kwargs = dict(method=null_minimizer)
 
 c = Client()
 dv = c[:]
-dv.clear()
 dv.block = True
 global_start_time = time.time()
 dv.execute('from parallel_optimize_branch_cooperativity_na_engine import *')

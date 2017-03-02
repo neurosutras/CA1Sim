@@ -34,7 +34,6 @@ else:
 
 
 dv = c[:]
-dv.clear()
 dv.block = True
 start_time = time.time()
 dv.execute('run parallel_rinp_engine %i \"%s\"' % (int(spines), mech_filename))

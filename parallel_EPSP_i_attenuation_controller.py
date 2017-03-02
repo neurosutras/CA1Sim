@@ -21,7 +21,6 @@ new_rec_filename = '101415 test changes to epsp_i'
 num_syns = len(parallel_EPSP_i_attenuation_engine.nodes)
 c = Client()
 dv = c[:]
-dv.clear()
 dv.block = True
 start_time = time.time()
 dv.execute('from parallel_EPSP_i_attenuation_engine import *')

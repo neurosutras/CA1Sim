@@ -16,7 +16,6 @@ new_rec_filename = parallel_optimize_EPSP_amp_engine.mech_filename+filename_suff
 
 c = Client()
 dv = c[:]
-dv.clear()
 dv.block = True
 start_time = time.time()
 dv.execute('from parallel_optimize_EPSP_amp_engine import *')

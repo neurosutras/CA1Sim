@@ -20,7 +20,6 @@ if len(sys.argv) > 1:
 else:
     c = Client()
 dv = c[:]
-dv.clear()
 dv.block = True
 global_start_time = time.time()
 dv.execute('from parallel_clustered_branch_cooperativity_nmda_engine_110315 import *')

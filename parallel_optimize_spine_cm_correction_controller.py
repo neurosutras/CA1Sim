@@ -27,7 +27,6 @@ else:
 
 
 dv = c[:]
-dv.clear()
 dv.block = True
 dv.execute('run parallel_optimize_spine_cm_correction_engine \"%s\"' % mech_filename)
 # time.sleep(120)

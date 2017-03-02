@@ -30,7 +30,6 @@ with h5py.File(data_dir+grid_data_filename+'.hdf5', 'r') as f:
             grid_data[int(key)][param_name] = value
 
 dv = c[:]
-dv.clear()
 dv.block = True
 dv.execute('from analyze_dentate_connectivity_engine import *')
 v = c.load_balanced_view()

@@ -180,7 +180,7 @@ def pas_error(x):
     hist.Rinp_values[section].append(final_result[section])
     # add catch for decreasing terminal end input resistance too much
     if final_result['distal_dend'] < final_result['dend']:
-        Err += ((final_result['dend'] - final_result['distal_dend']) / target_range['pas'][section]) ** 2.
+        Err += ((final_result['dend'] - final_result['distal_dend']) / target_range['pas']['dend']) ** 2.
     hist.error_values.append(Err)
 
     print('Simulation took %.3f s' % (time.time() - start_time))
@@ -283,7 +283,7 @@ if spines:
     xmax['pas'] = [1.0E-7, 1.0E-4, 400.]
 else:
     # x0['pas'] = [4.94E-08, 3.74E-06, 9.67E+01]  # Err: 3.995E-11
-    x0['pas'] = [1.88486629e-07, 1.15951655e-06, 8.73328512e+01]  # Error: 2.231E+04
+    x0['pas'] = [8.905E-11, 1.180E-08, 3.927E+01]  # Error: 3.310E-09
     xmin['pas'] = [1.0E-18, 1.0E-12, 25.]
     xmax['pas'] = [1.0E-6, 1.0E-4, 400.]
 
@@ -295,7 +295,6 @@ take_step = Normalized_Step(x0['pas'], xmin['pas'], xmax['pas'])
 minimizer_kwargs = dict(method=null_minimizer)
 
 dv = c[:]
-dv.clear()
 dv.block = True
 global_start_time = time.time()
 dv.execute('run parallel_optimize_leak_engine %i \"%s\"' % (int(spines), mech_filename))

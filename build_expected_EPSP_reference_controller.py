@@ -31,7 +31,6 @@ num_inh_syns = 500
 new_rec_filename = '021016 expected reference'+'-seed'+str(synapses_seed)+'-e'+str(num_exc_syns)+'-i'+str(num_inh_syns)
 
 dv = c[:]
-dv.clear()
 dv.block = True
 start_time = time.time()
 result = dv.execute('from build_expected_EPSP_reference_engine import *')

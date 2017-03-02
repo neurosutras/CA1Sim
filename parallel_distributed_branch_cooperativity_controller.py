@@ -20,7 +20,6 @@ num_paths = len(parallel_distributed_branch_cooperativity_engine.path_list)
 #c = Client(profile='mpi')
 c = Client()
 dv = c[:]
-dv.clear()
 dv.block = True
 start_time = time.time()
 dv.execute('from parallel_distributed_branch_cooperativity_engine import *')

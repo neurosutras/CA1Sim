@@ -292,7 +292,6 @@ else:
     c = Client()
 
 dv = c[:]
-dv.clear()
 dv.block = True
 global_start_time = time.time()
 dv.execute('from parallel_optimize_pr_engine import *')

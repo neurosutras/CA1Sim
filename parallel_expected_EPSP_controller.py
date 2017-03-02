@@ -17,7 +17,6 @@ new_rec_filename = parallel_expected_EPSP_engine.mech_filename+filename_suffix
 num_syns = len(parallel_expected_EPSP_engine.syn_list)
 c = Client()
 dv = c[:]
-dv.clear()
 dv.block = True
 start_time = time.time()
 dv.execute('from parallel_expected_EPSP_engine import *')

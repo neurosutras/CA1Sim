@@ -24,7 +24,6 @@ else:
     c = Client()
 
 dv = c[:]
-dv.clear()
 dv.block = True
 start_time = time.time()
 dv.execute('from parallel_spine_attenuation_ratio_engine import *')
