@@ -13,7 +13,7 @@ Aims for spike initiation at initial segment by increasing nax density and decre
 axon_hill, and axon compartments. Extend linear kap gradient into basals and obliques, aim for 60% spike attenuation
 at bifurcation of trunk and tuft.
 
-OptimizeS gbar_nax/nas/sh/sha, gkabar_kap/d, gkdrbar for target na spike threshold, AHP amp, and vm stability
+Optimizes gbar_nax/nas/sh/sha, gkabar_kap/d, gkdrbar for target na spike threshold, AHP amp, and vm stability
 
 Parallel version dynamically submits jobs to available cores.
 
@@ -27,7 +27,8 @@ mkl.set_num_threads(1)
 def na_ka_stability_error(x, plot=0):
     """
 
-    :param x: array [soma.gkabar, soma.gkdrbar, axon.gkabar_kap factor, axon.gbar_nax factor]
+    :param x: array [soma.gkabar, soma.gkdrbar, axon.gkabar_kap factor, axon.gbar_nax factor, soma.sh_nas/x,
+                    axon.gkdrbar factor, dend.gkabar factor]
     :param plot: int
     :return: float
     """
@@ -40,7 +41,7 @@ def na_ka_stability_error(x, plot=0):
     start_time = time.time()
     dv['x'] = x
     hist.x_values.append(x)
-    formatted_x = '[' + ', '.join(['%.2E' % xi for xi in x]) + ']'
+    formatted_x = '[' + ', '.join(['%.3E' % xi for xi in x]) + ']'
     print 'Process %i using current x: %s: %s' % (os.getpid(), str(xlabels['na_ka_stability']), formatted_x)
     result = c[0].apply(parallel_optimize_spike_stability_engine.compute_spike_shape_features)
     last = ''
@@ -97,12 +98,14 @@ def na_ka_stability_error(x, plot=0):
             hist.features[target].append(final_result[target])
 
     print 'Simulation took %i s' % (time.time()-start_time)
-    print 'Process %i: [soma.gkabar, soma.gkdrbar, axon.gkabar_kap factor, axon.gbar_nax factor, soma.sh_nax/s]: ' \
-          '[%.4f, %.4f, %.2f, %.2f, %.2f], amp: %.3f, v_rest: %.1f, threshold: %.1f, ADP: %.1f, AHP: %.1f, ' \
-          'stability: %.2f, slow_depo: %.2f' % (os.getpid(), x[0], x[1], x[2], x[3], x[4], final_result['amp'],
-                                                final_result['v_rest'], final_result['v_th'], final_result['ADP'],
-                                                final_result['AHP'], final_result['stability'],
-                                                final_result['slow_depo'])
+    print 'Process %i: [soma.gkabar, soma.gkdrbar, axon.gkabar_kap factor, axon.gbar_nax factor, soma.sh_nax/s, ' \
+          'axon.gkdrbar factor, dend.gkabar factor]: ' \
+          '[%.4f, %.4f, %.3f, %.3f, %.3f, %.3f, %.3f], amp: %.3f, v_rest: %.1f, threshold: %.1f, ADP: %.1f, ' \
+          'AHP: %.1f, stability: %.2f, slow_depo: %.2f' % (os.getpid(), x[0], x[1], x[2], x[3], x[4], x[5], x[6],
+                                                           final_result['amp'], final_result['v_rest'],
+                                                           final_result['v_th'], final_result['ADP'],
+                                                           final_result['AHP'], final_result['stability'],
+                                                           final_result['slow_depo'])
     print 'Process %i: Error: %.4E' % (os.getpid(), Err)
     hist.error_values.append(Err)
     sys.stdout.flush()
@@ -178,19 +181,22 @@ else:
 
 check_bounds = CheckBounds(xmin, xmax)
 xlabels['na_ka_stability'] = ['soma.gkabar', 'soma.gkdrbar', 'axon.gkabar_kap factor', 'axon.gbar_nax factor',
-                              'soma.sh_nas/x']
+                              'soma.sh_nas/x', 'axon.gkdrbar factor']
 hist = optimize_history()
 hist.xlabels = xlabels['na_ka_stability']
 
 
-# [soma.gkabar, soma.gkdrbar, axon.gkabar_kap factor, axon.gbar_nax factor, soma.sh_nas/x]
+# [soma.gkabar, soma.gkdrbar, axon.gkabar_kap factor, axon.gbar_nax factor, soma.sh_nas/x, axon.gkdrbar factor,
+#  dend.gkabar factor]
 # x0['na_ka_stability'] = [0.0483, 0.0100, 4.56, 4.90, 4.63]  # Error: 2.7284E+03
-x0['na_ka_stability'] = [0.02948262,  0.01003593,  4.66184288,  4.48235059,  4.91410208]  # Error: 2.644E+03
-xmin['na_ka_stability'] = [0.01, 0.01, 1., 2., 0.1]
-xmax['na_ka_stability'] = [0.075, 0.05, 5., 5., 6.]
+# x0['na_ka_stability'] = [0.02948262,  0.01003593,  4.66184288,  4.48235059,  4.91410208]  # Error: 2.644E+03
+x0['na_ka_stability'] = [0.0365, 0.0118, 4.91, 4.72, 4.90, 1., 1.]  # Error: 2.2990E+03
+xmin['na_ka_stability'] = [0.01, 0.01, 1., 2., 0.1, 1., 1.]
+xmax['na_ka_stability'] = [0.075, 0.05, 5., 5., 6., 2., 5.]
 
-explore_niter = 700  # max number of iterations to run
-polish_niter = 400
+max_niter = 1400  # max number of iterations to run
+niter_success = 400  # max number of interations without significant progress before aborting optimization
+
 take_step = Normalized_Step(x0['na_ka_stability'], xmin['na_ka_stability'], xmax['na_ka_stability'])
 minimizer_kwargs = dict(method=null_minimizer)
 
@@ -198,24 +204,15 @@ dv = c[:]
 dv.block = True
 global_start_time = time.time()
 dv.execute('run parallel_optimize_spike_stability_engine %i \"%s\"' % (int(spines), mech_filename))
-time.sleep(60)
+# time.sleep(60)
 v = c.load_balanced_view()
 
-
-result = optimize.basinhopping(na_ka_stability_error, x0['na_ka_stability'], niter=explore_niter,
-                               niter_success=explore_niter, disp=True, interval=20,
+result = optimize.basinhopping(na_ka_stability_error, x0['na_ka_stability'], niter=max_niter,
+                               niter_success=niter_success, disp=True, interval=20,
                                minimizer_kwargs=minimizer_kwargs, take_step=take_step)
-
-polished_result = optimize.minimize(na_ka_stability_error, result.x, method='Nelder-Mead', options={'ftol': 1e-5,
-                                                    'disp': True, 'maxiter': polish_niter})
-"""
-polished_result = optimize.minimize(na_ka_stability_error, x0['na_ka_stability'], method='Nelder-Mead',
-                                    options={'ftol': 1e-5, 'disp': True, 'maxiter': polish_niter})
-"""
-print polished_result
+print result
 
 best_x = hist.report_best()
-dv['x'] = best_x
-c[0].apply(parallel_optimize_spike_stability_engine.update_mech_dict)
-
-c.shutdown(hub=True)
+# dv['x'] = best_x
+# dv['x'] = x0['na_ka_stability']
+# c[0].apply(parallel_optimize_spike_stability_engine.update_mech_dict)

@@ -80,7 +80,7 @@ def get_spike_shape(vm):
     :param vm: array
     :return: tuple of float: (v_peak, th_v, ADP, AHP)
     """
-    vm = vm[int((equilibrate+0.4)/dt):]
+    vm = vm[int((equilibrate+1.)/dt):]
     dvdt = np.gradient(vm, [dt])
     th_x = np.where(dvdt > th_dvdt)[0]
     if th_x.any():
@@ -153,7 +153,8 @@ def na_ka_dend_error(x, plot=0):
     sim.tstop = duration
     t = np.arange(0., duration, dt)
     spike = False
-    amp = 0.05
+    d_amp = 0.01
+    amp = i_th['soma'] - d_amp
     while not spike:
         sim.modify_stim(0, amp=amp)
         sim.run(v_active)
@@ -163,12 +164,14 @@ def na_ka_dend_error(x, plot=0):
             Err = 1e9
             history.error_values.append(Err)
             return Err
+            # break
         if np.any(vm[int(equilibrate/dt):int((equilibrate+50.)/dt)] > -30.):
             spike = True
         else:
-            amp += 0.05
+            amp += d_amp
             if sim.verbose:
                 print 'increasing amp to %.3f' % amp
+    i_th['soma'] = amp
     peak, threshold, ADP, AHP = get_spike_shape(vm)
     result = {'th_v': threshold}
     distal_dend_vm = np.interp(t, sim.tvec, sim.get_rec('distal_dend')['vec'])
@@ -214,7 +217,8 @@ def ais_delay_error(x, plot=0):
     sim.tstop = duration
     t = np.arange(0., duration, dt)
     spike = False
-    amp = 0.05
+    d_amp = 0.01
+    amp = i_th['soma'] - d_amp
     while not spike:
         sim.modify_stim(0, amp=amp)
         sim.run(v_active)
@@ -225,9 +229,10 @@ def ais_delay_error(x, plot=0):
         if np.any(vm[int(equilibrate/dt):int((equilibrate+50.)/dt)] > -30.):
             spike = True
         else:
-            amp += 0.05
+            amp += d_amp
             if sim.verbose:
                 print 'increasing amp to %.3f' % amp
+    i_th['soma'] = amp
     peak, threshold, ADP, AHP = get_spike_shape(vm)
     result = {}
     result['soma_peak'] = peak
@@ -260,12 +265,6 @@ def ais_delay_error(x, plot=0):
     print 'Process %i: [ais.sha_nas, ais.gbar_nas]: [%.2f, %.2f], ais_delay: %.3E, soma_peak: %.1f, ' \
           'threshold: %.1f' % (os.getpid(), x[0], x[1], result['ais_delay'], peak, threshold)
     print 'Process %i: Error: %.4E' % (os.getpid(), Err)
-    """
-    if Err < min(history.error_values):
-        history.error_values.append(float(Err))
-        history.x_values.append(x)
-        history.features['ais_delay'].append(result['ais_delay'])
-    """
     sys.stdout.flush()
     return Err
 
@@ -299,7 +298,8 @@ def optimize_ais_delay(x):
             sim.tstop = duration
             t = np.arange(0., duration, dt)
             spike = False
-            amp = 0.05
+            d_amp = 0.01
+            amp = i_th['soma'] - d_amp
             while not spike:
                 sim.modify_stim(0, amp=amp)
                 sim.run(v_active)
@@ -310,9 +310,10 @@ def optimize_ais_delay(x):
                 if np.any(vm[int(equilibrate / dt):int((equilibrate + 50.) / dt)] > -30.):
                     spike = True
                 else:
-                    amp += 0.05
+                    amp += d_amp
                     if sim.verbose:
                         print 'increasing amp to %.3f' % amp
+            i_th['soma'] = amp
             peak, threshold, ADP, AHP = get_spike_shape(vm)
             result = {}
             result['soma_peak'] = peak
@@ -371,12 +372,12 @@ candidate_branches = []
 candidate_diams = []
 candidate_locs = []
 for branch in cell.apical:
-    if ((cell.get_distance_to_node(cell.tree.root, branch, 0.) >= 250.) &
+    if ((cell.get_distance_to_node(cell.tree.root, branch, 0.) >= 200.) &
             (cell.get_distance_to_node(cell.tree.root, branch, 1.) > 300.)):
         candidate_branches.append(branch)
         for seg in branch.sec:
             loc = seg.x
-            if cell.get_distance_to_node(cell.tree.root, branch, loc) > 300.:
+            if cell.get_distance_to_node(cell.tree.root, branch, loc) > 250.:
                 candidate_diams.append(branch.sec(loc).diam)
                 candidate_locs.append(loc)
                 break
@@ -397,12 +398,13 @@ for description, node in rec_nodes.iteritems():
     sim.append_rec(cell, node, loc=rec_locs[description], description=description)
 
 i_holding = {'soma': 0.09, 'primary': 0.09, 'secondary': 0.09}
+i_th = {'soma': 0.05}
 compartment_objects = {'soma': cell.tree.root}
 
 #the target values and acceptable ranges
 target_val = {}
 target_range = {}
-target_val['na_ka'] = {'v_rest': v_init, 'th_v': -51., 'soma_peak': 40., 'distal_dend_amp': 0.5, 'ADP': 0., 'AHP': 4.,
+target_val['na_ka'] = {'v_rest': v_init, 'th_v': -51., 'soma_peak': 40., 'distal_dend_amp': 0.3, 'ADP': 0., 'AHP': 4.,
                        'stability': 0., 'ais_delay': 0., 'slow_depo': 25.}
 target_range['na_ka'] = {'v_rest': 0.25, 'th_v': .2, 'soma_peak': 2., 'distal_dend_amp': 0.01, 'ADP': 0.01, 'AHP': .2,
                          'stability': 1., 'ais_delay': 0.001, 'slow_depo': 1.}
@@ -423,24 +425,23 @@ xmin['ais_delay'] = [-5., 1.1*axon_gbar_nax]
 xmax['ais_delay'] = [-1., 5.*axon_gbar_nax]
 
 # x0['na_ka_dend'] = [1.86700049]  # Error: 6.178E+01
-x0['na_ka_dend'] = [1.12220514]  # Error: 2.003E+03
-xmin['na_ka_dend'] = [1.1]
+x0['na_ka_dend'] = [1.]  # Error:
+xmin['na_ka_dend'] = [1.]
 xmax['na_ka_dend'] = [5.]
 
 check_bounds = CheckBounds(xmin, xmax)
 
-polish_niter = 400
+maxiter = 400
 
 history = optimize_history()
 history.xlabels = xlabels['na_ka_dend']
 
-polished_result = optimize.minimize(na_ka_dend_error, x0['na_ka_dend'], method='Nelder-Mead', options={'ftol': 1e-5,
-                                                    'disp': True, 'maxiter': polish_niter})
-print polished_result
+result = optimize.minimize(na_ka_dend_error, x0['na_ka_dend'], method='Nelder-Mead', options={'fatol': 1e-3,
+                                                    'xatol': 1e-3, 'disp': True, 'maxiter': maxiter, 'maxfev': maxiter})
+print result
 best_x = history.report_best()
 update_na_ka_dend(best_x)
 
 best_x = optimize_ais_delay([-1., 1.1*axon_gbar_nax])
 update_ais_delay(best_x)
-cell.export_mech_dict(cell.mech_filename)
-
+# cell.export_mech_dict(cell.mech_filename)

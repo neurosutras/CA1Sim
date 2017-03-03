@@ -6,12 +6,11 @@ from ipyparallel import interactive
 import mkl
 
 """
-Builds a cell locally so each engine is ready to receive jobs one at a time, specified by string corresponding to the
-section type, to test Na Ka stability.
+Builds a cell locally so each engine is ready to receive jobs one at a time, specified by a value for the amplitude of
+a somatic current injection to test spike shape and stability.
 """
 
 mkl.set_num_threads(1)
-#os.environ['MKL_NUM_THREADS'] = 1
 
 # morph_filename = 'EB2-late-bifurcation.swc'
 # morph_filename = 'DG_GC_355549.swc'
@@ -29,9 +28,9 @@ xmin = {}
 xmax = {}
 
 soma_na_gbar = 0.04
-# [soma.gkabar, soma.gkdrbar, axon.gkabar_kap factor, axon.gbar_nax factor, soma.sh_nas/x]
-xmin['na_ka_stability'] = [0.01, 0.01, 1., 2., 0.1]
-xmax['na_ka_stability'] = [0.075, 0.05, 5., 5., 5.]
+# [soma.gkabar, soma.gkdrbar, axon.gkabar_kap factor, axon.gbar_nax factor, soma.sh_nas/x, axon.gkdrbar factor]
+xmin['na_ka_stability'] = [0.01, 0.01, 1., 2., 0.1, 1.]
+xmax['na_ka_stability'] = [0.075, 0.05, 5., 5., 5., 2.]
 
 check_bounds = CheckBounds(xmin, xmax)
 
@@ -53,7 +52,7 @@ def get_spike_shape(vm):
     :param vm: array
     :return: tuple of float: (v_peak, th_v, ADP, AHP)
     """
-    vm = vm[int((equilibrate+0.4)/dt):]
+    vm = vm[int((equilibrate+1.)/dt):]
     dvdt = np.gradient(vm, [dt])
     th_x = np.where(dvdt > th_dvdt)[0]
     if th_x.any():
@@ -140,11 +139,12 @@ def update_mech_dict():
 def update_na_ka_stability(x):
     """
 
-    :param x: array [soma.gkabar, soma.gkdrbar, axon.gkabar_kap factor, axon.gbar_nax factor, soma.sh_nas/x]
+    :param x: array [soma.gkabar, soma.gkdrbar, axon.gkabar_kap factor, axon.gbar_nax factor, soma.sh_nas/x,
+                    axon.gkdrbar factor, dend.gkabar factor]
     """
     cell.modify_mech_param('soma', 'kdr', 'gkdrbar', x[1])
     cell.modify_mech_param('soma', 'kap', 'gkabar', x[0])
-    slope = (orig_ka_dend_gkabar - x[0]) / 300.
+    slope = (x[6] - 1.) * x[0] / 300.
     cell.modify_mech_param('soma', 'nas', 'gbar', soma_na_gbar)
     cell.modify_mech_param('soma', 'nas', 'sh', x[4])
     for sec_type in ['basal', 'trunk', 'apical', 'tuft']:
@@ -163,7 +163,7 @@ def update_na_ka_stability(x):
     cell.modify_mech_param('axon_hill', 'kdr', 'gkdrbar', origin='soma')
     cell.modify_mech_param('axon_hill', 'nax', 'sh', x[4])
     for sec_type in ['ais', 'axon']:
-        cell.modify_mech_param(sec_type, 'kdr', 'gkdrbar', origin='soma')
+        cell.modify_mech_param(sec_type, 'kdr', 'gkdrbar', x[1] * x[5])
         cell.modify_mech_param(sec_type, 'kap', 'gkabar', x[0] * x[2])
         cell.modify_mech_param(sec_type, 'nax', 'sh', origin='axon_hill')
 
@@ -171,8 +171,8 @@ def update_na_ka_stability(x):
 @interactive
 def compute_spike_shape_features(local_x=None, plot=0):
     """
-
-    :param local_x: array [soma.gkabar, soma.gkdrbar, axon.gkabar_kap factor, axon.gbar_nax factor, soma.sh_nas/x]
+    :param local_x: array [soma.gkabar, soma.gkdrbar, axon.gkabar_kap factor, axon.gbar_nax factor, soma.sh_nas/x,
+                    axon.gkdrbar factor, dend.gkabar factor]
     :return: float
     """
     if local_x is None:
@@ -189,7 +189,8 @@ def compute_spike_shape_features(local_x=None, plot=0):
     sim.tstop = duration
     t = np.arange(0., duration, dt)
     spike = False
-    amp = 0.05
+    d_amp = 0.01
+    amp = i_th['soma'] - d_amp
     while not spike:
         sim.modify_stim(0, amp=amp)
         sim.run(v_active)
@@ -200,9 +201,10 @@ def compute_spike_shape_features(local_x=None, plot=0):
         if np.any(vm[int(equilibrate/dt):int((equilibrate+50.)/dt)] > -30.):
             spike = True
         else:
-            amp += 0.05
+            amp += d_amp
             if sim.verbose:
                 print 'increasing amp to %.3f' % amp
+    i_th['soma'] = amp
     peak, threshold, ADP, AHP = get_spike_shape(vm)
     print 'Process %i took %.1f s to find spike rheobase at amp: %.3f' % (os.getpid(), time.time() - start_time, amp)
     if plot:
@@ -268,8 +270,26 @@ cell = DG_GC(neurotree_dict=neurotree_dict[0], mech_filename=mech_filename, full
 if spines is False:
     cell.correct_for_spines()
 
-rec_locs = {'soma': 0.}
-rec_nodes = {'soma': cell.tree.root}
+# get the thickest apical dendrite ~200 um from the soma
+candidate_branches = []
+candidate_diams = []
+candidate_locs = []
+for branch in cell.apical:
+    if ((cell.get_distance_to_node(cell.tree.root, branch, 0.) >= 200.) &
+            (cell.get_distance_to_node(cell.tree.root, branch, 1.) > 300.)):
+        candidate_branches.append(branch)
+        for seg in branch.sec:
+            loc = seg.x
+            if cell.get_distance_to_node(cell.tree.root, branch, loc) > 250.:
+                candidate_diams.append(branch.sec(loc).diam)
+                candidate_locs.append(loc)
+                break
+index = candidate_diams.index(max(candidate_diams))
+dend = candidate_branches[index]
+dend_loc = candidate_locs[index]
+
+rec_locs = {'soma': 0., 'dend': dend_loc}
+rec_nodes = {'soma': cell.tree.root, 'dend': dend}
 
 sim = QuickSim(duration, verbose=False)
 sim.append_stim(cell, cell.tree.root, loc=0., amp=0., delay=equilibrate, dur=stim_dur)
@@ -278,7 +298,8 @@ sim.append_stim(cell, cell.tree.root, loc=0., amp=0., delay=0., dur=duration)
 for description, node in rec_nodes.iteritems():
     sim.append_rec(cell, node, loc=rec_locs[description], description=description)
 
-i_holding = {'soma': 0., 'dend': 0., 'distal_dend': 0.}
+i_holding = {'soma': 0.}
+i_th = {'soma': 0.05}
 
 if type(cell.mech_dict['apical']['kap']['gkabar']) == list:
     orig_ka_dend_slope = \
