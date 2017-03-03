@@ -28,9 +28,10 @@ xmin = {}
 xmax = {}
 
 soma_na_gbar = 0.04
-# [soma.gkabar, soma.gkdrbar, axon.gkabar_kap factor, axon.gbar_nax factor, soma.sh_nas/x, axon.gkdrbar factor]
-xmin['na_ka_stability'] = [0.01, 0.01, 1., 2., 0.1, 1.]
-xmax['na_ka_stability'] = [0.075, 0.05, 5., 5., 5., 2.]
+# [soma.gkabar, soma.gkdrbar, axon.gkabar_kap factor, axon.gbar_nax factor, soma.sh_nas/x, axon.gkdrbar factor,
+#  dend.gkabar factor]
+xmin['na_ka_stability'] = [0.01, 0.01, 1., 2., 0.1, 1., 1.]
+xmax['na_ka_stability'] = [0.075, 0.05, 5., 5., 5., 2., 5.]
 
 check_bounds = CheckBounds(xmin, xmax)
 
