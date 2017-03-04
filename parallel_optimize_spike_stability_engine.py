@@ -31,7 +31,7 @@ soma_na_gbar = 0.04
 # [soma.gkabar, soma.gkdrbar, axon.gkabar_kap factor, axon.gbar_nax factor, soma.sh_nas/x, axon.gkdrbar factor,
 #  dend.gkabar factor]
 xmin['na_ka_stability'] = [0.01, 0.01, 1., 2., 0.1, 1., 1.]
-xmax['na_ka_stability'] = [0.075, 0.05, 5., 5., 5., 2., 5.]
+xmax['na_ka_stability'] = [0.075, 0.05, 5., 5., 6., 2., 5.]
 
 check_bounds = CheckBounds(xmin, xmax)
 
@@ -207,6 +207,11 @@ def compute_spike_shape_features(local_x=None, plot=0):
                 print 'increasing amp to %.3f' % amp
     i_th['soma'] = amp
     peak, threshold, ADP, AHP = get_spike_shape(vm)
+    dend_vm = np.interp(t, sim.tvec, sim.get_rec('dend')['vec'])
+    th_x = np.where(vm[int(equilibrate / dt):] >= threshold)[0][0] + int(equilibrate / dt)
+    dend_peak = np.max(dend_vm[th_x:th_x + int(10. / dt)])
+    dend_pre = np.mean(dend_vm[th_x - int(0.2 / dt):th_x - int(0.1 / dt)])
+    result['dend_amp'] = (dend_peak - dend_pre) / (peak - threshold)
     print 'Process %i took %.1f s to find spike rheobase at amp: %.3f' % (os.getpid(), time.time() - start_time, amp)
     if plot:
         sim.plot()
@@ -265,7 +270,6 @@ dt = 0.01
 amp = 0.3
 th_dvdt = 10.
 v_init = -77.
-# v_active = -61.
 v_active = -77.
 
 cell = DG_GC(neurotree_dict=neurotree_dict[0], mech_filename=mech_filename, full_spines=spines)

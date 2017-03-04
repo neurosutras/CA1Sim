@@ -104,24 +104,6 @@ def get_spike_shape(vm):
     return v_peak, th_v, ADP, AHP
 
 
-def update_na_ka_dend(x):
-    """
-
-    :param x: array [trunk.ka factor]
-    """
-
-    soma_gkabar = cell.mech_dict['soma']['kap']['gkabar']['value']
-    slope = (x[0] - 1.) * soma_gkabar / 300.
-    for sec_type in ['basal', 'trunk', 'apical', 'tuft']:
-        cell.modify_mech_param(sec_type, 'kap', 'gkabar', origin='soma', min_loc=75., value=0.)
-        cell.modify_mech_param(sec_type, 'kap', 'gkabar', origin='soma', max_loc=75., slope=slope, replace=False)
-        cell.modify_mech_param(sec_type, 'kad', 'gkabar', origin='soma', max_loc=75., value=0.)
-        cell.modify_mech_param(sec_type, 'kad', 'gkabar', origin='soma', min_loc=75., max_loc=300., slope=slope,
-                               value=soma_gkabar+slope*75., replace=False)
-        cell.modify_mech_param(sec_type, 'kad', 'gkabar', origin='soma', min_loc=300., value=soma_gkabar+slope*300.,
-                               replace=False)
-
-
 def update_ais_delay(x):
     """
 
@@ -417,30 +399,12 @@ axon_gbar_nax = cell.axon[2].sec.gbar_nax
 
 xlabels = {}
 xlabels['ais_delay'] = ['ais.sha_nas', 'ais.gbar_nax']
-xlabels['na_ka_dend'] = ['trunk.ka factor']
 
-# x0['ais_delay'] = [-2.00, 0.31]  # Error: 0.
-x0['ais_delay'] = [-2.80, 1.57*axon_gbar_nax]  # Error: 29.16
 xmin['ais_delay'] = [-5., 1.1*axon_gbar_nax]
 xmax['ais_delay'] = [-1., 5.*axon_gbar_nax]
 
-# x0['na_ka_dend'] = [1.86700049]  # Error: 6.178E+01
-x0['na_ka_dend'] = [1.]  # Error:
-xmin['na_ka_dend'] = [1.]
-xmax['na_ka_dend'] = [5.]
 
 check_bounds = CheckBounds(xmin, xmax)
-
-maxiter = 400
-
-history = optimize_history()
-history.xlabels = xlabels['na_ka_dend']
-
-result = optimize.minimize(na_ka_dend_error, x0['na_ka_dend'], method='Nelder-Mead', options={'fatol': 1e-3,
-                                                    'xatol': 1e-3, 'disp': True, 'maxiter': maxiter, 'maxfev': maxiter})
-print result
-best_x = history.report_best()
-update_na_ka_dend(best_x)
 
 best_x = optimize_ais_delay([-1., 1.1*axon_gbar_nax])
 update_ais_delay(best_x)
