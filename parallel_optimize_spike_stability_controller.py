@@ -89,6 +89,10 @@ def na_ka_stability_error(x, plot=0):
 
     Err = 0.
     for target in final_result:
+        if target not in hist.features:
+            hist.features[target] = []
+        hist.features[target].append(final_result[target])
+    for target in ['v_th', 'ADP', 'AHP', 'stability', 'slow_depo', 'dend_amp']:
         # don't penalize AHP or slow_depo less than target
         if not ((target == 'AHP' and final_result[target] < target_val['na_ka'][target]) or
                 (target == 'slow_depo' and final_result[target] < target_val['na_ka'][target])):
@@ -101,11 +105,14 @@ def na_ka_stability_error(x, plot=0):
     print 'Process %i: [soma.gkabar, soma.gkdrbar, axon.gkabar_kap factor, axon.gbar_nax factor, soma.sh_nax/s, ' \
           'axon.gkdrbar factor, dend.gkabar factor]: ' \
           '[%.4f, %.4f, %.3f, %.3f, %.3f, %.3f, %.3f], amp: %.3f, v_rest: %.1f, threshold: %.1f, ADP: %.1f, ' \
-          'AHP: %.1f, stability: %.2f, slow_depo: %.2f' % (os.getpid(), x[0], x[1], x[2], x[3], x[4], x[5], x[6],
-                                                           final_result['amp'], final_result['v_rest'],
-                                                           final_result['v_th'], final_result['ADP'],
-                                                           final_result['AHP'], final_result['stability'],
-                                                           final_result['slow_depo'])
+          'AHP: %.1f, stability: %.2f, slow_depo: %.2f, dend_amp: %.2f' % (os.getpid(), x[0], x[1], x[2], x[3], x[4],
+                                                                           x[5], x[6], final_result['amp'],
+                                                                           final_result['v_rest'],
+                                                                           final_result['v_th'], final_result['ADP'],
+                                                                           final_result['AHP'],
+                                                                           final_result['stability'],
+                                                                           final_result['slow_depo'],
+                                                                           final_result['dend_amp'])
     print 'Process %i: Error: %.4E' % (os.getpid(), Err)
     hist.error_values.append(Err)
     sys.stdout.flush()
@@ -155,10 +162,10 @@ target_val = {}
 target_range = {}
 target_val['v_rest'] = {'soma': v_init, 'tuft_offset': 0.}
 target_range['v_rest'] = {'soma': 0.25, 'tuft_offset': 0.1}
-target_val['na_ka'] = {'v_rest': v_init, 'v_th': -51., 'soma_peak': 40., 'amp': 0.6, 'ADP': 0., 'AHP': 4.,
-                       'stability': 0., 'ais_delay': 0., 'slow_depo': 25.}
-target_range['na_ka'] = {'v_rest': 0.25, 'v_th': .2, 'soma_peak': 2., 'amp': 0.01, 'ADP': 0.01, 'AHP': .2,
-                         'stability': 1., 'ais_delay': 0.001, 'slow_depo': 1.}
+target_val['na_ka'] = {'v_rest': v_init, 'v_th': -51., 'soma_peak': 40., 'ADP': 0., 'AHP': 4.,
+                       'stability': 0., 'ais_delay': 0., 'slow_depo': 20., 'dend_amp': 0.3}
+target_range['na_ka'] = {'v_rest': 0.25, 'v_th': .2, 'soma_peak': 2., 'ADP': 0.01, 'AHP': .2,
+                         'stability': 1., 'ais_delay': 0.001, 'slow_depo': 0.5, 'dend_amp': 0.005}
 
 x0 = {}
 xlabels = {}
@@ -181,20 +188,17 @@ else:
 
 check_bounds = CheckBounds(xmin, xmax)
 xlabels['na_ka_stability'] = ['soma.gkabar', 'soma.gkdrbar', 'axon.gkabar_kap factor', 'axon.gbar_nax factor',
-                              'soma.sh_nas/x', 'axon.gkdrbar factor']
+                              'soma.sh_nas/x', 'axon.gkdrbar factor', 'dend.gkabar factor']
 hist = optimize_history()
 hist.xlabels = xlabels['na_ka_stability']
 
-
 # [soma.gkabar, soma.gkdrbar, axon.gkabar_kap factor, axon.gbar_nax factor, soma.sh_nas/x, axon.gkdrbar factor,
 #  dend.gkabar factor]
-# x0['na_ka_stability'] = [0.0483, 0.0100, 4.56, 4.90, 4.63]  # Error: 2.7284E+03
-# x0['na_ka_stability'] = [0.02948262,  0.01003593,  4.66184288,  4.48235059,  4.91410208]  # Error: 2.644E+03
-x0['na_ka_stability'] = [0.0365, 0.0118, 4.91, 4.72, 4.90, 1., 1.]  # Error: 2.2990E+03
+x0['na_ka_stability'] = [0.0365, 0.0118, 4.91, 4.72, 4.90, 1., 1.]  # Error:
 xmin['na_ka_stability'] = [0.01, 0.01, 1., 2., 0.1, 1., 1.]
 xmax['na_ka_stability'] = [0.075, 0.05, 5., 5., 6., 2., 5.]
 
-max_niter = 1400  # max number of iterations to run
+max_niter = 2100  # max number of iterations to run
 niter_success = 400  # max number of interations without significant progress before aborting optimization
 
 take_step = Normalized_Step(x0['na_ka_stability'], xmin['na_ka_stability'], xmax['na_ka_stability'])
@@ -208,7 +212,7 @@ dv.execute('run parallel_optimize_spike_stability_engine %i \"%s\"' % (int(spine
 v = c.load_balanced_view()
 
 result = optimize.basinhopping(na_ka_stability_error, x0['na_ka_stability'], niter=max_niter,
-                               niter_success=niter_success, disp=True, interval=20,
+                               niter_success=niter_success, disp=True, interval=40,
                                minimizer_kwargs=minimizer_kwargs, take_step=take_step)
 print result
 
