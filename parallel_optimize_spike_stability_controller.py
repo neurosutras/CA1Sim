@@ -208,7 +208,7 @@ dv = c[:]
 dv.block = True
 global_start_time = time.time()
 dv.execute('run parallel_optimize_spike_stability_engine %i \"%s\"' % (int(spines), mech_filename))
-# time.sleep(60)
+time.sleep(60)
 v = c.load_balanced_view()
 
 result = optimize.basinhopping(na_ka_stability_error, x0['na_ka_stability'], niter=max_niter,
@@ -217,6 +217,6 @@ result = optimize.basinhopping(na_ka_stability_error, x0['na_ka_stability'], nit
 print result
 
 best_x = hist.report_best()
-# dv['x'] = best_x
+dv['x'] = best_x
 # dv['x'] = x0['na_ka_stability']
-# c[0].apply(parallel_optimize_spike_stability_engine.update_mech_dict)
+c[0].apply(parallel_optimize_spike_stability_engine.update_mech_dict)
