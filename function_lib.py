@@ -2206,13 +2206,11 @@ class optimize_history(object):
 
     def plot(self):
         """
-        Remember to : also plot each value in x against error, and against input resistance
+        Plots each value in x_values against error
         """
         num_x_param = len(self.xlabels)
         num_plot_rows = math.floor(math.sqrt(num_x_param))
-        print(num_plot_rows)
         num_plot_cols = math.ceil(num_x_param/num_plot_rows)
-        print(num_plot_cols)
 
         #plot x-values against error
         plt.figure(1)
@@ -2226,3 +2224,24 @@ class optimize_history(object):
             plt.ylabel("Error values")
         plt.show()
         plt.close()
+
+    def plot_features(self, feat_list=None, x_indices=None):
+        if feat_list is None:
+            feat_list = self.features.keys()
+        if x_indices is None:
+            x_indices = range(0, len(self.xlabels))
+        num_x_param = len(x_indices)
+        num_plot_rows = math.floor(math.sqrt(num_x_param))
+        num_plot_cols = math.ceil(num_x_param/num_plot_rows)
+
+        for i, feature in enumerate(feat_list):
+            plt.figure(i+1)
+            for index in x_indices:
+                plt.subplot(num_plot_rows, num_plot_cols, i+1)
+                x_param_vals = [x_val[index] for x_val in self.x_values]
+                range_param_vals = max(x_param_vals) - min(x_param_vals)
+                plt.scatter([x_param_vals], self.features[feature])
+                plt.xlim((min(x_param_vals) - 0.1 * range_param_vals, max(x_param_vals) + 0.1 * range_param_vals))
+                plt.xlabel(self.xlabels[index])
+                plt.ylabel(feature)
+                plt.legend(loc='upper right', scatterpoints=1, frameon=False, framealpha=0.5)

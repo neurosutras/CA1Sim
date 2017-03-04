@@ -23,6 +23,7 @@ ipcluster start -n num_cores
 
 mkl.set_num_threads(1)
 
+history_filename = '030417 spike stability optimization history'
 
 def na_ka_stability_error(x, plot=0):
     """
@@ -127,24 +128,24 @@ def plot_best(x=None, discard=True):
         na_ka_stability_error(x)
     dv.execute('export_sim_results()')
     rec_file_list = [filename for filename in dv['rec_filename'] if os.path.isfile(data_dir + filename + '.hdf5')]
-    for rec_filename in rec_file_list:
+    for i, rec_filename in enumerate(rec_file_list):
         with h5py.File(data_dir+rec_filename+'.hdf5', 'r') as f:
+            plt.figure(i)
             for trial in f.itervalues():
-                target = trial.attrs['target']
-                section = trial.attrs['section']
-                optimization = trial.attrs['optimization']
+                amplitude = trial.attrs['amp']
                 fig, axes = plt.subplots(1)
                 for rec in trial['rec'].itervalues():
                     axes.plot(trial['time'], rec, label=rec.attrs['description'])
                 axes.legend(loc='best', frameon=False, framealpha=0.5)
                 axes.set_xlabel('Time (ms)')
                 axes.set_ylabel('Vm (mV)')
-                axes.set_title('Optimize %s: %s (%s)' % (optimization, target, section))
+                axes.set_title('Optimize Vm: I_inj amplitude %.2f' % amplitude)
                 clean_axes(axes)
-                plt.show()
-                plt.close()
-    for rec_filename in rec_file_list:
-        os.remove(data_dir + rec_filename + '.hdf5')
+    plt.show()
+    plt.close()
+    if discard:
+        for rec_filename in rec_file_list:
+            os.remove(data_dir + rec_filename + '.hdf5')
 
 
 v_init = -77.
@@ -203,9 +204,12 @@ minimizer_kwargs = dict(method=null_minimizer)
 dv = c[:]
 dv.block = True
 global_start_time = time.time()
+
+
 dv.execute('run parallel_optimize_spike_stability_engine %i \"%s\"' % (int(spines), mech_filename))
-# time.sleep(60)
+time.sleep(60)
 v = c.load_balanced_view()
+
 
 result = optimize.basinhopping(na_ka_stability_error, x0['na_ka_stability'], niter=max_niter,
                                niter_success=niter_success, disp=True, interval=20,
@@ -213,6 +217,8 @@ result = optimize.basinhopping(na_ka_stability_error, x0['na_ka_stability'], nit
 print result
 
 best_x = hist.report_best()
-# dv['x'] = best_x
+hist.export_to_pkl(history_filename)
+dv['x'] = best_x
 # dv['x'] = x0['na_ka_stability']
-# c[0].apply(parallel_optimize_spike_stability_engine.update_mech_dict)
+c[0].apply(parallel_optimize_spike_stability_engine.update_mech_dict)
+
