@@ -113,71 +113,6 @@ def update_ais_delay(x):
     cell.modify_mech_param('ais', 'nax', 'gbar', x[1])
 
 
-def na_ka_dend_error(x, plot=0):
-    """
-
-    :param x: array [trunk.ka factor]
-    :param plot: int
-    :return: float
-    """
-    if not check_bounds.within_bounds(x, 'na_ka_dend'):
-        print 'Process %i: Aborting - Parameters outside optimization bounds.' % (os.getpid())
-        history.x_values.append(x)
-        Err = 1e9
-        history.error_values.append(Err)
-        return Err
-    start_time = time.time()
-    update_na_ka_dend(x)
-    history.x_values.append(x)
-    offset_vm('soma', v_active)
-    sim.modify_stim(0, node=cell.tree.root, loc=0., dur=100.)
-    duration = equilibrate + 200.
-    sim.tstop = duration
-    t = np.arange(0., duration, dt)
-    spike = False
-    d_amp = 0.01
-    amp = i_th['soma'] - d_amp
-    while not spike:
-        sim.modify_stim(0, amp=amp)
-        sim.run(v_active)
-        vm = np.interp(t, sim.tvec, sim.get_rec('soma')['vec'])
-        if amp == 0.05 and np.any(vm[:int(equilibrate/dt)] > -30.):
-            print 'Process %i: Aborting - spontaneous firing' % (os.getpid())
-            Err = 1e9
-            history.error_values.append(Err)
-            return Err
-            # break
-        if np.any(vm[int(equilibrate/dt):int((equilibrate+50.)/dt)] > -30.):
-            spike = True
-        else:
-            amp += d_amp
-            if sim.verbose:
-                print 'increasing amp to %.3f' % amp
-    i_th['soma'] = amp
-    peak, threshold, ADP, AHP = get_spike_shape(vm)
-    result = {'th_v': threshold}
-    distal_dend_vm = np.interp(t, sim.tvec, sim.get_rec('distal_dend')['vec'])
-    th_x = np.where(vm[int(equilibrate/dt):] >= threshold)[0][0] + int(equilibrate/dt)
-    distal_dend_peak = np.max(distal_dend_vm[th_x:th_x+int(10./dt)])
-    distal_dend_pre = np.mean(distal_dend_vm[th_x-int(0.2/dt):th_x-int(0.1/dt)])
-    result['distal_dend_amp'] = (distal_dend_peak - distal_dend_pre) / (peak - threshold)
-    if plot:
-        sim.plot()
-    Err = 0.
-    for target in result:
-        if target not in history.features:
-            history.features[target] = []
-        history.features[target].append(result[target])
-        Err += ((target_val['na_ka'][target] - result[target])/target_range['na_ka'][target])**2.
-    history.error_values.append(Err)
-    print 'Simulation took %i s' % (time.time()-start_time)
-    print 'Process %i: [trunk.ka factor]: [%.4f], threshold: %.1f, trunk_amp: %.2f' % \
-          (os.getpid(), x[0], threshold, result['distal_dend_amp'])
-    print 'Process %i: Error: %.4E' % (os.getpid(), Err)
-    sys.stdout.flush()
-    return Err
-
-
 def ais_delay_error(x, plot=0):
     """
     Part of a set of error functions designed to optimize one parameter at a time by changing as few variables as
@@ -341,7 +276,6 @@ dt = 0.01
 amp = 0.3
 th_dvdt = 10.
 v_init = -77.
-# v_active = -61.
 v_active = -77.
 
 cell = DG_GC(neurotree_dict=neurotree_dict[0], mech_filename=mech_filename, full_spines=spines)
@@ -379,7 +313,7 @@ sim.append_stim(cell, cell.tree.root, loc=0., amp=0., delay=0., dur=duration)
 for description, node in rec_nodes.iteritems():
     sim.append_rec(cell, node, loc=rec_locs[description], description=description)
 
-i_holding = {'soma': 0.09, 'primary': 0.09, 'secondary': 0.09}
+i_holding = {'soma': 0.09}
 i_th = {'soma': 0.05}
 compartment_objects = {'soma': cell.tree.root}
 
@@ -408,4 +342,4 @@ check_bounds = CheckBounds(xmin, xmax)
 
 best_x = optimize_ais_delay([-1., 1.1*axon_gbar_nax])
 update_ais_delay(best_x)
-# cell.export_mech_dict(cell.mech_filename)
+cell.export_mech_dict(cell.mech_filename)

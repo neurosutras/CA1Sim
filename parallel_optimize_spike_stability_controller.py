@@ -194,7 +194,8 @@ hist.xlabels = xlabels['na_ka_stability']
 
 # [soma.gkabar, soma.gkdrbar, axon.gkabar_kap factor, axon.gbar_nax factor, soma.sh_nas/x, axon.gkdrbar factor,
 #  dend.gkabar factor]
-x0['na_ka_stability'] = [0.0365, 0.0118, 4.91, 4.72, 4.90, 1., 1.]  # Error:
+# x0['na_ka_stability'] = [0.0365, 0.0118, 4.91, 4.72, 4.90, 1., 1.]  # Error:
+x0['na_ka_stability'] = [0.0308, 0.0220, 4.667, 4.808, 4.032, 1.297, 1.023]  # Error: 1.5170E+03
 xmin['na_ka_stability'] = [0.01, 0.01, 1., 2., 0.1, 1., 1.]
 xmax['na_ka_stability'] = [0.075, 0.05, 5., 5., 6., 2., 5.]
 
