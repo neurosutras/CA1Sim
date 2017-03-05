@@ -224,6 +224,7 @@ def compute_spike_shape_features(local_x=None, plot=0):
 
 @interactive
 def compute_spike_stability_features(amp, local_x=None, plot=0):
+    sim.parameters['amp'] = amp
     if local_x is None:
         local_x = x
     if not check_bounds.within_bounds(local_x, 'na_ka_stability'):

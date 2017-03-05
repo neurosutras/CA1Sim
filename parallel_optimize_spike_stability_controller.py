@@ -23,6 +23,7 @@ ipcluster start -n num_cores
 
 mkl.set_num_threads(1)
 
+history_filename = '030417 spike stability optimization history'
 
 def na_ka_stability_error(x, plot=0):
     """
@@ -89,10 +90,6 @@ def na_ka_stability_error(x, plot=0):
 
     Err = 0.
     for target in final_result:
-        if target not in hist.features:
-            hist.features[target] = []
-        hist.features[target].append(final_result[target])
-    for target in ['v_th', 'ADP', 'AHP', 'stability', 'slow_depo', 'dend_amp']:
         # don't penalize AHP or slow_depo less than target
         if not ((target == 'AHP' and final_result[target] < target_val['na_ka'][target]) or
                 (target == 'slow_depo' and final_result[target] < target_val['na_ka'][target])):
@@ -105,14 +102,11 @@ def na_ka_stability_error(x, plot=0):
     print 'Process %i: [soma.gkabar, soma.gkdrbar, axon.gkabar_kap factor, axon.gbar_nax factor, soma.sh_nax/s, ' \
           'axon.gkdrbar factor, dend.gkabar factor]: ' \
           '[%.4f, %.4f, %.3f, %.3f, %.3f, %.3f, %.3f], amp: %.3f, v_rest: %.1f, threshold: %.1f, ADP: %.1f, ' \
-          'AHP: %.1f, stability: %.2f, slow_depo: %.2f, dend_amp: %.2f' % (os.getpid(), x[0], x[1], x[2], x[3], x[4],
-                                                                           x[5], x[6], final_result['amp'],
-                                                                           final_result['v_rest'],
-                                                                           final_result['v_th'], final_result['ADP'],
-                                                                           final_result['AHP'],
-                                                                           final_result['stability'],
-                                                                           final_result['slow_depo'],
-                                                                           final_result['dend_amp'])
+          'AHP: %.1f, stability: %.2f, slow_depo: %.2f' % (os.getpid(), x[0], x[1], x[2], x[3], x[4], x[5], x[6],
+                                                           final_result['amp'], final_result['v_rest'],
+                                                           final_result['v_th'], final_result['ADP'],
+                                                           final_result['AHP'], final_result['stability'],
+                                                           final_result['slow_depo'])
     print 'Process %i: Error: %.4E' % (os.getpid(), Err)
     hist.error_values.append(Err)
     sys.stdout.flush()
@@ -134,24 +128,24 @@ def plot_best(x=None, discard=True):
         na_ka_stability_error(x)
     dv.execute('export_sim_results()')
     rec_file_list = [filename for filename in dv['rec_filename'] if os.path.isfile(data_dir + filename + '.hdf5')]
-    for rec_filename in rec_file_list:
+    for i, rec_filename in enumerate(rec_file_list):
         with h5py.File(data_dir+rec_filename+'.hdf5', 'r') as f:
+            plt.figure(i)
             for trial in f.itervalues():
-                target = trial.attrs['target']
-                section = trial.attrs['section']
-                optimization = trial.attrs['optimization']
+                amplitude = trial.attrs['amp']
                 fig, axes = plt.subplots(1)
                 for rec in trial['rec'].itervalues():
                     axes.plot(trial['time'], rec, label=rec.attrs['description'])
                 axes.legend(loc='best', frameon=False, framealpha=0.5)
                 axes.set_xlabel('Time (ms)')
                 axes.set_ylabel('Vm (mV)')
-                axes.set_title('Optimize %s: %s (%s)' % (optimization, target, section))
+                axes.set_title('Optimize Vm: I_inj amplitude %.2f' % amplitude)
                 clean_axes(axes)
-                plt.show()
-                plt.close()
-    for rec_filename in rec_file_list:
-        os.remove(data_dir + rec_filename + '.hdf5')
+    plt.show()
+    plt.close()
+    if discard:
+        for rec_filename in rec_file_list:
+            os.remove(data_dir + rec_filename + '.hdf5')
 
 
 v_init = -77.
@@ -162,10 +156,10 @@ target_val = {}
 target_range = {}
 target_val['v_rest'] = {'soma': v_init, 'tuft_offset': 0.}
 target_range['v_rest'] = {'soma': 0.25, 'tuft_offset': 0.1}
-target_val['na_ka'] = {'v_rest': v_init, 'v_th': -51., 'soma_peak': 40., 'ADP': 0., 'AHP': 4.,
-                       'stability': 0., 'ais_delay': 0., 'slow_depo': 20., 'dend_amp': 0.3}
-target_range['na_ka'] = {'v_rest': 0.25, 'v_th': .2, 'soma_peak': 2., 'ADP': 0.01, 'AHP': .2,
-                         'stability': 1., 'ais_delay': 0.001, 'slow_depo': 0.5, 'dend_amp': 0.005}
+target_val['na_ka'] = {'v_rest': v_init, 'v_th': -51., 'soma_peak': 40., 'amp': 0.6, 'ADP': 0., 'AHP': 4.,
+                       'stability': 0., 'ais_delay': 0., 'slow_depo': 25.}
+target_range['na_ka'] = {'v_rest': 0.25, 'v_th': .2, 'soma_peak': 2., 'amp': 0.01, 'ADP': 0.01, 'AHP': .2,
+                         'stability': 1., 'ais_delay': 0.001, 'slow_depo': 1.}
 
 x0 = {}
 xlabels = {}
@@ -188,18 +182,20 @@ else:
 
 check_bounds = CheckBounds(xmin, xmax)
 xlabels['na_ka_stability'] = ['soma.gkabar', 'soma.gkdrbar', 'axon.gkabar_kap factor', 'axon.gbar_nax factor',
-                              'soma.sh_nas/x', 'axon.gkdrbar factor', 'dend.gkabar factor']
+                              'soma.sh_nas/x', 'axon.gkdrbar factor']
 hist = optimize_history()
 hist.xlabels = xlabels['na_ka_stability']
 
+
 # [soma.gkabar, soma.gkdrbar, axon.gkabar_kap factor, axon.gbar_nax factor, soma.sh_nas/x, axon.gkdrbar factor,
 #  dend.gkabar factor]
-# x0['na_ka_stability'] = [0.0365, 0.0118, 4.91, 4.72, 4.90, 1., 1.]  # Error:
-x0['na_ka_stability'] = [0.0308, 0.0220, 4.667, 4.808, 4.032, 1.297, 1.023]  # Error: 1.5170E+03
+# x0['na_ka_stability'] = [0.0483, 0.0100, 4.56, 4.90, 4.63]  # Error: 2.7284E+03
+# x0['na_ka_stability'] = [0.02948262,  0.01003593,  4.66184288,  4.48235059,  4.91410208]  # Error: 2.644E+03
+x0['na_ka_stability'] = [0.0365, 0.0118, 4.91, 4.72, 4.90, 1., 1.]  # Error: 2.2990E+03
 xmin['na_ka_stability'] = [0.01, 0.01, 1., 2., 0.1, 1., 1.]
 xmax['na_ka_stability'] = [0.075, 0.05, 5., 5., 6., 2., 5.]
 
-max_niter = 2100  # max number of iterations to run
+max_niter = 1400  # max number of iterations to run
 niter_success = 400  # max number of interations without significant progress before aborting optimization
 
 take_step = Normalized_Step(x0['na_ka_stability'], xmin['na_ka_stability'], xmax['na_ka_stability'])
@@ -208,16 +204,21 @@ minimizer_kwargs = dict(method=null_minimizer)
 dv = c[:]
 dv.block = True
 global_start_time = time.time()
+
+
 dv.execute('run parallel_optimize_spike_stability_engine %i \"%s\"' % (int(spines), mech_filename))
 time.sleep(60)
 v = c.load_balanced_view()
 
+
 result = optimize.basinhopping(na_ka_stability_error, x0['na_ka_stability'], niter=max_niter,
-                               niter_success=niter_success, disp=True, interval=40,
+                               niter_success=niter_success, disp=True, interval=20,
                                minimizer_kwargs=minimizer_kwargs, take_step=take_step)
 print result
 
 best_x = hist.report_best()
+hist.export_to_pkl(history_filename)
 dv['x'] = best_x
 # dv['x'] = x0['na_ka_stability']
 c[0].apply(parallel_optimize_spike_stability_engine.update_mech_dict)
+

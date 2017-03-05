@@ -223,8 +223,9 @@ def plot_best(x=None, discard=True):
                 clean_axes(axes)
                 plt.show()
                 plt.close()
-    for rec_filename in rec_file_list:
-        os.remove(data_dir + rec_filename + '.hdf5')
+    if discard:
+        for rec_filename in rec_file_list:
+            os.remove(data_dir + rec_filename + '.hdf5')
 
 
 def update_pas_exp(x):
