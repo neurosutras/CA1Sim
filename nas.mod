@@ -9,7 +9,7 @@ NEURON {
     SUFFIX nas
 	USEION na READ ena WRITE ina
 	RANGE gbar, ar, sh, sha
-	RANGE minf, hinf, mtau, htau, sinf, taus
+	RANGE minf, hinf, mtau, htau, sinf, taus, ina
     GLOBAL qinf, thinf
 }
 

@@ -316,6 +316,8 @@ else:
 orig_ka_soma_gkabar = cell.mech_dict['soma']['kap']['gkabar']['value']
 orig_ka_dend_gkabar = orig_ka_soma_gkabar + orig_ka_dend_slope * 300.
 
+x = [0.0308, 0.0220, 4.667, 4.808, 4.032, 1.297, 1.023]
+
 sim.append_rec(cell, cell.tree.root, loc=0.5, object=cell.tree.root.sec(0.5), param='_ref_ina_nas',
                description='Soma nas_i')
 sim.append_rec(cell, cell.tree.root, loc=0.5, object=cell.tree.root.sec(0.5), param='_ref_ik_kap',
@@ -326,4 +328,15 @@ sim.append_rec(cell, cell.tree.root, loc=0.5, object=cell.tree.root.sec(0.5), pa
                description='Soma km_i')
 sim.append_rec(cell, cell.axon[2], loc=0.5, description='Axon Vm')
 
-cell.modify_mech_param('soma', 'cal_mech', 'gbar', 0.001)
+cell.modify_mech_param('soma', 'Ca', 'gcamult', 1.)
+cell.modify_mech_param('soma', 'CadepK', 'gcakmult', 1.)
+for sec_type in ['axon_hill', 'ais', 'axon']:
+    cell.modify_mech_param(sec_type, 'Ca', 'gcamult', origin='soma')
+    cell.modify_mech_param(sec_type, 'CadepK', 'gcakmult', origin='soma')
+
+sim.append_rec(cell, cell.tree.root, loc=0.5, object=cell.tree.root.sec(0.5), param='_ref_i_Ca',
+               description='Soma Ca_i')
+sim.append_rec(cell, cell.tree.root, loc=0.5, object=cell.tree.root.sec(0.5), param='_ref_ca_i_Ca',
+               description='Soma Ca_i')
+sim.append_rec(cell, cell.tree.root, loc=0.5, object=cell.tree.root.sec(0.5), param='_ref_i_CadepK',
+               description='Soma CadepK_i')

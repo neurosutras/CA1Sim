@@ -2,7 +2,6 @@ __author__ = 'Grace Ng'
 import parallel_optimize_leak_engine
 import sys
 import os
-import math
 from ipyparallel import Client
 from IPython.display import clear_output
 from plot_results import *
@@ -31,6 +30,8 @@ mkl.set_num_threads(1)
 
 neurotree_filename = '121516_DGC_trees.pkl'
 neurotree_dict = read_from_pkl(morph_dir+neurotree_filename)
+
+history_filename = '030517 leak optimization history'
 
 
 def check_bounds(x, param_name):
@@ -221,6 +222,7 @@ def plot_best(x=None, discard=True):
                 axes.set_ylabel('Vm (mV)')
                 axes.set_title('Optimize %s: %s (%s)' % (optimization, target, section))
                 clean_axes(axes)
+                fig.tight_layout()
                 plt.show()
                 plt.close()
     if discard:
@@ -284,7 +286,8 @@ if spines:
     xmax['pas'] = [1.0E-7, 1.0E-4, 400.]
 else:
     # x0['pas'] = [4.94E-08, 3.74E-06, 9.67E+01]  # Err: 3.995E-11
-    x0['pas'] = [8.905E-11, 1.180E-08, 3.927E+01]  # Error: 3.310E-09
+    # x0['pas'] = [8.905E-11, 1.180E-08, 3.927E+01]  # Error: 3.310E-09
+    x0['pas'] = [1.050E-10, 1.058E-08, 3.886E+01]  # Error: 4.187E-09
     xmin['pas'] = [1.0E-18, 1.0E-12, 25.]
     xmax['pas'] = [1.0E-6, 1.0E-4, 400.]
 
@@ -299,23 +302,25 @@ dv = c[:]
 dv.block = True
 global_start_time = time.time()
 dv.execute('run parallel_optimize_leak_engine %i \"%s\"' % (int(spines), mech_filename))
-time.sleep(60)
+# time.sleep(60)
 v = c.load_balanced_view()
 
-
+"""
 result = optimize.basinhopping(pas_error, x0['pas'], niter=explore_niter, niter_success=explore_niter,
                                disp=True, interval=20, minimizer_kwargs=minimizer_kwargs, take_step=take_step)
 
 polished_result = optimize.minimize(pas_error, result.x, method='Nelder-Mead', options={'ftol': 1e-5,
                                                     'disp': True, 'maxiter': polish_niter})
-"""
+
 
 polished_result = optimize.minimize(pas_error, x0['pas'], method='Nelder-Mead', options={'ftol': 1e-5, 'disp': True,
                                                                                          'maxiter': polish_niter})
-"""
+
 print polished_result
 best_x = hist.report_best()
+hist.export_to_pkl(history_filename)
+"""
 cell = DG_GC(neurotree_dict=neurotree_dict[0], mech_filename=mech_filename, full_spines=spines)
-update_pas_exp(best_x)
-# update_pas_exp(x0['pas'])
-cell.export_mech_dict(cell.mech_filename)
+# update_pas_exp(best_x)
+update_pas_exp(x0['pas'])
+# cell.export_mech_dict(cell.mech_filename)
