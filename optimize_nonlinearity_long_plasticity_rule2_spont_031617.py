@@ -1100,7 +1100,7 @@ for i in range(len(x1)):
 transform_p = [0.742868120596, -565577.708183, 2.24526686451, 1.7930336674]
 transform_f = np.vectorize(sigmoid, excluded={0})
 
-"""
+
 induction = 1
 
 result = optimize_explore(x1, xmin1, xmax1, ramp_error_parametric, input_matrix, complete_rate_maps, ramp, induction,
@@ -1216,7 +1216,7 @@ for induction in ramp:
 
 plt.show()
 plt.close()
-
+"""
 
 """
 output_filename = '030917 plasticity nonlinearity summary'
