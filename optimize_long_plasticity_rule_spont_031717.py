@@ -7,18 +7,12 @@ import scipy.signal as signal
 import mkl
 
 """
-In this version of the simulation, phase precession of CA3 inputs is implemented using the method from Chadwick et al.,
-Elife, 2015, which uses a circular gaussian with a phase sensitivity factor that effectively compresses the range of
-phases within each theta cycle that each input is active, which will reduce jitter across within-cycle input sequences.
-
 These methods determine the shape of the function that translates plasticity signal into changes in synaptic weight
 induced by plateaus.
 
 Assumptions:
 1) Synaptic weights are all = 1 prior to field induction 1. w(t0) = 1
-2) The transfer function for field induction 1 is a nonlinear function of plasticity signal.
-    w(t1) = f(s(t1))
-
+2) The transfer function for field induction 1 is a linear function of plasticity signal, with some gain.
 
 """
 morph_filename = 'EB2-late-bifurcation.swc'
@@ -774,30 +768,21 @@ def ramp_error_parametric(x, xmin, xmax, input_matrix, complete_rate_maps, ramp,
         calculate_ramp_features(exp_ramp, this_induction_loc)
     plasticity_signal = np.multiply(delta_weights, kernel_scale['mean'])
     this_kernel_scale = 1.
-    if transform is None:
-        for attempt in range(2):
-            weights = np.add(np.multiply(delta_weights, this_kernel_scale), 1.)
-            model_ramp = weights.dot(input_matrix)  # x=default_interp_x
-            if baseline is None:
-                model_baseline = subtract_baseline(model_ramp)
-            else:
-                model_baseline = baseline
-                model_ramp -= model_baseline
-            if attempt == 0:
-                this_kernel_scale = amp['exp'] / np.max(model_ramp)
-    else:
-        weights = np.add(transform(transform_p, plasticity_signal, 0.), 1.)
+    for attempt in range(2):
+        weights = np.add(np.multiply(delta_weights, this_kernel_scale), 1.)
         model_ramp = weights.dot(input_matrix)  # x=default_interp_x
         if baseline is None:
             model_baseline = subtract_baseline(model_ramp)
         else:
             model_baseline = baseline
             model_ramp -= model_baseline
+        if attempt == 0:
+            this_kernel_scale = amp['exp'] / np.max(model_ramp)
     model_ramp = np.interp(binned_x, default_interp_x, model_ramp)
     amp['model'], width['model'], peak_shift['model'], ratio['model'], start_loc['model'], end_loc['model'] = \
         calculate_ramp_features(model_ramp, this_induction_loc)
     Err = 0.
-    for feature, sigma in zip((amp, width, peak_shift, ratio), (0.01, 0.1, 0.05, 0.05)):
+    for feature, sigma in zip((width, peak_shift, ratio), (0.1, 0.05, 0.05)):
         Err += ((feature['exp'] - feature['model']) / sigma) ** 2.
 
     delta_start = abs(start_loc['exp'] - start_loc['model'])
@@ -821,8 +806,8 @@ def ramp_error_parametric(x, xmin, xmax, input_matrix, complete_rate_maps, ramp,
         ylim = max(np.max(exp_ramp), np.max(model_ramp))
         ymin = min(np.min(exp_ramp), np.min(model_ramp))
         fig, axes = plt.subplots(1)
-        axes.plot(binned_x, exp_ramp, label='Experiment', color='k')
-        axes.plot(binned_x, model_ramp, label='Model (Biochemical)', color='c')
+        axes.plot(binned_x, exp_ramp, label='Exp. data', color='k')
+        axes.plot(binned_x, model_ramp, label='Long signal integration model', color='c')
         axes.axhline(y=ylim + 0.2, xmin=x_start, xmax=x_start + 0.02, linewidth=3, c='k')
         axes.set_xlabel('Location (cm)')
         axes.set_ylabel('Depolarization (mV)')
@@ -1095,8 +1080,8 @@ if cell_id in x0:
 else:
     x1 = x0['1']
 
-xmin1 = [10., 500., 10., 100., 1.]  #, 5.e-4]
-xmax1 = [500., 5000., 300., 2000., 1.5]  #, 2.e-2]
+xmin1 = [10., 500., 10., 100., 0.75]
+xmax1 = [500., 5000., 300., 2000., 1.5]
 
 for i in range(len(x1)):
     if x1[i] < xmin1[i]:
@@ -1104,23 +1089,18 @@ for i in range(len(x1)):
     elif x1[i] > xmax1[i]:
         x1[i] = xmax1[i]
 
-# transform_p = [0.742868120596, -565577.708183, 2.24526686451, 1.7930336674]
-transform_p = [1.08769959868, -0.127639325909, 2.06927002044, 1.90030954981]
-transform_f = np.vectorize(sigmoid, excluded={0,2})
-
 
 induction = 1
-
 result = optimize_explore(x1, xmin1, xmax1, ramp_error_parametric, input_matrix, complete_rate_maps, ramp, induction,
-                          transform_f, maxfev=700)
+                          maxfev=700)
 x1 = result['x']
 
 polished_result = optimize_polish(x1, xmin1, xmax1, ramp_error_parametric, input_matrix, complete_rate_maps, ramp,
-                                  induction, transform_f, maxfev=600)
+                                  induction, maxfev=600)
 x1 = polished_result['x']
-hist.report_best()
-hist.export('031617_induction1_optimization_history3_spont_cell'+cell_id)
 
+hist.report_best()
+hist.export('031717_induction1_optimization_history_spont_cell'+cell_id)
 
 """
 for induction in position:
@@ -1131,8 +1111,7 @@ for induction in position:
     local_kernel[induction], global_kernel[induction], plasticity_signal[induction], weights_parametric[induction], \
         model_ramp_parametric[induction], model_baseline[induction], \
         this_kernel_scale = ramp_error_parametric(x1, xmin1, xmax1, input_matrix, complete_rate_maps, ramp, induction,
-                                                  transform_f, baseline=this_model_baseline, plot=False,
-                                                  full_output=True)
+                                                  baseline=this_model_baseline, plot=False, full_output=True)
 if 1 not in plasticity_signal:
     plasticity_signal[1] = np.zeros_like(peak_locs['CA3'])
     weights_parametric[1] = np.ones_like(peak_locs['CA3'])
@@ -1170,11 +1149,11 @@ for induction in ramp:
     end_index = start_index + int(mean_induction_dur[induction] / dt)
     x_start = mean_induction_loc[induction] / track_length
     x_end = interp_x[induction][0][end_index] / track_length
-    axes1.plot(binned_x, ramp[induction], label='Experiment', c=colors[0])
-    axes1.plot(binned_x, model_ramp_parametric[induction], label='Model (Biochemical)', c=colors[1])
+    axes1.plot(binned_x, ramp[induction], label='Exp. data', c=colors[0])
+    axes1.plot(binned_x, model_ramp_parametric[induction], label='Model (Long signal integration)', c=colors[1])
     axes1.plot(binned_x, model_ramp_SVD[induction], label='Model (SVD)', c=colors[2])
     axes1.axhline(y=ylim1 + 0.25, xmin=x_start, xmax=x_end, linewidth=2, c='k')
-    axes2.plot(peak_locs['CA3'], weights_parametric[induction], label='Model (Biochemical)', c=colors[1])
+    axes2.plot(peak_locs['CA3'], weights_parametric[induction], label='Model (Long signal integration)', c=colors[1])
     axes2.plot(peak_locs['CA3'], weights_SVD[induction], label='Model (SVD)', c=colors[2])
     axes2.axhline(y=ylim2 + 0.25, xmin=x_start, xmax=x_end, linewidth=2, c='k')
 axes1.set_xlabel('Location (cm)')
@@ -1185,7 +1164,7 @@ axes1.set_title('Induction 1: Vm ramp')
 clean_axes(axes1)
 fig1.tight_layout()
 axes2.set_xlabel('Location (cm)')
-axes2.set_ylabel('Candidate synaptic weights')
+axes2.set_ylabel('Candidate synaptic weights (a.u.)')
 axes2.set_title('Induction 1: Synaptic weights')
 axes2.legend(loc='best', frameon=False, framealpha=0.5)
 clean_axes(axes2)
@@ -1205,7 +1184,7 @@ for induction in ramp:
         fig3, axes3 = plt.subplots(1)
         axes3.scatter(plasticity_signal[induction], delta_weights[induction], c=asymmetry[induction], linewidth=0)
         axes3.set_xlabel('Plasticity signal (a.u.)')
-        axes3.set_ylabel('Change in synaptic weight')
+        axes3.set_ylabel('Change in synaptic weight (a.u.)')
         axes3.set_title('Induction %i: Plasticity transfer function' % induction)
         axes3.legend(loc='best', handles=label_handles, framealpha=0.5, frameon=False)
         clean_axes(axes3)
@@ -1216,8 +1195,8 @@ for induction in ramp:
         axes4.scatter(plasticity_signal[induction], weights_SVD[1], delta_weights[induction], c=asymmetry[induction],
                       linewidth=0)
         axes4.set_xlabel('Plasticity signal (a.u.)')
-        axes4.set_ylabel('Initial synaptic weight')
-        axes4.set_zlabel('Change in synaptic weight')
+        axes4.set_ylabel('Initial synaptic weight (a.u.)')
+        axes4.set_zlabel('Change in synaptic weight (a.u.)')
         axes4.set_title('Induction %i: Plasticity transfer function' % induction)
         axes4.legend(loc='center left', handles=label_handles, framealpha=0.5, frameon=False, bbox_to_anchor=(1, 0.5))
         fig4.tight_layout()
@@ -1227,7 +1206,7 @@ plt.close()
 """
 
 """
-output_filename = '031617 plasticity nonlinearity iter2 summary'
+output_filename = '031717 plasticity summary'
 with h5py.File(data_dir+output_filename+'.hdf5', 'a') as f:
     if 'long_spont' not in f:
         f.create_group('long_spont')
