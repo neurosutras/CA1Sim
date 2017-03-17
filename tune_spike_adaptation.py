@@ -221,7 +221,6 @@ def compute_spike_shape_features(local_x=None, plot=0):
     result['amp'] = amp
     return result
 
-
 @interactive
 def compute_spike_stability_features(amp, local_x=None, plot=0):
     sim.parameters['amp'] = amp
@@ -243,6 +242,7 @@ def compute_spike_stability_features(amp, local_x=None, plot=0):
     if plot:
         sim.plot()
     vm = np.interp(t, sim.tvec, sim.get_rec('soma')['vec'])
+    axon_vm = np.interp(t, sim.tvec, sim.get_rec('Axon Vm')['vec'])
     v_rest = np.mean(vm[int((equilibrate - 3.)/dt):int((equilibrate - 1.)/dt)])
     v_before = np.max(vm[int((equilibrate - 50.)/dt):int((equilibrate - 1.)/dt)])
     v_after = np.max(vm[-int(50./dt):-1])
@@ -251,7 +251,61 @@ def compute_spike_stability_features(amp, local_x=None, plot=0):
     result['stability'] = stability
     result['v_min_late'] = v_min_late
     print 'Process %i took %.1f s to test spike stability with amp: %.3f' % (os.getpid(), time.time()-start_time, amp)
-    return result
+    return result, axon_vm, t
+"""
+amp=0.6
+axon_th=20.
+start=250
+stop=370
+"""
+def sim_spike_times(amp, axon_th, start, stop, local_x=None):
+    if local_x is None:
+        local_x = x
+    #can use a hard-coded voltage threshold based on axon firing
+    result, axon_vm, t = compute_spike_stability_features(amp, local_x, plot=1)
+    axon_vm = axon_vm[int(start/dt):int(stop/dt)]
+    t = t[int(start / dt):int(stop / dt)]
+    #dvdt = np.gradient(axon_vm, [dt])
+    th_x = np.where(axon_vm > axon_th)[0]
+    spike_times = []
+    index = 0
+    while index < len(th_x):
+        peak_range = [th_x[index]]
+        while (index+1) < len(th_x):
+            if th_x[index+1] == (th_x[index]+1):
+                peak_range.append(th_x[index+1])
+                index +=1
+            else:
+                break
+        if len(peak_range) > 1:
+            v_peak = np.max(axon_vm[peak_range[0]:peak_range[-1]])
+            peak_range_ind = np.where(axon_vm[peak_range[0]:peak_range[-1]] == v_peak)[0][0]
+            x_peak = peak_range[peak_range_ind]
+        else:
+            x_peak = peak_range[0]
+        spike_times.append(t[x_peak])
+        index += 1
+    return spike_times
+
+def adapt_index(spike_times):
+    #Use axon spikes to calculate index
+    if len(spike_times) < 4:
+        return None
+    adi = 0
+    count = 0
+    isi = []
+    for i in range(len(spike_times)-1):
+        isi.append(spike_times[i+1] - spike_times[i])
+    for i in range(len(isi)-1):
+        adi += 1.0 * (isi[i+1] - isi[i]) / (isi[i+1] + isi[i])
+        count += 1
+    adi /= count
+    return adi
+
+def test_diff_amps(amps):
+    for amp in amps:
+        compute_spike_stability_features(amp, plot=1)
+    #Also compute spike count and adapt_index for each current injection, and plot them
 
 
 @interactive
@@ -328,15 +382,17 @@ sim.append_rec(cell, cell.tree.root, loc=0.5, object=cell.tree.root.sec(0.5), pa
                description='Soma km_i')
 sim.append_rec(cell, cell.axon[2], loc=0.5, description='Axon Vm')
 
-cell.modify_mech_param('soma', 'Ca', 'gcamult', 1.)
-cell.modify_mech_param('soma', 'CadepK', 'gcakmult', 1.)
+cell.modify_mech_param('soma', 'Ca', 'gcamult', .1)
+cell.modify_mech_param('soma', 'CadepK', 'gcakmult', 0.1)
+"""
 for sec_type in ['axon_hill', 'ais', 'axon']:
     cell.modify_mech_param(sec_type, 'Ca', 'gcamult', origin='soma')
     cell.modify_mech_param(sec_type, 'CadepK', 'gcakmult', origin='soma')
+"""
 
 sim.append_rec(cell, cell.tree.root, loc=0.5, object=cell.tree.root.sec(0.5), param='_ref_i_Ca',
                description='Soma Ca_i')
 sim.append_rec(cell, cell.tree.root, loc=0.5, object=cell.tree.root.sec(0.5), param='_ref_ca_i_Ca',
-               description='Soma Ca_i')
+               description='Soma Ca_intra_Ca')
 sim.append_rec(cell, cell.tree.root, loc=0.5, object=cell.tree.root.sec(0.5), param='_ref_i_CadepK',
                description='Soma CadepK_i')
