@@ -2248,7 +2248,7 @@ class optimize_history(object):
 
 
 def sigmoid(p, x, yoff=None):
-    x0,y0,c,k=p
+    x0, y0, c, k = p
     y = c / (1. + np.exp(-k*(x-x0))) + y0
     if yoff is None:
         yoff = c / (1. + np.exp(-k*(-x0))) + y0

@@ -786,7 +786,7 @@ def ramp_error_parametric(x, xmin, xmax, input_matrix, complete_rate_maps, ramp,
             if attempt == 0:
                 this_kernel_scale = amp['exp'] / np.max(model_ramp)
     else:
-        weights = np.add(transform(transform_p, plasticity_signal), 1.)
+        weights = np.add(transform(transform_p, plasticity_signal, 0.), 1.)
         model_ramp = weights.dot(input_matrix)  # x=default_interp_x
         if baseline is None:
             model_baseline = subtract_baseline(model_ramp)
@@ -1071,13 +1071,13 @@ x0 = {}
 # to avoid saturation, ensure that the peak amplitude of the local signal is lower than the global signal:
 # [local_rise_tau, local_decay_tau, global_rise_tau, global_decay_tau, filter_ratio]
 
-x0['1'] = [1.239E+01, 5.000E+02, 9.447E+01, 1.188E+02, 1.495E+00]  # Error: 3.8170E+04
-x0['2'] = [4.407E+02, 9.076E+02, 3.038E+01, 1.002E+02, 1.500E+00]  # Error: 1.2589E+05
-x0['3'] = [2.913E+02, 1.353E+03, 2.464E+02, 6.853E+02, 1.000E+00]  # Error: 2.3865E+05
-x0['4'] = [2.408E+02, 5.055E+02, 4.309E+01, 1.000E+02, 1.486E+00]  # Error: 2.1957E+04
-x0['5'] = [3.696E+01, 1.940E+03, 3.000E+02, 7.755E+02, 1.368E+00]  # Error: 1.1568E+05
-x0['6'] = [5.000E+02, 8.729E+02, 1.074E+01, 3.037E+02, 1.000E+00]  # Error: 5.5804E+05
-x0['7'] = [1.884E+01, 5.020E+02, 1.273E+02, 4.689E+02, 1.142E+00]  # Error: 6.0693E+05
+x0['1'] = [1.161E+01, 5.000E+02, 1.030E+02, 1.033E+02, 1.500E+00]  # Error: 6.6039E+05
+x0['2'] = [4.997E+02, 7.405E+02, 1.010E+01, 3.912E+02, 1.000E+00]  # Error: 5.3843E+06
+x0['3'] = [1.050E+01, 1.449E+03, 3.000E+02, 3.655E+02, 1.125E+00]  # Error: 2.5049E+05
+x0['4'] = [1.705E+02, 5.026E+02, 1.000E+01, 2.503E+02, 1.001E+00]  # Error: 2.5410E+07
+x0['5'] = [1.000E+01, 1.183E+03, 2.854E+02, 6.821E+02, 1.000E+00]  # Error: 2.8731E+06
+x0['6'] = [5.000E+02, 6.938E+02, 1.002E+01, 1.503E+02, 1.000E+00]  # Error: 6.8922E+06
+x0['7'] = [1.155E+02, 4.983E+03, 1.006E+01, 1.919E+03, 1.000E+00]  # Error: 3.2379E+07
 
 x0['mean'] = [2.201E+02, 7.998E+02, 3.643E+01, 4.693E+02, 1.367E+00]
 
@@ -1097,8 +1097,9 @@ for i in range(len(x1)):
     elif x1[i] > xmax1[i]:
         x1[i] = xmax1[i]
 
-transform_p = [0.742868120596, -565577.708183, 2.24526686451, 1.7930336674]
-transform_f = np.vectorize(sigmoid, excluded={0})
+# transform_p = [0.742868120596, -565577.708183, 2.24526686451, 1.7930336674]
+transform_p = [1.08769959868, -0.127639325909, 2.06927002044, 1.90030954981]
+transform_f = np.vectorize(sigmoid, excluded={0,2})
 
 
 induction = 1
@@ -1111,7 +1112,7 @@ polished_result = optimize_polish(x1, xmin1, xmax1, ramp_error_parametric, input
                                   induction, transform_f, maxfev=600)
 x1 = polished_result['x']
 hist.report_best()
-hist.export('031617_induction_1_optimization_history2_spont_cell'+cell_id)
+hist.export('031617_induction1_optimization_history3_spont_cell'+cell_id)
 
 
 """
@@ -1198,7 +1199,7 @@ for induction in ramp:
         axes3.scatter(plasticity_signal[induction], delta_weights[induction], c=asymmetry[induction], linewidth=0)
         axes3.set_xlabel('Plasticity signal (a.u.)')
         axes3.set_ylabel('Change in synaptic weight')
-        #axes3.set_title('Metaplasticity - Induction '+str(induction))
+        axes3.set_title('Induction %i: Plasticity transfer function' % induction)
         axes3.legend(loc='best', handles=label_handles, framealpha=0.5, frameon=False)
         clean_axes(axes3)
         fig3.tight_layout()
@@ -1210,7 +1211,7 @@ for induction in ramp:
         axes4.set_xlabel('Plasticity signal (a.u.)')
         axes4.set_ylabel('Initial synaptic weight')
         axes4.set_zlabel('Change in synaptic weight')
-        #axes4.set_title('Metaplasticity - Induction ' + str(induction))
+        axes4.set_title('Induction %i: Plasticity transfer function' % induction)
         axes4.legend(loc='center left', handles=label_handles, framealpha=0.5, frameon=False, bbox_to_anchor=(1, 0.5))
         fig4.tight_layout()
 
@@ -1219,7 +1220,7 @@ plt.close()
 """
 
 """
-output_filename = '030917 plasticity nonlinearity summary'
+output_filename = '031617 plasticity nonlinearity iter2 summary'
 with h5py.File(data_dir+output_filename+'.hdf5', 'a') as f:
     if 'long_spont' not in f:
         f.create_group('long_spont')
