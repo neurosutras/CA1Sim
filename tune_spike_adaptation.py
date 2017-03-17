@@ -20,9 +20,12 @@ neurotree_dict = read_from_pkl(morph_dir+neurotree_filename)
 rec_filename = str(time.strftime('%m%d%Y', time.gmtime()))+'_'+str(time.strftime('%H%M%S', time.gmtime()))+\
                '_pid'+str(os.getpid())+'_sim_output'
 
-# placeholder for optimization parameter, must be pushed to each engine on each iteration
-# x: array [soma.gkabar, soma.gkdrbar, axon.gkabar_kap factor, axon.gbar_nax factor, soma.sh_nas/x]
 x = None  # Placeholder for parameters pushed from controller.
+
+""""
+#[soma.Ca factor, soma.CadepK factor]
+x['spike_adaptation'] = [0.1, 0.1]
+"""
 
 xmin = {}
 xmax = {}
@@ -259,18 +262,27 @@ start=250
 stop=370
 """
 def sim_spike_times(amp, axon_th, start, stop, local_x=None):
+    """
+
+    :param amp: float
+    :param axon_th: float. This is the threshold above which the program will look for spike peaks
+    :param start: float
+    :param stop: float
+    :param local_x: list
+    :return:
+    """
     if local_x is None:
         local_x = x
-    #can use a hard-coded voltage threshold based on axon firing
-    result, axon_vm, t = compute_spike_stability_features(amp, local_x, plot=1)
+    result, axon_vm, t = compute_spike_stability_features(amp, local_x)
     axon_vm = axon_vm[int(start/dt):int(stop/dt)]
     t = t[int(start / dt):int(stop / dt)]
-    #dvdt = np.gradient(axon_vm, [dt])
+    #th_x is a list of the indices in axon_vm where the axon voltage is above the given threshold
     th_x = np.where(axon_vm > axon_th)[0]
     spike_times = []
     index = 0
     while index < len(th_x):
         peak_range = [th_x[index]]
+        #look for indices of th_x that are consecutive; these indices are part of the same spike
         while (index+1) < len(th_x):
             if th_x[index+1] == (th_x[index]+1):
                 peak_range.append(th_x[index+1])
@@ -288,7 +300,11 @@ def sim_spike_times(amp, axon_th, start, stop, local_x=None):
     return spike_times
 
 def adapt_index(spike_times):
-    #Use axon spikes to calculate index
+    """
+
+    :param spike_times: list of the times at which there are spike peaks
+    :return: adi is high for high spike adaptation (large differences in lengths of interspike intervals)
+    """
     if len(spike_times) < 4:
         return None
     adi = 0
@@ -302,10 +318,16 @@ def adapt_index(spike_times):
     adi /= count
     return adi
 
-def test_diff_amps(amps):
-    for amp in amps:
-        compute_spike_stability_features(amp, plot=1)
-    #Also compute spike count and adapt_index for each current injection, and plot them
+def adjust_spike_number(target_spikes, axon_th, start, stop):
+    spike_num = 0
+    amp = 0.25
+    while spike_num < target_spikes:
+        spike_times = sim_spike_times(amp, axon_th, start, stop)
+        spike_num = len(spike_times)
+        amp += 0.05
+
+def spike_adaptation_error(spike_num):
+    amp = adjust_spike_number(spike_num)
 
 
 @interactive
@@ -396,3 +418,5 @@ sim.append_rec(cell, cell.tree.root, loc=0.5, object=cell.tree.root.sec(0.5), pa
                description='Soma Ca_intra_Ca')
 sim.append_rec(cell, cell.tree.root, loc=0.5, object=cell.tree.root.sec(0.5), param='_ref_i_CadepK',
                description='Soma CadepK_i')
+
+#Target adaptation index: 0.118989 for ~6 spikes
