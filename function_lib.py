@@ -2245,3 +2245,12 @@ class optimize_history(object):
                 plt.xlabel(self.xlabels[index])
                 plt.ylabel(feature)
                 plt.legend(loc='upper right', scatterpoints=1, frameon=False, framealpha=0.5)
+
+
+def sigmoid(p, x, yoff=None):
+    x0,y0,c,k=p
+    y = c / (1. + np.exp(-k*(x-x0))) + y0
+    if yoff is None:
+        yoff = c / (1. + np.exp(-k*(-x0))) + y0
+    y -= yoff
+    return y
