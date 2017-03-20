@@ -5,6 +5,7 @@ import random
 import sys
 import scipy.signal as signal
 import mkl
+import matplotlib.gridspec as gridspec
 
 """
 These methods determine the shape of the function that translates plasticity signal into changes in synaptic weight
@@ -651,7 +652,7 @@ def calculate_plasticity_signal(x, local_kernel, global_kernel, complete_rate_ma
     """
     Given the local and global kernels, convolve each input rate_map with the local kernel, and convolve the
     current injection with the global kernel. The weight change for each input is proportional to the area under the
-    product of the two signals. Incremental weight changes accrue across multiple induction trials.
+    overlap of the two signals. Incremental weight changes accrue across multiple induction trials.
     :param x: array: [local_rise_tau, local_decay_tau, global_rise_tau, global_decay_tau, filter_ratio]
     :param local_kernel: array
     :param global_kernel: array
@@ -686,8 +687,16 @@ def calculate_plasticity_signal(x, local_kernel, global_kernel, complete_rate_ma
         this_area = np.trapz(this_signal, dx=down_dt)
         plasticity_signal[j] += this_area
         if plot and j == int(len(complete_rate_maps[induction])/2):
-            # buffer = 5000.
-            buffer = 0.
+            buffer = 5000.
+            # buffer = 0.
+            # orig_font_size = mpl.rcParams['font.size']
+            # orig_fig_size = mpl.rcParams['figure.figsize']
+            # mpl.rcParams['font.size'] = 8.
+            # mpl.rcParams['figure.figsize'] = 7.34, 3.25
+            fig1 = plt.figure()
+            # gs1 = gridspec.GridSpec(2, 2)
+            # axes = plt.subplot(gs1[0, 0])
+            fig1, axes = plt.subplots(1)
             ylim = max(np.max(this_local_signal), max_global_signal)
             ylim *= this_kernel_scale
             this_global_signal = np.multiply(global_signal, this_kernel_scale)
@@ -701,11 +710,10 @@ def calculate_plasticity_signal(x, local_kernel, global_kernel, complete_rate_ma
             this_duration = end_time - start_time
             x_start = (buffer + this_induction_start) / this_duration
             x_end = (buffer + this_induction_start + this_induction_dur) / this_duration
-            fig, axes = plt.subplots(1)
+            axes.plot(down_t / 1000., this_global_signal, label='Global signal', color='b')
             axes.plot(down_t/1000., this_local_signal, label='Local signal', color='k')
-            axes.plot(down_t/1000., this_global_signal, label='Global signal', color='b')
             axes.fill_between(down_t/1000., 0., this_signal, label='Overlap', facecolor='grey', alpha=0.5)
-            axes.axhline(y=ylim*1.05, xmin=x_start, xmax=x_end, linewidth=3, c='k')
+            axes.axhline(y=ylim*1.05, xmin=x_start, xmax=x_end, linewidth=1, c='k')
             axes.legend(loc='best', frameon=False, framealpha=0.5)
             axes.set_xlabel('Time (s)')
             axes.set_ylabel('Signal amplitude (a.u.)')
@@ -713,9 +721,12 @@ def calculate_plasticity_signal(x, local_kernel, global_kernel, complete_rate_ma
             axes.set_ylim(-0.05*ylim, ylim*1.1)
             axes.set_title('Plasticity signal')
             clean_axes(axes)
-            fig.tight_layout()
+            # gs1.tight_layout(fig1)
+            fig1.tight_layout()
             plt.show()
             plt.close()
+            # mpl.rcParams['font.size'] = orig_font_size
+            # mpl.rcParams['figure.figsize'] = orig_fig_size
 
     if plot:
         x_start = np.mean(induction_locs[induction]) / track_length
@@ -847,7 +858,8 @@ def ramp_error_parametric(x, xmin, xmax, input_matrix, complete_rate_maps, ramp,
     hist.x.append(x)
     hist.Err.append(Err)
     if full_output:
-        return local_kernel, global_kernel, plasticity_signal, weights, model_ramp, model_baseline, this_kernel_scale
+        return local_kernel, global_kernel, plasticity_signal, weights, model_ramp, model_baseline, this_kernel_scale, \
+               Err
     else:
         return Err
 
@@ -1062,31 +1074,54 @@ x0 = {}
 # to avoid saturation, ensure that the peak amplitude of the local signal is lower than the global signal:
 # [local_rise_tau, local_decay_tau, global_rise_tau, global_decay_tau, filter_ratio]
 
-x0['1'] = [4.816E+02, 1.280E+03, 3.000E+02, 5.544E+02, 7.500E-01]  # lowest Err: 2.009E+06
-x0['2'] = [3.430E+01, 5.000E+02, 1.211E+02, 1.311E+02, 1.500E+00]  # lowest Err: 3.806E+06
+# x0['1'] = [4.816E+02, 1.280E+03, 3.000E+02, 5.544E+02, 7.500E-01]  # lowest Err: 2.009E+06
+x0['1'] = [1.073E+01, 1.383E+03, 1.476E+02, 2.367E+02, 7.524E-01]  # Error: 9.3853E+04
+# x0['2'] = [3.430E+01, 5.000E+02, 1.211E+02, 1.311E+02, 1.500E+00]  # lowest Err: 3.806E+06
+x0['2'] = [3.378E+01, 5.000E+02, 1.299E+02, 1.299E+02, 1.500E+00]  # Error: 1.8947E+05
 # Don't use cell3, it's the same as cell15
-x0['4'] = [1.051E+01, 5.000E+03, 2.814E+02, 1.299E+03, 1.497E+00]  # Error: 4.0962E+05
-x0['5'] = [3.872E+02, 5.788E+02, 1.004E+01, 3.787E+02, 8.964E-01]  # lowest Err: 5.147E+04
-x0['6'] = [9.890E+01, 5.001E+02, 1.000E+01, 4.016E+02, 1.500E+00]  # lowest Err: 5.126E+05
-x0['7'] = [3.115E+02, 1.305E+03, 1.084E+01, 1.200E+03, 7.500E-01]  # lowest Err: 2.110E+06
-x0['8'] = [4.644E+02, 5.265E+02, 1.353E+02, 3.934E+02, 1.500E+00]  # lowest Err: 5.074E+05
-x0['9'] = [2.041E+02, 2.361E+03, 2.373E+02, 2.000E+03, 1.500E+00]  # lowest Err: 9.880E+05
-x0['10'] = [4.992E+02, 2.958E+03, 1.166E+01, 1.000E+02, 1.500E+00]  # lowest Err: 1.944E+06
-x0['11'] = [6.335E+01, 5.000E+02, 1.289E+02, 1.2891E+02, 1.500E+00]  # lowest Err: 8.613E+05
-x0['12'] = [4.729E+01, 5.604E+02, 4.705E+01, 1.001E+02, 1.500E+00]  # lowest Err: 5.430E+05
-x0['13'] = [5.000E+02, 7.468E+02, 1.085E+01, 1.005E+02, 8.050E-01]  # lowest Err: 1.959E+05
-x0['14'] = [1.000E+02, 5.001E+02, 1.000E+01, 3.450E+02, 1.500E+00]  # lowest Err: 3.766E+05
-x0['15'] = [4.534E+02, 5.049E+02, 1.000E+01, 4.166E+02, 8.590E-01]  # lowest Err: 1.856E+05
+# x0['4'] = [1.051E+01, 5.000E+03, 2.814E+02, 1.299E+03, 1.497E+00]  # Error: 4.0962E+05
+x0['4'] = [1.117E+01, 2.943E+03, 3.000E+02, 1.007E+03, 1.465E+00]  # Error: 6.2658E+04
+# x0['5'] = [3.872E+02, 5.788E+02, 1.004E+01, 3.787E+02, 8.964E-01]  # lowest Err: 5.147E+04
+x0['5'] = [5.000E+02, 5.857E+02, 1.000E+01, 4.716E+02, 9.225E-01]  # Error: 9.8229E+02
+# x0['6'] = [9.890E+01, 5.001E+02, 1.000E+01, 4.016E+02, 1.500E+00]  # lowest Err: 5.126E+05
+x0['6'] = [1.192E+02, 5.000E+02, 4.050E+01, 2.086E+02, 1.440E+00]  # Error: 2.9486E+04
+# x0['7'] = [3.115E+02, 1.305E+03, 1.084E+01, 1.200E+03, 7.500E-01]  # lowest Err: 2.110E+06
+x0['7'] = [3.007E+02, 1.380E+03, 2.670E+01, 1.152E+03, 7.500E-01]  # Error: 1.9689E+05
+# x0['8'] = [4.644E+02, 5.265E+02, 1.353E+02, 3.934E+02, 1.500E+00]  # lowest Err: 5.074E+05
+x0['8'] = [4.613E+02, 5.000E+02, 1.344E+02, 3.357E+02, 1.497E+00]  # Error: 5.4947E+04
+# x0['9'] = [2.041E+02, 2.361E+03, 2.373E+02, 2.000E+03, 1.500E+00]  # lowest Err: 9.880E+05
+x0['9'] = [5.000E+02, 1.464E+03, 1.485E+01, 1.927E+03, 8.977E-01]  # Error: 9.7182E+04
+# x0['10'] = [4.992E+02, 2.958E+03, 1.166E+01, 1.000E+02, 1.500E+00]  # lowest Err: 1.944E+06
+x0['10'] = [3.348E+02, 1.707E+03, 2.141E+01, 1.000E+02, 1.483E+00]  # Error: 1.5593E+05
+# x0['11'] = [6.335E+01, 5.000E+02, 1.289E+02, 1.2891E+02, 1.500E+00]  # lowest Err: 8.613E+05
+x0['11'] = [1.000E+01, 5.015E+02, 1.365E+01, 1.000E+02, 1.462E+00]  # Error: 8.6519E+04
+# x0['12'] = [4.729E+01, 5.604E+02, 4.705E+01, 1.001E+02, 1.500E+00]  # lowest Err: 5.430E+05
+x0['12'] = [3.297E+01, 5.112E+02, 8.255E+01, 1.031E+02, 1.500E+00]  # Error: 1.0947E+04
+# x0['13'] = [5.000E+02, 7.468E+02, 1.085E+01, 1.005E+02, 8.050E-01]  # lowest Err: 1.959E+05
+x0['13'] = [5.000E+02, 6.915E+02, 1.002E+01, 1.002E+02, 1.062E+00]  # Error: 5.7813E+03
+# x0['14'] = [1.000E+02, 5.001E+02, 1.000E+01, 3.450E+02, 1.500E+00]  # lowest Err: 3.766E+05
+x0['14'] = [7.231E+01, 5.000E+02, 2.574E+01, 3.749E+02, 1.468E+00]  # Error: 2.7570E+04
+# x0['15'] = [4.534E+02, 5.049E+02, 1.000E+01, 4.166E+02, 8.590E-01]  # lowest Err: 1.856E+05
+x0['15'] = [4.636E+02, 5.001E+02, 1.000E+01, 3.470E+02, 9.100E-01]  # Error: 2.4510E+04
 # Don't use cell16, it's the same as cell8
-x0['17'] = [5.000E+02, 6.432E+02, 1.097E+01, 6.723E+02, 7.501E-01]  # lowest Err: 1.083E+06
-x0['18'] = [4.983E+02, 3.838E+03, 1.073E+01, 7.123E+02, 7.500E-01]  # Err: 3.7061E+05
-x0['19'] = [6.920E+01, 5.000E+02, 5.924E+01, 1.000E+02, 1.500E+00]  # lowest Err: 6.060E+05
-x0['20'] = [1.000E+01, 1.977E+03, 2.786E+02, 2.826E+02, 1.500E+00]  # lowest Err: 1.901E+06
-x0['21'] = [2.283E+02, 1.691E+03, 1.187E+02, 1.036E+03, 1.495E+00]  # lowest Err: 6.304E+05
-x0['22'] = [1.000E+01, 5.002E+02, 1.952E+02, 3.540E+02, 1.474E+00]  # lowest Err: 6.639E+05
-x0['23'] = [5.000E+02, 8.365E+02, 1.268E+02, 9.359E+02, 1.498E+00]  # lowest Err: 3.649E+05
+# x0['17'] = [5.000E+02, 6.432E+02, 1.097E+01, 6.723E+02, 7.501E-01]  # lowest Err: 1.083E+06
+x0['17'] = [4.885E+02, 9.537E+02, 1.413E+01, 7.258E+02, 7.502E-01]  # Error: 1.6924E+05
+# x0['18'] = [4.983E+02, 3.838E+03, 1.073E+01, 7.123E+02, 7.500E-01]  # Err: 3.7061E+05
+x0['18'] = [4.954E+02, 3.254E+03, 1.316E+01, 6.941E+02, 7.500E-01]  # Error: 8.1046E+04
+# x0['19'] = [6.920E+01, 5.000E+02, 5.924E+01, 1.000E+02, 1.500E+00]  # lowest Err: 6.060E+05
+x0['19'] = [1.228E+01, 1.108E+03, 1.500E+02, 2.137E+02, 1.063E+00]  # Error: 1.6914E+04
+# x0['20'] = [1.000E+01, 1.977E+03, 2.786E+02, 2.826E+02, 1.500E+00]  # lowest Err: 1.901E+06
+x0['20'] = [1.050E+01, 2.785E+03, 2.850E+02, 3.654E+02, 1.500E+00]  # Error: 9.0548E+04
+# x0['21'] = [2.283E+02, 1.691E+03, 1.187E+02, 1.036E+03, 1.495E+00]  # lowest Err: 6.304E+05
+x0['21'] = [1.241E+01, 1.417E+03, 1.566E+01, 7.664E+02, 7.506E-01]  # Error: 2.8679E+04
+# x0['22'] = [1.000E+01, 5.002E+02, 1.952E+02, 3.540E+02, 1.474E+00]  # lowest Err: 6.639E+05
+x0['22'] = [2.321E+01, 5.000E+02, 2.053E+02, 2.771E+02, 1.312E+00]  # Error: 1.7055E+04
+# x0['23'] = [5.000E+02, 8.365E+02, 1.268E+02, 9.359E+02, 1.498E+00]  # lowest Err: 3.649E+05
+x0['23'] = [4.930E+02, 6.762E+02, 2.024E+02, 6.613E+02, 1.499E+00]  # Error: 3.0173E+04
 
-x0['mean'] = [2.093E+02, 1.342E+03, 7.888E+01, 3.992E+02, 1.316E+00]  # Induced + Spontaneous
+x0['mean'] = [2.099E+02, 1.093E+03, 1.035E+02, 4.382E+02, 1.204E+00]  # Induced + Spontaneous 031917
+# x0['mean'] = [2.327E+02, 1.160E+03, 8.824E+01, 4.904E+02, 1.178E+00]  # Induced 031917
+# x0['mean'] = [2.093E+02, 1.342E+03, 7.888E+01, 3.992E+02, 1.316E+00]  # Induced + Spontaneous
 
 kernel_scale['1'] = 4.525E-03
 kernel_scale['2'] = 2.591E-03
@@ -1126,7 +1161,7 @@ for i in range(len(x1)):
     elif x1[i] > xmax1[i]:
         x1[i] = xmax1[i]
 
-
+"""
 induction = 1
 result = optimize_explore(x1, xmin1, xmax1, ramp_error_parametric, input_matrix, complete_rate_maps, ramp, induction,
                           maxfev=700)
@@ -1138,7 +1173,7 @@ x1 = polished_result['x']
 
 hist.report_best()
 hist.export('031917_induction1_optimization_history_cell'+cell_id)
-
+"""
 
 for induction in position:
     if induction == 2 and 1 in position:
@@ -1146,9 +1181,9 @@ for induction in position:
     else:
         this_model_baseline = None
     local_kernel[induction], global_kernel[induction], plasticity_signal[induction], weights_parametric[induction], \
-        model_ramp_parametric[induction], model_baseline[induction], \
-        this_kernel_scale = ramp_error_parametric(x1, xmin1, xmax1, input_matrix, complete_rate_maps, ramp, induction,
-                                                  baseline=this_model_baseline, plot=False, full_output=True)
+        model_ramp_parametric[induction], model_baseline[induction], this_kernel_scale, \
+        Err = ramp_error_parametric(x1, xmin1, xmax1, input_matrix, complete_rate_maps, ramp, induction,
+                                    baseline=this_model_baseline, plot=False, full_output=True)
 if 1 not in plasticity_signal:
     plasticity_signal[1] = np.zeros_like(peak_locs['CA3'])
     weights_parametric[1] = np.ones_like(peak_locs['CA3'])
@@ -1237,7 +1272,7 @@ for induction in ramp:
 
 plt.show()
 plt.close()
-"""
+
 
 
 induction = 1
@@ -1253,6 +1288,9 @@ with h5py.File(data_dir+output_filename+'.hdf5', 'a') as f:
     f['long'][cell_id].attrs['track_length'] = track_length
     f['long'][cell_id].attrs['induction_loc'] = mean_induction_loc[induction]
     f['long'][cell_id].attrs['induction_dur'] = mean_induction_dur[induction]
+    f['long'][cell_id].attrs['parameters'] = x1
+    f['long'][cell_id].attrs['kernel_scale'] = this_kernel_scale
+    f['long'][cell_id].attrs['error'] = Err
     f['long'][cell_id].create_dataset('local_kernel', compression='gzip', compression_opts=9,
                                       data=local_kernel[induction])
     f['long'][cell_id].create_dataset('global_kernel', compression='gzip', compression_opts=9,
@@ -1269,3 +1307,4 @@ with h5py.File(data_dir+output_filename+'.hdf5', 'a') as f:
                                       data=weights_parametric[induction])
     f['long'][cell_id].create_dataset('weights_SVD', compression='gzip', compression_opts=9,
                                       data=weights_SVD[induction])
+"""
