@@ -1148,7 +1148,7 @@ for induction in position:
     local_kernel[induction], global_kernel[induction], plasticity_signal[induction], weights_parametric[induction], \
         model_ramp_parametric[induction], model_baseline[induction], \
         this_kernel_scale = ramp_error_parametric(x1, xmin1, xmax1, input_matrix, complete_rate_maps, ramp, induction,
-                                                  baseline=this_model_baseline, plot=True, full_output=True)
+                                                  baseline=this_model_baseline, plot=False, full_output=True)
 if 1 not in plasticity_signal:
     plasticity_signal[1] = np.zeros_like(peak_locs['CA3'])
     weights_parametric[1] = np.ones_like(peak_locs['CA3'])
