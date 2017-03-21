@@ -1172,12 +1172,12 @@ for i in range(len(x1)):
     elif x1[i] > xmax1[i]:
         x1[i] = xmax1[i]
 
-
+"""
 induction = 1
 polished_result = optimize_polish(x1, xmin1, xmax1, ramp_error_parametric, input_matrix, successes, ramp,
                                   induction, maxfev=600)
 x1 = polished_result['x']
-
+"""
 
 for induction in position:
     if induction == 2 and 1 in position:
