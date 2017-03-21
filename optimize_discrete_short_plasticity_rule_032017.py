@@ -1085,31 +1085,29 @@ x0 = {}
 # to avoid saturation, ensure that the peak amplitude of the local signal is lower than the global signal:
 # [local_rise_tau, local_decay_tau, global_rise_tau, global_decay_tau, filter_ratio]
 
-x0['1'] = [7.500E-01]  # Error: 8.6272E+05
-x0['2'] = [1.500E+00]  # Error: 1.6764E+05
-# Don't use cell3, it's the same as cell15
-x0['4'] = [7.500E-01]  # Error: 2.1447E+05
-x0['5'] = [7.500E-01]  # Error: 4.5989E+06
-x0['6'] = [7.500E-01]  # Error: 1.1221E+06
-x0['7'] = [7.500E-01]  # Error: 6.0142E+06
-x0['8'] = [7.500E-01]  # Error: 6.4927E+06
-x0['9'] = [7.500E-01]  # Error: 4.9115E+06
-x0['10'] = [7.505E-01]  # Error: 9.1261E+05
-x0['11'] = [1.436E+00]  # Error: 8.3707E+04
-x0['12'] = [7.500E-01]  # Error: 6.3312E+06
-x0['13'] = [7.500E-01]  # Error: 1.4113E+07
-x0['14'] = [7.500E-01]  # Error: 9.2947E+05
-x0['15'] = [7.500E-01]  # Error: 6.1126E+06
-# Don't use cell16, it's the same as cell8
-x0['17'] = [7.500E-01]  # Error: 7.2254
-x0['18'] = [7.500E-01]  # Error: 5.3163E+06
-x0['19'] = [7.513E-01]  # Error: 1.7449E+05
-x0['20'] = [7.502E-01]  # Error: 3.7512E+05
-x0['21'] = [7.500E-01]  # Error: 2.7406E+06
-x0['22'] = [7.500E-01]  # Error: 9.2026E+04
-x0['23'] = [7.500E-01]  # Error: 4.8113E+06
+x0['1'] = [7.500E-01]  # Error: 1.124E+06
+x0['2'] = [1.432E+00]  # Error: 9.824E+04
+x0['4'] = [7.500E-01]  # Error: 3.696E+05
+x0['5'] = [7.500E-01]  # Error: 7.127E+05
+x0['6'] = [7.505E-01]  # Error: 1.395E+05
+x0['7'] = [7.500E-01]  # Error: 1.033E+06
+x0['8'] = [7.500E-01]  # Error: 5.759E+05
+x0['9'] = [7.635E-01]  # Error: 6.844E+05
+x0['10'] = [7.500E-01]  # Error: 9.953E+05
+x0['11'] = [7.500E-01]  # Error: 6.295E+04
+x0['12'] = [7.500E-01]  # Error: 2.846E+05
+x0['13'] = [7.500E-01]  # Error: 9.090E+05
+x0['14'] = [7.778E-01]  # Error: 9.240E+04
+x0['15'] = [7.500E-01]  # Error: 7.198E+05
+x0['17'] = [7.530E-01]  # Error: 1.406E+06
+x0['18'] = [7.500E-01]  # Error: 1.510E+06
+x0['19'] = [7.500E-01]  # Error: 3.180E+05
+x0['20'] = [7.500E-01]  # Error: 5.293E+05
+x0['21'] = [7.500E-01]  # Error: 6.677E+05
+x0['22'] = [1.486E+00]  # Error: 1.689E+05
+x0['23'] = [7.565E-01]  # Error: 5.668E+05
 
-x0['mean'] = [1.316E+00]  # Induced + Spontaneous
+x0['mean'] = [8.570E-01]  # Induced + Spontaneous 032117
 
 kernel_scale['1'] = 2.092E-03
 kernel_scale['2'] = 3.491E-03

@@ -1084,15 +1084,15 @@ x0 = {}
 # to avoid saturation, ensure that the peak amplitude of the local signal is lower than the global signal:
 # [local_rise_tau, local_decay_tau, global_rise_tau, global_decay_tau, filter_ratio]
 
-x0['1'] = [1.500E+00]  # Error: 4.8520E+05
-x0['2'] = [7.534E-01]  # Error: 2.3230E+05
-x0['3'] = [7.500E-01]  # Error: 1.8820E+06
-x0['4'] = [1.274E+00]  # Error: 5.1078E+05
-x0['5'] = [7.500E-01]  # Error: 2.6068E+06
-x0['6'] = [7.500E-01]  # Error: 6.4155E+06
-x0['7'] = [1.500E+00]  # Error: 4.4932E+07
+x0['1'] = [1.500E+00]  # Error: 6.765E+04
+x0['2'] = [7.500E-01]  # Error: 2.604E+05
+x0['3'] = [7.780E-01]  # Error: 5.226E+05
+x0['4'] = [7.500E-01]  # Error: 5.241E+05
+x0['5'] = [7.500E-01]  # Error: 3.943E+05
+x0['6'] = [7.500E-01]  # Error: 1.744E+06
+x0['7'] = [1.500E+00]  # Error: 6.299E+05
 
-x0['mean'] = [1.367E+00]
+x0['mean'] = [8.570E-01]  # Induced + Spontaneous 032117
 
 kernel_scale['1'] = 2.395E-03
 kernel_scale['2'] = 1.206E-02
