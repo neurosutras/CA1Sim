@@ -5,7 +5,6 @@ import random
 import sys
 import scipy.signal as signal
 import mkl
-# import matplotlib.gridspec as gridspec
 
 """
 These methods determine the shape of the function that translates plasticity signal into changes in synaptic weight
@@ -13,7 +12,9 @@ induced by plateaus.
 
 Assumptions:
 1) Synaptic weights are all = 1 prior to field induction 1. w(t0) = 1
-2) The transfer function for field induction 1 is a linear function of plasticity signal, with some gain.
+2) The transfer function for field induction 1 is a nonlinear function of plasticity signal.
+    w(t1) = f(s(t1))
+
 
 """
 morph_filename = 'EB2-late-bifurcation.swc'
@@ -33,9 +34,9 @@ else:
     cell_id = None
 
 experimental_file_dir = data_dir
-experimental_filename = '121216 magee lab first induction'
+experimental_filename = '120216 magee lab spont'
 
-mkl.set_num_threads(4)
+mkl.set_num_threads(2)
 
 
 class History(object):
@@ -198,17 +199,19 @@ def generate_spatial_rate_maps():
     return spatial_rate_maps
 
 
-def generate_complete_rate_maps_theta(induction, spatial_rate_maps, phase_maps, global_phase_offset=None):
+def generate_complete_rate_maps_theta(simiter, induction, spatial_rate_maps, phase_maps, global_phase_offset=None):
     """
     Use spatial maps for firing rate and theta phase, time vs. position maps for each induction trial, and a binary
     function of running velocity, to compute a set of complete spatial and temporal rate maps for the entire induction
     period. If no trajectory data was loaded for the laps before and after induction, this method duplicates the first
     and last lap.
+    :param simiter: int
     :param induction: int
     :param spatial_rate_maps: array
     :param phase_maps: array
     :param global_phase_offset: float
     """
+    local_random.seed(simiter)
     if global_phase_offset is None:
         global_phase_offset = local_random.uniform(-np.pi, np.pi)
     complete_rate_maps = []
@@ -303,6 +306,37 @@ def generate_complete_rate_maps_no_theta(induction, spatial_rate_maps):
     return complete_t, complete_x, complete_rate_maps
 
 
+def generate_default_rate_maps(simiter, spatial_rate_maps, phase_maps, global_phase_offset=None):
+    """
+
+    :param simiter: int
+    :param spatial_rate_maps: array
+    :param phase_maps: array
+    :param global_phase_offset: float
+    """
+    local_random.seed(simiter)
+    if global_phase_offset is None:
+        global_phase_offset = local_random.uniform(-np.pi, np.pi)
+    default_rate_maps = []
+    group = 'CA3'
+    for j in range(len(spatial_rate_maps)):
+        this_rate_map = np.interp(default_interp_x, generic_x, spatial_rate_maps[j])
+        this_phase_map = np.interp(default_interp_x, generic_x, phase_maps[j])
+        theta_force = np.exp(excitatory_theta_phase_tuning_factor[group] * np.cos(this_phase_map +
+                                                                                  excitatory_theta_phase_offset[group] -
+                                                                                       2. * np.pi * default_interp_t /
+                                                                                  global_theta_cycle_duration +
+                                                                                       global_phase_offset))
+        theta_force -= np.min(theta_force)
+        theta_force /= np.max(theta_force)
+        theta_force *= excitatory_theta_modulation_depth[group]
+        theta_force += 1. - excitatory_theta_modulation_depth[group]
+        this_rate_map = np.multiply(this_rate_map, theta_force)
+        default_rate_maps.append(this_rate_map)
+
+    return default_rate_maps
+
+
 def generate_complete_induction_gate(induction):
     """
 
@@ -357,38 +391,6 @@ def compute_EPSP_matrix(rate_maps, this_interp_x):
         this_EPSP_map = np.convolve(this_EPSP_map, epsp_filter)[:3 * len(default_interp_x)]
         EPSP_maps.append(this_EPSP_map[len(default_interp_x):2 * len(default_interp_x)])
     return np.array(EPSP_maps)
-
-
-def generate_spike_trains(rate_maps, t):
-    """
-
-    :param rate_maps: list of array
-    :return: list of array
-    """
-    spike_trains = []
-    for rate_map in rate_maps:
-        this_spike_train = get_inhom_poisson_spike_times_by_thinning(rate_map, t, dt=0.02, generator=local_random)
-        spike_trains.append(this_spike_train)
-    return spike_trains
-
-
-def filter_spike_trains(spike_trains):
-    """
-
-    :param spike_trains: list of array
-    :return: list of array
-    """
-    dynamics = [0.2, 1.769, 67.351, 0.878, 92.918]
-    successes = []
-    for spike_train in spike_trains:
-        this_Pr = Pr(*dynamics)
-        this_success_train = []
-        for spike_time in spike_train:
-            P = this_Pr.stim(spike_time)
-            if local_random.random() < P:
-                this_success_train.append(spike_time)
-        successes.append(this_success_train)
-    return successes
 
 
 NMDA_type = 'NMDA_KIN5'
@@ -563,22 +565,14 @@ for group in stim_exc_syns:
     for syn in stim_exc_syns[group]:
         all_exc_syns[syn.node.parent.parent.type].remove(syn)
 
-default_global_phase_offset = 0.
-
 spatial_rate_maps = generate_spatial_rate_maps()  # x=generic_x
-theta_phase_maps = generate_theta_phase_maps()
+# theta_phase_maps = generate_theta_phase_maps()
 
-local_random.seed(10000+int(cell_id))
-
-complete_t, complete_x, complete_rate_maps, complete_induction_gates, spike_trains, successes = {}, {}, {}, {}, {}, {}
+complete_t, complete_x, complete_rate_maps, complete_induction_gates = {}, {}, {}, {}
 for induction in [1]:  # position:
     complete_t[induction], complete_x[induction], complete_rate_maps[induction] = \
-        generate_complete_rate_maps_theta(induction, spatial_rate_maps, theta_phase_maps)
+        generate_complete_rate_maps_no_theta(induction, spatial_rate_maps)
     complete_induction_gates[induction] = generate_complete_induction_gate(induction)
-
-spike_trains[induction] = generate_spike_trains(complete_rate_maps[induction], complete_t[induction])
-successes[induction] = filter_spike_trains(spike_trains[induction])
-
 
 input_matrix = compute_EPSP_matrix(spatial_rate_maps, generic_x)  # x=default_interp_x
 
@@ -653,7 +647,7 @@ def build_kernels(x, plot=False):
     return local_filter, global_filter
 
 
-def calculate_plasticity_signal(x, local_kernel, global_kernel, spike_trains, induction, plot=False):
+def calculate_plasticity_signal(x, local_kernel, global_kernel, complete_rate_maps, induction, plot=False):
     """
     Given the local and global kernels, convolve each input rate_map with the local kernel, and convolve the
     current injection with the global kernel. The weight change for each input is proportional to the area under the
@@ -661,7 +655,7 @@ def calculate_plasticity_signal(x, local_kernel, global_kernel, spike_trains, in
     :param x: array: [local_rise_tau, local_decay_tau, global_rise_tau, global_decay_tau, filter_ratio]
     :param local_kernel: array
     :param global_kernel: array
-    :param spike_trains: dict of array
+    :param complete_rate_maps: dict of array
     :param induction: int: key for dicts of arrays
     :param plot: bool
     :return: plasticity_signal: array
@@ -669,35 +663,36 @@ def calculate_plasticity_signal(x, local_kernel, global_kernel, spike_trains, in
     filter_ratio = x[4]
     this_kernel_scale = kernel_scale['mean']
     group = 'CA3'
-    local_signal_peaks = []
-    local_signal_array = []
+    local_signal = []
     plasticity_signal = np.zeros_like(peak_locs[group])
+    max_local_signal = 0.
     global_signal = np.convolve(complete_induction_gates[induction], global_kernel)[:len(complete_t[induction])]
+    down_t = np.arange(complete_t[induction][0], complete_t[induction][-1] + down_dt / 2., down_dt)
+    global_signal = np.interp(down_t, complete_t[induction], global_signal)
     max_global_signal = np.max(global_signal)
-    for j, train in enumerate(spike_trains[induction]):
-        indexes = (np.array(train-complete_t[induction][0]) / dt).astype(int)
-        this_stim_force = np.zeros_like(complete_t[induction])
-        this_stim_force[indexes] = 1.
-        this_local_signal = np.convolve(this_stim_force, local_kernel)[:len(complete_t[induction])] / filter_ratio
-        local_signal_array.append(this_local_signal)
-        local_signal_peaks.append(np.max(this_local_signal))
-    max_local_signal = np.mean(np.array(local_signal_peaks)[np.where(local_signal_peaks >=
-                                                           np.percentile(local_signal_peaks, 90.))[0]])
+    filter_t = np.arange(0., len(local_kernel) * dt, dt)
+    down_filter_t = np.arange(0., filter_t[-1] + down_dt / 2., down_dt)
+    local_kernel_down = np.interp(down_filter_t, filter_t, local_kernel)
+    for j, stim_force in enumerate(complete_rate_maps[induction]):
+        this_stim_force = np.interp(down_t, complete_t[induction], stim_force)
+        this_local_signal = np.convolve(0.001 * down_dt * this_stim_force, local_kernel_down)[:len(down_t)] / \
+                            filter_ratio
+        local_signal.append(this_local_signal)
+        max_local_signal = max(max_local_signal, np.max(this_local_signal))
     saturation_factor = filter_ratio * max_local_signal / max_global_signal
-    # print 'saturation factor: %.3E' % saturation_factor
-    for j, train in enumerate(spike_trains[induction]):
-        this_local_signal = local_signal_array[j] / saturation_factor
+    for j, stim_force in enumerate(complete_rate_maps[induction]):
+        this_local_signal = local_signal[j] / saturation_factor
         this_signal = np.minimum(this_local_signal, global_signal)
-        this_area = np.trapz(this_signal, dx=dt)
+        this_area = np.trapz(this_signal, dx=down_dt)
         plasticity_signal[j] += this_area
-        if plot and j == int(len(spike_trains[induction])/2):
-            # buffer = 5000.
-            buffer = 0.
+        if plot and j == int(len(complete_rate_maps[induction])/2):
+            buffer = 5000.
+            # buffer = 0.
             # orig_font_size = mpl.rcParams['font.size']
             # orig_fig_size = mpl.rcParams['figure.figsize']
             # mpl.rcParams['font.size'] = 8.
             # mpl.rcParams['figure.figsize'] = 7.34, 3.25
-            # fig1 = plt.figure()
+            fig1 = plt.figure()
             # gs1 = gridspec.GridSpec(2, 2)
             # axes = plt.subplot(gs1[0, 0])
             fig1, axes = plt.subplots(1)
@@ -714,10 +709,9 @@ def calculate_plasticity_signal(x, local_kernel, global_kernel, spike_trains, in
             this_duration = end_time - start_time
             x_start = (buffer + this_induction_start) / this_duration
             x_end = (buffer + this_induction_start + this_induction_dur) / this_duration
-            axes.plot(complete_t[induction] / 1000., this_global_signal, label='Global signal', color='b')
-            axes.plot(complete_t[induction]/1000., this_local_signal, label='Local signal', color='k')
-            axes.fill_between(complete_t[induction]/1000., 0., this_signal, label='Overlap', facecolor='grey',
-                              alpha=0.5)
+            axes.plot(down_t / 1000., this_global_signal, label='Global signal', color='b')
+            axes.plot(down_t/1000., this_local_signal, label='Local signal', color='k')
+            axes.fill_between(down_t/1000., 0., this_signal, label='Overlap', facecolor='grey', alpha=0.5)
             axes.axhline(y=ylim*1.05, xmin=x_start, xmax=x_end, linewidth=1, c='k')
             axes.legend(loc='best', frameon=False, framealpha=0.5)
             axes.set_xlabel('Time (s)')
@@ -751,7 +745,7 @@ def calculate_plasticity_signal(x, local_kernel, global_kernel, spike_trains, in
     return plasticity_signal
 
 
-def ramp_error_parametric(x, xmin, xmax, input_matrix, spike_trains, ramp, induction=None, transform=None,
+def ramp_error_parametric(x, xmin, xmax, input_matrix, complete_rate_maps, ramp, induction=None, transform=None,
                           baseline=None, plot=False, full_output=False):
     """
     Given time courses of rise and decay for local and global plasticity kernels, and run velocities during field
@@ -760,7 +754,7 @@ def ramp_error_parametric(x, xmin, xmax, input_matrix, spike_trains, ramp, induc
     :param xmin: array
     :param xmax: array
     :param input_matrix: array
-    :param spike_trains: dict of list of array
+    :param complete_rate_maps: dict of list of array
     :param ramp: dict of array
     :param induction: int: key for dicts of arrays
     :param transform: callable function
@@ -774,7 +768,7 @@ def ramp_error_parametric(x, xmin, xmax, input_matrix, spike_trains, ramp, induc
         induction = 1
     this_induction_loc = np.mean([induction_loc for induction_loc in induction_locs[induction] if
                                   induction_loc is not None])
-    print 'Trying x: %s for cell %s, induction_loc: %.1f' % (formatted_x, cell_id, this_induction_loc)
+    print 'Trying x: %s for spont cell %s, induction_loc: %.1f' % (formatted_x, cell_id, this_induction_loc)
     if not check_bounds(x, xmin, xmax) or x[3] <= x[2]:
         print 'Aborting: Invalid parameter values.'
         hist.x.append(x)
@@ -783,22 +777,31 @@ def ramp_error_parametric(x, xmin, xmax, input_matrix, spike_trains, ramp, induc
     exp_ramp = np.array(ramp[induction])
     start_time = time.time()
     local_kernel, global_kernel = build_kernels(x, plot)
-    delta_weights = calculate_plasticity_signal(x, local_kernel, global_kernel, spike_trains, induction, plot)
+    delta_weights = calculate_plasticity_signal(x, local_kernel, global_kernel, complete_rate_maps, induction, plot)
     amp, width, peak_shift, ratio, start_loc, end_loc = {}, {}, {}, {}, {}, {}
     amp['exp'], width['exp'], peak_shift['exp'], ratio['exp'], start_loc['exp'], end_loc['exp'] = \
         calculate_ramp_features(exp_ramp, this_induction_loc)
     plasticity_signal = np.multiply(delta_weights, kernel_scale['mean'])
     this_kernel_scale = 1.
-    for attempt in range(2):
-        weights = np.add(np.multiply(delta_weights, this_kernel_scale), 1.)
+    if transform is None:
+        for attempt in range(2):
+            weights = np.add(np.multiply(delta_weights, this_kernel_scale), 1.)
+            model_ramp = weights.dot(input_matrix)  # x=default_interp_x
+            if baseline is None:
+                model_baseline = subtract_baseline(model_ramp)
+            else:
+                model_baseline = baseline
+                model_ramp -= model_baseline
+            if attempt == 0:
+                this_kernel_scale = amp['exp'] / np.max(model_ramp)
+    else:
+        weights = np.add(transform(transform_p, plasticity_signal, 0.), 1.)
         model_ramp = weights.dot(input_matrix)  # x=default_interp_x
         if baseline is None:
             model_baseline = subtract_baseline(model_ramp)
         else:
             model_baseline = baseline
             model_ramp -= model_baseline
-        if attempt == 0:
-            this_kernel_scale = amp['exp'] / np.max(model_ramp)
     model_ramp = np.interp(binned_x, default_interp_x, model_ramp)
     amp['model'], width['model'], peak_shift['model'], ratio['model'], start_loc['model'], end_loc['model'] = \
         calculate_ramp_features(model_ramp, this_induction_loc)
@@ -829,7 +832,7 @@ def ramp_error_parametric(x, xmin, xmax, input_matrix, spike_trains, ramp, induc
         fig, axes = plt.subplots(1)
         axes.plot(binned_x, exp_ramp, label='Exp. data', color='b')
         axes.plot(binned_x, model_ramp, label='Long signal integration model', color='k')
-        axes.axhline(y=ylim + 0.2, xmin=x_start, xmax=x_start + 0.02, linewidth=3, c='k')
+        axes.axhline(y=ylim + 0.2, xmin=x_start, xmax=x_start + 0.02, linewidth=1, c='k')
         axes.set_xlabel('Location (cm)')
         axes.set_ylabel('Vm (mV)')
         axes.set_xlim([0., track_length])
@@ -853,7 +856,7 @@ def ramp_error_parametric(x, xmin, xmax, input_matrix, spike_trains, ramp, induc
         plt.show()
         plt.close()
 
-    print 'cell: %s, x: %s, kernel_scale: %.3E, Err: %.4E took %i s' % (cell_id, formatted_x, this_kernel_scale, Err,
+    print 'spont cell: %s, x: %s, kernel_scale: %.3E, Err: %.4E took %i s' % (cell_id, formatted_x, this_kernel_scale, Err,
                                                                         time.time()-start_time)
     print 'exp: amp: %.1f, ramp_width: %.1f, peak_shift: %.1f, asymmetry: %.1f, start_loc: %.1f, end_loc: %.1f' % \
           (amp['exp'], width['exp'], peak_shift['exp'], ratio['exp'], start_loc['exp'], end_loc['exp'])
@@ -947,17 +950,6 @@ def estimate_weights_nonparametric(ramp, input_matrix, induction=None, baseline=
         else:
             asymmetry[:end_index] = 2.
             asymmetry[induction_index:] = 2.
-    Err = 0.
-    Err += ((amp['exp'] - amp['model']) / 0.01) ** 2.
-
-    for j in range(len(exp_ramp)):
-        Err += ((exp_ramp[j] - model_ramp[j]) / 0.01) ** 2.
-
-    # penalize DC drifts in minimum weight
-    if induction == 1:
-        Err += ((np.min(weights)-1.)/0.005) ** 2.
-    elif induction == 2:
-        Err += ((np.min(exp_ramp) - np.min(model_ramp)) / 0.005) ** 2.
     if plot:
         x_start = this_induction_loc/track_length
         ylim = max(np.max(exp_ramp), np.max(model_ramp))
@@ -967,11 +959,11 @@ def estimate_weights_nonparametric(ramp, input_matrix, induction=None, baseline=
         axes.plot(binned_x, model_ramp, label='Model (SVD)', color='c')
         axes.axhline(y=ylim + 0.2, xmin=x_start, xmax=x_start + 0.02, linewidth=3, c='k')
         axes.set_xlabel('Location (cm)')
-        axes.set_ylabel('Depolarization (mV)')
+        axes.set_ylabel('Vm (mV)')
         axes.set_xlim([0., track_length])
         axes.set_ylim([math.floor(ymin), max(math.ceil(ylim), ylim + 0.4)])
         axes.legend(loc='best', frameon=False, framealpha=0.5)
-        axes.set_title('Induced Vm ramp')
+        axes.set_title('Vm ramp')
         clean_axes(axes)
         fig.tight_layout()
         ylim = np.max(weights)
@@ -980,7 +972,7 @@ def estimate_weights_nonparametric(ramp, input_matrix, induction=None, baseline=
         axes1.plot(peak_locs['CA3'], weights, c='r')
         axes1.axhline(y=ylim + 0.2, xmin=x_start, xmax=x_start + 0.02, linewidth=3, c='k')
         axes1.set_xlabel('Location (cm)')
-        axes1.set_ylabel('Candidate synaptic weights')
+        axes1.set_ylabel('Candidate synaptic weights (a.u.)')
         axes1.set_xlim([0., track_length])
         axes1.set_ylim([math.floor(ymin), max(math.ceil(ylim), ylim + 0.4)])
         clean_axes(axes1)
@@ -988,7 +980,6 @@ def estimate_weights_nonparametric(ramp, input_matrix, induction=None, baseline=
         plt.show()
         plt.close()
 
-    print 'SVD took %i s, Err: %.4E' % (time.time()-start_time, Err)
     print 'exp: amp: %.1f, ramp_width: %.1f, peak_shift: %.1f, asymmetry: %.1f, start_loc: %.1f, end_loc: %.1f' % \
           (amp['exp'], width['exp'], peak_shift['exp'], ratio['exp'], start_loc['exp'], end_loc['exp'])
     print 'model: amp: %.1f, ramp_width: %.1f, peak_shift: %.1f, asymmetry: %.1f, start_loc: %.1f, end_loc: %.1f' % \
@@ -996,11 +987,9 @@ def estimate_weights_nonparametric(ramp, input_matrix, induction=None, baseline=
     sys.stdout.flush()
     if full_output:
         return weights, model_ramp, model_baseline, asymmetry
-    else:
-        return Err
 
 
-def optimize_polish(x, xmin, xmax, error_function, input_matrix, spike_trains, ramp, induction=None,
+def optimize_polish(x, xmin, xmax, error_function, input_matrix, complete_rate_maps, ramp, induction=None,
                     transform=None, baseline=None, maxfev=None):
     """
 
@@ -1009,7 +998,7 @@ def optimize_polish(x, xmin, xmax, error_function, input_matrix, spike_trains, r
     :param xmax: array
     :param error_function: callable
     :param input_matrix: array
-    :param spike_trains: dict of list of array
+    :param complete_rate_maps: dict of list of array
     :param ramp: dict of array
     :param induction: int: key for dicts of arrays
     :param transform: callable function
@@ -1023,15 +1012,15 @@ def optimize_polish(x, xmin, xmax, error_function, input_matrix, spike_trains, r
     result = optimize.minimize(error_function, x, method='Nelder-Mead', options={'fatol': 1e-3, 'xatol': 1e-3,
                                                                                  'disp': True, 'maxiter': maxfev,
                                                                                  'maxfev': maxfev},
-                               args=(xmin, xmax, input_matrix, spike_trains, ramp, induction, transform,
+                               args=(xmin, xmax, input_matrix, complete_rate_maps, ramp, induction, transform,
                                      baseline))
     formatted_x = '['+', '.join(['%.3E' % xi for xi in result.x])+']'
-    print 'Process: %i completed optimize_polish for cell %s after %i iterations with Error: %.4E and x: %s' % \
+    print 'Process: %i completed optimize_polish for spont cell %s after %i iterations with Error: %.4E and x: %s' % \
           (os.getpid(), cell_id, result.nit, result.fun, formatted_x)
     return {'x': result.x, 'Err': result.fun}
 
 
-def optimize_explore(x, xmin, xmax, error_function, input_matrix, spike_trains, ramp, induction=None,
+def optimize_explore(x, xmin, xmax, error_function, input_matrix, complete_rate_maps, ramp, induction=None,
                      transform=None, baseline=None, maxfev=None):
     """
 
@@ -1040,7 +1029,7 @@ def optimize_explore(x, xmin, xmax, error_function, input_matrix, spike_trains, 
     :param xmax: array
     :param error_function: callable
     :param input_matrix: array
-    :param spike_trains: dict of list of array
+    :param complete_rate_maps: dict of list of array
     :param ramp: dict of array
     :param induction: int: key for dicts of arrays
     :param transform: callable function
@@ -1052,13 +1041,13 @@ def optimize_explore(x, xmin, xmax, error_function, input_matrix, spike_trains, 
         maxfev = 700
 
     take_step = Normalized_Step(x, xmin, xmax)
-    minimizer_kwargs = dict(method=null_minimizer, args=(xmin, xmax, input_matrix, spike_trains, ramp,
+    minimizer_kwargs = dict(method=null_minimizer, args=(xmin, xmax, input_matrix, complete_rate_maps, ramp,
                                                          induction, transform, baseline))
     result = optimize.basinhopping(error_function, x, niter=maxfev, niter_success=maxfev/2,
                                    disp=True, interval=min(20, int(maxfev/20)), minimizer_kwargs=minimizer_kwargs,
                                    take_step=take_step)
     formatted_x = '['+', '.join(['%.3E' % xi for xi in result.x])+']'
-    print 'Process: %i completed optimize_explore for cell %s after %i iterations with Error: %.4E and x: %s' % \
+    print 'Process: %i completed optimize_explore for spont cell %s after %i iterations with Error: %.4E and x: %s' % \
           (os.getpid(), cell_id, result.nit, result.fun, formatted_x)
     return {'x': result.x, 'Err': result.fun}
 
@@ -1078,63 +1067,37 @@ x0 = {}
 
 # to avoid saturation, ensure that the peak amplitude of the local signal is lower than the global signal:
 # [local_rise_tau, local_decay_tau, global_rise_tau, global_decay_tau, filter_ratio]
+# cells 4, 5, 7 had additional plateaus after the field was induced, so we don't have complete information
+# to estimate the induction plasticity signal. excluding from estimation of saturation.
 
-x0['1'] = [1.045E+01, 1.627E+03, 1.357E+02, 2.508E+02, 7.501E-01]  # Error: 9.410E+04
-x0['2'] = [3.338E+01, 5.001E+02, 1.299E+02, 1.348E+02, 1.500E+00]  # Error: 1.198E+05
-x0['4'] = [1.124E+01, 3.170E+03, 2.943E+02, 9.815E+02, 1.477E+00]  # Error: 4.901E+04
-x0['5'] = [4.946E+02, 6.667E+02, 1.003E+01, 5.271E+02, 7.514E-01]  # Error: 2.002E+03
-x0['6'] = [1.415E+02, 5.148E+02, 1.448E+01, 2.891E+02, 1.435E+00]  # Error: 2.164E+04
-x0['7'] = [3.627E+02, 1.732E+03, 2.149E+01, 1.256E+03, 7.623E-01]  # Error: 2.024E+05
-# Jeff and Sandro excluded cell8
-x0['8'] = [3.330E+02, 5.510E+02, 7.597E+01, 4.142E+02, 8.297E-01]  # Error: 4.575E+04
-x0['9'] = [5.000E+02, 1.464E+03, 1.558E+01, 1.928E+03, 8.979E-01]  # Error: 1.343E+05
-x0['10'] = [3.603E+02, 1.687E+03, 2.102E+01, 1.009E+02, 1.478E+00]  # Error: 1.382E+05
-x0['11'] = [1.000E+01, 5.000E+02, 1.402E+01, 1.009E+02, 1.470E+00]  # Error: 4.512E+04
-x0['12'] = [2.994E+01, 5.954E+02, 1.040E+02, 1.217E+02, 1.102E+00]  # Error: 7.386E+03
-x0['13'] = [4.924E+02, 6.762E+02, 1.013E+01, 1.099E+02, 7.500E-01]  # Error: 6.205E+03
-x0['14'] = [9.616E+01, 5.156E+02, 2.034E+01, 3.181E+02, 1.462E+00]  # Error: 1.894E+04
-x0['15'] = [4.775E+02, 5.000E+02, 1.038E+01, 3.549E+02, 8.845E-01]  # Error: 2.872E+04
-x0['17'] = [4.899E+02, 9.503E+02, 1.431E+01, 7.245E+02, 7.512E-01]  # Error: 2.188E+05
-x0['18'] = [4.983E+02, 3.651E+03, 1.022E+01, 7.529E+02, 7.545E-01]  # Error: 8.871E+04
-x0['19'] = [1.002E+01, 1.484E+03, 1.720E+02, 3.228E+02, 7.586E-01]  # Error: 1.568E+04
-x0['20'] = [1.011E+01, 3.149E+03, 2.964E+02, 3.669E+02, 1.381E+00]  # Error: 7.976E+04
-x0['21'] = [1.080E+01, 1.735E+03, 1.444E+01, 8.001E+02, 7.528E-01]  # Error: 4.522E+04
-x0['22'] = [2.660E+01, 5.004E+02, 2.135E+02, 2.259E+02, 1.435E+00]  # Error: 1.230E+04
-x0['23'] = [4.932E+02, 7.026E+02, 2.059E+02, 6.568E+02, 1.496E+00]  # Error: 2.252E+04
+# x0['1'] = [1.161E+01, 5.000E+02, 2.640E+02, 3.060E+02, 1.500E+00]  # lowest Err: 5.986E+05
+x0['1'] = [1.402E+01, 5.000E+02, 1.927E+02, 1.978E+02, 1.500E+00]  # Error: 1.3806E+05
+# x0['2'] = [4.667E+02, 5.000E+02, 2.709E+01, 1.001E+02, 1.500E+00]  # lowest Err: 6.893E+05
+x0['2'] = [3.581E+02, 5.028E+02, 1.469E+01, 1.002E+02, 1.500E+00]  # Error: 3.5280E+04
+# x0['3'] = [1.036E+01, 1.192E+03, 2.322E+02, 2.515E+02, 1.500E+00]  # lowest Err: 3.271E+05
+x0['3'] = [8.196E+01, 1.190E+03, 2.295E+02, 2.847E+02, 1.380E+00]  # Error: 3.8744E+03
+# x0['4'] = [1.349E+02, 5.000E+02, 1.000E+01, 1.276E+02, 7.763E-01]  # lowest Err: 5.647E+05
+x0['4'] = [1.069E+02, 5.003E+02, 1.000E+01, 1.119E+02, 9.061E-01]  # Error: 9.3508E+03
+# x0['5'] = [1.104E+01, 3.228E+03, 2.998E+02, 1.589E+03, 1.500E+00]  # lowest Err: 2.239E+06
+x0['5'] = [1.039E+01, 2.113E+03, 3.000E+02, 7.964E+02, 1.438E+00]  # Error: 1.0782E+05
+# x0['6'] = [4.485E+02, 8.606E+02, 1.256E+01, 2.202E+02, 9.888E-01]  # lowest Err: 2.327E+05
+x0['6'] = [4.099E+02, 9.412E+02, 1.007E+01, 1.888E+02, 7.536E-01]  # Error: 1.5220E+04
+# x0['7'] = [1.001E+01, 5.101E+02, 2.871E+02, 2.941E+02, 1.500E+00]  # lowest Err: 3.859E+07
+x0['7'] = [1.010E+01, 5.050E+02, 2.882E+02, 2.916E+02, 1.500E+00]  # Error: 7.6755E+05
 
-x0['mean'] = [2.129E+02, 1.196E+03, 1.015E+02, 4.548E+02, 1.116E+00]  # Induced + Spontaneous 032117
-
-kernel_scale['1'] = 4.525E-03
-kernel_scale['2'] = 2.591E-03
-kernel_scale['4'] = 8.166E-04
-kernel_scale['5'] = 1.539E-03
-kernel_scale['6'] = 2.779E-03
-kernel_scale['7'] = 1.813E-03
-kernel_scale['8'] = 1.980E-03
-kernel_scale['9'] = 2.110E-03
-kernel_scale['10'] = 3.692E-03
-kernel_scale['11'] = 1.310E-03
-kernel_scale['12'] = 4.227E-03
-kernel_scale['13'] = 3.022E-03
-kernel_scale['14'] = 1.407E-03
-kernel_scale['15'] = 1.842E-03
-kernel_scale['17'] = 2.071E-03
-kernel_scale['18'] = 1.219E-03
-kernel_scale['19'] = 3.809E-03
-kernel_scale['20'] = 1.628E-03
-kernel_scale['21'] = 2.447E-03
-kernel_scale['22'] = 3.898E-03
-kernel_scale['23'] = 2.510E-03
+x0['mean'] = [2.099E+02, 1.093E+03, 1.035E+02, 4.382E+02, 1.204E+00]  # Induced + Spontaneous 031917
+# x0['mean'] = [1.416E+02, 8.932E+02, 1.493E+02, 2.816E+02, 1.283E+00]  # Spontaneous 031917
+# x0['mean'] = [2.201E+02, 7.998E+02, 3.643E+01, 4.693E+02, 1.367E+00]
 
 kernel_scale['mean'] = 2.535E-03
 
-
+"""
 if cell_id in x0:
     x1 = x0[cell_id]
 else:
     x1 = x0['1']
-
-# x1 = x0['mean']
+"""
+x1 = x0['mean']
 
 xmin1 = [10., 500., 10., 100., 0.75]
 xmax1 = [500., 5000., 300., 2000., 1.5]
@@ -1145,11 +1108,22 @@ for i in range(len(x1)):
     elif x1[i] > xmax1[i]:
         x1[i] = xmax1[i]
 
+transform_p = [1.273E+00, 2.192E-02, 1.777E+00, 1.866E+00]
+# transform_f = np.vectorize(sigmoid, excluded={0,2})
+transform_f = None
+
 """
 induction = 1
-polished_result = optimize_polish(x1, xmin1, xmax1, ramp_error_parametric, input_matrix, successes, ramp,
-                                  induction, maxfev=600)
+result = optimize_explore(x1, xmin1, xmax1, ramp_error_parametric, input_matrix, complete_rate_maps, ramp, induction,
+                          transform_f, maxfev=700)
+x1 = result['x']
+
+polished_result = optimize_polish(x1, xmin1, xmax1, ramp_error_parametric, input_matrix, complete_rate_maps, ramp,
+                                  induction, transform_f, maxfev=600)
 x1 = polished_result['x']
+
+hist.report_best()
+hist.export('032117_induction1_optimization_history1_spont_cell'+cell_id)
 """
 
 for induction in position:
@@ -1158,10 +1132,10 @@ for induction in position:
     else:
         this_model_baseline = None
     local_kernel[induction], global_kernel[induction], plasticity_signal[induction], weights_parametric[induction], \
-        model_ramp_parametric[induction], model_baseline[induction], this_kernel_scale, \
-        Err = ramp_error_parametric(x1, xmin1, xmax1, input_matrix, successes, ramp, induction,
-                                    baseline=this_model_baseline, plot=False, full_output=True)
-
+        model_ramp_parametric[induction], model_baseline[induction], \
+        this_kernel_scale, Err = ramp_error_parametric(x1, xmin1, xmax1, input_matrix, complete_rate_maps, ramp, induction,
+                                                  transform_f, baseline=this_model_baseline, plot=False,
+                                                  full_output=True)
 if 1 not in plasticity_signal:
     plasticity_signal[1] = np.zeros_like(peak_locs['CA3'])
     weights_parametric[1] = np.ones_like(peak_locs['CA3'])
@@ -1179,6 +1153,7 @@ for induction in ramp:
                                              induction_loc is not None])
     mean_induction_dur[induction] = np.mean([induction_dur for induction_dur in induction_durs[induction] if
                                              induction_dur is not None])
+
 """
 fig1, axes1 = plt.subplots(1)
 fig2, axes2 = plt.subplots(1)
@@ -1191,10 +1166,10 @@ ylim1 = max(np.max(ramp.values()), np.max(model_ramp_SVD.values()), np.max(model
 ylim2 = max(np.max(weights_SVD.values()), np.max(weights_parametric.values()))
 
 for induction in ramp:
-    start_index = np.where(interp_x[induction][1] >= mean_induction_loc[induction])[0][0]
+    start_index = np.where(interp_x[induction][0] >= mean_induction_loc[induction])[0][0]
     end_index = start_index + int(mean_induction_dur[induction] / dt)
     x_start = mean_induction_loc[induction] / track_length
-    x_end = interp_x[induction][1][end_index] / track_length
+    x_end = interp_x[induction][0][end_index] / track_length
     axes1.plot(binned_x, ramp[induction], label='Exp. data', c=colors[0])
     axes1.plot(binned_x, model_ramp_parametric[induction], label='Model (Long signal integration)', c=colors[1])
     axes1.plot(binned_x, model_ramp_SVD[induction], label='Model (SVD)', c=colors[2])
@@ -1251,38 +1226,37 @@ plt.show()
 plt.close()
 """
 
-"""
+
 induction = 1
-output_filename = '032017 discrete plasticity summary'
+# output_filename = '032117 plasticity nonlinearity iter1 summary'
+output_filename = '032217 plasticity mean kernel summary'
 with h5py.File(data_dir+output_filename+'.hdf5', 'a') as f:
-    if 'long' not in f:
-        f.create_group('long')
+    if 'long_spont' not in f:
+        f.create_group('long_spont')
     if 'position' not in f:
         f.create_dataset('position', compression='gzip', compression_opts=9, data=binned_x)
     if 'peak_locs' not in f:
         f.create_dataset('peak_locs', compression='gzip', compression_opts=9, data=peak_locs['CA3'])
-    f['long'].create_group(cell_id)
-    f['long'][cell_id].attrs['track_length'] = track_length
-    f['long'][cell_id].attrs['induction_loc'] = mean_induction_loc[induction]
-    f['long'][cell_id].attrs['induction_dur'] = mean_induction_dur[induction]
-    f['long'][cell_id].attrs['parameters'] = x1
-    f['long'][cell_id].attrs['kernel_scale'] = this_kernel_scale
-    f['long'][cell_id].attrs['error'] = Err
-    f['long'][cell_id].create_dataset('local_kernel', compression='gzip', compression_opts=9,
+    f['long_spont'].create_group(cell_id)
+    f['long_spont'][cell_id].attrs['track_length'] = track_length
+    f['long_spont'][cell_id].attrs['induction_loc'] = mean_induction_loc[induction]
+    f['long_spont'][cell_id].attrs['induction_dur'] = mean_induction_dur[induction]
+    f['long_spont'][cell_id].attrs['parameters'] = x1
+    f['long_spont'][cell_id].attrs['kernel_scale'] = this_kernel_scale
+    f['long_spont'][cell_id].attrs['error'] = Err
+    f['long_spont'][cell_id].create_dataset('local_kernel', compression='gzip', compression_opts=9,
                                       data=local_kernel[induction])
-    f['long'][cell_id].create_dataset('global_kernel', compression='gzip', compression_opts=9,
+    f['long_spont'][cell_id].create_dataset('global_kernel', compression='gzip', compression_opts=9,
                                       data=global_kernel[induction])
-    f['long'][cell_id].attrs['dt'] = dt
-    f['long'][cell_id].create_dataset('exp_ramp', compression='gzip', compression_opts=9, data=ramp[induction])
-    f['long'][cell_id].create_dataset('model_ramp_parametric', compression='gzip', compression_opts=9,
+    f['long_spont'][cell_id].attrs['dt'] = dt
+    f['long_spont'][cell_id].create_dataset('exp_ramp', compression='gzip', compression_opts=9, data=ramp[induction])
+    f['long_spont'][cell_id].create_dataset('model_ramp_parametric', compression='gzip', compression_opts=9,
                                       data=model_ramp_parametric[induction])
-    f['long'][cell_id].create_dataset('model_ramp_SVD', compression='gzip', compression_opts=9,
+    f['long_spont'][cell_id].create_dataset('model_ramp_SVD', compression='gzip', compression_opts=9,
                                       data=model_ramp_SVD[induction])
-    f['long'][cell_id].create_dataset('plasticity_signal', compression='gzip', compression_opts=9,
+    f['long_spont'][cell_id].create_dataset('plasticity_signal', compression='gzip', compression_opts=9,
                                       data=plasticity_signal[induction])
-    f['long'][cell_id].create_dataset('weights_parametric', compression='gzip', compression_opts=9,
+    f['long_spont'][cell_id].create_dataset('weights_parametric', compression='gzip', compression_opts=9,
                                       data=weights_parametric[induction])
-    f['long'][cell_id].create_dataset('weights_SVD', compression='gzip', compression_opts=9,
+    f['long_spont'][cell_id].create_dataset('weights_SVD', compression='gzip', compression_opts=9,
                                       data=weights_SVD[induction])
-print 'Exported data for cell %s' % cell_id
-"""

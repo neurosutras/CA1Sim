@@ -824,7 +824,7 @@ def ramp_error_parametric(x, xmin, xmax, input_matrix, complete_rate_maps, ramp,
         fig, axes = plt.subplots(1)
         axes.plot(binned_x, exp_ramp, label='Exp. data', color='b')
         axes.plot(binned_x, model_ramp, label='Long signal integration model', color='k')
-        axes.axhline(y=ylim + 0.2, xmin=x_start, xmax=x_start + 0.02, linewidth=3, c='k')
+        axes.axhline(y=ylim + 0.2, xmin=x_start, xmax=x_start + 0.02, linewidth=1, c='k')
         axes.set_xlabel('Location (cm)')
         axes.set_ylabel('Vm (mV)')
         axes.set_xlim([0., track_length])
@@ -1077,7 +1077,7 @@ x0 = {}
 # x0['1'] = [4.816E+02, 1.280E+03, 3.000E+02, 5.544E+02, 7.500E-01]  # lowest Err: 2.009E+06
 x0['1'] = [1.073E+01, 1.383E+03, 1.476E+02, 2.367E+02, 7.524E-01]  # Error: 9.3853E+04
 # x0['2'] = [3.430E+01, 5.000E+02, 1.211E+02, 1.311E+02, 1.500E+00]  # lowest Err: 3.806E+06
-x0['2'] = [3.378E+01, 5.000E+02, 1.299E+02, 1.299E+02, 1.500E+00]  # Error: 1.8947E+05
+x0['2'] = [3.378E+01, 5.000E+02, 1.299E+02, 1.2991E+02, 1.500E+00]  # Error: 1.8947E+05
 # Don't use cell3, it's the same as cell15
 # x0['4'] = [1.051E+01, 5.000E+03, 2.814E+02, 1.299E+03, 1.497E+00]  # Error: 4.0962E+05
 x0['4'] = [1.117E+01, 2.943E+03, 3.000E+02, 1.007E+03, 1.465E+00]  # Error: 6.2658E+04

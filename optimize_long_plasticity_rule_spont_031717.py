@@ -1060,6 +1060,8 @@ x0 = {}
 
 # to avoid saturation, ensure that the peak amplitude of the local signal is lower than the global signal:
 # [local_rise_tau, local_decay_tau, global_rise_tau, global_decay_tau, filter_ratio]
+# cells 4, 5, 7 had additional plateaus after the field was induced, so we don't have complete information
+# to estimate the induction plasticity signal. excluding from estimation of saturation.
 
 # x0['1'] = [1.161E+01, 5.000E+02, 2.640E+02, 3.060E+02, 1.500E+00]  # lowest Err: 5.986E+05
 x0['1'] = [1.402E+01, 5.000E+02, 1.927E+02, 1.978E+02, 1.500E+00]  # Error: 1.3806E+05

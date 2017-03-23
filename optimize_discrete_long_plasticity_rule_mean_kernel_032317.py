@@ -775,15 +775,15 @@ def ramp_error_parametric(x, xmin, xmax, input_matrix, spike_trains, ramp, induc
     this_induction_loc = np.mean([induction_loc for induction_loc in induction_locs[induction] if
                                   induction_loc is not None])
     print 'Trying x: %s for cell %s, induction_loc: %.1f' % (formatted_x, cell_id, this_induction_loc)
-    if not check_bounds(x, xmin, xmax) or x[3] <= x[2]:
+    if not check_bounds(x, xmin, xmax):
         print 'Aborting: Invalid parameter values.'
         hist.x.append(x)
         hist.Err.append(1e9)
         return 1e9
     exp_ramp = np.array(ramp[induction])
     start_time = time.time()
-    local_kernel, global_kernel = build_kernels(x, plot)
-    delta_weights = calculate_plasticity_signal(x, local_kernel, global_kernel, spike_trains, induction, plot)
+    local_kernel, global_kernel = build_kernels(np.append(x0['mean'][:4], x), plot)
+    delta_weights = calculate_plasticity_signal(np.append(x0['mean'][:4], x), local_kernel, global_kernel, spike_trains, induction, plot)
     amp, width, peak_shift, ratio, start_loc, end_loc = {}, {}, {}, {}, {}, {}
     amp['exp'], width['exp'], peak_shift['exp'], ratio['exp'], start_loc['exp'], end_loc['exp'] = \
         calculate_ramp_features(exp_ramp, this_induction_loc)
@@ -1130,14 +1130,12 @@ kernel_scale['mean'] = 2.535E-03
 
 
 if cell_id in x0:
-    x1 = x0[cell_id]
+    x1 = [x0[cell_id][4]]
 else:
     x1 = x0['1']
 
-# x1 = x0['mean']
-
-xmin1 = [10., 500., 10., 100., 0.75]
-xmax1 = [500., 5000., 300., 2000., 1.5]
+xmin1 = [0.75]
+xmax1 = [1.5]
 
 for i in range(len(x1)):
     if x1[i] < xmin1[i]:
@@ -1179,6 +1177,7 @@ for induction in ramp:
                                              induction_loc is not None])
     mean_induction_dur[induction] = np.mean([induction_dur for induction_dur in induction_durs[induction] if
                                              induction_dur is not None])
+
 """
 fig1, axes1 = plt.subplots(1)
 fig2, axes2 = plt.subplots(1)
@@ -1251,9 +1250,9 @@ plt.show()
 plt.close()
 """
 
-"""
+
 induction = 1
-output_filename = '032017 discrete plasticity summary'
+output_filename = '032317 discrete plasticity mean kernel summary'
 with h5py.File(data_dir+output_filename+'.hdf5', 'a') as f:
     if 'long' not in f:
         f.create_group('long')
@@ -1284,5 +1283,3 @@ with h5py.File(data_dir+output_filename+'.hdf5', 'a') as f:
                                       data=weights_parametric[induction])
     f['long'][cell_id].create_dataset('weights_SVD', compression='gzip', compression_opts=9,
                                       data=weights_SVD[induction])
-print 'Exported data for cell %s' % cell_id
-"""
