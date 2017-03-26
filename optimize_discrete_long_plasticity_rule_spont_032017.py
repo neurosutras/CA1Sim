@@ -671,20 +671,13 @@ def calculate_plasticity_signal(x, local_kernel, global_kernel, spike_trains, in
     local_signal_peaks = []
     local_signal_array = []
     plasticity_signal = np.zeros_like(peak_locs[group])
-    max_local_signal = 0.
     global_signal = np.convolve(complete_induction_gates[induction], global_kernel)[:len(complete_t[induction])]
-    # down_t = np.arange(complete_t[induction][0], complete_t[induction][-1] + down_dt / 2., down_dt)
-    # global_signal = np.interp(down_t, complete_t[induction], global_signal)
     max_global_signal = np.max(global_signal)
-    filter_t = np.arange(0., len(local_kernel) * dt, dt)
-    # down_filter_t = np.arange(0., filter_t[-1] + down_dt / 2., down_dt)
-    # local_kernel_down = np.interp(down_filter_t, filter_t, local_kernel)
     for j, train in enumerate(spike_trains[induction]):
         indexes = (np.array(train-complete_t[induction][0]) / dt).astype(int)
         this_stim_force = np.zeros_like(complete_t[induction])
         this_stim_force[indexes] = 1.
-        # this_stim_force = np.interp(down_t, complete_t[induction], stim_force)
-        this_local_signal = np.convolve(this_stim_force, local_kernel)[:len(complete_t[induction])] / filter_ratio
+        this_local_signal = np.convolve(this_stim_force, local_kernel)[:len(complete_t[induction])]
         local_signal_array.append(this_local_signal)
         local_signal_peaks.append(np.max(this_local_signal))
     max_local_signal = np.mean(np.array(local_signal_peaks)[np.where(local_signal_peaks >=
@@ -753,7 +746,7 @@ def calculate_plasticity_signal(x, local_kernel, global_kernel, spike_trains, in
         plt.show()
         plt.close()
 
-    return plasticity_signal
+    return plasticity_signal, saturation_factor
 
 
 def ramp_error_parametric(x, xmin, xmax, input_matrix, spike_trains, ramp, induction=None, transform=None,
@@ -788,7 +781,8 @@ def ramp_error_parametric(x, xmin, xmax, input_matrix, spike_trains, ramp, induc
     exp_ramp = np.array(ramp[induction])
     start_time = time.time()
     local_kernel, global_kernel = build_kernels(x, plot)
-    delta_weights = calculate_plasticity_signal(x, local_kernel, global_kernel, spike_trains, induction, plot)
+    delta_weights, saturation_factor = calculate_plasticity_signal(x, local_kernel, global_kernel, spike_trains,
+                                                                   induction, plot)
     amp, width, peak_shift, ratio, start_loc, end_loc = {}, {}, {}, {}, {}, {}
     amp['exp'], width['exp'], peak_shift['exp'], ratio['exp'], start_loc['exp'], end_loc['exp'] = \
         calculate_ramp_features(exp_ramp, this_induction_loc)
@@ -868,7 +862,7 @@ def ramp_error_parametric(x, xmin, xmax, input_matrix, spike_trains, ramp, induc
     hist.Err.append(Err)
     if full_output:
         return local_kernel, global_kernel, plasticity_signal, weights, model_ramp, model_baseline, this_kernel_scale, \
-               Err
+               saturation_factor, Err
     else:
         return Err
 
@@ -1122,7 +1116,7 @@ for induction in position:
     else:
         this_model_baseline = None
     local_kernel[induction], global_kernel[induction], plasticity_signal[induction], weights_parametric[induction], \
-        model_ramp_parametric[induction], model_baseline[induction], this_kernel_scale, \
+        model_ramp_parametric[induction], model_baseline[induction], this_kernel_scale, this_saturation_factor, \
         Err = ramp_error_parametric(x1, xmin1, xmax1, input_matrix, successes, ramp, induction,
                                     baseline=this_model_baseline, plot=False, full_output=True)
 
@@ -1218,7 +1212,7 @@ plt.close()
 
 
 induction = 1
-output_filename = '032017 discrete plasticity summary'
+output_filename = '032617 discrete plasticity summary'
 with h5py.File(data_dir+output_filename+'.hdf5', 'a') as f:
     if 'long_spont' not in f:
         f.create_group('long_spont')
@@ -1232,6 +1226,7 @@ with h5py.File(data_dir+output_filename+'.hdf5', 'a') as f:
     f['long_spont'][cell_id].attrs['induction_dur'] = mean_induction_dur[induction]
     f['long_spont'][cell_id].attrs['parameters'] = x1
     f['long_spont'][cell_id].attrs['kernel_scale'] = this_kernel_scale
+    f['long_spont'][cell_id].attrs['saturation_factor'] = this_saturation_factor
     f['long_spont'][cell_id].attrs['error'] = Err
     f['long_spont'][cell_id].create_dataset('local_kernel', compression='gzip', compression_opts=9,
                                       data=local_kernel[induction])
@@ -1249,3 +1244,5 @@ with h5py.File(data_dir+output_filename+'.hdf5', 'a') as f:
                                       data=weights_parametric[induction])
     f['long_spont'][cell_id].create_dataset('weights_SVD', compression='gzip', compression_opts=9,
                                       data=weights_SVD[induction])
+print 'Exported data for spont cell %s' % cell_id
+

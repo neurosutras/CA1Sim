@@ -134,10 +134,10 @@ def plot_plasticity_signal_discrete(x, this_local_kernel, this_global_kernel, in
     orig_font_size = mpl.rcParams['font.size']
     orig_fig_size = mpl.rcParams['figure.figsize']
     mpl.rcParams['font.size'] = 8.
-    mpl.rcParams['figure.figsize'] = 7.34, 3.25
+    mpl.rcParams['figure.figsize'] = 6.0354, 3.5
     fig1 = plt.figure()
-    gs1 = gridspec.GridSpec(2, 5)
-    axes1 = plt.subplot(gs1[0, 0:3])
+    gs1 = gridspec.GridSpec(2, 2)
+    axes1 = plt.subplot(gs1[0, 0])
     ymax0 = -30.  # np.max(spine_vm[input_index])
     ymin0 = np.min(spine_vm[input_index])
     ydepth0 = ymax0 - ymin0
@@ -153,7 +153,7 @@ def plot_plasticity_signal_discrete(x, this_local_kernel, this_global_kernel, in
     axes1.set_xlim(0., track_duration / 1000.)
     clean_axes(axes1)
 
-    axes2 = plt.subplot(gs1[1, 0:3])
+    axes2 = plt.subplot(gs1[0, 1])
     axes2.plot(track_t / 1000., global_signal, label='Global signal', color='b')
     axes2.plot(track_t / 1000., local_signal, label='Local signal', color='k')
     axes2.fill_between(track_t / 1000., 0., this_signal, label='Overlap', facecolor='grey', alpha=0.5)
@@ -161,6 +161,7 @@ def plot_plasticity_signal_discrete(x, this_local_kernel, this_global_kernel, in
     axes2.set_xlabel('Time (s)')
     axes2.set_ylabel('Signal amplitude (a.u.)')
     axes2.set_xlim(0., track_duration/1000.)
+    axes2.axhline(y=ymax1 * 1.1, xmin=x_start, xmax=x_end, linewidth=1.5, c='k', clip_on=False)
     axes2.set_ylim(0., ymax1*1.05)
     # axes.set_title('Induced plasticity signal')
     clean_axes(axes2)

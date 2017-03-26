@@ -693,7 +693,7 @@ def calculate_plasticity_signal(x, local_kernel, global_kernel, complete_rate_ma
             # orig_fig_size = mpl.rcParams['figure.figsize']
             # mpl.rcParams['font.size'] = 8.
             # mpl.rcParams['figure.figsize'] = 7.34, 3.25
-            fig1 = plt.figure()
+            # fig1 = plt.figure()
             # gs1 = gridspec.GridSpec(2, 2)
             # axes = plt.subplot(gs1[0, 0])
             fig1, axes = plt.subplots(1)
@@ -1174,7 +1174,7 @@ x1 = polished_result['x']
 hist.report_best()
 hist.export('031917_induction1_optimization_history_cell'+cell_id)
 """
-
+"""
 for induction in position:
     if induction == 2 and 1 in position:
         this_model_baseline = model_baseline[1]
@@ -1201,7 +1201,7 @@ for induction in ramp:
                                              induction_loc is not None])
     mean_induction_dur[induction] = np.mean([induction_dur for induction_dur in induction_durs[induction] if
                                              induction_dur is not None])
-
+"""
 """
 fig1, axes1 = plt.subplots(1)
 fig2, axes2 = plt.subplots(1)
