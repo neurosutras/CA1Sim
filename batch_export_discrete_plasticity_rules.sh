@@ -1,7 +1,8 @@
 #!/bin/bash
 cd $HOME/CA1Sim_dev
-qsub -pe batch 4 -N weights_discrete_long_032017_cell01 -l d_rt=36000 -b y -cwd -V 'python optimize_discrete_long_plasticity_rule_032017.py 1'
-qsub -pe batch 4 -N weights_discrete_long_032017_cell02 -l d_rt=36000 -b y -cwd -V 'python optimize_discrete_long_plasticity_rule_032017.py 2'
+for i in 1 2 3 4
+    export $i
+    qsub -pe batch 4 -N weights_discrete_long_032017_cell01 -l d_rt=36000 -b y -cwd -V "python optimize_discrete_long_plasticity_rule_032017.py $i"
 qsub -pe batch 4 -N weights_discrete_long_032017_cell04 -l d_rt=36000 -b y -cwd -V 'python optimize_discrete_long_plasticity_rule_032017.py 4'
 qsub -pe batch 4 -N weights_discrete_long_032017_cell05 -l d_rt=36000 -b y -cwd -V 'python optimize_discrete_long_plasticity_rule_032017.py 5'
 qsub -pe batch 4 -N weights_discrete_long_032017_cell06 -l d_rt=36000 -b y -cwd -V 'python optimize_discrete_long_plasticity_rule_032017.py 6'

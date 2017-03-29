@@ -1227,7 +1227,7 @@ with h5py.File(data_dir+output_filename+'.hdf5', 'a') as f:
     f['long_spont'][cell_id].attrs['parameters'] = x1
     f['long_spont'][cell_id].attrs['kernel_scale'] = this_kernel_scale
     f['long_spont'][cell_id].attrs['saturation_factor'] = this_saturation_factor
-    f['long_spont'][cell_id].attrs['saturation_factor'] = global_signal_peak
+    f['long_spont'][cell_id].attrs['global_signal_peak'] = global_signal_peak
     f['long_spont'][cell_id].attrs['error'] = Err
     f['long_spont'][cell_id].create_dataset('local_kernel', compression='gzip', compression_opts=9,
                                       data=local_kernel[induction])
