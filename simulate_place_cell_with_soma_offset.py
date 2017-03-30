@@ -323,6 +323,7 @@ sim.parameters['duration'] = duration
 sim.parameters['stim_dt'] = dt
 sim.parameters['dt'] = sim_dt
 sim.parameters['i_inj_amp'] = i_inj_amp
+sim.parameters['ttx'] = int(ttx)
 sim.parameters['trial_seed'] = trial_seed
 sim.parameters['run_vel'] = default_run_vel
 sim.append_rec(cell, cell.tree.root, description='soma', loc=0.)
@@ -406,7 +407,7 @@ weights = {}
 delta_peak_locs = {}
 extended_peak_locs = {}
 within_track = {}
-peak_mod_weight = 1.75
+peak_mod_weight = 1.5
 field_peak_loc = track_length * 0.5
 tuning_amp = (peak_mod_weight - 1.)
 start_loc = field_peak_loc - input_field_width * 1.2 / 2.
