@@ -1,7 +1,7 @@
 #!/bin/bash
 #cd $HOME/PycharmProjects/NEURON/
 cd $HOME/CA1Sim_dev
-d="032917"
+d="033017"
 export d
 j=0
 for ttx in 0 1
