@@ -2247,10 +2247,39 @@ class optimize_history(object):
                 plt.legend(loc='upper right', scatterpoints=1, frameon=False, framealpha=0.5)
 
 
-def sigmoid(p, x, yoff=None):
-    x0,y0,c,k=p
-    y = c / (1. + np.exp(-k*(x-x0))) + y0
-    if yoff is None:
-        yoff = c / (1. + np.exp(-k*(-x0))) + y0
-    y -= yoff
+def sigmoid(p, x):
+    x0, y0, c, k = p
+    y = c / (1. + np.exp(-k * (x - x0))) + y0
     return y
+
+
+class Pr(object):
+    """
+    This object contains internal variables to track the evolution in time of parameters governing synaptic release
+    probability, used during optimization, and then exported to pr.mod for use during patterned input simulations.
+    """
+    def __init__(self, P0, f, tau_F, d, tau_D):
+        self.P0 = P0
+        self.f = f
+        self.tau_F = tau_F
+        self.d = d
+        self.tau_D = tau_D
+        self.P = P0
+        self.tlast = None
+        self.F = 1.
+        self.D = 1.
+
+    def stim(self, stim_time):
+        """
+        Evolve the dynamics until the current stim_time, report the current P, and update the internal parameters.
+        :param stim_time: float
+        :return: float
+        """
+        if self.tlast is not None:
+            self.F = 1. + (self.F - 1.) * np.exp(-(stim_time - self.tlast) / self.tau_F)
+            self.D = 1. - (1. - self.D) * np.exp(-(stim_time - self.tlast) / self.tau_D)
+            self.P = min(1., self.P0 * self.F * self.D)
+        self.tlast = stim_time
+        self.F += self.f
+        self.D *= self.d
+        return self.P

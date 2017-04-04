@@ -786,7 +786,7 @@ def ramp_error_parametric(x, xmin, xmax, input_matrix, complete_rate_maps, ramp,
             if attempt == 0:
                 this_kernel_scale = amp['exp'] / np.max(model_ramp)
     else:
-        weights = np.add(transform(transform_p, plasticity_signal), 1.)
+        weights = np.add(transform(transform_p, plasticity_signal, 0.), 1.)
         model_ramp = weights.dot(input_matrix)  # x=default_interp_x
         if baseline is None:
             model_baseline = subtract_baseline(model_ramp)
@@ -1071,29 +1071,50 @@ x0 = {}
 # to avoid saturation, ensure that the peak amplitude of the local signal is lower than the global signal:
 # [local_rise_tau, local_decay_tau, global_rise_tau, global_decay_tau, filter_ratio]
 
-x0['1'] = [4.052E+02, 5.015E+02, 1.000E+01, 2.610E+02, 1.000E+00]  # Error: 5.7100E+06
-x0['2'] = [2.624E+02, 1.131E+03, 1.000E+01, 1.150E+03, 1.294E+00]  # Error: 1.0466E+06
+# x0['1'] = [4.052E+02, 5.015E+02, 1.000E+01, 2.610E+02, 1.000E+00]  # Error: 5.7100E+06
+x0['1'] = [4.996E+02, 5.424E+02, 1.037E+01, 3.289E+02, 1.000E+00]  # Error: 5.9672E+06
+# x0['2'] = [1.551E+01, 5.005E+02, 9.818E+01, 1.086E+02, 1.004E+00]  # Error: 3.8096E+06
+x0['2'] = [2.239E+01, 5.048E+02, 1.243E+01, 2.495E+02, 1.000E+00]  # Error: 3.5882E+06
 # Don't use cell3, it's the same as cell15
-x0['4'] = [1.007E+01, 2.294E+03, 1.329E+02, 3.341E+02, 1.224E+00]  # Error: 1.2760E+05 *
-x0['5'] = [4.861E+02, 8.188E+02, 1.000E+01, 5.368E+02, 1.483E+00]  # Error: 1.1205E+05 *
-x0['6'] = [1.165E+02, 5.000E+02, 2.342E+01, 4.019E+02, 1.500E+00]  # Error: 4.1047E+04
-x0['7'] = [3.656E+02, 1.068E+03, 7.596E+01, 9.424E+02, 1.481E+00]  # Error: 2.1695E+05 *
-x0['8'] = [2.859E+02, 5.008E+02, 1.620E+01, 3.197E+02, 1.435E+00]  # Error: 1.9599E+04
-x0['9'] = [1.731E+02, 1.958E+03, 2.330E+01, 1.723E+03, 1.000E+00]  # Error: 1.0521E+05 *
-x0['10'] = [4.993E+02, 2.843E+03, 1.179E+01, 1.000E+02, 1.500E+00]  # Error: 3.2685E+05
-x0['11'] = [1.253E+02, 1.921E+03, 4.150E+01, 1.001E+02, 1.350E+00]  # Error: 2.3443E+05
-x0['12'] = [5.416E+01, 7.725E+02, 9.885E+01, 1.006E+02, 1.378E+00]  # Error: 3.7212E+04
-x0['13'] = [5.000E+02, 6.313E+02, 1.026E+01, 1.416E+02, 1.105E+00]  # Error: 1.2909E+04
-x0['14'] = [1.290E+02, 9.992E+02, 1.009E+01, 2.080E+02, 1.488E+00]  # Error: 1.4403E+05
-x0['15'] = [4.769E+02, 5.342E+02, 1.000E+01, 2.212E+02, 1.463E+00]  # Error: 1.3157E+04 *
+# x0['4'] = [1.039E+01, 3.005E+03, 2.776E+02, 8.736E+02, 1.500E+00]  # Error: 2.8841E+05
+x0['4'] = [1.144E+01, 3.727E+03, 2.857E+02, 9.720E+02, 1.500E+00]  # Error: 3.0095E+05
+# x0['5'] = [3.225E+02, 5.000E+02, 1.045E+02, 1.046E+02, 1.500E+00]  # Error: 2.8691E+05
+x0['5'] = [7.603E+01, 7.580E+02, 1.048E+01, 1.000E+02, 1.487E+00]  # Error: 1.7476E+05
+# x0['6'] = [2.203E+01, 5.023E+02, 1.003E+01, 3.477E+02, 1.003E+00]  # Error: 3.5160E+06
+x0['6'] = [1.000E+01, 6.634E+02, 1.291E+01, 4.839E+02, 1.000E+00]  # 3.2315E+06
+# x0['7'] = [4.811E+02, 6.748E+02, 1.000E+01, 7.737E+02, 1.000E+00]  # Error: 1.0223E+06
+x0['7'] = [5.000E+02, 8.700E+02, 1.154E+01, 9.497E+02, 1.000E+00]  # 1.1421E+06
+# x0['8'] = [3.506E+01, 5.012E+02, 1.096E+02, 1.097E+02, 1.000E+00]  # Error: 8.6428E+05
+x0['8'] = [3.676E+01, 5.041E+02, 1.097E+02, 1.097E+02, 1.000E+00]  # Error: 6.4097E+05
+# x0['9'] = [1.000E+01, 8.210E+02, 1.522E+01, 7.384E+02, 1.011E+00]  # Error: 1.9576E+06
+x0['9'] = [1.036E+01, 9.867E+02, 1.000E+01, 9.362E+02, 1.000E+00]  # Error: 2.0559E+06
+# x0['10'] = [4.989E+02, 1.836E+03, 1.000E+01, 1.008E+02, 1.000E+00]  # Error: 3.0858E+06
+x0['10'] = [5.000E+02, 2.121E+03, 1.000E+01, 1.115E+02, 1.000E+00]  # 2.7088E+06
+# x0['11'] = [4.032E+02, 4.024E+03, 2.979E+02, 1.524E+03, 1.500E+00]  # Error: 2.3267E+06
+x0['11'] = [3.828E+02, 4.608E+03, 2.968E+02, 1.918E+03, 1.500E+00]  # Error: 2.3182E+06
+# x0['12'] = [1.848E+02, 5.340E+02, 1.000E+01, 3.368E+02, 1.001E+00]  # Error: 4.3405E+06
+x0['12'] = [1.522E+02, 6.574E+02, 1.000E+01, 4.089E+02, 1.000E+00]  # Error: 4.9419E+06
+# x0['13'] = [4.940E+02, 5.486E+02, 1.000E+01, 1.334E+02, 1.000E+00]  # Error: 2.6768E+06
+x0['13'] = [5.000E+02, 6.457E+02, 1.047E+01, 1.811E+02, 1.000E+00]  # Error: 3.0391E+06
+# x0['14'] = [1.081E+01, 5.004E+02, 1.541E+02, 1.542E+02, 1.500E+00]  # Error: 1.3193E+06
+x0['14'] = [3.074E+01, 5.004E+02, 1.541E+02, 1.547E+02, 1.500E+00]  # Error: 9.7063E+05
+# x0['15'] = [2.820E+02, 5.000E+02, 1.007E+01, 1.770E+02, 1.412E+00]  # Error: 2.1480E+05
+x0['15'] = [3.870E+02, 5.109E+02, 1.002E+01, 2.773E+02, 1.441E+00]  # Error: 1.9366E+05
 # Don't use cell16, it's the same as cell8
-x0['17'] = [4.983E+02, 9.581E+02, 4.123E+01, 5.704E+02, 1.499E+00]  # Error: 3.3640E+05
-x0['18'] = [4.919E+02, 3.187E+03, 5.462E+01, 6.634E+02, 1.000E+00]  # Error: 9.3275E+04
-x0['19'] = [3.635E+01, 1.106E+03, 9.730E+01, 3.507E+02, 1.191E+00]  # Error: 1.7391E+04
-x0['20'] = [1.204E+01, 2.865E+03, 2.806E+02, 3.269E+02, 1.011E+00]  # Error: 7.5135E+04
-x0['21'] = [1.441E+01, 1.826E+03, 1.358E+02, 7.855E+02, 1.024E+00]  # Error: 2.4298E+04
-x0['22'] = [1.120E+01, 7.882E+02, 1.517E+02, 1.540E+02, 1.500E+00]  # Error: 1.3976E+05
-x0['23'] = [4.066E+02, 5.477E+02, 2.579E+01, 8.494E+02, 1.205E+00]  # Error: 5.1337E+04
+# x0['17'] = [4.748E+02, 5.189E+02, 1.000E+01, 4.667E+02, 1.233E+00]  # Error: 1.1075E+06
+x0['17'] = [4.948E+02, 6.249E+02, 1.004E+01, 6.153E+02, 1.128E+00]  # Error: 1.1121E+06
+# x0['18'] = [4.995E+02, 3.446E+03, 1.000E+01, 7.911E+02, 1.063E+00]  # Error: 2.8330E+05
+x0['18'] = [4.986E+02, 3.968E+03, 1.000E+01, 9.788E+02, 1.000E+00]  # Error: 2.9712E+05
+# x0['19'] = [1.248E+02, 5.093E+02, 1.000E+01, 2.679E+02, 1.000E+00]  # Error: 1.5830E+06
+x0['19'] =  [1.000E+01, 7.176E+02, 1.088E+01, 3.313E+02, 1.000E+00]  # Error: 2.1838E+06
+# x0['20'] = [1.194E+01, 2.896E+03, 3.000E+02, 4.839E+02, 1.500E+00]  # Error: 1.6942E+06
+x0['20'] = [1.194E+01, 2.912E+03, 3.000E+02, 5.054E+02, 1.500E+00]  # Error: 1.7201E+06
+# x0['21'] = [7.260E+01, 1.647E+03, 1.909E+02, 8.088E+02, 1.022E+00]  # Error: 4.3067E+05
+x0['21'] = [1.000E+01, 1.850E+03, 6.450E+01, 1.059E+03, 1.003E+00]  # Error: 4.4789E+05
+# x0['22'] = [1.000E+01, 5.001E+02, 1.664E+02, 3.509E+02, 1.000E+00]  # Error: 1.0667E+07
+x0['22'] = [1.478E+01, 5.690E+02, 1.304E+01, 5.832E+02, 1.000E+00]  # Error: 1.0921E+07
+# x0['23'] = [1.807E+01, 5.001E+02, 1.900E+02, 1.945E+02, 1.000E+00]  # Error: 4.2289E+06
+x0['23'] = [1.000E+01, 5.855E+02, 1.989E+02, 2.513E+02, 1.000E+00]  # Error: 3.9486E+06
 
 x0['mean'] = [2.093E+02, 1.342E+03, 7.888E+01, 3.992E+02, 1.316E+00]  # Induced + Spontaneous
 
@@ -1135,8 +1156,9 @@ for i in range(len(x1)):
     elif x1[i] > xmax1[i]:
         x1[i] = xmax1[i]
 
-transform_p = [0.742868120596, -565577.708183, 2.24526686451, 1.7930336674]
-transform_f = np.vectorize(sigmoid, excluded={0})
+# transform_p = [0.742868120596, -565577.708183, 2.24526686451, 1.7930336674]
+transform_p = [1.08769959868, -0.127639325909, 2.06927002044, 1.90030954981]
+transform_f = np.vectorize(sigmoid, excluded={0,2})
 
 
 induction = 1
@@ -1149,7 +1171,7 @@ polished_result = optimize_polish(x1, xmin1, xmax1, ramp_error_parametric, input
                                   induction, transform_f, maxfev=600)
 x1 = polished_result['x']
 hist.report_best()
-hist.export('031617_induction_1_optimization_history_2_cell'+cell_id)
+hist.export('031617_induction1_optimization_history3_cell'+cell_id)
 
 """
 for induction in position:
@@ -1235,7 +1257,7 @@ for induction in ramp:
         axes3.scatter(plasticity_signal[induction], delta_weights[induction], c=asymmetry[induction], linewidth=0)
         axes3.set_xlabel('Plasticity signal (a.u.)')
         axes3.set_ylabel('Change in synaptic weight')
-        #axes3.set_title('Metaplasticity - Induction '+str(induction))
+        axes3.set_title('Induction %i: Plasticity transfer function' % induction)
         axes3.legend(loc='best', handles=label_handles, framealpha=0.5, frameon=False)
         clean_axes(axes3)
         fig3.tight_layout()
@@ -1247,7 +1269,7 @@ for induction in ramp:
         axes4.set_xlabel('Plasticity signal (a.u.)')
         axes4.set_ylabel('Initial synaptic weight')
         axes4.set_zlabel('Change in synaptic weight')
-        #axes4.set_title('Metaplasticity - Induction ' + str(induction))
+        axes4.set_title('Induction %i: Plasticity transfer function' % induction)
         axes4.legend(loc='center left', handles=label_handles, framealpha=0.5, frameon=False, bbox_to_anchor=(1, 0.5))
         fig4.tight_layout()
 
@@ -1256,7 +1278,7 @@ plt.close()
 """
 
 """
-output_filename = '030917 plasticity nonlinearity summary'
+output_filename = '031617 plasticity nonlinearity iter2 summary'
 with h5py.File(data_dir+output_filename+'.hdf5', 'a') as f:
     if 'long' not in f:
         f.create_group('long')
