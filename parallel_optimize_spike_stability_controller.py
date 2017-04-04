@@ -163,7 +163,7 @@ target_val = {}
 target_range = {}
 target_val['v_rest'] = {'soma': v_init, 'tuft_offset': 0.}
 target_range['v_rest'] = {'soma': 0.25, 'tuft_offset': 0.1}
-target_val['na_ka'] = {'v_rest': v_init, 'v_th': -51., 'soma_peak': 40., 'ADP': 0., 'AHP': 4.,
+target_val['na_ka'] = {'v_rest': v_init, 'v_th': -48., 'soma_peak': 40., 'ADP': 0., 'AHP': 4.,
                        'stability': 0., 'ais_delay': 0., 'slow_depo': 20., 'dend_amp': 0.3}
 target_range['na_ka'] = {'v_rest': 0.25, 'v_th': .2, 'soma_peak': 2., 'ADP': 0.01, 'AHP': .2,
                          'stability': 1., 'ais_delay': 0.001, 'slow_depo': 0.5, 'dend_amp': 0.005}
