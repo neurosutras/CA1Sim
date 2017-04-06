@@ -2,11 +2,15 @@ __author__ = 'Grace Ng'
 from specify_cells2 import *
 import os
 import sys
+from ipyparallel import interactive
+import mkl
 
 """
 Builds a cell locally so each engine is ready to receive jobs one at a time, specified by a value for the amplitude of
-a somatic current injection to test spike shape and stability.
+a somatic current injection to test spike adaptation.
 """
+
+mkl.set_num_threads(1)
 
 # morph_filename = 'EB2-late-bifurcation.swc'
 # morph_filename = 'DG_GC_355549.swc'
@@ -16,14 +20,20 @@ neurotree_dict = read_from_pkl(morph_dir+neurotree_filename)
 rec_filename = str(time.strftime('%m%d%Y', time.gmtime()))+'_'+str(time.strftime('%H%M%S', time.gmtime()))+\
                '_pid'+str(os.getpid())+'_sim_output'
 
+
+# placeholder for optimization parameter, must be pushed to each engine on each iteration
+# x: array [soma.gCa factor, soma.gCadepK factor, soma.gKm, axon(ais, hill).gKm factor]
+x = None  # Placeholder for parameters pushed from controller.
+
+xmin = {}
+xmax = {}
+
 #[soma.gCa factor, soma.gCadepK factor, soma.gKm, axon(ais, hill).gKm factor]
-xmin = []
-xmax = []
-#Update xmin and xmax!
+xmin['spike_adaptation'] = []
+xmax['spike_adaptation'] = []
+#Need to update these!
 
-
-#Check bounds to make sure soma gKm and axon gKm are within a reasonable range
-#check_bounds = CheckBounds(xmin, xmax)
+check_bounds = CheckBounds(xmin, xmax)
 
 
 if len(sys.argv) > 1:
@@ -36,12 +46,12 @@ else:
     mech_filename = '030217 GC optimizing excitability'
 
 
-
+@interactive
 def update_mech_dict():
     update_spike_adaptation(x)
     cell.export_mech_dict(cell.mech_filename)
 
-
+@interactive
 def update_spike_adaptation(x):
     """
 
@@ -80,6 +90,7 @@ def compute_spike_stability_features(amp, stim_dur, plot=0):
     print 'Process %i took %.1f s to test spike stability with amp: %.3f' % (os.getpid(), time.time()-start_time, amp)
     return result, axon_vm, t
 
+@interactive
 def sim_spike_times(amp, stim_dur, axon_th=10, start=250., stop=360.):
     """
 
@@ -115,25 +126,7 @@ def sim_spike_times(amp, stim_dur, axon_th=10, start=250., stop=360.):
         index += 1
     return spike_times
 
-def adapt_index(spike_times):
-    """
-
-    :param spike_times: list of the times at which there are spike peaks
-    :return: adi is a large value for high spike adaptation (large differences in lengths of interspike intervals)
-    """
-    if len(spike_times) < 4:
-        return None
-    adi = 0
-    count = 0
-    isi = []
-    for i in range(len(spike_times)-1):
-        isi.append(spike_times[i+1] - spike_times[i])
-    for i in range(len(isi)-1):
-        adi += 1.0 * (isi[i+1] - isi[i]) / (isi[i+1] + isi[i])
-        count += 1
-    adi /= count
-    return adi
-
+@interactive
 def adjust_spike_number(target_spikes, stim_dur, axon_th=10, start=250., stop=350.):
     spike_num = 0
     spikes_amp_corr = []
@@ -159,29 +152,8 @@ def adjust_spike_number(target_spikes, stim_dur, axon_th=10, start=250., stop=35
     """
     return spike_times, amp
 
-def spike_adaptation_error(spike_num, axon_th, start, stop):
-    #Need to consider rheobase: the current to cross threshold for a single spike.
-    spike_times, rheobase = adjust_spike_number(1, 100., axon_th, start, stop)
-    spike_times, amp = adjust_spike_number(spike_num, 100., axon_th, start, stop)
-    adi = adapt_index(spike_times)
 
-    freq = [len(spike_times)/(stop-start)]
-    curr_inj = [amp]
-    #Calculate more frequencies using stim duration of 500 ms
-    for amp_incr in [0.3, 0.6]:
-        curr_spike_times, curr_amp = sim_spike_times(amp+amp_incr, 500., axon_th, start, stop+400.)
-        freq.append(len(curr_spike_times)/(stop+400.-start))
-        curr_inj.append(curr_amp)
-
-
-    #Consider error from adaptation index and the error from the correlation of the spike frequency (spike_count/0.1s stim duration)
-    # v. current injection amp, and the error from the desired slope of the spike frequency v. current injection
-    #Calculate overall error: sum of all (target-test)^2/desired_variance
-
-    # Target adaptation index: 0.118989 for ~6 spikes
-
-
-
+@interactive
 def export_sim_results():
     """
     Export the most recent time and recorded waveforms from the QuickSim object.
@@ -242,12 +214,6 @@ else:
 
 orig_ka_soma_gkabar = cell.mech_dict['soma']['kap']['gkabar']['value']
 orig_ka_dend_gkabar = orig_ka_soma_gkabar + orig_ka_dend_slope * 300.
-
-# These values will now be saved in the mech dictionary that is updated by previous round of optimization
-#[soma.gCa factor, soma.gCadepK factor, soma.gKm, axon(ais, hill).gKm factor]
-#Need to adjust the gKm values!!
-x = [0.1, 0.1, 0.1, 1]
-
 
 sim.append_rec(cell, cell.tree.root, loc=0.5, object=cell.tree.root.sec(0.5), param='_ref_ina_nas',
                description='Soma nas_i')
