@@ -29,8 +29,8 @@ xmin = {}
 xmax = {}
 
 #[soma.gCa factor, soma.gCadepK factor, soma.gKm, axon(ais, hill).gKm factor]
-xmin['spike_adaptation'] = []
-xmax['spike_adaptation'] = []
+xmin['spike_adaptation'] = [0., 0., 0., 0.]
+xmax['spike_adaptation'] = [5., 5., 5., 5.]
 #Need to update these!
 
 check_bounds = CheckBounds(xmin, xmax)
@@ -65,6 +65,7 @@ def update_spike_adaptation(x):
     for sec_type in ['axon', 'axon_hill']:
         cell.reinitialize_subset_mechanisms(sec_type, 'km2')
 
+@interactive
 def compute_spike_stability_features(amp, stim_dur, plot=0):
     sim.parameters['amp'] = amp
     start_time = time.time()
@@ -91,7 +92,7 @@ def compute_spike_stability_features(amp, stim_dur, plot=0):
     return result, axon_vm, t
 
 @interactive
-def sim_spike_times(amp, stim_dur, axon_th=10, start=250., stop=360.):
+def sim_spike_times(amp, stim_dur=500., local_x=None):
     """
 
     :param amp: float
@@ -100,9 +101,15 @@ def sim_spike_times(amp, stim_dur, axon_th=10, start=250., stop=360.):
     :param stop: float
     :return:
     """
-    result, axon_vm, t = compute_spike_stability_features(amp, stim_dur)
-    axon_vm = axon_vm[int(start/dt):int(stop/dt)]
-    t = t[int(start / dt):int(stop / dt)]
+    if local_x is None:
+        local_x = x #For some reason, local_x is still none!
+    if not check_bounds.within_bounds(local_x, 'spike_adaptation'):
+        print 'Process %i: Aborting - Parameters outside optimization bounds.' % (os.getpid())
+        return None
+    update_spike_adaptation(local_x)
+    spike_stab_result, axon_vm, t = compute_spike_stability_features(amp, stim_dur)
+    axon_vm = axon_vm[int(spikes_start/dt):int(spikes_stop/dt)]
+    t = t[int(spikes_start / dt):int(spikes_stop / dt)]
     #th_x is a list of the indices in axon_vm where the axon voltage is above the given threshold
     th_x = np.where(axon_vm > axon_th)[0]
     spike_times = []
@@ -124,33 +131,28 @@ def sim_spike_times(amp, stim_dur, axon_th=10, start=250., stop=360.):
             x_peak = peak_range[0]
         spike_times.append(t[x_peak])
         index += 1
-    return spike_times
+    result = {}
+    result['spike_times'] = spike_times
+    result['amp'] = amp
+    return result
 
 @interactive
-def adjust_spike_number(target_spikes, stim_dur, axon_th=10, start=250., stop=350.):
+def adjust_spike_number(target_spikes, local_x=None):
+    if local_x is None:
+        local_x = x
+    print local_x
+    if not check_bounds.within_bounds(local_x, 'spike_adaptation'):
+        print 'Process %i: Aborting - Parameters outside optimization bounds.' % (os.getpid())
+        return None
     spike_num = 0
-    spikes_amp_corr = []
     d_amp = 0.01
     amp = i_th['soma'] - d_amp
-    """
-    while spike_num < 1:
-        spike_times = sim_spike_times(amp, stim_dur, axon_th, start, stop)
-        spike_num = len(spike_times)
-        amp += 0.01
-    spikes_amp_corr.append([amp, spike_num])
-    """
     while spike_num < target_spikes:
-        spike_times = sim_spike_times(amp, stim_dur, axon_th, start, stop)
+        result = sim_spike_times(amp, 100., local_x)
+        spike_times = result['spike_times']
         spike_num = len(spike_times)
         amp += 0.01
-    """
-    spikes_amp_corr.append([amp, spike_num])
-    for amp_incr in [0.05, 0.1]:
-        test_amp = amp + amp_incr
-        test_spike_times = sim_spike_times(amp, stim_dur, axon_th, start, stop)
-        spikes_amp_corr.append([test_amp, len(test_spike_times)])
-    """
-    return spike_times, amp
+    return result
 
 
 @interactive
@@ -170,6 +172,12 @@ amp = 0.3
 th_dvdt = 10.
 v_init = -77.
 v_active = -77.
+
+#The time interval (in ms) during the recording during which the program looks for axonal spikes
+spikes_start = 250.
+spikes_stop = 350.
+#Threshold above which an axonal spike will be counted
+axon_th = 10.
 
 cell = DG_GC(neurotree_dict=neurotree_dict[0], mech_filename=mech_filename, full_spines=spines)
 if spines is False:
@@ -205,15 +213,6 @@ for description, node in rec_nodes.iteritems():
 
 i_holding = {'soma': 0.}
 i_th = {'soma': 0.05}
-
-if type(cell.mech_dict['apical']['kap']['gkabar']) == list:
-    orig_ka_dend_slope = \
-        (element for element in cell.mech_dict['apical']['kap']['gkabar'] if 'slope' in element).next()['slope']
-else:
-    orig_ka_dend_slope = cell.mech_dict['apical']['kap']['gkabar']['slope']
-
-orig_ka_soma_gkabar = cell.mech_dict['soma']['kap']['gkabar']['value']
-orig_ka_dend_gkabar = orig_ka_soma_gkabar + orig_ka_dend_slope * 300.
 
 sim.append_rec(cell, cell.tree.root, loc=0.5, object=cell.tree.root.sec(0.5), param='_ref_ina_nas',
                description='Soma nas_i')
