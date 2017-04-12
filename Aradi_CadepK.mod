@@ -19,8 +19,8 @@ UNITS {
 }
 
 PARAMETER {
-	gbkbar = .01	(S/cm2)	: maximum permeability
-	gskbar = .01	(S/cm2)	: maximum permeability
+	gbkbar = .0003	(S/cm2)	: maximum permeability
+	gskbar = .0005	(S/cm2)	: maximum permeability
 	gcakmult = 1.
 	ca0 = .00007	(mM)
 	tau = 9		(ms)

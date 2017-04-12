@@ -25,8 +25,8 @@ PARAMETER {
 	tau = 9		    (ms)
 	taucadiv = 1
 	tauctdiv = 1
-	gtcabar = .01	(S/cm2)
-	gncabar = .01	(S/cm2)
+	gtcabar = .00015	(S/cm2)
+	gncabar = .002	(S/cm2)
 	glcabar = .01	(S/cm2)
     gcamult = 1.
 	B = .26 (mM-cm2/mA-ms)
