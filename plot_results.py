@@ -2886,7 +2886,10 @@ def process_patterned_input_simulation(rec_filename, title, dt=0.02):
         equilibrate = sim.attrs['equilibrate']
         track_equilibrate = sim.attrs['track_equilibrate']
         track_length = sim.attrs['track_length']
-        input_field_duration = sim.attrs['input_field_duration']
+        if 'input_field_duration' in sim.attrs:
+            input_field_duration = sim.attrs['input_field_duration']
+        elif 'input_field_width' in sim.attrs and 'run_vel' in sim.attrs:
+            input_field_duration = sim.attrs['input_field_width'] / sim.attrs['run_vel'] * 1000.
         duration = sim.attrs['duration']
         stim_dt = sim.attrs['stim_dt']
         bins = int((1.5 + track_length) * input_field_duration / 20.)

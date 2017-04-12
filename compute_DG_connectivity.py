@@ -1,7 +1,10 @@
 from function_lib import *
 from mpi4py import MPI
-from neurotrees.io import append_tree_attributes
-from neurotrees.io import read_tree_attributes
+from neurotrees.io import append_cell_attributes
+from neurotrees.io import NeurotreeGen
+from neurotrees.io import NeurotreeAttrGen
+from neurotrees.io import bcast_cell_attributes
+from neurotrees.io import population_ranges
 # import mkl
 import sys
 import os
@@ -18,11 +21,14 @@ Algorithm:
 2. For each cell, for each type of connection:
     i. Compute a probability of connection across all possible sources, based on the estimated arc distances between
         their projected soma locations.
-    ii. Load from a neurotree file the synapses metadata, including layer, type, syn_loc, and unique indexes for each
-        synapse.
-    ii. Write to a neurotree file a the source_gids and synapse_indexes for all the connections that have been
+    ii. Load from a neurotree file the synapses metadata, including layer, type, syn_loc, sec_type, and unique indexes 
+        for each synapse.
+    ii. Write to a neurotree file the source_gids and synapse_indexes for all the connections that have been
         specified in this step. Iterating through connection types will keep appending to this data structure.
     TODO: Implement a parallel write method to the separate connection edge data structure, use that instead.
+
+swc_type_enumerator = {'soma': 1, 'axon': 2, 'basal': 3, 'apical': 4, 'trunk': 5, 'tuft': 6}
+syn_type_enumerator = {'excitatory': 0, 'inhibitory': 1, 'neuromodulatory': 2}
 
 """
 
@@ -38,40 +44,33 @@ sys.stdout.flush()
 neurotrees_dir = morph_dir
 # neurotrees_dir = os.environ['PI_SCRATCH']+'/DGC_forest/hdf5/'
 # neurotrees_dir = os.environ['PI_HOME']+'/'
-# forest_file = '122016_DGC_forest_with_syn_locs.h5'
-forest_file = 'DGC_forest_connectivity_test.h5'
+forest_file = 'DGC_forest_connectivity_040617.h5'
 
 # synapse_dict = read_from_pkl(neurotrees_dir+'010117_GC_test_synapse_attrs.pkl')
-synapse_dict = read_tree_attributes(MPI._addressof(comm), neurotrees_dir+forest_file, 'GC',
-                                    namespace='Synapse_Attributes')
+#synapse_dict = read_tree_attributes(MPI._addressof(comm), neurotrees_dir+forest_file, 'GC',
+#                                    namespace='Synapse_Attributes')
 
 coords_dir = morph_dir
 # coords_dir = os.environ['PI_SCRATCH']+'/DG/'
-# coords_dir = os.environ['PI_HOME']+'/'
-coords_file = 'DG_Soma_Coordinates.h5'
+# coords_dir = os.environ['PI_HOME']+'/Full_Scale_Control/'
+coords_file = 'dentate_Full_Scale_Control_coords.h5'
 
-target_GID = synapse_dict.keys()
-target_GID.sort()
-
-print 'MPI rank %i received %i GCs: [%i:%i]' % (rank, len(target_GID), target_GID[0], target_GID[-1])
-sys.stdout.flush()
+start_time = time.time()
+last_time = start_time
 
 soma_coords = {}
-with h5py.File(coords_dir+coords_file, 'r') as f:
-    for import_pop_key, local_pop_key in zip (['Granule Cells', 'MEC Cells'], ['GC', 'MEC']):
-        soma_coords[local_pop_key] = {'u': f['Coordinates'][import_pop_key]['U Coordinate'][:],
-                                      'v': f['Coordinates'][import_pop_key]['V Coordinate'][:],
-                                      'GID': f['Coordinates'][import_pop_key]['GID'][:]}
-
+for population in population_ranges(MPI._addressof(comm), coords_dir+coords_file).iterkeys():
+    soma_coords[population] = bcast_cell_attributes(MPI._addressof(comm), 0, coords_dir+coords_file, population,
+                                                    namespace='Coordinates')
 
 spatial_resolution = 1.  # um
-max_u = 10826.
-max_v = 3002.
+max_u = 10750.
+max_v = 2957.
 
 du = (0.98*np.pi-0.01*np.pi)/max_u*spatial_resolution
 dv = (1.425*np.pi-(-0.23*np.pi))/max_v*spatial_resolution
-u = np.arange(0.01*np.pi, 0.98*np.pi+du, du)
-v = np.arange(-0.23*np.pi, 1.425*np.pi+dv, dv)
+u = np.arange(0.01*np.pi-10.*du, 0.98*np.pi+10.*du, du)
+v = np.arange(-0.23*np.pi-10*dv, 1.425*np.pi+10.*dv, dv)
 
 U, V = np.meshgrid(u, v, indexing='ij')
 
@@ -89,57 +88,92 @@ delta_V = np.sqrt((np.diff(euc_coords, axis=1)**2.).sum(axis=2))
 distance_U = np.cumsum(np.insert(delta_U, 0, 0., axis=0), axis=0)
 distance_V = np.cumsum(np.insert(delta_V, 0, 0., axis=1), axis=1)
 
-width_U = np.mean(np.max(distance_U, axis=0))
-width_V = np.mean(np.max(distance_V, axis=1))
+# full width in um (S-T, M-L)
+axon_width = {'GC': (900., 900.), 'MPP': (1500., 3000.), 'LPP': (1500., 3000.), 'MC': (4000., 4000.)}
+axon_offset = {'MC': (1000., 0.)}
 
-# MEC layer II stellate cells: Gatome et al., Neuroscience, 2010
-pop_size = {'GC': 1000000, 'MEC': 38000}
 
-pop_density = {pop: float(pop_size[pop]) / width_U / width_V for pop in pop_size}  # cell density per um^2
-# Sloviter, Lomo, Frontiers, 2012. says GCs might only project 200 um S-T..., MEC less than 1500.
-axon_width = {'GC': (900., 900.), 'MEC': (1500., 1500.)}  # full width in um (S-T, M-L)
-
-# based on EM synapse density and dendritic length in MML
-convergence = {'GC': {'MEC': 3000}}  # {target: {source: # of synapses from source cell population onto 1 target cell}}
-# can't find good estimate of MEC divergence. circular reasoning: convergence onto GC * # of GCs / # of MEC cells
-divergence = {'MEC': {'GC': 79000}}  # {source: {target: # of synapses from 1 source cell to target cell population}}
-layers = {'GC': {'MEC': [2]}}
-syn_types = {'GC': {'MEC': 0}}
-
+layers = {'GC': {'MPP': [2], 'LPP': [3], 'MC': [1]}}
+syn_types = {'GC': {'MPP': [0], 'LPP': [0], 'MC': [0]}}
+# sec_types = {'GC': {'MPP': [4], 'LPP': [4], 'MC': [4]}}
+# Original synapse attributes mistakenly used 5 for apical swc_type
+swc_types = {'GC': {'MPP': [5], 'LPP': [5], 'MC': [5]}}
+# fraction of synapses matching this layer, syn_type, sec_type, and source
+proportions = {'GC': {'MPP': [1.], 'LPP': [1.], 'MC': [1.]}}
 
 get_array_index = np.vectorize(lambda val_array, this_val: np.where(val_array >= this_val)[0][0], excluded=[0])
+
+for population in soma_coords:
+    for cell in soma_coords[population].itervalues():
+        cell['u_index'] = get_array_index(u, cell['U Coordinate'][0])
+        cell['v_index'] = get_array_index(v, cell['V Coordinate'][0])
+
+
+def filter_sources(target, layer, swc_type, syn_type):
+    """
+    
+    :param target: str 
+    :param layer: int
+    :param swc_type: int
+    :param syn_type: int
+    :return: list
+    """
+    source_list = []
+    proportion_list = []
+    for source in layers[target]:
+        for i, this_layer in enumerate(layers[target][source]):
+            if this_layer == layer:
+                if swc_types[target][source][i] == swc_type:
+                    if syn_types[target][source][i] == syn_type:
+                        source_list.append(source)
+                        proportion_list.append(proportions[target][source][i])
+    return source_list, proportion_list
+
+
+def filter_synapses(synapse_dict, layer, swc_type, syn_type):
+    """
+    
+    :param synapse_dict: 
+    :param layer: int 
+    :param swc_type: int
+    :param syn_type: int
+    :return: 
+    """
+    return np.where((synapse_dict['layer'] == layer) & (synapse_dict['swc_type'] == swc_type)
+                    & (synapse_dict['syn_type'] == syn_type))[0]
 
 
 class AxonProb(object):
     """
     An object of this class will instantiate customized vectorized functions describing the connection probabilities
-    for each connection specified in 'divergence'. Those functions can then be used to get the distribution of
-    connection probabilities across all possible source neurons, given the soma coordinates of a target neuron. Heavy on
+    for each presynaptic population. These functions can then be used to get the distribution of connection 
+    probabilities across all possible source neurons, given the soma coordinates of a target neuron. Heavy on
     approximations, but is fast to compute, and independent for each synapse, so does not require any sampling without
     replacement, MPI communication, or produce any undesirable order or edge effects.
     """
-    def __init__(self, divergence, convergence, axon_width, pop_density):
+    def __init__(self, axon_width, axon_offset):
         """
-
-        :param divergence: dict: {source: {target: int}}
-        :param convergence: dict: {target: {source: int}}
+        Warning: This method does not produce an absolute probability. It must be normalized so that the total area
+        (volume) under the distribution is 1 before sampling.
         :param axon_width: dict: {source: (tuple of float)}
-        :param pop_density: dict: {target: float}
+        :param axon_offset: dict: {source: (tuple of float)}
         """
         self.p_dist = {}
-        for source in divergence:
-            self.p_dist[source] = {}
-            width = {'u': axon_width[source][0], 'v': axon_width[source][1]}
-            sigma = {axis: width[axis] / 3. / np.sqrt(2.) for axis in width}
-            for target in divergence[source]:
-                surface_area = np.pi * width['u'] * width['v'] / 4.
-                total_p = float(divergence[source][target]) / float(convergence[target][source]) / surface_area / \
-                          pop_density[target]
-                this_volume = np.pi * sigma['u'] * sigma['v']
-                self.p_dist[source][target] = np.vectorize(lambda distance_u, distance_v:
-                                                   total_p * np.exp(-((distance_u / sigma['u'])**2. +
-                                                                      (distance_v / sigma['v'])**2.)) /
-                                                   this_volume)
+        self.width = {}
+        self.offset = {}
+        self.sigma = {}
+        for source in axon_width:
+            self.width[source] = {'u': axon_width[source][0], 'v': axon_width[source][1]}
+            self.sigma[source] = {axis: self.width[source][axis] / 3. / np.sqrt(2.) for axis in self.width[source]}
+            if source in axon_offset:
+                self.offset[source] = {'u': axon_offset[source][0], 'v': axon_offset[source][1]}
+            else:
+                self.offset[source] = {'u': 0., 'v': 0.}
+            self.p_dist[source] = (lambda source: np.vectorize(lambda distance_u, distance_v:
+                                               np.exp(-(((abs(distance_u) - self.offset[source]['u']) /
+                                                         self.sigma[source]['u'])**2. +
+                                                        ((abs(distance_v) - self.offset[source]['v']) /
+                                                         self.sigma[source]['v'])**2.))))(source)
 
     def get_approximate_arc_distances(self, target_index_u, target_index_v, source_indexes_u, source_indexes_v,
                                       distance_U, distance_V):
@@ -167,109 +201,130 @@ class AxonProb(object):
 
         return distance_u, distance_v
 
-    def filter_soma_coords(self, target_index_u, target_index_v, source, soma_coords, axon_width, u, v, distance_U,
-                           distance_V):
+    def filter_by_soma_coords(self, target, source, target_gid, soma_coords, distance_U, distance_V):
         """
         Given the coordinates of a target neuron, filter the set of source neurons, and return the arc_distances in two
         dimensions and the gids of source neurons whose axons potentially contact the target neuron.
-        :param target_index_u: int
-        :param target_index_v: int
+        :param target: str
         :param source: str
+        :param target_gid: int
         :param soma_coords: nested dict of array
-        :param axon_width: dict: {source: (tuple of float)}
-        :param u: array of float
-        :param v: array of float
         :param distance_U: array of float
         :param distance_V: array of float
         :return: tuple of array of int
         """
-        source_indexes_u_all = get_array_index(u, soma_coords[source]['u'])
-        source_indexes_v_all = get_array_index(v, soma_coords[source]['v'])
-        source_distance_u_all, source_distance_v_all = self.get_approximate_arc_distances(target_index_u,
-                                                                                          target_index_v,
-                                                                                          source_indexes_u_all,
-                                                                                          source_indexes_v_all,
-                                                                                          distance_U, distance_V)
-        width = {'u': axon_width[source][0], 'v': axon_width[source][1]}
-        source_indexes = np.where((np.abs(source_distance_u_all) <= width['u'] / 2.) &
-                                  (np.abs(source_distance_v_all) <= width['v'] / 2.))[0]
-        return source_distance_u_all[source_indexes], source_distance_v_all[source_indexes], \
-               soma_coords[source]['GID'][source_indexes]
+        target_index_u = soma_coords[target][target_gid]['u_index']
+        target_index_v = soma_coords[target][target_gid]['v_index']
+        source_distance_u = []
+        source_distance_v = []
+        source_gid = []
+        for this_source_gid in soma_coords[source]:
+            this_source_distance_u, this_source_distance_v = \
+                self.get_approximate_arc_distances(target_index_u, target_index_v,
+                                                   soma_coords[source][this_source_gid]['u_index'],
+                                                   soma_coords[source][this_source_gid]['v_index'], distance_U,
+                                                   distance_V)
+            if ((np.abs(this_source_distance_u) <= self.width[source]['u'] / 2. + self.offset[source]['u']) &
+                    (np.abs(this_source_distance_v) <= self.width[source]['v'] / 2. + self.offset[source]['v'])):
+                source_distance_u.append(this_source_distance_u)
+                source_distance_v.append(this_source_distance_v)
+                source_gid.append(this_source_gid)
 
-    def choose_sources(self, target, source, target_gid, num_syns, soma_coords, axon_width, u, v, distance_U,
-                       distance_V, local_random=None):
+        return np.array(source_distance_u), np.array(source_distance_v), np.array(source_gid)
+
+    def get_p(self, target, source, target_gid, soma_coords, distance_U, distance_V, plot=False):
         """
-        Given the soma coordinates of a target neuron, returns a list of length num_syns containing the gids of source
-        neurons based on the specified connection probabilities.
+        Given the soma coordinates of a target neuron and a population source, return an array of connection 
+        probabilities and an array of corresponding source gids.
         :param target: str
         :param source: str
         :param target_gid: int
-        :param num_syns: int
         :param soma_coords: nested dict of array
-        :param axon_width: dict: {source: (tuple of float)}
-        :param u: array of float
-        :param v: array of float
         :param distance_U: array of float
         :param distance_V: array of float
-        :param local_random: :class:'np.random.RandomState'
-        :return: list of int
+        :param plot: bool
+        :return: array of float, array of int
         """
-        if local_random is None:
-            local_random = np.random.RandomState()
-        target_gid_index = np.where(soma_coords[target]['GID'] == target_gid)[0][0]
-        target_index_u = np.where(u >= soma_coords[target]['u'][target_gid_index])[0][0]
-        target_index_v = np.where(v >= soma_coords[target]['v'][target_gid_index])[0][0]
+        source_distance_u, source_distance_v, source_gid = self.filter_by_soma_coords(target, source, target_gid,
+                                                                                      soma_coords, distance_U,
+                                                                                      distance_V)
+        p = self.p_dist[source](source_distance_u, source_distance_v)
+        p /= np.sum(p)
+        if plot:
+            plt.scatter(source_distance_u, source_distance_v, c=p)
+            plt.title(source+' -> '+target)
+            plt.xlabel('Septotemporal distance (um)')
+            plt.ylabel('Tranverse distance (um)')
+            plt.show()
+            plt.close()
+        return p, source_gid
 
-        source_distance_u, source_distance_v, source_gid = self.filter_soma_coords(target_index_u, target_index_v,
-                                                                                   source, soma_coords, axon_width, u,
-                                                                                   v, distance_U, distance_V)
-        source_p = self.p_dist[source][target](source_distance_u, source_distance_v)
-        source_p /= np.sum(source_p)
-        return local_random.choice(source_gid, num_syns, p=source_p)
+print 'Rank %i took %i s to sort cells' % (rank, time.time() - last_time)
+last_time = time.time()
 
-
-p_connect = AxonProb(divergence, convergence, axon_width, pop_density)
+p_connect = AxonProb(axon_width, axon_offset)
+print 'Rank %i took %i s to initialize connection generator' % (rank, time.time() - last_time)
+last_time = time.time()
 
 local_np_random = np.random.RandomState()
 connectivity_seed_offset = 100000000  # make sure random seeds are not being reused for various types of
                                       # stochastic sampling
-start_time = time.time()
 
 connection_dict = {}
+p_dict = {}
+source_gid_dict = {}
+
 target = 'GC'
-
-# block_size = int(7000/comm.size)
-block_size = 5
-if 'SYN_START_INDEX' in os.environ:
-    start_index = int(os.environ['SYN_START_INDEX'])
-else:
-    start_index = 0
-end_index = start_index+block_size
-
 count = 0
-while start_index < block_size:
-#while start_index < len(target_GID):
-    connection_dict = {}
-    for target_gid in target_GID[start_index:end_index]:
-        this_synapse_dict = synapse_dict[target_gid]
-        if 'syn_id' not in this_synapse_dict:
-            this_synapse_dict['syn_id'] = np.array(range(len(this_synapse_dict['syn_locs'])))
-        connection_dict[target_gid] = {}
-        connection_dict[target_gid]['syn_id'] = np.array([], dtype='uint32')
-        connection_dict[target_gid]['source_gid'] = np.array([], dtype='uint32')
-        for source in convergence[target]:
-            target_layers = layers[target][source]
-            target_syn_type = syn_types[target][source]
-            target_indexes = np.where((np.in1d(this_synapse_dict['layer'], target_layers)) &
-                                      (this_synapse_dict['syn_type'] == target_syn_type))[0]
-            connection_dict[target_gid]['syn_id'] = \
-                np.append(connection_dict[target_gid]['syn_id'],
-                          this_synapse_dict['syn_id'][target_indexes]).astype('uint32', copy=False)
-            these_source_gids = p_connect.choose_sources(target, source, target_gid, len(target_indexes), soma_coords,
-                                                         axon_width, u, v, distance_U, distance_V, local_np_random)
-            connection_dict[target_gid]['source_gid'] = np.append(connection_dict[target_gid]['source_gid'],
-                                                                  these_source_gids).astype('uint32', copy=False)
-        count += 1
+for target_gid, attributes_dict in NeurotreeAttrGen(MPI._addressof(comm), neurotrees_dir+forest_file, target,
+                                                    io_size=comm.size, namespace='Synapse_Attributes'):
+    count += 1
+    synapse_dict = attributes_dict['Synapse_Attributes']
+    local_np_random.seed(target_gid + connectivity_seed_offset)
+    connection_dict['source_gid'] = np.array([], dtype='uint32')
+    connection_dict['syn_id'] = np.array([], dtype='uint32')
+
+    layer_set, swc_type_set, syn_type_set = set(), set(), set()
+    for source in layers[target].keys():
+        layer_set.update(layers[target][source])
+        swc_type_set.update(swc_types[target][source])
+        syn_type_set.update(syn_types[target][source])
+
+    for layer in layer_set:
+        for swc_type in swc_type_set:
+            for syn_type in syn_type_set:
+                sources, this_proportions = filter_sources(target, layer, swc_type, syn_type)
+                if sources:
+                    print 'Connections in layer %i (swc_type: %i, syn_type: %i): %s' % (layer, swc_type, syn_type,
+                                                                                        '[' + ', '.join(
+                                                                                            ['%s' % xi for xi in
+                                                                                             sources]) + ']')
+                    p, source_gid = np.array([]), np.array([])
+                    for source, this_proportion in zip(sources, this_proportions):
+                        if source not in source_gid_dict:
+                            this_p, this_source_gid = p_connect.get_p(target, source, target_gid, soma_coords, distance_U,
+                                                                  distance_V, plot=True)
+                            source_gid_dict[source] = this_source_gid
+                            p_dict[source] = this_p
+                        else:
+                            this_source_gid = source_gid_dict[source]
+                            this_p = p_dict[source]
+                        p = np.append(p, this_p * this_proportion)
+                        source_gid = np.append(source_gid, this_source_gid)
+                    syn_indexes = filter_synapses(synapse_dict, layer, swc_type, syn_type)
+                    connection_dict['syn_id'] = np.append(connection_dict['syn_id'],
+                                                          synapse_dict['syn_id'][syn_indexes]).astype('uint32',
+                                                                                                      copy=False)
+                    this_source_gid = local_np_random.choice(source_gid, len(syn_indexes), p=p)
+                    connection_dict['source_gid'] = np.append(connection_dict['source_gid'],
+                                                              this_source_gid).astype('uint32', copy=False)
+    if count > 0:
+        break
+
+print 'Rank %i took %i s to compute connectivity for target: %s, gid: %i' % (rank, time.time() - last_time, target,
+                                                                             target_gid)
+"""
+
     append_tree_attributes(MPI._addressof(comm), neurotrees_dir + forest_file, 'GC', connection_dict,
                            namespace='Connectivity', value_chunk_size=48000)
     if end_index >= len(target_GID):
@@ -292,6 +347,8 @@ if rank == 0:
                                                                               np.sum(count_fragments))
     # connection_dict = {key: value for piece in connection_dict_fragments for key, value in piece.items()}
     # write_to_pkl(neurotrees_dir+'010117_DG_GC_MEC_connectivity_test.pkl', connection_dict)
+
+"""
 
 """
 connection_dict = read_from_pkl(neurotrees_dir+'010117_DG_GC_MEC_connectivity_test.pkl')

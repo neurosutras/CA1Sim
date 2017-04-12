@@ -36,7 +36,8 @@ degrees_file = 'DGC_forest_connectivity_degrees_new.h5'
 coords_dir = morph_dir
 # coords_dir = os.environ['PI_SCRATCH']+'/DG/'
 # coords_dir = os.environ['PI_HOME']+'/'
-coords_file = 'DG_Soma_Coordinates.h5'
+# coords_file = 'DG_Soma_Coordinates.h5'
+coords_file = 'dentate_Full_Scale_Control_coords.h5'
 
 # forest_file = '100716_dentate_MPPtoDGC.h5'
 # degrees_file = 'DGC_forest_connectivity_degrees_orig.h5'
@@ -50,20 +51,23 @@ coords_file = 'DG_Soma_Coordinates.h5'
 
 soma_coords = {}
 with h5py.File(coords_dir+coords_file, 'r') as f:
-    for import_pop_key, local_pop_key in zip (['Granule Cells', 'MEC Cells'], ['GC', 'MEC']):
-        soma_coords[local_pop_key] = {'u': f['Coordinates'][import_pop_key]['U Coordinate'][:],
-                                      'v': f['Coordinates'][import_pop_key]['V Coordinate'][:],
-                                      'l': f['Coordinates'][import_pop_key]['L Coordinate'][:],
-                                      'GID': f['Coordinates'][import_pop_key]['GID'][:]}
+    populations = f['Populations'].keys()
+    for population in populations:
+        soma_coords[population] = {'u': f['Populations'][population]['Coordinates']['U Coordinate']['value'][:],
+                                   'v': f['Populations'][population]['Coordinates']['V Coordinate']['value'][:],
+                                   'x': f['Populations'][population]['Coordinates']['X Coordinate']['value'][:],
+                                   'y': f['Populations'][population]['Coordinates']['Y Coordinate']['value'][:],
+                                   'z': f['Populations'][population]['Coordinates']['Z Coordinate']['value'][:],
+                                   'GID': f['Populations'][population]['Coordinates']['U Coordinate']['gid'][:]}
 
 spatial_resolution = 1.  # um
-max_u = 10826.
-max_v = 3002.
+max_u = 10750.
+max_v = 2957.
 
 du = (0.98*np.pi-0.01*np.pi)/max_u*spatial_resolution
 dv = (1.425*np.pi-(-0.23*np.pi))/max_v*spatial_resolution
-u = np.arange(0.01*np.pi, 0.98*np.pi+du, du)
-v = np.arange(-0.23*np.pi, 1.425*np.pi+dv, dv)
+u = np.arange(0.01*np.pi-10.*du, 0.98*np.pi+10.*du, du)
+v = np.arange(-0.23*np.pi-10*dv, 1.425*np.pi+10.*dv, dv)
 
 U, V = np.meshgrid(u, v, indexing='ij')
 
@@ -419,7 +423,7 @@ def plot_out_degree_orig(target, source, projection, degrees_file, width_U):
         plt.close()
 
 
-def plot_population_density(population, soma_coords, u, v, U, V, distance_U, distance_V, max_u, max_v, bin_size=50.):
+def plot_population_density(population, soma_coords, u, v, U, V, distance_U, distance_V, max_u, max_v, bin_size=100.):
     """
 
     :param population: str
@@ -435,38 +439,11 @@ def plot_population_density(population, soma_coords, u, v, U, V, distance_U, dis
     :param bin_size: float
     :return:
     """
-    """
-    fig1 = plt.figure(1)
-    H, u_edges, v_edges = np.histogram2d(soma_coords[population]['u'], soma_coords[population]['v'], 100)
-    # H, u_edges, v_edges = np.histogram2d(u[population_indexes_u], v[population_indexes_v], 100)
-    H = np.rot90(H)
-    H = np.flipud(H)
-    Hmasked = np.ma.masked_where(H == 0, H)
-    plt.pcolormesh(u_edges, v_edges, Hmasked)
-    plt.xlabel('U')
-    plt.ylabel('V')
-    plt.title(population)
-    cbar = plt.colorbar()
-    cbar.ax.set_ylabel('Counts')
-    """
-    x = np.vectorize(lambda this_u, this_v, this_l: -500. * np.cos(this_u) * (5.3 - np.sin(this_u) +
-                                                                              (1. + 0.138 * this_l) * np.cos(this_v)))
-    y = np.vectorize(lambda this_u, this_v, this_l: 750. * np.sin(this_u) * (5.5 - 2. * np.sin(this_u) +
-                                                                             (0.9 + 0.114 * this_l) * np.cos(this_v)))
-    z = np.vectorize(lambda this_u, this_v, this_l: 2500. * np.sin(this_u) + (663. + 114. * this_l) *
-                                                                             np.sin(this_v - 0.13 * (np.pi - this_u)))
-
-    soma_coords[population]['x'] = x(soma_coords[population]['u'], soma_coords[population]['v'],
-                                     soma_coords[population]['l'])
-    soma_coords[population]['y'] = y(soma_coords[population]['u'], soma_coords[population]['v'],
-                                     soma_coords[population]['l'])
-    soma_coords[population]['z'] = z(soma_coords[population]['u'], soma_coords[population]['v'],
-                                     soma_coords[population]['l'])
-
     fig1 = plt.figure(1)
     ax = fig1.add_subplot(111, projection='3d')
-    piece_size = int(len(soma_coords[population]['x'])/10000)
-    c
+    piece_size = max(1, int(len(soma_coords[population]['x'])/10000))
+    ax.scatter(soma_coords[population]['x'][::piece_size], soma_coords[population]['y'][::piece_size],
+               soma_coords[population]['z'][::piece_size], alpha=0.1, linewidth=0)
     scaling = np.array([getattr(ax, 'get_{}lim'.format(dim))() for dim in 'xyz'])
     ax.auto_scale_xyz(*[[np.min(scaling), np.max(scaling)]] * 3)
     ax.set_xlabel('X (um)')
@@ -498,9 +475,8 @@ def plot_population_density(population, soma_coords, u, v, U, V, distance_U, dis
     plt.close()
 
 
-# plot_population_density('GC', soma_coords, u, v, U, V, distance_U, distance_V, max_u, max_v)
-
-plot_population_density('MEC', soma_coords, u, v, U, V, distance_U, distance_V, max_u, max_v)
+for population in populations:
+    plot_population_density(population, soma_coords, u, v, U, V, distance_U, distance_V, max_u, max_v)
 
 # plot_in_degree('GC', 'MEC', 'MPPtoGC', degrees_file, soma_coords, u, v, distance_U, distance_V)
 
