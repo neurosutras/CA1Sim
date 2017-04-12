@@ -30,7 +30,7 @@ xmax = {}
 
 #[soma.gCa factor, soma.gCadepK factor, soma.gKm, axon(ais, hill).gKm factor]
 xmin['spike_adaptation'] = [0., 0., 0., 0.]
-xmax['spike_adaptation'] = [5., 5., 5., 5.]
+xmax['spike_adaptation'] = [5., 5., 1., 10.]
 #Need to update these!
 
 check_bounds = CheckBounds(xmin, xmax)
@@ -152,6 +152,8 @@ def adjust_spike_number(target_spikes, local_x=None):
         spike_times = result['spike_times']
         spike_num = len(spike_times)
         amp += 0.01
+        if target_spikes == 1 and amp > 2.:
+            return None
     return result
 
 
