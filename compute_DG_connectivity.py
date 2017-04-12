@@ -95,7 +95,7 @@ width_V = np.mean(np.max(distance_V, axis=1))
 # MEC layer II stellate cells: Gatome et al., Neuroscience, 2010
 pop_size = {'GC': 1000000, 'MEC': 38000}
 
-pop_density = {pop: pop_size[pop] / width_U / width_V for pop in pop_size}  # cell density per um^2
+pop_density = {pop: float(pop_size[pop]) / width_U / width_V for pop in pop_size}  # cell density per um^2
 # Sloviter, Lomo, Frontiers, 2012. says GCs might only project 200 um S-T..., MEC less than 1500.
 axon_width = {'GC': (900., 900.), 'MEC': (1500., 1500.)}  # full width in um (S-T, M-L)
 
@@ -133,7 +133,8 @@ class AxonProb(object):
             sigma = {axis: width[axis] / 3. / np.sqrt(2.) for axis in width}
             for target in divergence[source]:
                 surface_area = np.pi * width['u'] * width['v'] / 4.
-                total_p = divergence[source][target] / convergence[target][source] / surface_area / pop_density[target]
+                total_p = float(divergence[source][target]) / float(convergence[target][source]) / surface_area / \
+                          pop_density[target]
                 this_volume = np.pi * sigma['u'] * sigma['v']
                 self.p_dist[source][target] = np.vectorize(lambda distance_u, distance_v:
                                                    total_p * np.exp(-((distance_u / sigma['u'])**2. +

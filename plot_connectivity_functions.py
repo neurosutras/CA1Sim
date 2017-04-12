@@ -466,8 +466,7 @@ def plot_population_density(population, soma_coords, u, v, U, V, distance_U, dis
     fig1 = plt.figure(1)
     ax = fig1.add_subplot(111, projection='3d')
     piece_size = int(len(soma_coords[population]['x'])/10000)
-    ax.scatter(soma_coords[population]['x'][::piece_size], soma_coords[population]['y'][::piece_size],
-               soma_coords[population]['z'][::piece_size], alpha=0.1, linewidth=0)
+    c
     scaling = np.array([getattr(ax, 'get_{}lim'.format(dim))() for dim in 'xyz'])
     ax.auto_scale_xyz(*[[np.min(scaling), np.max(scaling)]] * 3)
     ax.set_xlabel('X (um)')
