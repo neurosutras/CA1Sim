@@ -42,7 +42,7 @@ else:
 if len(sys.argv) > 2:
     mech_filename = str(sys.argv[2])
 else:
-    mech_filename = '041217 GC optimizing excitability'
+    mech_filename = '030217 GC optimizing excitability'
 
 
 @interactive
