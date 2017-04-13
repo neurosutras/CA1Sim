@@ -43,7 +43,7 @@ else:
 if len(sys.argv) > 2:
     mech_filename = str(sys.argv[2])
 else:
-    mech_filename = '030217 GC optimizing excitability'
+    mech_filename = '041317 GC optimizing excitability'
 
 
 @interactive
@@ -226,8 +226,9 @@ sim.append_rec(cell, cell.tree.root, loc=0.5, object=cell.tree.root.sec(0.5), pa
                description='Soma km_i')
 sim.append_rec(cell, cell.axon[2], loc=0.5, description='Axon Vm')
 
-cell.modify_mech_param('soma', 'Ca', 'gcamult', .1)
-cell.modify_mech_param('soma', 'CadepK', 'gcakmult', 0.1)
+cell.modify_mech_param('soma', 'Ca', 'gcamult', 1.)
+cell.modify_mech_param('soma', 'CadepK', 'gcakmult', 1.)
+
 """
 for sec_type in ['axon_hill', 'ais', 'axon']:
     cell.modify_mech_param(sec_type, 'Ca', 'gcamult', origin='soma')
