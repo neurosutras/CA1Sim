@@ -61,7 +61,7 @@ def spike_adaptation_error(x, target_spike_num=6):
     final_result = result
     rheo_spike_times = result['spike_times']
     rheobase = result['amp']
-
+    print 'rheobase: %.2f' % (rheobase)
     #Calculate more frequencies using stim duration of 500 ms
     result = v.map_async(parallel_optimize_spike_adaptation_engine.sim_spike_times,
                          [rheobase + amp_incr for amp_incr in [0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8]])
@@ -95,7 +95,7 @@ def spike_adaptation_error(x, target_spike_num=6):
             target_freq.append(target_val['slope']*(trial['amp']-rheobase) + 1./stim_dur*1000.)
     FI_err = 0.
     for i in range(len(freq)):
-        FI_err += (target_freq[i] - freq[i])**2.
+        FI_err += ((target_freq[i] - freq[i])/(0.01*target_freq[i]))**2.
     FI_err *= FI_err_factor
     Err += FI_err
     for target in final_result:
@@ -104,7 +104,7 @@ def spike_adaptation_error(x, target_spike_num=6):
         hist.features[target].append(final_result[target])
     print 'Simulation took %i s' % (time.time() - start_time)
     print 'Process : [soma.gCa factor', 'soma.gCadepK factor', 'soma.gKm', 'axon(ais, hill).gKm factor]: ' \
-          '[%.2f, %.2f, %.2f, %.2f], rheobase: %.2f' % (x[0], x[1], x[2], x[3], rheobase)
+          '[%.2f, %.2f, %.2f, %.2f]' % (x[0], x[1], x[2], x[3])
     print 'Process %i: adi error %.4E, FI error %.4E, Total error: %.4E' % (os.getpid(), adi_error, FI_err, Err)
     hist.error_values.append(Err)
     sys.stdout.flush()
@@ -176,7 +176,7 @@ target_val['adi'] = {'6': 0.118989}
 target_val['slope'] = 50.
 #50 spikes/s/nA
 target_val['corr'] = 1.
-target_range['adi'] = {'6': 0.25}
+target_range['adi'] = {'6': 0.001}
 target_range['corr'] = 0.25
 #Do we need to modify the target range??
 

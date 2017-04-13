@@ -29,8 +29,8 @@ xmin = {}
 xmax = {}
 
 #[soma.gCa factor, soma.gCadepK factor, soma.gKm, axon(ais, hill).gKm factor]
-xmin['spike_adaptation'] = [0., 0., 0., 0.]
-xmax['spike_adaptation'] = [5., 5., 1., 10.]
+xmin['spike_adaptation'] = [0.5, 0.5, 0.0005, 1.]
+xmax['spike_adaptation'] = [2., 2., 0.003, 5.]
 #Need to update these!
 
 check_bounds = CheckBounds(xmin, xmax)
@@ -73,23 +73,13 @@ def compute_spike_stability_features(amp, stim_dur, plot=0):
     duration = equilibrate + stim_dur + 100.
     sim.tstop = duration
     t = np.arange(0., duration, dt)
-    stability = 0.
-    result = {}
     sim.modify_stim(0, amp=amp)
     sim.run(v_active)
     if plot:
         sim.plot()
-    vm = np.interp(t, sim.tvec, sim.get_rec('soma')['vec'])
     axon_vm = np.interp(t, sim.tvec, sim.get_rec('Axon Vm')['vec'])
-    v_rest = np.mean(vm[int((equilibrate - 3.)/dt):int((equilibrate - 1.)/dt)])
-    v_before = np.max(vm[int((equilibrate - 50.)/dt):int((equilibrate - 1.)/dt)])
-    v_after = np.max(vm[-int(50./dt):-1])
-    stability += abs((v_before - v_rest) + (v_after - v_rest))
-    v_min_late = np.min(vm[int((equilibrate + 80.)/dt):int((equilibrate + 99.)/dt)])
-    result['stability'] = stability
-    result['v_min_late'] = v_min_late
-    print 'Process %i took %.1f s to test spike stability with amp: %.3f' % (os.getpid(), time.time()-start_time, amp)
-    return result, axon_vm, t
+    print 'Process %i took %.1f s to simulate with amp: %.3f' % (os.getpid(), time.time()-start_time, amp)
+    return axon_vm, t
 
 @interactive
 def sim_spike_times(amp, stim_dur=500., local_x=None):
@@ -107,7 +97,7 @@ def sim_spike_times(amp, stim_dur=500., local_x=None):
         print 'Process %i: Aborting - Parameters outside optimization bounds.' % (os.getpid())
         return None
     update_spike_adaptation(local_x)
-    spike_stab_result, axon_vm, t = compute_spike_stability_features(amp, stim_dur)
+    axon_vm, t = compute_spike_stability_features(amp, stim_dur)
     axon_vm = axon_vm[int(spikes_start/dt):int(spikes_stop/dt)]
     t = t[int(spikes_start / dt):int(spikes_stop / dt)]
     #th_x is a list of the indices in axon_vm where the axon voltage is above the given threshold
@@ -140,7 +130,6 @@ def sim_spike_times(amp, stim_dur=500., local_x=None):
 def adjust_spike_number(target_spikes, local_x=None):
     if local_x is None:
         local_x = x
-    print local_x
     if not check_bounds.within_bounds(local_x, 'spike_adaptation'):
         print 'Process %i: Aborting - Parameters outside optimization bounds.' % (os.getpid())
         return None
@@ -151,7 +140,7 @@ def adjust_spike_number(target_spikes, local_x=None):
         result = sim_spike_times(amp, 100., local_x)
         spike_times = result['spike_times']
         spike_num = len(spike_times)
-        amp += 0.01
+        amp += d_amp
         if target_spikes == 1 and amp > 0.4:
             return None
     return result
