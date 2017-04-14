@@ -3,7 +3,7 @@ import pandas as pd
 import sys
 
 """
-Magee lab plateau-induced place field data is in a horrible ad-hoc series of text files. This organizes them into
+Magee lab plateau-induced place field data is in a series of text files. This organizes them into
 a single .hdf5 file with a standard format:
 
 cell_id:
@@ -65,7 +65,7 @@ for c in range(len(df.values[0,:])):
     all_data[c] = df.values[:,c][~np.isnan(df.values[:,c])]
 
 sampling_rate = 20000.  # Hz
-# sampling_rate = 1000.  # Hz
+# sampling_rate = 1000.  # Hz  # some of the files have been downsampled.
 track_length = 187.  # cm
 V_scale = 1000.
 
