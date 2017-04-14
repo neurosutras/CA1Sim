@@ -222,7 +222,7 @@ minimizer_kwargs = dict(method=null_minimizer)
 check_bounds = CheckBounds(xmin, xmax)
 hist = optimize_history()
 hist.xlabels = xlabels
-history_filename = '040717 spike adaptation'
+history_filename = '041417 spike adaptation'
 
 dv = c[:]
 dv.block = True
