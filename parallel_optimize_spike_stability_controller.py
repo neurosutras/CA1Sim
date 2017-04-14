@@ -6,7 +6,7 @@ from ipyparallel import Client
 from IPython.display import clear_output
 from plot_results import *
 import scipy.optimize as optimize
-import mkl
+# import mkl
 
 """
 Aims for spike initiation at initial segment by increasing nax density and decreasing activation V1/2 relative to soma,
@@ -21,7 +21,7 @@ Assumes a controller is already running in another process with:
 ipcluster start -n num_cores
 """
 
-mkl.set_num_threads(1)
+# mkl.set_num_threads(1)
 
 
 def na_ka_stability_error(x, plot=0):
@@ -198,7 +198,8 @@ hist.xlabels = xlabels['na_ka_stability']
 # x0['na_ka_stability'] = [0.0483, 0.0100, 4.56, 4.90, 4.63]  # Error: 2.7284E+03
 # x0['na_ka_stability'] = [0.02948262,  0.01003593,  4.66184288,  4.48235059,  4.91410208]  # Error: 2.644E+03
 # x0['na_ka_stability'] = [0.0365, 0.0118, 4.91, 4.72, 4.90, 1., 1.]  # Error: 2.2990E+03
-x0['na_ka_stability'] = [0.0308, 0.0220, 4.667, 4.808, 4.032, 1.297, 1.023]  # Error: 1.5170E+03
+# x0['na_ka_stability'] = [0.0308, 0.0220, 4.667, 4.808, 4.032, 1.297, 1.023]  # Error: 1.5170E+03
+x0['na_ka_stability'] =[1.107E-02, 2.207E-02, 4.990E+00, 4.684E+00, 5.489E+00, 1.491E+00, 1.034E+00]  # Error: 1.628E+03
 xmin['na_ka_stability'] = [0.01, 0.01, 1., 2., 0.1, 1., 1.]
 xmax['na_ka_stability'] = [0.075, 0.05, 5., 5., 6., 2., 5.]
 
@@ -217,16 +218,17 @@ dv.execute('run parallel_optimize_spike_stability_engine %i \"%s\"' % (int(spine
 # time.sleep(60)
 v = c.load_balanced_view()
 
-"""
+
 result = optimize.basinhopping(na_ka_stability_error, x0['na_ka_stability'], niter=max_niter,
                                niter_success=niter_success, disp=True, interval=40,
                                minimizer_kwargs=minimizer_kwargs, take_step=take_step)
 print result
-
+"""
+history_filename = '041417 spike stability optimization history'
 best_x = hist.report_best()
 hist.export_to_pkl(history_filename)
 dv['x'] = best_x
 # dv['x'] = x0['na_ka_stability']
 c[0].apply(parallel_optimize_spike_stability_engine.update_mech_dict)
 """
-plot_best(x0['na_ka_stability'])
+# plot_best(x0['na_ka_stability'])

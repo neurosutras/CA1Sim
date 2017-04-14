@@ -3,14 +3,14 @@ from specify_cells2 import *
 import os
 import sys
 from ipyparallel import interactive
-# import mkl
+import mkl
 
 """
 Builds a cell locally so each engine is ready to receive jobs one at a time, specified by a value for the amplitude of
 a somatic current injection to test spike adaptation.
 """
 
-# mkl.set_num_threads(1)
+mkl.set_num_threads(1)
 
 neurotree_filename = '121516_DGC_trees.pkl'
 neurotree_dict = read_from_pkl(morph_dir+neurotree_filename)
@@ -131,13 +131,14 @@ def get_rheobase(local_x=None, plot=False):
     start_time = time.time()
     update_spike_adaptation(local_x)
     soma_vm = offset_vm('soma', v_active)
-    sim.modify_stim(0, node=cell.tree.root, loc=0., dur=100.)
+    print 'Process %i: Getting here - after offset_vm' % os.getpid()
+    sim.modify_stim(0, dur=100.)
     duration = equilibrate + 100.
     sim.tstop = duration
     t = np.arange(0., duration, dt)
     spike = False
     d_amp = 0.01
-    amp = i_th['soma'] - d_amp
+    amp = max(0., i_th['soma'] - 0.05)
     while not spike:
         sim.modify_stim(0, amp=amp)
         sim.run(v_active)
@@ -177,6 +178,7 @@ def sim_f_I(amp, local_x=None, plot=False):
         return None
     update_spike_adaptation(local_x)
     soma_vm = offset_vm('soma', v_active)
+    print 'Process %i: Getting here - after offset_vm' % os.getpid()
     sim.parameters['amp'] = amp
     start_time = time.time()
     sim.modify_stim(0, dur=stim_dur, amp=amp)
@@ -221,7 +223,8 @@ cell.modify_mech_param('soma', 'CadepK', 'gcakmult', 1.)
 rec_locs = {'soma': 0., 'axon': 1.}
 rec_nodes = {'soma': cell.tree.root, 'axon': cell.axon[2]}
 
-sim = QuickSim(duration, verbose=False)
+# sim = QuickSim(duration, verbose=False)
+sim = QuickSim(duration, verbose=True)
 sim.append_stim(cell, cell.tree.root, loc=0., amp=0., delay=equilibrate, dur=stim_dur)
 sim.append_stim(cell, cell.tree.root, loc=0., amp=0., delay=0., dur=duration)
 

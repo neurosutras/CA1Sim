@@ -2125,6 +2125,11 @@ class QuickSim(object):
             h.dt = self.dt
         h.v_init = v_init
         h.init()
+        h.finitialize(v_init)
+        if self.cvode.active:
+            self.cvode.re_init()
+        else:
+            h.fcurrent()
         h.run()
         if self.verbose:
             print 'Simulation runtime: ', time.time()-start_time, ' sec'

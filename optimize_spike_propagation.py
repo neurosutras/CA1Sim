@@ -5,8 +5,6 @@ import sys
 import os
 import random
 
-# morph_filename = 'EB2-late-bifurcation.swc'
-# morph_filename = 'DG_GC_355549.swc'
 neurotree_filename = '121516_DGC_trees.pkl'
 neurotree_dict = read_from_pkl(morph_dir+neurotree_filename)
 
@@ -17,9 +15,7 @@ else:
 if len(sys.argv) > 2:
     mech_filename = str(sys.argv[2])
 else:
-    # Start with a mechanism dictionary that has soma_ek = -77.,
-    # soma_na_gbar = 0.04 and has set the other parameters accordingly
-    mech_filename = '030217 GC optimizing excitability'
+    mech_filename = '041317 GC optimizing excitability'
 
 
 def offset_vm(description, vm_target=None):
@@ -315,7 +311,6 @@ for description, node in rec_nodes.iteritems():
 
 i_holding = {'soma': 0.09}
 i_th = {'soma': 0.05}
-compartment_objects = {'soma': cell.tree.root}
 
 #the target values and acceptable ranges
 target_val = {}

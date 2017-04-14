@@ -2178,7 +2178,7 @@ class optimize_history(object):
         lowest_Err = min(self.error_values)
         index = self.error_values.index(lowest_Err)
         best_x = self.x_values[index]
-        formatted_x = '[' + ', '.join(['%.2E' % xi for xi in best_x]) + ']'
+        formatted_x = '[' + ', '.join(['%.3E' % xi for xi in best_x]) + ']'
         print 'best x: %s' % formatted_x
         print 'lowest Err: %.3E' % lowest_Err
         return best_x
