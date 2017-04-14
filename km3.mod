@@ -23,7 +23,7 @@ PARAMETER {
 NEURON {
 	SUFFIX km3
 	USEION k READ ek WRITE ik
-    RANGE  gkmbar,ik,inf,tau
+    RANGE  gkmbar,ik,gk,inf,tau
 }
 
 STATE {
@@ -35,6 +35,7 @@ ASSIGNED {
 	ek
 	celsius (degC)
 	ik      (mA/cm2)
+	gk 		(S/cm2)
     inf
 	tau
 }
@@ -46,7 +47,8 @@ INITIAL {
 
 BREAKPOINT {
 	SOLVE state METHOD cnexp
-	ik = gkmbar*m^st*(v-ek)
+	gk = gkmbar*m^st
+	ik = gk*m^st*(v-ek)
 }
 
 FUNCTION alpt(v(mV)) {

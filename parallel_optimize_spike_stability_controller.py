@@ -136,7 +136,6 @@ def plot_best(x=None, discard=True):
     rec_file_list = [filename for filename in dv['rec_filename'] if os.path.isfile(data_dir + filename + '.hdf5')]
     for i, rec_filename in enumerate(rec_file_list):
         with h5py.File(data_dir+rec_filename+'.hdf5', 'r') as f:
-            plt.figure(i)
             for trial in f.itervalues():
                 amplitude = trial.attrs['amp']
                 fig, axes = plt.subplots(1)
@@ -145,7 +144,7 @@ def plot_best(x=None, discard=True):
                 axes.legend(loc='best', frameon=False, framealpha=0.5)
                 axes.set_xlabel('Time (ms)')
                 axes.set_ylabel('Vm (mV)')
-                axes.set_title('Optimize Vm: I_inj amplitude %.2f' % amplitude)
+                axes.set_title('Optimize spike stability: I_inj amplitude %.2f' % amplitude)
                 fig.tight_layout()
                 clean_axes(axes)
     plt.show()
@@ -180,7 +179,7 @@ else:
 if len(sys.argv) > 2:
     mech_filename = str(sys.argv[2])
 else:
-    mech_filename = '030217 GC optimizing excitability'
+    mech_filename = '041317 GC optimizing excitability'
 if len(sys.argv) > 3:
     cluster_id = sys.argv[3]
     c = Client(cluster_id=cluster_id)

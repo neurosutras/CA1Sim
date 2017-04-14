@@ -1,15 +1,13 @@
 __author__ = 'Grace Ng'
 import parallel_optimize_spike_adaptation_engine
-import os
-import sys
-from numpy import *
 from ipyparallel import Client
 from IPython.display import clear_output
 from plot_results import *
-import mkl
+import sys
+# import mkl
 
 """
-Optimizes gCA factor and gCadepK factor, and gKm for soma and gKm factor for axon initial segment and hill
+Optimizes gCA factor and gCadepK factor, and gkmbar for soma and axon
 
 Parallel version dynamically submits jobs to available cores.
 
@@ -17,15 +15,49 @@ Assumes a controller is already running in another process with:
 ipcluster start -n num_cores
 """
 
-mkl.set_num_threads(1)
+# mkl.set_num_threads(1)
 
-def spike_adaptation_error(x, target_spike_num=6):
+
+def get_adaptation_index(spike_times):
+    """
+    A large value indicates large degree of spike adaptation (large increases in interspike intervals during a train)
+    :param spike_times: list of float
+    :return: float
+    """
+    if len(spike_times) < 3:
+        return None
+    isi = []
+    adi = []
+    for i in range(len(spike_times) - 1):
+        isi.append(spike_times[i + 1] - spike_times[i])
+    for i in range(len(isi) - 1):
+        adi.append((isi[i + 1] - isi[i]) / (isi[i + 1] + isi[i]))
+    return np.mean(adi)
+
+
+def get_adaptation_index_error(spike_times):
     """
 
-    :param spike_num: int
-    :param axon_th: float
-    :param start: float
-    :param stop: float
+    :param spike_times: array of float 
+    :return: float 
+    """
+    if len(spike_times) < 3:
+        return None
+    elif len(spike_times) > len(experimental_spike_times):
+        adi = get_adaptation_index(spike_times[:len(experimental_spike_times)])
+        exp_adi = experimental_adaptation_indexes[len(experimental_spike_times) - 3]
+    else:
+        adi = get_adaptation_index(spike_times)
+        exp_adi = experimental_adaptation_indexes[len(spike_times) - 3]
+    adi_error = ((adi - exp_adi) / (0.01 * exp_adi)) ** 2.
+    return adi, adi_error
+
+
+def spike_adaptation_error(x, full_output=False):
+    """
+    
+    :param x: array
+    :param full_output: bool
     :return: float
     """
     if not check_bounds.within_bounds(x, 'spike_adaptation'):
@@ -37,10 +69,10 @@ def spike_adaptation_error(x, target_spike_num=6):
     start_time = time.time()
     dv['x'] = x
     hist.x_values.append(x)
-    formatted_x = '[' + ', '.join(['%.3E' % xi for xi in x]) + ']'
+    formatted_x = '[' + ', '.join(['%.4E' % xi for xi in x]) + ']'
     print 'Process %i using current x: %s: %s' % (os.getpid(), str(xlabels['spike_adaptation']), formatted_x)
-    #rheobase: the current to cross threshold for a single spike; uses a 100 ms injection
-    result = c[0].apply(parallel_optimize_spike_adaptation_engine.adjust_spike_number, 1)
+    # rheobase: the current to cross threshold for a single spike; uses a 100 ms injection
+    result = c[0].apply(parallel_optimize_spike_adaptation_engine.get_rheobase)
     last = ''
     while not result.ready():
         time.sleep(1.)
@@ -54,17 +86,15 @@ def spike_adaptation_error(x, target_spike_num=6):
         sys.stdout.flush()
     result = result.get()
     if result is None:
-        print 'Cell is spontaneously firing, or parameters are out of bounds, or no reasonable rheobase.'
+        print 'Cell is spontaneously firing, or rheobase is outside target range.'
         Err = 1e9
         hist.error_values.append(Err)
         return Err
-    final_result = result
-    rheo_spike_times = result['spike_times']
-    rheobase = result['amp']
-    print 'rheobase: %.2f' % (rheobase)
-    #Calculate more frequencies using stim duration of 500 ms
-    result = v.map_async(parallel_optimize_spike_adaptation_engine.sim_spike_times,
-                         [rheobase + amp_incr for amp_incr in [0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8]])
+    rheobase = result
+    final_result = {'rheobase': rheobase}
+    # Calculate firing rates for a range of I_inj amplitudes using a stim duration of 500 ms
+    result = v.map_async(parallel_optimize_spike_adaptation_engine.sim_f_I,
+                         [rheobase + i_inj_increment * (i + 1) for i in range(num_increments)])
     last = []
     while not result.ready():
         time.sleep(1.)
@@ -78,37 +108,35 @@ def spike_adaptation_error(x, target_spike_num=6):
             last = last[-len(x):]
         sys.stdout.flush()
     result = result.get()
-    freq = []
-    target_freq = []
-    adi = -1.
-    Err = 0.
+    final_result['adi'] = []
+    final_result['f_I'] = []
+    adi_Err = 0.
+    f_I_Err = 0.
     stim_dur = parallel_optimize_spike_adaptation_engine.stim_dur
-    for trial in result:
-        if trial is not None:
-            spike_times = trial['spike_times']
-            freq.append(len(spike_times)/stim_dur*1000.)
-            if adi is -1.:
-                if len(spike_times) >= target_spike_num:
-                    adi = adapt_index(spike_times)
-                    adi_error = ((target_val['adi'][str(target_spike_num)] - adi)/target_range['adi'][str(target_spike_num)])**2.
-                    Err += adi_error
-            target_freq.append(target_val['slope']*(trial['amp']-rheobase) + 1./stim_dur*1000.)
-    FI_err = 0.
-    for i in range(len(freq)):
-        FI_err += ((target_freq[i] - freq[i])/(0.01*target_freq[i]))**2.
-    FI_err *= FI_err_factor
-    Err += FI_err
-    for target in final_result:
-        if target not in hist.features:
-            hist.features[target] = []
-        hist.features[target].append(final_result[target])
+    for i, trial in enumerate(result):
+        spike_times = trial['spike_times']
+        this_adi, this_adi_Err = get_adaptation_index_error(spike_times)
+        if this_adi_Err is not None:
+            adi_Err += this_adi_Err
+        final_result['adi'].append(this_adi)
+        this_rate = len(spike_times) / stim_dur * 1000.
+        final_result['f_I'].append(this_rate)
+        f_I_Err += ((this_rate - target_f_I[i]) / (0.01 * target_f_I[i]))**2.
+    Err = adi_Err + f_I_Err
+    for feature in final_result:
+        if feature not in hist.features:
+            hist.features[feature] = []
+        hist.features[feature].append(final_result[feature])
     print 'Simulation took %i s' % (time.time() - start_time)
-    print 'Process : [soma.gCa factor', 'soma.gCadepK factor', 'soma.gKm', 'axon(ais, hill).gKm factor]: ' \
-          '[%.2f, %.2f, %.2f, %.2f]' % (x[0], x[1], x[2], x[3])
-    print 'Process %i: adi error %.4E, FI error %.4E, Total error: %.4E' % (os.getpid(), adi_error, FI_err, Err)
+    print '[soma.gCa factor, soma.gCadepK factor, soma.gkmbar]: %s' % formatted_x
+    print 'Process %i: adi error %.4E, f_I error %.4E, Total error: %.4E' % (os.getpid(), adi_Err, f_I_Err, Err)
     hist.error_values.append(Err)
     sys.stdout.flush()
-    return Err
+    if full_output:
+        return Err, final_result
+    else:
+        return Err
+
 
 def plot_best(x=None, discard=True):
     """
@@ -118,19 +146,15 @@ def plot_best(x=None, discard=True):
     """
     if x is None:
         if hist.x_values:
-            dv['x'] = hist.report_best()
-            c[0].apply(parallel_optimize_spike_adaptation_engine.adjust_spike_number, 6)
+            spike_adaptation_error(hist.report_best())
         else:
             raise Exception('Please specify input parameters (history might be empty).')
     else:
-        dv['x'] = x
-        c[0].apply(parallel_optimize_spike_adaptation_engine.adjust_spike_number, 6)
+        spike_adaptation_error(x)
     dv.execute('export_sim_results()')
-    # Does this export the most recent sim object? Does the sim object get re-written every time we run a new current injection?
     rec_file_list = [filename for filename in dv['rec_filename'] if os.path.isfile(data_dir + filename + '.hdf5')]
     for i, rec_filename in enumerate(rec_file_list):
         with h5py.File(data_dir+rec_filename+'.hdf5', 'r') as f:
-            plt.figure(i)
             for trial in f.itervalues():
                 amplitude = trial.attrs['amp']
                 fig, axes = plt.subplots(1)
@@ -139,7 +163,7 @@ def plot_best(x=None, discard=True):
                 axes.legend(loc='best', frameon=False, framealpha=0.5)
                 axes.set_xlabel('Time (ms)')
                 axes.set_ylabel('Vm (mV)')
-                axes.set_title('Optimize Vm: I_inj amplitude %.2f' % amplitude)
+                axes.set_title('Optimize f_I and spike adaptation: I_inj amplitude %.2f' % amplitude)
                 fig.tight_layout()
                 clean_axes(axes)
     plt.show()
@@ -148,39 +172,20 @@ def plot_best(x=None, discard=True):
         for rec_filename in rec_file_list:
             os.remove(data_dir + rec_filename + '.hdf5')
 
-def adapt_index(spike_times):
-    """
 
-    :param spike_times: list of the times at which there are spike peaks
-    :return: adi is a large value for high spike adaptation (large differences in lengths of interspike intervals)
-    """
-    if len(spike_times) < 4:
-        return None
-    adi = 0
-    count = 0
-    isi = []
-    for i in range(len(spike_times) - 1):
-        isi.append(spike_times[i + 1] - spike_times[i])
-    for i in range(len(isi) - 1):
-        adi += 1.0 * (isi[i + 1] - isi[i]) / (isi[i + 1] + isi[i])
-        count += 1
-    adi /= count
-    return adi
+# GC experimental spike adaptation data from Brenner...Aldrich, Nat. Neurosci., 2005
+experimental_spike_times = [0., 8.57331572, 21.79656539, 39.24702774, 60.92470277, 83.34214003, 109.5640687,
+                            137.1598415, 165.7067371, 199.8546896, 236.2219287, 274.3857332, 314.2404227, 355.2575958,
+                            395.8520476, 436.7635403]
+experimental_adaptation_indexes = []
+for i in range(3, len(experimental_spike_times)+1):
+    experimental_adaptation_indexes.append(get_adaptation_index(experimental_spike_times[:i]))
 
-#The target values and acceptable ranges
-target_val = {}
-target_range = {}
-
-#This is the target adaptation index for a series of 6 spikes
-target_val['adi'] = {'6': 0.118989}
-target_val['slope'] = 50.
-#50 spikes/s/nA
-target_val['corr'] = 1.
-target_range['adi'] = {'6': 0.001}
-target_range['corr'] = 0.25
-#Do we need to modify the target range??
-
-FI_err_factor = 0.5
+# 50 spikes/s/nA
+experimental_f_I_slope = 50.
+i_inj_increment = 0.1
+num_increments = 8
+target_f_I = [experimental_f_I_slope * i_inj_increment * (i + 1) for i in range(num_increments)]
 
 x0 = {}
 xlabels = {}
@@ -195,7 +200,7 @@ else:
 if len(sys.argv) > 2:
     mech_filename = str(sys.argv[2])
 else:
-    mech_filename = '041317 GC optimizing excitability'
+    mech_filename = '041417 GC optimizing excitability'
 if len(sys.argv) > 3:
     cluster_id = sys.argv[3]
     c = Client(cluster_id=cluster_id)
@@ -203,17 +208,17 @@ else:
     c = Client()
 
 # These values will now be saved in the mech dictionary that is updated by previous round of optimization
-x0['spike_adaptation'] = [1., 1., 0.0015, 5.]
-xlabels['spike_adaptation'] = ['soma.gCa factor', 'soma.gCadepK factor', 'soma.gKm', 'axon(ais, hill).gKm factor']
-xmin['spike_adaptation'] = [0.5, 0.5, 0.0005, 1.]
-xmax['spike_adaptation'] = [2., 2., 0.003, 5.]
+x0['spike_adaptation'] = [1., 1., 0.0015]
+xlabels['spike_adaptation'] = ['soma.gCa factor', 'soma.gCadepK factor', 'soma.gkmbar']
+xmin['spike_adaptation'] = [0.5, 0.5, 0.0005]
+xmax['spike_adaptation'] = [2., 2., 0.003]
 
 max_niter = 2100  # max number of iterations to run
 niter_success = 400  # max number of interations without significant progress before aborting optimization
 take_step = Normalized_Step(x0['spike_adaptation'], xmin['spike_adaptation'], xmax['spike_adaptation'])
 minimizer_kwargs = dict(method=null_minimizer)
 
-#Check bounds to make sure soma gKm and axon gKm are within a reasonable range
+# Check bounds to make sure soma gKm and axon gKm are within a reasonable range
 check_bounds = CheckBounds(xmin, xmax)
 hist = optimize_history()
 hist.xlabels = xlabels
@@ -225,8 +230,10 @@ global_start_time = time.time()
 
 
 dv.execute('run parallel_optimize_spike_adaptation_engine %i \"%s\"' % (int(spines), mech_filename))
-# time.sleep(60)
+time.sleep(60)
 v = c.load_balanced_view()
+
+# Err, final_result = spike_adaptation_error(x0['spike_adaptation'], True)
 
 
 result = optimize.basinhopping(spike_adaptation_error, x0['spike_adaptation'], niter=max_niter,
@@ -234,11 +241,11 @@ result = optimize.basinhopping(spike_adaptation_error, x0['spike_adaptation'], n
                                minimizer_kwargs=minimizer_kwargs, take_step=take_step)
 print result
 
-"""
+
 best_x = hist.report_best()
 hist.export_to_pkl(history_filename)
-#dv['x'] = best_x
-dv['x'] = x0['spike_adaptation']
+dv['x'] = best_x
+# dv['x'] = x0['spike_adaptation']
 c[0].apply(parallel_optimize_spike_adaptation_engine.update_mech_dict)
-plot_best(x0['spike_adaptation'])
-"""
+
+# plot_best(x0['spike_adaptation'])

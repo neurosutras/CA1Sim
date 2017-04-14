@@ -228,6 +228,8 @@ mpiexec -n 4 python test_mpi.py
 
 finally, build h5py to refer to parallel hdf5 and mpi4py:
 http://docs.h5py.org/en/latest/mpi.html
+download source from:
+https://pypi.python.org/pypi/h5py
 
 export CC=mpicc
 python setup.py configure --mpi --hdf5=/usr/local/hdf5

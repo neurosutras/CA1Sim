@@ -239,7 +239,7 @@ def get_spike_shape(vm):
     :return: tuple of float: (v_peak, th_v, ADP, AHP)
     """
     vm = vm[int((equilibrate+0.4)/dt):]
-    dvdt = np.gradient(vm, [dt])
+    dvdt = np.gradient(vm, dt)
     th_x = np.where(dvdt > th_dvdt)[0]
     if th_x.any():
         th_x = th_x[0] - int(1.6/dt)

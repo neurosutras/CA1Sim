@@ -3,17 +3,15 @@ from specify_cells2 import *
 import os
 import sys
 from ipyparallel import interactive
-import mkl
+# import mkl
 
 """
 Builds a cell locally so each engine is ready to receive jobs one at a time, specified by a value for the amplitude of
 a somatic current injection to test spike adaptation.
 """
 
-mkl.set_num_threads(1)
+# mkl.set_num_threads(1)
 
-# morph_filename = 'EB2-late-bifurcation.swc'
-# morph_filename = 'DG_GC_355549.swc'
 neurotree_filename = '121516_DGC_trees.pkl'
 neurotree_dict = read_from_pkl(morph_dir+neurotree_filename)
 
@@ -22,16 +20,15 @@ rec_filename = str(time.strftime('%m%d%Y', time.gmtime()))+'_'+str(time.strftime
 
 
 # placeholder for optimization parameter, must be pushed to each engine on each iteration
-# x: array [soma.gCa factor, soma.gCadepK factor, soma.gKm, axon(ais, hill).gKm factor]
+# x: array [soma.gCa factor, soma.gCadepK factor, soma.gkmbar]
 x = None  # Placeholder for parameters pushed from controller.
 
 xmin = {}
 xmax = {}
 
-#[soma.gCa factor, soma.gCadepK factor, soma.gKm, axon(ais, hill).gKm factor]
-xmin['spike_adaptation'] = [0.5, 0.5, 0.0005, 1.]
-xmax['spike_adaptation'] = [2., 2., 0.003, 5.]
-#Need to update these!
+# [soma.gCa factor, soma.gCadepK factor, soma.gkmbar]
+xmin['spike_adaptation'] = [0.5, 0.5, 0.0005]
+xmax['spike_adaptation'] = [2., 2., 0.003]
 
 check_bounds = CheckBounds(xmin, xmax)
 
@@ -43,7 +40,7 @@ else:
 if len(sys.argv) > 2:
     mech_filename = str(sys.argv[2])
 else:
-    mech_filename = '041317 GC optimizing excitability'
+    mech_filename = '041417 GC optimizing excitability'
 
 
 @interactive
@@ -51,98 +48,148 @@ def update_mech_dict():
     update_spike_adaptation(x)
     cell.export_mech_dict(cell.mech_filename)
 
+
 @interactive
 def update_spike_adaptation(x):
     """
 
-    :param x: array [soma.gCa factor, soma.gCadepK factor, soma.gKm, axon(ais, hill).gKm factor]
+    :param x: array [soma.gCa factor, soma.gCadepK factor, soma.gkmbar]
     """
 
     cell.modify_mech_param('soma', 'Ca', 'gcamult', x[0])
     cell.modify_mech_param('soma', 'CadepK', 'gcakmult', x[1])
-    cell.modify_mech_param('soma', 'km2', 'gkmbar', x[2])
-    cell.modify_mech_param('ais', 'km2', 'gkmbar', x[2]*x[3])
-    for sec_type in ['axon', 'axon_hill']:
-        cell.reinitialize_subset_mechanisms(sec_type, 'km2')
+    cell.modify_mech_param('soma', 'km3', 'gkmbar', x[2])
+    for sec_type in ['axon_hill', 'ais', 'axon']:
+        cell.reinitialize_subset_mechanisms(sec_type, 'km3')
+
 
 @interactive
-def compute_spike_stability_features(amp, stim_dur, plot=0):
-    sim.parameters['amp'] = amp
-    start_time = time.time()
-    sim.modify_stim(0, node=cell.tree.root, loc=0., dur=stim_dur)
-    duration = equilibrate + stim_dur + 100.
-    sim.tstop = duration
-    t = np.arange(0., duration, dt)
-    sim.modify_stim(0, amp=amp)
-    sim.run(v_active)
-    if plot:
-        sim.plot()
-    axon_vm = np.interp(t, sim.tvec, sim.get_rec('Axon Vm')['vec'])
-    print 'Process %i took %.1f s to simulate with amp: %.3f' % (os.getpid(), time.time()-start_time, amp)
-    return axon_vm, t
-
-@interactive
-def sim_spike_times(amp, stim_dur=500., local_x=None):
+def offset_vm(description, vm_target=None):
     """
 
-    :param amp: float
-    :param axon_th: float. This is the threshold above which the program will look for spike peaks
-    :param start: float
-    :param stop: float
-    :return:
+    :param description: str
+    :param vm_target: float
     """
-    if local_x is None:
-        local_x = x #For some reason, local_x is still none!
-    if not check_bounds.within_bounds(local_x, 'spike_adaptation'):
-        print 'Process %i: Aborting - Parameters outside optimization bounds.' % (os.getpid())
-        return None
-    update_spike_adaptation(local_x)
-    axon_vm, t = compute_spike_stability_features(amp, stim_dur)
-    axon_vm = axon_vm[int(spikes_start/dt):int(spikes_stop/dt)]
-    t = t[int(spikes_start / dt):int(spikes_stop / dt)]
-    #th_x is a list of the indices in axon_vm where the axon voltage is above the given threshold
-    th_x = np.where(axon_vm > axon_th)[0]
-    spike_times = []
-    index = 0
-    while index < len(th_x):
-        peak_range = [th_x[index]]
-        #look for indices of th_x that are consecutive; these indices are part of the same spike
-        while (index+1) < len(th_x):
-            if th_x[index+1] == (th_x[index]+1):
-                peak_range.append(th_x[index+1])
-                index +=1
+    if vm_target is None:
+        vm_target = v_init
+    sim.modify_stim(0, amp=0.)
+    node = rec_nodes[description]
+    loc = rec_locs[description]
+    rec_dict = sim.get_rec(description)
+    sim.modify_stim(1, node=node, loc=loc, amp=0.)
+    rec = rec_dict['vec']
+    offset = True
+    sim.tstop = equilibrate
+    t = np.arange(0., equilibrate, dt)
+    sim.modify_stim(1, amp=i_holding[description])
+    sim.run(vm_target)
+    vm = np.interp(t, sim.tvec, rec)
+    v_rest = np.mean(vm[int((equilibrate - 3.)/dt):int((equilibrate - 1.)/dt)])
+    initial_v_rest = v_rest
+    if v_rest < vm_target - 0.5:
+        i_holding[description] += 0.01
+        while offset:
+            if sim.verbose:
+                print 'increasing i_holding to %.3f (%s)' % (i_holding[description], description)
+            sim.modify_stim(1, amp=i_holding[description])
+            sim.run(vm_target)
+            vm = np.interp(t, sim.tvec, rec)
+            v_rest = np.mean(vm[int((equilibrate - 3.)/dt):int((equilibrate - 1.)/dt)])
+            if v_rest < vm_target - 0.5:
+                i_holding[description] += 0.01
             else:
-                break
-        if len(peak_range) > 1:
-            v_peak = np.max(axon_vm[peak_range[0]:peak_range[-1]])
-            peak_range_ind = np.where(axon_vm[peak_range[0]:peak_range[-1]] == v_peak)[0][0]
-            x_peak = peak_range[peak_range_ind]
-        else:
-            x_peak = peak_range[0]
-        spike_times.append(t[x_peak])
-        index += 1
-    result = {}
-    result['spike_times'] = spike_times
-    result['amp'] = amp
-    return result
+                offset = False
+    elif v_rest > vm_target + 0.5:
+        i_holding[description] -= 0.01
+        while offset:
+            if sim.verbose:
+                print 'decreasing i_holding to %.3f (%s)' % (i_holding[description], description)
+            sim.modify_stim(1, amp=i_holding[description])
+            sim.run(vm_target)
+            vm = np.interp(t, sim.tvec, rec)
+            v_rest = np.mean(vm[int((equilibrate - 3.)/dt):int((equilibrate - 1.)/dt)])
+            if v_rest > vm_target + 0.5:
+                i_holding[description] -= 0.01
+            else:
+                offset = False
+    sim.tstop = duration
+    return v_rest
+
 
 @interactive
-def adjust_spike_number(target_spikes, local_x=None):
+def get_rheobase(local_x=None, plot=False):
+    """
+    :param local_x: array [soma.gCa factor, soma.gCadepK factor, soma.gkmbar]
+    :param plot: bool
+    :return: float
+    """
     if local_x is None:
         local_x = x
     if not check_bounds.within_bounds(local_x, 'spike_adaptation'):
         print 'Process %i: Aborting - Parameters outside optimization bounds.' % (os.getpid())
         return None
-    spike_num = 0
+    start_time = time.time()
+    update_spike_adaptation(local_x)
+    soma_vm = offset_vm('soma', v_active)
+    sim.modify_stim(0, node=cell.tree.root, loc=0., dur=100.)
+    duration = equilibrate + 100.
+    sim.tstop = duration
+    t = np.arange(0., duration, dt)
+    spike = False
     d_amp = 0.01
     amp = i_th['soma'] - d_amp
-    while spike_num < target_spikes:
-        result = sim_spike_times(amp, 100., local_x)
-        spike_times = result['spike_times']
-        spike_num = len(spike_times)
-        amp += d_amp
-        if target_spikes == 1 and amp > 0.4:
+    while not spike:
+        sim.modify_stim(0, amp=amp)
+        sim.run(v_active)
+        vm = np.interp(t, sim.tvec, sim.get_rec('soma')['vec'])
+        if np.any(vm[:int(equilibrate/dt)] > -30.):
+            print 'Process %i: Aborting - spontaneous firing' % (os.getpid())
             return None
+        if np.any(vm[int(equilibrate/dt):int((equilibrate+50.)/dt)] > -30.):
+            spike = True
+        elif amp >= 0.4:
+            print 'Process %i: Aborting - rheobase outside target range' % (os.getpid())
+            return None
+        else:
+            amp += d_amp
+            if sim.verbose:
+                print 'increasing amp to %.3f' % amp
+    i_th['soma'] = amp
+    print 'Process %i took %i s to find spike rheobase at amp: %.3f' % (os.getpid(), time.time() - start_time, amp)
+    if plot:
+        sim.plot()
+    return amp
+
+
+@interactive
+def sim_f_I(amp, local_x=None, plot=False):
+    """
+    
+    :param amp: float 
+    :param local_x: array
+    :param plot: bool
+    :return: dict
+    """
+    if local_x is None:
+        local_x = x
+    if not check_bounds.within_bounds(local_x, 'spike_adaptation'):
+        print 'Process %i: Aborting - Parameters outside optimization bounds.' % (os.getpid())
+        return None
+    update_spike_adaptation(local_x)
+    soma_vm = offset_vm('soma', v_active)
+    sim.parameters['amp'] = amp
+    start_time = time.time()
+    sim.modify_stim(0, dur=stim_dur, amp=amp)
+    duration = equilibrate + stim_dur
+    sim.tstop = duration
+    sim.run(v_active)
+    if plot:
+        sim.plot()
+    spike_times = np.subtract(cell.spike_detector.get_recordvec().to_python(), equilibrate)
+    result = {}
+    result['spike_times'] = spike_times
+    result['amp'] = amp
+    print 'Process %i took %i s to run simulation with I_inj amp: %.3f' % (os.getpid(), time.time() - start_time, amp)
     return result
 
 
@@ -158,42 +205,21 @@ def export_sim_results():
 equilibrate = 250.  # time to steady-state
 stim_dur = 500.
 duration = equilibrate + stim_dur
-dt = 0.01
+dt = 0.02
 amp = 0.3
 th_dvdt = 10.
 v_init = -77.
 v_active = -77.
 
-#The time interval (in ms) during the recording during which the program looks for axonal spikes
-spikes_start = 250.
-spikes_stop = 350.
-#Threshold above which an axonal spike will be counted
-axon_th = 10.
-
 cell = DG_GC(neurotree_dict=neurotree_dict[0], mech_filename=mech_filename, full_spines=spines)
 if spines is False:
     cell.correct_for_spines()
 
-# get the thickest apical dendrite ~200 um from the soma
-candidate_branches = []
-candidate_diams = []
-candidate_locs = []
-for branch in cell.apical:
-    if ((cell.get_distance_to_node(cell.tree.root, branch, 0.) >= 200.) &
-            (cell.get_distance_to_node(cell.tree.root, branch, 1.) > 300.)):
-        candidate_branches.append(branch)
-        for seg in branch.sec:
-            loc = seg.x
-            if cell.get_distance_to_node(cell.tree.root, branch, loc) > 250.:
-                candidate_diams.append(branch.sec(loc).diam)
-                candidate_locs.append(loc)
-                break
-index = candidate_diams.index(max(candidate_diams))
-dend = candidate_branches[index]
-dend_loc = candidate_locs[index]
+cell.modify_mech_param('soma', 'Ca', 'gcamult', 1.)
+cell.modify_mech_param('soma', 'CadepK', 'gcakmult', 1.)
 
-rec_locs = {'soma': 0., 'dend': dend_loc}
-rec_nodes = {'soma': cell.tree.root, 'dend': dend}
+rec_locs = {'soma': 0., 'axon': 1.}
+rec_nodes = {'soma': cell.tree.root, 'axon': cell.axon[2]}
 
 sim = QuickSim(duration, verbose=False)
 sim.append_stim(cell, cell.tree.root, loc=0., amp=0., delay=equilibrate, dur=stim_dur)
@@ -205,24 +231,19 @@ for description, node in rec_nodes.iteritems():
 i_holding = {'soma': 0.}
 i_th = {'soma': 0.05}
 
+spike_output_vec = h.Vector()
+cell.spike_detector.record(spike_output_vec)
+
+"""
 sim.append_rec(cell, cell.tree.root, loc=0.5, object=cell.tree.root.sec(0.5), param='_ref_ina_nas',
                description='Soma nas_i')
 sim.append_rec(cell, cell.tree.root, loc=0.5, object=cell.tree.root.sec(0.5), param='_ref_ik_kap',
                description='Soma kap_i')
 sim.append_rec(cell, cell.tree.root, loc=0.5, object=cell.tree.root.sec(0.5), param='_ref_ik_kdr',
                description='Soma kdr_i')
-sim.append_rec(cell, cell.tree.root, loc=0.5, object=cell.tree.root.sec(0.5), param='_ref_ik_km2',
+sim.append_rec(cell, cell.tree.root, loc=0.5, object=cell.tree.root.sec(0.5), param='_ref_ik_km3',
                description='Soma km_i')
 sim.append_rec(cell, cell.axon[2], loc=0.5, description='Axon Vm')
-
-cell.modify_mech_param('soma', 'Ca', 'gcamult', 1.)
-cell.modify_mech_param('soma', 'CadepK', 'gcakmult', 1.)
-
-"""
-for sec_type in ['axon_hill', 'ais', 'axon']:
-    cell.modify_mech_param(sec_type, 'Ca', 'gcamult', origin='soma')
-    cell.modify_mech_param(sec_type, 'CadepK', 'gcakmult', origin='soma')
-"""
 
 sim.append_rec(cell, cell.tree.root, loc=0.5, object=cell.tree.root.sec(0.5), param='_ref_i_Ca',
                description='Soma Ca_i')
@@ -230,4 +251,4 @@ sim.append_rec(cell, cell.tree.root, loc=0.5, object=cell.tree.root.sec(0.5), pa
                description='Soma Ca_intra_Ca')
 sim.append_rec(cell, cell.tree.root, loc=0.5, object=cell.tree.root.sec(0.5), param='_ref_i_CadepK',
                description='Soma CadepK_i')
-
+"""

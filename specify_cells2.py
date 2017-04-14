@@ -863,6 +863,7 @@ class HocCell(object):
         :param delay: float
         :param weight: float
         :param threshold: float
+        :param target: object that can receive spikes
         :return: :class:'h.NetCon'
         """
         if node is None:

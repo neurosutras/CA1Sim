@@ -3,17 +3,15 @@ from specify_cells2 import *
 import os
 import sys
 from ipyparallel import interactive
-import mkl
+# import mkl
 
 """
 Builds a cell locally so each engine is ready to receive jobs one at a time, specified by a value for the amplitude of
 a somatic current injection to test spike shape and stability.
 """
 
-mkl.set_num_threads(1)
+# mkl.set_num_threads(1)
 
-# morph_filename = 'EB2-late-bifurcation.swc'
-# morph_filename = 'DG_GC_355549.swc'
 neurotree_filename = '121516_DGC_trees.pkl'
 neurotree_dict = read_from_pkl(morph_dir+neurotree_filename)
 
@@ -42,7 +40,7 @@ else:
 if len(sys.argv) > 2:
     mech_filename = str(sys.argv[2])
 else:
-    mech_filename = '030217 GC optimizing excitability'
+    mech_filename = '041317 GC optimizing excitability'
 
 
 @interactive
@@ -54,7 +52,7 @@ def get_spike_shape(vm):
     :return: tuple of float: (v_peak, th_v, ADP, AHP)
     """
     vm = vm[int((equilibrate+1.)/dt):]
-    dvdt = np.gradient(vm, [dt])
+    dvdt = np.gradient(vm, dt)
     th_x = np.where(dvdt > th_dvdt)[0]
     if th_x.any():
         th_x = th_x[0] - int(1.6/dt)
@@ -170,10 +168,11 @@ def update_na_ka_stability(x):
 
 
 @interactive
-def compute_spike_shape_features(local_x=None, plot=0):
+def compute_spike_shape_features(local_x=None, plot=False):
     """
     :param local_x: array [soma.gkabar, soma.gkdrbar, axon.gkabar_kap factor, axon.gbar_nax factor, soma.sh_nas/x,
                     axon.gkdrbar factor, dend.gkabar factor]
+    :param plot: bool
     :return: float
     """
     if local_x is None:
@@ -196,7 +195,7 @@ def compute_spike_shape_features(local_x=None, plot=0):
         sim.modify_stim(0, amp=amp)
         sim.run(v_active)
         vm = np.interp(t, sim.tvec, sim.get_rec('soma')['vec'])
-        if amp == 0.05 and np.any(vm[:int(equilibrate/dt)] > -30.):
+        if np.any(vm[:int(equilibrate/dt)] > -30.):
             print 'Process %i: Aborting - spontaneous firing' % (os.getpid())
             return None
         if np.any(vm[int(equilibrate/dt):int((equilibrate+50.)/dt)] > -30.):
@@ -223,7 +222,14 @@ def compute_spike_shape_features(local_x=None, plot=0):
 
 
 @interactive
-def compute_spike_stability_features(amp, local_x=None, plot=0):
+def compute_spike_stability_features(amp, local_x=None, plot=False):
+    """
+    
+    :param amp: float 
+    :param local_x: array
+    :param plot: bool
+    :return: dict
+    """
     sim.parameters['amp'] = amp
     if local_x is None:
         local_x = x
@@ -232,6 +238,7 @@ def compute_spike_stability_features(amp, local_x=None, plot=0):
         return 1e9
     start_time = time.time()
     update_na_ka_stability(local_x)
+    soma_vm = offset_vm('soma', v_active)
     sim.modify_stim(0, node=cell.tree.root, loc=0., dur=100.)
     duration = equilibrate + 200.
     sim.tstop = duration
@@ -246,7 +253,7 @@ def compute_spike_stability_features(amp, local_x=None, plot=0):
     v_rest = np.mean(vm[int((equilibrate - 3.)/dt):int((equilibrate - 1.)/dt)])
     v_before = np.max(vm[int((equilibrate - 50.)/dt):int((equilibrate - 1.)/dt)])
     v_after = np.max(vm[-int(50./dt):-1])
-    stability += abs((v_before - v_rest) + (v_after - v_rest))
+    stability += abs(v_before - v_rest) + abs(v_after - v_rest)
     v_min_late = np.min(vm[int((equilibrate + 80.)/dt):int((equilibrate + 99.)/dt)])
     result['stability'] = stability
     result['v_min_late'] = v_min_late
@@ -266,7 +273,7 @@ def export_sim_results():
 equilibrate = 250.  # time to steady-state
 stim_dur = 500.
 duration = equilibrate + stim_dur
-dt = 0.01
+dt = 0.02
 amp = 0.3
 th_dvdt = 10.
 v_init = -77.
@@ -316,14 +323,13 @@ else:
 orig_ka_soma_gkabar = cell.mech_dict['soma']['kap']['gkabar']['value']
 orig_ka_dend_gkabar = orig_ka_soma_gkabar + orig_ka_dend_slope * 300.
 
+"""
 sim.append_rec(cell, cell.tree.root, loc=0.5, object=cell.tree.root.sec(0.5), param='_ref_ina_nas',
                description='Soma nas_i')
 sim.append_rec(cell, cell.tree.root, loc=0.5, object=cell.tree.root.sec(0.5), param='_ref_ik_kap',
                description='Soma kap_i')
 sim.append_rec(cell, cell.tree.root, loc=0.5, object=cell.tree.root.sec(0.5), param='_ref_ik_kdr',
                description='Soma kdr_i')
-sim.append_rec(cell, cell.tree.root, loc=0.5, object=cell.tree.root.sec(0.5), param='_ref_ik_km2',
-               description='Soma km_i')
-sim.append_rec(cell, cell.axon[2], loc=0.5, description='Axon Vm')
-
-# cell.modify_mech_param('soma', 'cal_mech', 'gbar', 0.001)
+"""
+sim.append_rec(cell, cell.tree.root, loc=0.5, object=cell.tree.root.sec(0.5), param='_ref_gk_km3',
+               description='Soma km_g')

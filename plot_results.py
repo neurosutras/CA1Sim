@@ -4215,7 +4215,7 @@ def get_spike_delay_vs_distance_simple_axon_model(rec_filename):
             if sim['stim']['0'].attrs['amp'] > 0.:
                 rec = sim['rec']['0']
                 vm = np.interp(t, sim['time'], rec)
-                dvdt = np.gradient(vm, [dt])
+                dvdt = np.gradient(vm, dt)
                 th_x = np.where(dvdt[start:end] > th_dvdt)[0]
                 if th_x.any():
                     soma_th_x = th_x[0] + start
