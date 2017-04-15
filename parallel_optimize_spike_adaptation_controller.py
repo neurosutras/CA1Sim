@@ -246,12 +246,12 @@ v = c.load_balanced_view()
 
 # Err, final_result = spike_adaptation_error(x0['spike_adaptation'], True)
 
-"""
+
 result = optimize.basinhopping(spike_adaptation_error, x0['spike_adaptation'], niter=max_niter,
                                niter_success=niter_success, disp=True, interval=40,
                                minimizer_kwargs=minimizer_kwargs, take_step=take_step)
 print result
-
+"""
 
 best_x = hist.report_best()
 hist.export_to_pkl(history_filename)
