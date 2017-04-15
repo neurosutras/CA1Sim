@@ -241,7 +241,7 @@ global_start_time = time.time()
 
 
 dv.execute('run parallel_optimize_spike_adaptation_engine %i \"%s\"' % (int(spines), mech_filename))
-# time.sleep(60)
+time.sleep(60)
 v = c.load_balanced_view()
 
 # Err, final_result = spike_adaptation_error(x0['spike_adaptation'], True)
@@ -251,12 +251,12 @@ result = optimize.basinhopping(spike_adaptation_error, x0['spike_adaptation'], n
                                niter_success=niter_success, disp=True, interval=40,
                                minimizer_kwargs=minimizer_kwargs, take_step=take_step)
 print result
-"""
+
 
 best_x = hist.report_best()
-hist.export_to_pkl(history_filename)
+# hist.export_to_pkl(history_filename)
 dv['x'] = best_x
 # dv['x'] = x0['spike_adaptation']
 c[0].apply(parallel_optimize_spike_adaptation_engine.update_mech_dict)
-"""
+
 # plot_best(x0['spike_adaptation'])

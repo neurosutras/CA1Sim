@@ -237,7 +237,7 @@ global_start_time = time.time()
 
 
 dv.execute('run parallel_optimize_spike_stability_engine %i \"%s\"' % (int(spines), mech_filename))
-# time.sleep(60)
+time.sleep(60)
 v = c.load_balanced_view()
 
 
@@ -245,12 +245,12 @@ result = optimize.basinhopping(na_ka_stability_error, x0['na_ka_stability'], nit
                                niter_success=niter_success, disp=True, interval=40,
                                minimizer_kwargs=minimizer_kwargs, take_step=take_step)
 print result
-"""
+
 history_filename = '041417 spike stability optimization history'
 best_x = hist.report_best()
-hist.export_to_pkl(history_filename)
+# hist.export_to_pkl(history_filename)
 dv['x'] = best_x
 # dv['x'] = x0['na_ka_stability']
 c[0].apply(parallel_optimize_spike_stability_engine.update_mech_dict)
-"""
+
 # plot_best(x0['na_ka_stability'])

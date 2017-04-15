@@ -130,7 +130,7 @@ def get_rheobase(local_x=None, plot=False):
         return None
     start_time = time.time()
     update_spike_adaptation(local_x)
-    sim.cvode_state = True
+    # sim.cvode_state = True
     soma_vm = offset_vm('soma', v_active)
     print 'Process %i: Getting here - after offset_vm' % os.getpid()
     sim.modify_stim(0, dur=100.)
@@ -178,10 +178,10 @@ def sim_f_I(amp, local_x=None, plot=False):
         print 'Process %i: Aborting - Parameters outside optimization bounds.' % (os.getpid())
         return None
     update_spike_adaptation(local_x)
-    sim.cvode_state = True
+    # sim.cvode_state = True
     soma_vm = offset_vm('soma', v_active)
     print 'Process %i: Getting here - after offset_vm' % os.getpid()
-    sim.cvode_state = False
+    # sim.cvode_state = False
     sim.parameters['amp'] = amp
     start_time = time.time()
     sim.modify_stim(0, dur=stim_dur, amp=amp)

@@ -188,7 +188,7 @@ def compute_spike_shape_features(local_x=None, plot=False):
         return None
     start_time = time.time()
     update_na_ka_stability(local_x)
-    sim.cvode_state = True
+    # sim.cvode_state = True
     soma_vm = offset_vm('soma', v_active)
     result = {'v_rest': soma_vm}
     sim.modify_stim(0, node=cell.tree.root, loc=0., dur=100.)
@@ -247,9 +247,9 @@ def compute_spike_stability_features(input_param, local_x=None, plot=False):
         return 1e9
     start_time = time.time()
     update_na_ka_stability(local_x)
-    sim.cvode_state = True
+    # sim.cvode_state = True
     soma_vm = offset_vm('soma', v_active)
-    sim.cvode_state = False
+    # sim.cvode_state = False
     sim.modify_stim(0, node=cell.tree.root, loc=0., dur=stim_dur)
     duration = equilibrate + 200.
     sim.tstop = duration
@@ -348,6 +348,6 @@ sim.append_rec(cell, cell.tree.root, loc=0.5, object=cell.tree.root.sec(0.5), pa
                description='Soma kap_i')
 sim.append_rec(cell, cell.tree.root, loc=0.5, object=cell.tree.root.sec(0.5), param='_ref_ik_kdr',
                description='Soma kdr_i')
-"""
 sim.append_rec(cell, cell.tree.root, loc=0.5, object=cell.tree.root.sec(0.5), param='_ref_gk_km3',
                description='Soma km_g')
+"""
