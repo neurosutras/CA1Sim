@@ -26,10 +26,10 @@ xmin = {}
 xmax = {}
 
 soma_na_gbar = 0.04
-# [soma.gkabar, soma.gkdrbar, axon.gkabar_kap factor, axon.gbar_nax factor, soma.sh_nas/x, axon.gkdrbar factor,
-#  dend.gkabar factor]
-xmin['na_ka_stability'] = [0.01, 0.01, 1., 2., 0.1, 1., 1.]
-xmax['na_ka_stability'] = [0.075, 0.05, 5., 5., 6., 2., 5.]
+# [soma.gkabar, soma.gkdrbar, soma.sh_nas/x, axon.gkdrbar factor, dend.gkabar factor,
+#            'soma.gCa factor', 'soma.gCadepK factor', 'soma.gkmbar']
+xmin['na_ka_stability'] = [0.01, 0.01, 0.1, 1., 1., 0.5, 0.5, 0.0005]
+xmax['na_ka_stability'] = [0.05, 0.05, 6., 2., 5., 2., 2., 0.003]
 
 check_bounds = CheckBounds(xmin, xmax)
 
@@ -138,14 +138,14 @@ def update_mech_dict():
 def update_na_ka_stability(x):
     """
 
-    :param x: array [soma.gkabar, soma.gkdrbar, axon.gkabar_kap factor, axon.gbar_nax factor, soma.sh_nas/x,
-                    axon.gkdrbar factor, dend.gkabar factor]
+    :param x: array [soma.gkabar, soma.gkdrbar, soma.sh_nas/x, axon.gkdrbar factor, dend.gkabar factor,
+            soma.gCa factor, soma.gCadepK factor, soma.gkmbar]
     """
     cell.modify_mech_param('soma', 'kdr', 'gkdrbar', x[1])
     cell.modify_mech_param('soma', 'kap', 'gkabar', x[0])
-    slope = (x[6] - 1.) * x[0] / 300.
+    slope = (x[4] - 1.) * x[0] / 300.
     cell.modify_mech_param('soma', 'nas', 'gbar', soma_na_gbar)
-    cell.modify_mech_param('soma', 'nas', 'sh', x[4])
+    cell.modify_mech_param('soma', 'nas', 'sh', x[2])
     for sec_type in ['basal', 'trunk', 'apical', 'tuft']:
         cell.reinitialize_subset_mechanisms(sec_type, 'nas')
         cell.modify_mech_param(sec_type, 'kap', 'gkabar', origin='soma', min_loc=75., value=0.)
@@ -157,14 +157,20 @@ def update_na_ka_stability(x):
                                replace=False)
         cell.modify_mech_param(sec_type, 'kdr', 'gkdrbar', origin='soma')
     cell.set_terminal_branch_na_gradient()
-    cell.modify_mech_param('axon', 'nax', 'gbar', soma_na_gbar * x[3])
-    cell.modify_mech_param('axon_hill', 'kap', 'gkabar', origin='soma')
-    cell.modify_mech_param('axon_hill', 'kdr', 'gkdrbar', origin='soma')
-    cell.modify_mech_param('axon_hill', 'nax', 'sh', x[4])
+    cell.modify_mech_param('axon', 'nax', 'gbar', soma_na_gbar * 2.)
+    cell.reinitialize_subset_mechanisms('axon_hill', 'kap')
+    cell.reinitialize_subset_mechanisms('axon_hill', 'kdr')
+    cell.modify_mech_param('ais', 'kdr', 'gkdrbar', x[1] * x[3])
+    cell.reinitialize_subset_mechanisms('axon', 'kdr')
+    cell.modify_mech_param('axon_hill', 'nax', 'sh', x[2])
     for sec_type in ['ais', 'axon']:
-        cell.modify_mech_param(sec_type, 'kdr', 'gkdrbar', x[1] * x[5])
-        cell.modify_mech_param(sec_type, 'kap', 'gkabar', x[0] * x[2])
+        cell.reinitialize_subset_mechanisms(sec_type, 'kap')
         cell.modify_mech_param(sec_type, 'nax', 'sh', origin='axon_hill')
+    cell.modify_mech_param('soma', 'Ca', 'gcamult', x[5])
+    cell.modify_mech_param('soma', 'CadepK', 'gcakmult', x[6])
+    cell.modify_mech_param('soma', 'km3', 'gkmbar', x[7])
+    for sec_type in ['axon_hill', 'ais', 'axon']:
+        cell.reinitialize_subset_mechanisms(sec_type, 'km3')
 
 
 @interactive
@@ -222,7 +228,7 @@ def compute_spike_shape_features(local_x=None, plot=False):
 
 
 @interactive
-def compute_spike_stability_features(amp, local_x=None, plot=False):
+def compute_spike_stability_features(input_param, local_x=None, plot=False):
     """
     
     :param amp: float 
@@ -230,6 +236,8 @@ def compute_spike_stability_features(amp, local_x=None, plot=False):
     :param plot: bool
     :return: dict
     """
+    amp = input_param[0]
+    stim_dur = input_param[1]
     sim.parameters['amp'] = amp
     if local_x is None:
         local_x = x
@@ -239,7 +247,7 @@ def compute_spike_stability_features(amp, local_x=None, plot=False):
     start_time = time.time()
     update_na_ka_stability(local_x)
     soma_vm = offset_vm('soma', v_active)
-    sim.modify_stim(0, node=cell.tree.root, loc=0., dur=100.)
+    sim.modify_stim(0, node=cell.tree.root, loc=0., dur=stim_dur)
     duration = equilibrate + 200.
     sim.tstop = duration
     t = np.arange(0., duration, dt)
@@ -249,6 +257,10 @@ def compute_spike_stability_features(amp, local_x=None, plot=False):
     sim.run(v_active)
     if plot:
         sim.plot()
+    spike_times = np.subtract(cell.spike_detector.get_recordvec().to_python(), equilibrate)
+    rate = len(spike_times) / stim_dur * 1000.
+    result['rate'] = rate
+    result['amp'] = amp
     vm = np.interp(t, sim.tvec, sim.get_rec('soma')['vec'])
     v_rest = np.mean(vm[int((equilibrate - 3.)/dt):int((equilibrate - 1.)/dt)])
     v_before = np.max(vm[int((equilibrate - 50.)/dt):int((equilibrate - 1.)/dt)])
@@ -313,6 +325,9 @@ for description, node in rec_nodes.iteritems():
 
 i_holding = {'soma': 0.}
 i_th = {'soma': 0.05}
+
+spike_output_vec = h.Vector()
+cell.spike_detector.record(spike_output_vec)
 
 if type(cell.mech_dict['apical']['kap']['gkabar']) == list:
     orig_ka_dend_slope = \
