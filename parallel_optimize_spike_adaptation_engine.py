@@ -130,6 +130,7 @@ def get_rheobase(local_x=None, plot=False):
         return None
     start_time = time.time()
     update_spike_adaptation(local_x)
+    sim.cvode_state = True
     soma_vm = offset_vm('soma', v_active)
     print 'Process %i: Getting here - after offset_vm' % os.getpid()
     sim.modify_stim(0, dur=100.)
@@ -138,7 +139,7 @@ def get_rheobase(local_x=None, plot=False):
     t = np.arange(0., duration, dt)
     spike = False
     d_amp = 0.01
-    amp = max(0., i_th['soma'] - 0.05)
+    amp = max(0., i_th['soma'] - 0.02)
     while not spike:
         sim.modify_stim(0, amp=amp)
         sim.run(v_active)
@@ -177,8 +178,10 @@ def sim_f_I(amp, local_x=None, plot=False):
         print 'Process %i: Aborting - Parameters outside optimization bounds.' % (os.getpid())
         return None
     update_spike_adaptation(local_x)
+    sim.cvode_state = True
     soma_vm = offset_vm('soma', v_active)
     print 'Process %i: Getting here - after offset_vm' % os.getpid()
+    sim.cvode_state = False
     sim.parameters['amp'] = amp
     start_time = time.time()
     sim.modify_stim(0, dur=stim_dur, amp=amp)
@@ -223,8 +226,7 @@ cell.modify_mech_param('soma', 'CadepK', 'gcakmult', 1.)
 rec_locs = {'soma': 0., 'axon': 1.}
 rec_nodes = {'soma': cell.tree.root, 'axon': cell.axon[2]}
 
-# sim = QuickSim(duration, verbose=False)
-sim = QuickSim(duration, verbose=True)
+sim = QuickSim(duration, verbose=False, cvode=False, dt=dt)
 sim.append_stim(cell, cell.tree.root, loc=0., amp=0., delay=equilibrate, dur=stim_dur)
 sim.append_stim(cell, cell.tree.root, loc=0., amp=0., delay=0., dur=duration)
 
@@ -250,8 +252,8 @@ sim.append_rec(cell, cell.axon[2], loc=0.5, description='Axon Vm')
 
 sim.append_rec(cell, cell.tree.root, loc=0.5, object=cell.tree.root.sec(0.5), param='_ref_i_Ca',
                description='Soma Ca_i')
-sim.append_rec(cell, cell.tree.root, loc=0.5, object=cell.tree.root.sec(0.5), param='_ref_ca_i_Ca',
-               description='Soma Ca_intra_Ca')
+sim.append_rec(cell, cell.tree.root, loc=0.5, object=cell.tree.root.sec(0.5), param='_ref_ca_i_CadepK',
+               description='Soma CadepK_intra_Ca')
 sim.append_rec(cell, cell.tree.root, loc=0.5, object=cell.tree.root.sec(0.5), param='_ref_i_CadepK',
                description='Soma CadepK_i')
 """

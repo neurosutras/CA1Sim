@@ -2094,7 +2094,14 @@ class QuickSim(object):
     self.stim_list:
     self.rec_list:
     """
-    def __init__(self, tstop=400., cvode=1, dt=None, verbose=1):
+    def __init__(self, tstop=400., cvode=True, dt=None, verbose=True):
+        """
+        
+        :param tstop: float 
+        :param cvode: bool
+        :param dt: float
+        :param verbose: bool
+        """
         self.rec_list = []  # list of dicts with keys for 'cell', 'node', 'loc' and 'vec': pointer to hoc Vector object.
                             # Also contains keys for 'ylabel' and 'units' for recording parameters other than Vm.
         self.stim_list = []  # list of dicts with keys for 'cell', 'node', 'stim': pointer to hoc IClamp object, and
@@ -2102,12 +2109,9 @@ class QuickSim(object):
         self.tstop = tstop
         h.load_file('stdrun.hoc')
         h.celsius = 35.0
-        if cvode:
-            self.cvode = h.CVode()
-            self.cvode.active(1)
-            self.cvode.atol(0.001)  # 0.0001
-        else:
-            self.cvode = None
+        self.cvode = h.CVode()
+        self.cvode_atol = 0.001
+        self.cvode_state = cvode
         if dt is None:
             self.dt = h.dt
         else:
@@ -2118,15 +2122,19 @@ class QuickSim(object):
         self.parameters = {}
 
     def run(self, v_init=-65.):
+        """
+        
+        :param v_init: float
+        """
         start_time = time.time()
         h.tstop = self.tstop
-        if self.cvode is None:
+        if not self.cvode_state:
             h.steps_per_ms = int(1. / self.dt)
             h.dt = self.dt
         h.v_init = v_init
         h.init()
         h.finitialize(v_init)
-        if self.cvode.active:
+        if self.cvode_state:
             self.cvode.re_init()
         else:
             h.fcurrent()
@@ -2135,6 +2143,17 @@ class QuickSim(object):
             print 'Simulation runtime: ', time.time()-start_time, ' sec'
 
     def append_rec(self, cell, node, loc=None, param='_ref_v', object=None, ylabel='Vm', units='mV', description=None):
+        """
+        
+        :param cell: :class:'HocCell' 
+        :param node: :class:'SHocNode
+        :param loc: float
+        :param param: str
+        :param object: :class:'HocObject'
+        :param ylabel: str
+        :param units: str
+        :param description: str 
+        """
         rec_dict = {'cell': cell, 'node': node, 'ylabel': ylabel, 'units': units}
         if description is None:
             rec_dict['description'] = 'rec'+str(len(self.rec_list))
@@ -2172,6 +2191,16 @@ class QuickSim(object):
         raise Exception('No recording of that description')
 
     def append_stim(self, cell, node, loc, amp, delay, dur, description='IClamp'):
+        """
+        
+        :param cell: :class:'HocCell'
+        :param node: :class:'SHocNode'
+        :param loc: float
+        :param amp: float
+        :param delay: float
+        :param dur: float
+        :param description: str 
+        """
         stim_dict = {'cell': cell, 'node': node, 'description': description}
         stim_dict['stim'] = h.IClamp(node.sec(loc))
         stim_dict['stim'].amp = amp
@@ -2182,6 +2211,16 @@ class QuickSim(object):
         self.stim_list.append(stim_dict)
 
     def modify_stim(self, index=0, node=None, loc=None, amp=None, delay=None, dur=None, description=None):
+        """
+        
+        :param index: int 
+        :param node: class:'SHocNode'
+        :param loc: float
+        :param amp: float
+        :param delay: float
+        :param dur: float
+        :param description: str  
+        """
         stim_dict = self.stim_list[index]
         if not (node is None and loc is None):
             if not node is None:
@@ -2200,6 +2239,17 @@ class QuickSim(object):
 
     def modify_rec(self, index=0, node=None, loc=None, object=None, param='_ref_v', ylabel=None, units=None,
                                                                                         description=None):
+        """
+        
+        :param index: int 
+        :param node: class:'SHocNode'
+        :param loc: float
+        :param object: class:'HocObject'
+        :param param: str
+        :param ylabel: str
+        :param units: str
+        :param description: str 
+        """
         rec_dict = self.rec_list[index]
         if not ylabel is None:
             rec_dict['ylabel'] = ylabel
@@ -2219,6 +2269,9 @@ class QuickSim(object):
             rec_dict['description'] = description
 
     def plot(self):
+        """
+         
+        """
         for rec_dict in self.rec_list:
             if 'description' in rec_dict:
                 description = str(rec_dict['description'])
@@ -2288,6 +2341,26 @@ class QuickSim(object):
                 rec_out.attrs['description'] = rec['description']
         if self.verbose:
             print 'Simulation ', simiter, ': exporting took: ', time.time()-start_time, ' s'
+
+    def get_cvode_state(self):
+        """
+        
+        :return bool 
+        """
+        return bool(self.cvode.active())
+
+    def set_cvode_state(self, state):
+        """
+        
+        :param state: bool 
+        """
+        if state:
+            self.cvode.active(1)
+            self.cvode.atol(self.cvode_atol)
+        else:
+            self.cvode.active(0)
+
+    cvode_state = property(get_cvode_state, set_cvode_state)
 
 
 class CA1_Pyr(HocCell):
