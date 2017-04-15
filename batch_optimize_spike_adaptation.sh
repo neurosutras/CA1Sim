@@ -1,4 +1,4 @@
-#!/bin/bash
+ba#!/bin/bash
 #
 #SBATCH -J optimize_spike_adaptation
 #SBATCH -o optimize_spike_adaptation_041317.%j.o

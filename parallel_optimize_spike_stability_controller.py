@@ -44,16 +44,17 @@ def na_ka_stability_error(x, plot=0):
     formatted_x = '[' + ', '.join(['%.3E' % xi for xi in x]) + ']'
     print 'Process %i using current x: %s: %s' % (os.getpid(), str(xlabels['na_ka_stability']), formatted_x)
     result = c[0].apply(parallel_optimize_spike_stability_engine.compute_spike_shape_features)
-    last = ''
+    last_buffer_len = 0
     while not result.ready():
         time.sleep(1.)
         clear_output()
         stdout = result.stdout
         if stdout:
-            line = stdout.splitlines()[-1]
-            if line != last:
-                print line
-                last = line
+            lines = stdout.splitlines()
+            if len(lines) > last_buffer_len:
+                for line in lines[last_buffer_len:]:
+                    print line
+                last_buffer_len = len(lines)
         sys.stdout.flush()
     result = result.get()
     if result is None:
@@ -62,22 +63,31 @@ def na_ka_stability_error(x, plot=0):
         hist.error_values.append(Err)
         return Err
     final_result = result
+    rheobase = result['amp']
+
     result = v.map_async(parallel_optimize_spike_stability_engine.compute_spike_stability_features,
-                         [final_result['amp'] + amp for amp in [0.25, 0.5, 0.75]])
-    last = []
+                         [[rheobase+0.1, 300.], [rheobase+0.75, 100.]])
+    last_buffer_len = []
     while not result.ready():
         time.sleep(1.)
         clear_output()
-        for i, stdout in enumerate([stdout for stdout in result.stdout if stdout][-3:]):
-            line = stdout.splitlines()[-1]
-            if line not in last:
-                print line
-                last.append(line)
-        if len(last) > len(x):
-            last = last[-len(x):]
+        for i, stdout in enumerate(result.stdout):
+            if (i + 1) > len(last_buffer_len):
+                last_buffer_len.append(0)
+            if stdout:
+                lines = stdout.splitlines()
+                if len(lines) > last_buffer_len[i]:
+                    for line in lines[last_buffer_len[i]:]:
+                        print line
+                    last_buffer_len[i] = len(lines)
         sys.stdout.flush()
     result = result.get()
-    for this_dict in result:
+    temp_dict = {}
+    temp_dict['amp'] = []
+    temp_dict['rate'] = []
+    for i, this_dict in enumerate(result):
+        temp_dict['amp'].append(this_dict['amp'])
+        temp_dict['rate'].append(this_dict['rate'])
         if 'stability' not in final_result:
             final_result['stability'] = this_dict['stability']
         else:
@@ -86,8 +96,15 @@ def na_ka_stability_error(x, plot=0):
             final_result['slow_depo'] = this_dict['v_min_late'] - final_result['v_th']
         else:
             final_result['slow_depo'] += this_dict['v_min_late'] - final_result['v_th']
+    indexes = range(len(temp_dict['rate']))
+    indexes.sort(key=temp_dict['amp'].__getitem__)
+    temp_dict['amp'] = map(temp_dict['amp'].__getitem__, indexes)
+    temp_dict['rate'] = map(temp_dict['rate'].__getitem__, indexes)
+    target_f_I = experimental_f_I_slope * (temp_dict['amp'][0] - rheobase)
+    final_result['rate'] = temp_dict['rate'][0]
+    f_I_Err = ((temp_dict['rate'][0] - target_f_I) / (0.01 * target_f_I))**2.
 
-    Err = 0.
+    Err = f_I_Err
     for target in final_result:
         if target not in hist.features:
             hist.features[target] = []
@@ -100,20 +117,23 @@ def na_ka_stability_error(x, plot=0):
             if target not in hist.features:
                 hist.features[target] = []
             hist.features[target].append(final_result[target])
+    if 'rate' not in hist.features:
+        hist.features['rate'] = []
+    hist.features['rate'].append(final_result['rate'])
 
     print 'Simulation took %i s' % (time.time()-start_time)
-    print 'Process %i: [soma.gkabar, soma.gkdrbar, axon.gkabar_kap factor, axon.gbar_nax factor, soma.sh_nax/s, ' \
-          'axon.gkdrbar factor, dend.gkabar factor]: ' \
-          '[%.4f, %.4f, %.3f, %.3f, %.3f, %.3f, %.3f], amp: %.3f, v_rest: %.1f, threshold: %.1f, ADP: %.1f, ' \
-          'AHP: %.1f, stability: %.2f, slow_depo: %.2f, dend_amp: %.2f' % (os.getpid(), x[0], x[1], x[2], x[3], x[4],
-                                                                           x[5], x[6], final_result['amp'],
+    print 'Process %i: [[soma.gkabar, soma.gkdrbar, soma.sh_nas/x, axon.gkdrbar factor, dend.gkabar factor, ' \
+          'soma.gCa factor, soma.gCadepK factor, soma.gkmbar]]: ' \
+          '[%.4f, %.4f, %.3f, %.3f, %.3f, %.3f, %.3f, %.3f, ], amp: %.3f, v_rest: %.1f, threshold: %.1f, ADP: %.1f, ' \
+          'AHP: %.1f, stability: %.2f, slow_depo: %.2f, dend_amp: %.2f, rate %.3f' % (os.getpid(), x[0], x[1], x[2], x[3], x[4],
+                                                                           x[5], x[6], x[7], final_result['amp'],
                                                                            final_result['v_rest'],
                                                                            final_result['v_th'], final_result['ADP'],
                                                                            final_result['AHP'],
                                                                            final_result['stability'],
                                                                            final_result['slow_depo'],
-                                                                           final_result['dend_amp'])
-    print 'Process %i: Error: %.4E' % (os.getpid(), Err)
+                                                                           final_result['dend_amp'], final_result['rate'])
+    print 'Process %i: f_I Error: %.4E, Error: %.4E' % (os.getpid(), f_I_Err, Err)
     hist.error_values.append(Err)
     sys.stdout.flush()
     return Err
@@ -167,6 +187,8 @@ target_val['na_ka'] = {'v_rest': v_init, 'v_th': -48., 'soma_peak': 40., 'ADP': 
 target_range['na_ka'] = {'v_rest': 0.25, 'v_th': .2, 'soma_peak': 2., 'ADP': 0.01, 'AHP': .2,
                          'stability': 1., 'ais_delay': 0.001, 'slow_depo': 0.5, 'dend_amp': 0.005}
 
+experimental_f_I_slope = 50. # 50 spikes/s/nA; GC experimental spike adaptation data from Brenner...Aldrich, Nat. Neurosci., 2005
+
 x0 = {}
 xlabels = {}
 xmin = {}
@@ -187,21 +209,21 @@ else:
     c = Client()
 
 check_bounds = CheckBounds(xmin, xmax)
-xlabels['na_ka_stability'] = ['soma.gkabar', 'soma.gkdrbar', 'axon.gkabar_kap factor', 'axon.gbar_nax factor',
-                              'soma.sh_nas/x', 'axon.gkdrbar factor', 'dend.gkabar factor']
+xlabels['na_ka_stability'] = ['soma.gkabar', 'soma.gkdrbar', 'soma.sh_nas/x', 'axon.gkdrbar factor',
+                              'dend.gkabar factor', 'soma.gCa factor', 'soma.gCadepK factor', 'soma.gkmbar']
 hist = optimize_history()
 hist.xlabels = xlabels['na_ka_stability']
 
 
-# [soma.gkabar, soma.gkdrbar, axon.gkabar_kap factor, axon.gbar_nax factor, soma.sh_nas/x, axon.gkdrbar factor,
-#  dend.gkabar factor]
+# [soma.gkabar, soma.gkdrbar, soma.sh_nas/x, axon.gkdrbar factor, dend.gkabar factor,
+#            'soma.gCa factor', 'soma.gCadepK factor', 'soma.gkmbar']
 # x0['na_ka_stability'] = [0.0483, 0.0100, 4.56, 4.90, 4.63]  # Error: 2.7284E+03
 # x0['na_ka_stability'] = [0.02948262,  0.01003593,  4.66184288,  4.48235059,  4.91410208]  # Error: 2.644E+03
 # x0['na_ka_stability'] = [0.0365, 0.0118, 4.91, 4.72, 4.90, 1., 1.]  # Error: 2.2990E+03
 # x0['na_ka_stability'] = [0.0308, 0.0220, 4.667, 4.808, 4.032, 1.297, 1.023]  # Error: 1.5170E+03
-x0['na_ka_stability'] =[1.107E-02, 2.207E-02, 4.990E+00, 4.684E+00, 5.489E+00, 1.491E+00, 1.034E+00]  # Error: 1.628E+03
-xmin['na_ka_stability'] = [0.01, 0.01, 1., 2., 0.1, 1., 1.]
-xmax['na_ka_stability'] = [0.075, 0.05, 5., 5., 6., 2., 5.]
+x0['na_ka_stability'] =[1.107E-02, 2.207E-02, 5.489E+00, 1.491E+00, 1.034E+00, 1., 1., 0.0015]  # Error: 1.628E+03
+xmin['na_ka_stability'] = [0.01, 0.01, 0.1, 1., 1., 0.5, 0.5, 0.0005]
+xmax['na_ka_stability'] = [0.05, 0.05, 6., 2., 5., 2., 2., 0.003]
 
 max_niter = 2100  # max number of iterations to run
 niter_success = 400  # max number of interations without significant progress before aborting optimization
