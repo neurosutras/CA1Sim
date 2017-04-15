@@ -96,11 +96,13 @@ def spike_adaptation_error(x, full_output=False):
     # Calculate firing rates for a range of I_inj amplitudes using a stim duration of 500 ms
     result = v.map_async(parallel_optimize_spike_adaptation_engine.sim_f_I,
                          [rheobase + i_inj_increment * (i + 1) for i in range(num_increments)])
-    last_buffer_len = [0 for i in range(len(result.stdout))]
+    last_buffer_len = []
     while not result.ready():
         time.sleep(1.)
         clear_output()
         for i, stdout in enumerate(result.stdout):
+            if i + 1 > len(last_buffer_len):
+                last_buffer_len.append(0)
             if stdout:
                 lines = stdout.splitlines()
                 if len(lines) > last_buffer_len[i]:

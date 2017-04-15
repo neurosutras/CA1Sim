@@ -5,7 +5,7 @@ NEURON {
 	SUFFIX CadepK
 	USEION ca READ ica
 	USEION k READ ek WRITE ik
-	RANGE gbkbar, gskbar, gbar, i, ask, bsk, gsk, gbk, isk, ibk, gcakmult
+	RANGE gbkbar, gskbar, gbar, i, ask, bsk, gsk, gbk, isk, ibk, gcakmult, ca_i
 	GLOBAL ca0, tau, stau, taucadiv, tauskdiv
 }
 
