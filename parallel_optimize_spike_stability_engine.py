@@ -188,6 +188,7 @@ def compute_spike_shape_features(local_x=None, plot=False):
         return None
     start_time = time.time()
     update_na_ka_stability(local_x)
+    sim.cvode_state = True
     soma_vm = offset_vm('soma', v_active)
     result = {'v_rest': soma_vm}
     sim.modify_stim(0, node=cell.tree.root, loc=0., dur=100.)
@@ -246,7 +247,9 @@ def compute_spike_stability_features(input_param, local_x=None, plot=False):
         return 1e9
     start_time = time.time()
     update_na_ka_stability(local_x)
+    sim.cvode_state = True
     soma_vm = offset_vm('soma', v_active)
+    sim.cvode_state = False
     sim.modify_stim(0, node=cell.tree.root, loc=0., dur=stim_dur)
     duration = equilibrate + 200.
     sim.tstop = duration
@@ -316,7 +319,7 @@ dend_loc = candidate_locs[index]
 rec_locs = {'soma': 0., 'dend': dend_loc}
 rec_nodes = {'soma': cell.tree.root, 'dend': dend}
 
-sim = QuickSim(duration, verbose=False)
+sim = QuickSim(duration, cvode=False, dt=dt, verbose=False)
 sim.append_stim(cell, cell.tree.root, loc=0., amp=0., delay=equilibrate, dur=stim_dur)
 sim.append_stim(cell, cell.tree.root, loc=0., amp=0., delay=0., dur=duration)
 
