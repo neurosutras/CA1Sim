@@ -220,6 +220,7 @@ else:
 
 # These values will now be saved in the mech dictionary that is updated by previous round of optimization
 # x0['spike_adaptation'] = [1., 1., 0.0015]
+# x0['spike_adaptation'] = [1.244E+00, 1.986E+00, 1.943E-03]
 x0['spike_adaptation'] = [1.9445E+00, 1.9967E+00, 2.9317E-03]
 xlabels['spike_adaptation'] = ['soma.gCa factor', 'soma.gCadepK factor', 'soma.gkmbar']
 xmin['spike_adaptation'] = [1., 1., 0.0005]
@@ -246,7 +247,6 @@ time.sleep(60)
 v = c.load_balanced_view()
 
 # Err, final_result = spike_adaptation_error(x0['spike_adaptation'], True)
-
 
 result = optimize.basinhopping(spike_adaptation_error, x0['spike_adaptation'], niter=max_niter,
                                niter_success=niter_success, disp=True, interval=40,

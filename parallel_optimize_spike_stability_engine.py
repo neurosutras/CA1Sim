@@ -28,8 +28,8 @@ xmax = {}
 soma_na_gbar = 0.04
 # [soma.gkabar, soma.gkdrbar, soma.sh_nas/x, axon.gkdrbar factor, dend.gkabar factor,
 #            'soma.gCa factor', 'soma.gCadepK factor', 'soma.gkmbar']
-xmin['na_ka_stability'] = [0.01, 0.01, 0.1, 1., 1., 0.5, 0.5, 0.0005]
-xmax['na_ka_stability'] = [0.05, 0.05, 6., 2., 5., 2., 2., 0.003]
+xmin['na_ka_stability'] = [0.01, 0.01, 0.1, 1., 1., 1., 1., 0.0005]
+xmax['na_ka_stability'] = [0.05, 0.05, 6., 2., 5., 3., 3., 0.005]
 
 check_bounds = CheckBounds(xmin, xmax)
 
@@ -197,7 +197,7 @@ def compute_spike_shape_features(local_x=None, plot=False):
     t = np.arange(0., duration, dt)
     spike = False
     d_amp = 0.01
-    amp = i_th['soma'] - d_amp
+    amp = max(0., i_th['soma'] - 0.02)
     while not spike:
         sim.modify_stim(0, amp=amp)
         sim.run(v_active)
