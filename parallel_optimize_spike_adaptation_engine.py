@@ -27,8 +27,8 @@ xmin = {}
 xmax = {}
 
 # [soma.gCa factor, soma.gCadepK factor, soma.gkmbar]
-xmin['spike_adaptation'] = [0.5, 0.5, 0.0005]
-xmax['spike_adaptation'] = [2., 2., 0.003]
+xmin['spike_adaptation'] = [1., 1., 0.0005]
+xmax['spike_adaptation'] = [3., 3., 0.005]
 
 check_bounds = CheckBounds(xmin, xmax)
 
@@ -132,7 +132,7 @@ def get_rheobase(local_x=None, plot=False):
     update_spike_adaptation(local_x)
     # sim.cvode_state = True
     soma_vm = offset_vm('soma', v_active)
-    print 'Process %i: Getting here - after offset_vm' % os.getpid()
+    # print 'Process %i: Getting here - after offset_vm' % os.getpid()
     sim.modify_stim(0, dur=100.)
     duration = equilibrate + 100.
     sim.tstop = duration
@@ -180,7 +180,7 @@ def sim_f_I(amp, local_x=None, plot=False):
     update_spike_adaptation(local_x)
     # sim.cvode_state = True
     soma_vm = offset_vm('soma', v_active)
-    print 'Process %i: Getting here - after offset_vm' % os.getpid()
+    # print 'Process %i: Getting here - after offset_vm' % os.getpid()
     # sim.cvode_state = False
     sim.parameters['amp'] = amp
     start_time = time.time()

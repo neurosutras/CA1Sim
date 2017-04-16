@@ -217,13 +217,12 @@ hist.xlabels = xlabels['na_ka_stability']
 
 # [soma.gkabar, soma.gkdrbar, soma.sh_nas/x, axon.gkdrbar factor, dend.gkabar factor,
 #            'soma.gCa factor', 'soma.gCadepK factor', 'soma.gkmbar']
-# x0['na_ka_stability'] = [0.0483, 0.0100, 4.56, 4.90, 4.63]  # Error: 2.7284E+03
-# x0['na_ka_stability'] = [0.02948262,  0.01003593,  4.66184288,  4.48235059,  4.91410208]  # Error: 2.644E+03
-# x0['na_ka_stability'] = [0.0365, 0.0118, 4.91, 4.72, 4.90, 1., 1.]  # Error: 2.2990E+03
+
 # x0['na_ka_stability'] = [0.0308, 0.0220, 4.667, 4.808, 4.032, 1.297, 1.023]  # Error: 1.5170E+03
-x0['na_ka_stability'] =[1.107E-02, 2.207E-02, 5.489E+00, 1.491E+00, 1.034E+00, 1., 1., 0.0015]  # Error: 1.628E+03
-xmin['na_ka_stability'] = [0.01, 0.01, 0.1, 1., 1., 0.5, 0.5, 0.0005]
-xmax['na_ka_stability'] = [0.05, 0.05, 6., 2., 5., 2., 2., 0.003]
+x0['na_ka_stability'] = [1.107E-02, 2.207E-02, 5.489E+00, 1.491E+00, 1.034E+00, 1.9445E+00, 1.9967E+00, 2.9317E-03]
+# Error: 1.628E+03
+xmin['na_ka_stability'] = [0.01, 0.01, 0.1, 1., 1., 1., 1., 0.0005]
+xmax['na_ka_stability'] = [0.05, 0.05, 6., 2., 5., 3., 3., 0.005]
 
 max_niter = 2100  # max number of iterations to run
 niter_success = 400  # max number of interations without significant progress before aborting optimization
@@ -239,7 +238,6 @@ global_start_time = time.time()
 dv.execute('run parallel_optimize_spike_stability_engine %i \"%s\"' % (int(spines), mech_filename))
 time.sleep(60)
 v = c.load_balanced_view()
-
 
 result = optimize.basinhopping(na_ka_stability_error, x0['na_ka_stability'], niter=max_niter,
                                niter_success=niter_success, disp=True, interval=40,
