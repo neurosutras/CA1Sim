@@ -28,8 +28,8 @@ xmax = {}
 soma_na_gbar = 0.04
 # [soma.gkabar, soma.gkdrbar, soma.sh_nas/x, axon.gkdrbar factor, dend.gkabar factor,
 #            'soma.gCa factor', 'soma.gCadepK factor', 'soma.gkmbar']
-xmin['na_ka_stability'] = [0.01, 0.01, 0.1, 1., 1., 0.5, 0.5, 0.0005]
-xmax['na_ka_stability'] = [0.05, 0.05, 6., 2., 5., 2., 2., 0.003]
+xmin['na_ka_stability'] = [0.01, 0.01, 0.1, 1., 1., 1., 1., 0.0005]
+xmax['na_ka_stability'] = [0.05, 0.05, 6., 2., 5., 3., 3., 0.005]
 
 check_bounds = CheckBounds(xmin, xmax)
 
@@ -188,16 +188,16 @@ def compute_spike_shape_features(local_x=None, plot=False):
         return None
     start_time = time.time()
     update_na_ka_stability(local_x)
-    sim.cvode_state = True
+    # sim.cvode_state = True
     soma_vm = offset_vm('soma', v_active)
     result = {'v_rest': soma_vm}
     sim.modify_stim(0, node=cell.tree.root, loc=0., dur=100.)
-    duration = equilibrate + 200.
+    duration = equilibrate + 100.
     sim.tstop = duration
     t = np.arange(0., duration, dt)
     spike = False
     d_amp = 0.01
-    amp = i_th['soma'] - d_amp
+    amp = max(0., i_th['soma'] - 0.02)
     while not spike:
         sim.modify_stim(0, amp=amp)
         sim.run(v_active)
@@ -247,11 +247,11 @@ def compute_spike_stability_features(input_param, local_x=None, plot=False):
         return 1e9
     start_time = time.time()
     update_na_ka_stability(local_x)
-    sim.cvode_state = True
+    # sim.cvode_state = True
     soma_vm = offset_vm('soma', v_active)
-    sim.cvode_state = False     
+    # sim.cvode_state = False
     sim.modify_stim(0, node=cell.tree.root, loc=0., dur=stim_dur)
-    duration = equilibrate + 200.
+    duration = equilibrate + stim_dur + 100.
     sim.tstop = duration
     t = np.arange(0., duration, dt)
     stability = 0.
@@ -348,6 +348,6 @@ sim.append_rec(cell, cell.tree.root, loc=0.5, object=cell.tree.root.sec(0.5), pa
                description='Soma kap_i')
 sim.append_rec(cell, cell.tree.root, loc=0.5, object=cell.tree.root.sec(0.5), param='_ref_ik_kdr',
                description='Soma kdr_i')
-"""
 sim.append_rec(cell, cell.tree.root, loc=0.5, object=cell.tree.root.sec(0.5), param='_ref_gk_km3',
                description='Soma km_g')
+"""

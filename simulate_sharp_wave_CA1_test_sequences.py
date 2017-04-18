@@ -404,9 +404,9 @@ for group in stim_exc_syns:
     for i, syn in enumerate(stim_exc_syns[group]):
         syn.netcon('AMPA_KIN').weight[0] = weights[group][i]
 
-# rate_maps = run_trial(trial_seed, run_sim=False)
+rate_maps = run_trial(trial_seed, run_sim=False)
 
-run_trial(trial_seed, global_phase_offset)
+#run_trial(trial_seed, global_phase_offset)
 if os.path.isfile(data_dir+rec_filename+'-working.hdf5'):
     os.rename(data_dir+rec_filename+'-working.hdf5', data_dir+rec_filename+'.hdf5')
 

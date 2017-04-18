@@ -3,14 +3,14 @@ from specify_cells2 import *
 import os
 import sys
 from ipyparallel import interactive
-import mkl
+# import mkl
 
 """
 Builds a cell locally so each engine is ready to receive jobs one at a time, specified by a value for the amplitude of
 a somatic current injection to test spike adaptation.
 """
 
-mkl.set_num_threads(1)
+# mkl.set_num_threads(1)
 
 neurotree_filename = '121516_DGC_trees.pkl'
 neurotree_dict = read_from_pkl(morph_dir+neurotree_filename)
@@ -27,8 +27,8 @@ xmin = {}
 xmax = {}
 
 # [soma.gCa factor, soma.gCadepK factor, soma.gkmbar]
-xmin['spike_adaptation'] = [0.5, 0.5, 0.0005]
-xmax['spike_adaptation'] = [2., 2., 0.003]
+xmin['spike_adaptation'] = [1., 1., 0.0005]
+xmax['spike_adaptation'] = [3., 3., 0.005]
 
 check_bounds = CheckBounds(xmin, xmax)
 
@@ -130,9 +130,9 @@ def get_rheobase(local_x=None, plot=False):
         return None
     start_time = time.time()
     update_spike_adaptation(local_x)
-    sim.cvode_state = True
+    # sim.cvode_state = True
     soma_vm = offset_vm('soma', v_active)
-    print 'Process %i: Getting here - after offset_vm' % os.getpid()
+    # print 'Process %i: Getting here - after offset_vm' % os.getpid()
     sim.modify_stim(0, dur=100.)
     duration = equilibrate + 100.
     sim.tstop = duration
@@ -178,10 +178,10 @@ def sim_f_I(amp, local_x=None, plot=False):
         print 'Process %i: Aborting - Parameters outside optimization bounds.' % (os.getpid())
         return None
     update_spike_adaptation(local_x)
-    sim.cvode_state = True
+    # sim.cvode_state = True
     soma_vm = offset_vm('soma', v_active)
-    print 'Process %i: Getting here - after offset_vm' % os.getpid()
-    sim.cvode_state = False
+    # print 'Process %i: Getting here - after offset_vm' % os.getpid()
+    # sim.cvode_state = False
     sim.parameters['amp'] = amp
     start_time = time.time()
     sim.modify_stim(0, dur=stim_dur, amp=amp)

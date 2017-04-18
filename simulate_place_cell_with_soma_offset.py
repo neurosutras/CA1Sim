@@ -233,7 +233,7 @@ excitatory_peak_rate = {'CA3': 40., 'ECIII': 40.}
 excitatory_theta_modulation_depth = {'CA3': 0.7, 'ECIII': 0.7}
 # From Chadwick et al., ELife 2015
 excitatory_theta_phase_tuning_factor = {'CA3': 0.8, 'ECIII': 0.8}
-excitatory_precession_range = {}  # (ms, degrees)
+excitatory_precession_range = {}  # (cm, degrees)
 excitatory_precession_range['CA3'] = [(-input_field_width*0.7, 0.), (-input_field_width*0.6, 180.),
                                       (-input_field_width*0.35, 180.), (input_field_width*0.35, -180.),
                                       (input_field_width*0.6, -180.), (input_field_width*0.7, 0.)]
@@ -449,7 +449,8 @@ for group in stim_exc_syns:
 
 local_random.seed(trial_seed)
 
-rate_maps = run_trial(trial_seed)
+rate_maps = run_trial(trial_seed, run_sim=False)
+#run_trial(trial_seed)
 
 if os.path.isfile(data_dir+rec_filename+'-working.hdf5'):
     os.rename(data_dir+rec_filename+'-working.hdf5', data_dir+rec_filename+'.hdf5')

@@ -1,9 +1,9 @@
-ba#!/bin/bash
+#!/bin/bash
 #
 #SBATCH -J optimize_spike_adaptation
-#SBATCH -o optimize_spike_adaptation_041317.%j.o
+#SBATCH -o optimize_spike_adaptation_041717.%j.o
 #SBATCH -n 9
-#SBATCH -t 24:00:00
+#SBATCH -t 36:00:00
 #SBATCH --mem-per-cpu=4G
 #SBATCH --mail-user=aaronmil@stanford.edu
 #SBATCH --mail-type=END
