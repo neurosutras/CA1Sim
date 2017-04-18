@@ -249,7 +249,7 @@ def compute_spike_stability_features(input_param, local_x=None, plot=False):
     update_na_ka_stability(local_x)
     sim.cvode_state = True
     soma_vm = offset_vm('soma', v_active)
-    sim.cvode_state = False
+    sim.cvode_state = False     
     sim.modify_stim(0, node=cell.tree.root, loc=0., dur=stim_dur)
     duration = equilibrate + 200.
     sim.tstop = duration
