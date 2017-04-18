@@ -122,17 +122,12 @@ def na_ka_stability_error(x, plot=0):
     hist.features['rate'].append(final_result['rate'])
 
     print 'Simulation took %i s' % (time.time()-start_time)
-    print 'Process %i: [[soma.gkabar, soma.gkdrbar, soma.sh_nas/x, axon.gkdrbar factor, dend.gkabar factor, ' \
-          'soma.gCa factor, soma.gCadepK factor, soma.gkmbar]]: ' \
-          '[%.4f, %.4f, %.3f, %.3f, %.3f, %.3f, %.3f, %.3f, ], amp: %.3f, v_rest: %.1f, threshold: %.1f, ADP: %.1f, ' \
-          'AHP: %.1f, stability: %.2f, slow_depo: %.2f, dend_amp: %.2f, rate %.3f' % (os.getpid(), x[0], x[1], x[2], x[3], x[4],
-                                                                           x[5], x[6], x[7], final_result['amp'],
-                                                                           final_result['v_rest'],
-                                                                           final_result['v_th'], final_result['ADP'],
-                                                                           final_result['AHP'],
-                                                                           final_result['stability'],
-                                                                           final_result['slow_depo'],
-                                                                           final_result['dend_amp'], final_result['rate'])
+    print 'Process %i: [soma.gkabar, soma.gkdrbar, soma.sh_nas/x, axon.gkdrbar factor, dend.gkabar factor, ' \
+          'soma.gCa factor, soma.gCadepK factor, soma.gkmbar]: %s, amp: %.3f, v_rest: %.1f, threshold: %.1f, ' \
+          'ADP: %.1f, AHP: %.1f, stability: %.2f, slow_depo: %.2f, dend_amp: %.2f, rate %.3f' % \
+          (os.getpid(), formatted_x, final_result['amp'], final_result['v_rest'], final_result['v_th'],
+           final_result['ADP'], final_result['AHP'], final_result['stability'], final_result['slow_depo'],
+           final_result['dend_amp'], final_result['rate'])
     print 'Process %i: f_I Error: %.4E, Error: %.4E' % (os.getpid(), f_I_Err, Err)
     hist.error_values.append(Err)
     sys.stdout.flush()
@@ -184,7 +179,7 @@ target_val['v_rest'] = {'soma': v_init, 'tuft_offset': 0.}
 target_range['v_rest'] = {'soma': 0.25, 'tuft_offset': 0.1}
 target_val['na_ka'] = {'v_rest': v_init, 'v_th': -48., 'soma_peak': 40., 'ADP': 0., 'AHP': 4.,
                        'stability': 0., 'ais_delay': 0., 'slow_depo': 20., 'dend_amp': 0.3}
-target_range['na_ka'] = {'v_rest': 0.25, 'v_th': .2, 'soma_peak': 2., 'ADP': 0.01, 'AHP': .2,
+target_range['na_ka'] = {'v_rest': 0.25, 'v_th': .1, 'soma_peak': 2., 'ADP': 0.01, 'AHP': .05,
                          'stability': 1., 'ais_delay': 0.001, 'slow_depo': 0.5, 'dend_amp': 0.005}
 
 experimental_f_I_slope = 50. # 50 spikes/s/nA; GC experimental spike adaptation data from Brenner...Aldrich, Nat. Neurosci., 2005
@@ -219,8 +214,10 @@ hist.xlabels = xlabels['na_ka_stability']
 #            'soma.gCa factor', 'soma.gCadepK factor', 'soma.gkmbar']
 
 # x0['na_ka_stability'] = [0.0308, 0.0220, 4.667, 4.808, 4.032, 1.297, 1.023]  # Error: 1.5170E+03
-x0['na_ka_stability'] = [1.107E-02, 2.207E-02, 5.489E+00, 1.491E+00, 1.034E+00, 1.9445E+00, 1.9967E+00, 2.9317E-03]
+# x0['na_ka_stability'] = [1.107E-02, 2.207E-02, 5.489E+00, 1.491E+00, 1.034E+00, 1.9445E+00, 1.9967E+00, 2.9317E-03]
 # Error: 1.628E+03
+x0['na_ka_stability'] = [1.439E-02, 1.004E-02, 3.933E+00, 1.460E+00, 1.012E+00, 2.006E+00, 2.995E+00, 8.498E-04]
+# Error: 2928.37
 xmin['na_ka_stability'] = [0.01, 0.01, 0.1, 1., 1., 1., 1., 0.0005]
 xmax['na_ka_stability'] = [0.05, 0.05, 6., 2., 5., 3., 3., 0.005]
 

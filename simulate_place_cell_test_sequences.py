@@ -227,10 +227,16 @@ excitatory_peak_rate = {'CA3': 40., 'ECIII': 40.}
 excitatory_theta_modulation_depth = {'CA3': 0.7, 'ECIII': 0.7}
 # From Chadwick et al., ELife 2015
 excitatory_theta_phase_tuning_factor = {'CA3': 0.8, 'ECIII': 0.8}
-excitatory_precession_range = {}  # # (ms, degrees)
+excitatory_precession_range = {}  # (cm, degrees)
+
 excitatory_precession_range['CA3'] = [(-input_field_width*0.7, 0.), (-input_field_width*0.6, 180.),
                                       (-input_field_width*0.35, 180.), (input_field_width*0.35, -180.),
                                       (input_field_width*0.6, -180.), (input_field_width*0.7, 0.)]
+"""
+excitatory_precession_range['CA3'] = [(-input_field_width*0.5, 0.), (-input_field_width*0.5, 180.),
+                                      (-input_field_width*0.35, 180.), (input_field_width*0.35, -180.),
+                                      (input_field_width*0.5, -180.), (input_field_width*0.5, 0.)]
+"""
 excitatory_theta_phase_offset = {}
 excitatory_theta_phase_offset['CA3'] = 165. / 360. * 2. * np.pi  # radians
 excitatory_theta_phase_offset['ECIII'] = 0. / 360. * 2. * np.pi  # radians
@@ -441,8 +447,7 @@ for group in stim_exc_syns:
         syn.netcon('AMPA_KIN').weight[0] = weights[group][i]
 
 rate_maps = run_trial(trial_seed, global_phase_offset=0., run_sim=False)
-"""
-run_trial(trial_seed, global_phase_offset)
+
+# run_trial(trial_seed, global_phase_offset)
 if os.path.isfile(data_dir+rec_filename+'-working.hdf5'):
     os.rename(data_dir+rec_filename+'-working.hdf5', data_dir+rec_filename+'.hdf5')
-"""

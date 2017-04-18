@@ -192,7 +192,7 @@ def compute_spike_shape_features(local_x=None, plot=False):
     soma_vm = offset_vm('soma', v_active)
     result = {'v_rest': soma_vm}
     sim.modify_stim(0, node=cell.tree.root, loc=0., dur=100.)
-    duration = equilibrate + 200.
+    duration = equilibrate + 100.
     sim.tstop = duration
     t = np.arange(0., duration, dt)
     spike = False
@@ -251,7 +251,7 @@ def compute_spike_stability_features(input_param, local_x=None, plot=False):
     soma_vm = offset_vm('soma', v_active)
     # sim.cvode_state = False
     sim.modify_stim(0, node=cell.tree.root, loc=0., dur=stim_dur)
-    duration = equilibrate + 200.
+    duration = equilibrate + stim_dur + 100.
     sim.tstop = duration
     t = np.arange(0., duration, dt)
     stability = 0.
