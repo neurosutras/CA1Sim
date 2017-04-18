@@ -3,14 +3,14 @@ from specify_cells2 import *
 import os
 import sys
 from ipyparallel import interactive
-import mkl
+# import mkl
 
 """
 Builds a cell locally so each engine is ready to receive jobs one at a time, specified by a value for the amplitude of
 a somatic current injection to test spike adaptation.
 """
 
-mkl.set_num_threads(1)
+# mkl.set_num_threads(1)
 
 neurotree_filename = '121516_DGC_trees.pkl'
 neurotree_dict = read_from_pkl(morph_dir+neurotree_filename)
