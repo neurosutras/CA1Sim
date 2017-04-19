@@ -65,7 +65,7 @@ def na_ka_stability_error(x, plot=0):
     rheobase = result['amp']
 
     result = v.map_async(parallel_optimize_spike_stability_engine.compute_spike_stability_features,
-                         [[rheobase+0.1, 300.], [rheobase+0.75, 100.]])
+                         [[rheobase+0.1, 400.], [rheobase+0.75, 100.]])
     last_buffer_len = []
     while not result.ready():
         time.sleep(1.)
@@ -217,8 +217,10 @@ hist.xlabels = xlabels['na_ka_stability']
 # Error: 1.628E+03
 # x0['na_ka_stability'] = [1.439E-02, 1.004E-02, 3.933E+00, 1.460E+00, 1.012E+00, 2.006E+00, 2.995E+00, 8.498E-04]
 # Error: 2928.37
-x0['na_ka_stability'] = [1.439E-02, 1.004E-02, 3.933E+00, 1.460E+00, 1.012E+00, 2.006E+00, 2.995E+00, 8.498E-04]
+# x0['na_ka_stability'] = [1.439E-02, 1.004E-02, 3.933E+00, 1.460E+00, 1.012E+00, 2.006E+00, 2.995E+00, 8.498E-04]
 # lowest Err: 2.427E+04
+x0['na_ka_stability'] = [1.396E-02, 1.006E-02, 3.360E+00, 1.657E+00, 1.141E+00, 1.726E+00, 2.997E+00, 1.562E-03]
+# Error: 1.806E+04
 xmin['na_ka_stability'] = [0.01, 0.01, 0.1, 1., 1., 1., 1., 0.0005]
 xmax['na_ka_stability'] = [0.05, 0.05, 6., 2., 5., 5., 5., 0.005]
 
@@ -234,7 +236,7 @@ global_start_time = time.time()
 
 
 dv.execute('run parallel_optimize_spike_stability_engine %i \"%s\"' % (int(spines), mech_filename))
-# time.sleep(60)
+time.sleep(60)
 v = c.load_balanced_view()
 
 result = optimize.basinhopping(na_ka_stability_error, x0['na_ka_stability'], niter=max_niter,
@@ -242,7 +244,7 @@ result = optimize.basinhopping(na_ka_stability_error, x0['na_ka_stability'], nit
                                minimizer_kwargs=minimizer_kwargs, take_step=take_step)
 print result
 
-history_filename = '041417 spike stability optimization history'
+history_filename = '041917 spike stability optimization history'
 best_x = hist.report_best()
 # hist.export_to_pkl(history_filename)
 dv['x'] = best_x
