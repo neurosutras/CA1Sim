@@ -80,7 +80,7 @@ INITIAL {
 
 FUNCTION exp1(A (/ms), d, k, x (mM)) (/ms) {
 	UNITSOFF
-	exp1 = A/exp((12*log10(x)+d)/k)
+	exp1 = A/exptrap((12*log10(x)+d)/k)
 	UNITSON
 }
 
@@ -94,7 +94,7 @@ FUNCTION betaq(x (mM)) (/ms) {
 
 FUNCTION betar(v (mV)) (/ms) {
 	UNITSOFF
-	betar = 0.11/exp((v-35)/14.9)
+	betar = 0.11/exptrap((v-35)/14.9)
 	UNITSON
 }
 
@@ -104,7 +104,13 @@ FUNCTION sinf(x (mM)) {
 	UNITSON
 }
 
-
+FUNCTION exptrap(x) {
+  if (x>=700.0) {
+    exptrap = exp(700.0)
+  } else {
+    exptrap = exp(x)
+  }
+}
 
 
 

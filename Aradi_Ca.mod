@@ -136,7 +136,7 @@ FUNCTION f(A, k, v (mV), D) (/ms) {
 	UNITSOFF
 	x = k*(v-D)
 	if (fabs(x) > 1e-6) {
-		f = A*x/(1-exp(-x))
+		f = A*x/(1-exptrap(-x))
 	}else{
 		f = A/(1-0.5*x)
 	}
@@ -145,17 +145,23 @@ FUNCTION f(A, k, v (mV), D) (/ms) {
 
 FUNCTION logistic(A, k, v (mV), D) (/ms) {
 	UNITSOFF
-	logistic = A/(1+exp(k*(v-D)))
+	logistic = A/(1+exptrap(k*(v-D)))
 	UNITSON
 }
 
 FUNCTION exponential(A, k, v (mV), D) (/ms) {
 	UNITSOFF
-	exponential = A*exp(k*(v-D))
+	exponential = A*exptrap(k*(v-D))
 	UNITSON
 }
 
-
+FUNCTION exptrap(x) {
+  if (x>=700.0) {
+    exptrap = exp(700.0)
+  } else {
+    exptrap = exp(x)
+  }
+}
 
 
 
