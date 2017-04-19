@@ -106,14 +106,14 @@ def update_pas_exp(x):
         cell.reinit_mechanisms(reset_cable=True)
     cell.modify_mech_param('soma', 'pas', 'g', x[0])
     cell.modify_mech_param('apical', 'pas', 'g', origin='soma', slope=x[1], tau=x[2])
-    for sec_type in ['basal', 'axon_hill', 'axon', 'ais', 'trunk', 'apical', 'tuft', 'spine_neck', 'spine_head']:
+    for sec_type in ['axon_hill', 'axon', 'ais', 'apical', 'spine_neck', 'spine_head']:
         cell.reinitialize_subset_mechanisms(sec_type, 'pas')
     if spines is False:
         cell.correct_for_spines()
 
 
 def print_gpas_cm_values():
-    sec_types = ['basal', 'trunk', 'apical', 'tuft']
+    sec_types = ['apical']
     gpas_values = {s: [] for s in sec_types}
     cm_values = {s: [] for s in sec_types}
     for i in [0, 10, 20]:

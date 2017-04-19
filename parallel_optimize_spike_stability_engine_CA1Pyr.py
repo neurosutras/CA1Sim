@@ -1,4 +1,4 @@
-__author__ = 'Grace Ng'
+__author__ = 'Aaron D. Milstein'
 from specify_cells2 import *
 import os
 import sys
@@ -12,8 +12,7 @@ a somatic current injection to test spike shape and stability.
 
 # mkl.set_num_threads(1)
 
-neurotree_filename = '121516_DGC_trees.pkl'
-neurotree_dict = read_from_pkl(morph_dir+neurotree_filename)
+morph_filename = 'EB2-late-bifurcation.swc'
 
 rec_filename = str(time.strftime('%m%d%Y', time.gmtime()))+'_'+str(time.strftime('%H%M%S', time.gmtime()))+\
                '_pid'+str(os.getpid())+'_sim_output'
@@ -29,7 +28,7 @@ soma_na_gbar = 0.04
 # [soma.gkabar, soma.gkdrbar, soma.sh_nas/x, axon.gkdrbar factor, dend.gkabar factor,
 #            'soma.gCa factor', 'soma.gCadepK factor', 'soma.gkmbar']
 xmin['na_ka_stability'] = [0.01, 0.01, 0.1, 1., 1., 1., 1., 0.0005]
-xmax['na_ka_stability'] = [0.05, 0.05, 6., 2., 5., 5., 5., 0.005]
+xmax['na_ka_stability'] = [0.05, 0.05, 6., 2., 5., 3., 3., 0.005]
 
 check_bounds = CheckBounds(xmin, xmax)
 
@@ -40,7 +39,7 @@ else:
 if len(sys.argv) > 2:
     mech_filename = str(sys.argv[2])
 else:
-    mech_filename = '041817 GC optimizing spike stability'
+    mech_filename = '041817 CA1Pyr optimizing spike stability'
 
 
 @interactive
@@ -146,7 +145,7 @@ def update_na_ka_stability(x):
     slope = (x[4] - 1.) * x[0] / 300.
     cell.modify_mech_param('soma', 'nas', 'gbar', soma_na_gbar)
     cell.modify_mech_param('soma', 'nas', 'sh', x[2])
-    for sec_type in ['apical']:
+    for sec_type in ['basal', 'trunk', 'apical', 'tuft']:
         cell.reinitialize_subset_mechanisms(sec_type, 'nas')
         cell.modify_mech_param(sec_type, 'kap', 'gkabar', origin='soma', min_loc=75., value=0.)
         cell.modify_mech_param(sec_type, 'kap', 'gkabar', origin='soma', max_loc=75., slope=slope, replace=False)
@@ -213,7 +212,7 @@ def compute_spike_shape_features(local_x=None, plot=False):
                 print 'increasing amp to %.3f' % amp
     i_th['soma'] = amp
     peak, threshold, ADP, AHP = get_spike_shape(vm)
-    dend_vm = np.interp(t, sim.tvec, sim.get_rec('dend')['vec'])
+    dend_vm = np.interp(t, sim.tvec, sim.get_rec('tuft')['vec'])
     th_x = np.where(vm[int(equilibrate / dt):] >= threshold)[0][0] + int(equilibrate / dt)
     dend_peak = np.max(dend_vm[th_x:th_x + int(10. / dt)])
     dend_pre = np.mean(dend_vm[th_x - int(0.2 / dt):th_x - int(0.1 / dt)])
@@ -294,30 +293,26 @@ th_dvdt = 10.
 v_init = -77.
 v_active = -77.
 
-cell = DG_GC(neurotree_dict=neurotree_dict[0], mech_filename=mech_filename, full_spines=spines)
+cell = CA1_Pyr(morph_filename=morph_filename, mech_filename=mech_filename, full_spines=spines)
 if spines is False:
     cell.correct_for_spines()
 
-# get the thickest apical dendrite ~200 um from the soma
-candidate_branches = []
-candidate_diams = []
-candidate_locs = []
-for branch in cell.apical:
-    if ((cell.get_distance_to_node(cell.tree.root, branch, 0.) >= 200.) &
-            (cell.get_distance_to_node(cell.tree.root, branch, 1.) > 300.) & (not cell.is_terminal(branch))):
-        candidate_branches.append(branch)
-        for seg in branch.sec:
-            loc = seg.x
-            if cell.get_distance_to_node(cell.tree.root, branch, loc) > 250.:
-                candidate_diams.append(branch.sec(loc).diam)
-                candidate_locs.append(loc)
-                break
-index = candidate_diams.index(max(candidate_diams))
-dend = candidate_branches[index]
-dend_loc = candidate_locs[index]
+# look for a trunk bifurcation
+trunk_bifurcation = [trunk for trunk in cell.trunk if cell.is_bifurcation(trunk, 'trunk')]
+if trunk_bifurcation:
+    trunk_branches = [branch for branch in trunk_bifurcation[0].children if branch.type == 'trunk']
+    # get where the thickest trunk branch gives rise to the tuft
+    trunk = max(trunk_branches, key=lambda node: node.sec(0.).diam)
+    trunk = (node for node in cell.trunk if cell.node_in_subtree(trunk, node) and 'tuft' in (child.type
+                                                                            for child in node.children)).next()
+else:
+    trunk_bifurcation = [node for node in cell.trunk if 'tuft' in (child.type for child in node.children)]
+    trunk = trunk_bifurcation[0]
+tuft = trunk
+trunk = trunk_bifurcation[0]
 
-rec_locs = {'soma': 0., 'dend': dend_loc, 'axon': 1.}
-rec_nodes = {'soma': cell.tree.root, 'dend': dend, 'axon': cell.axon[2]}
+rec_locs = {'soma': 0., 'trunk': 1., 'tuft': 1.}
+rec_nodes = {'soma': cell.tree.root, 'trunk': trunk, 'tuft': tuft}
 
 sim = QuickSim(duration, cvode=False, dt=dt, verbose=False)
 sim.append_stim(cell, cell.tree.root, loc=0., amp=0., delay=equilibrate, dur=stim_dur)

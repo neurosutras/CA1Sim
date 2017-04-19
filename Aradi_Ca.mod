@@ -59,7 +59,7 @@ STATE {
 }
 
 BREAKPOINT {
-	SOLVE state METHOD cnexp
+	SOLVE state METHOD derivimplicit
 	e_ca = (1000)*(celsius+273.15)*R/(2*F)*log(cao/ca_i)
 	gtca = gtcabar*gcamult*a*a*b
 	gnca = gncabar*gcamult*c*c*d

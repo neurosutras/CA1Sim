@@ -1,5 +1,5 @@
 __author__ = 'Grace Ng'
-import parallel_optimize_spike_stability_engine
+import parallel_optimize_spike_stability_engine_CA1Pyr
 import sys
 import os
 from ipyparallel import Client
@@ -34,7 +34,7 @@ def na_ka_stability_error(x, plot=0):
     """
     hist.x_values.append(x)
     formatted_x = '[' + ', '.join(['%.3E' % xi for xi in x]) + ']'
-    print 'Trying x: %s: %s' % (str(xlabels['na_ka_stability']), formatted_x)
+    print 'Trying x: %s: %s' % (os.getpid(), str(xlabels['na_ka_stability']), formatted_x)
     if not check_bounds.within_bounds(x, 'na_ka_stability'):
         print 'Process %i: Aborting - Parameters outside optimization bounds.' % (os.getpid())
         Err = 1e9
@@ -42,7 +42,7 @@ def na_ka_stability_error(x, plot=0):
         return Err
     start_time = time.time()
     dv['x'] = x
-    result = c[0].apply(parallel_optimize_spike_stability_engine.compute_spike_shape_features)
+    result = c[0].apply(parallel_optimize_spike_stability_engine_CA1Pyr.compute_spike_shape_features)
     last_buffer_len = 0
     while not result.ready():
         time.sleep(1.)
@@ -64,7 +64,7 @@ def na_ka_stability_error(x, plot=0):
     final_result = result
     rheobase = result['amp']
 
-    result = v.map_async(parallel_optimize_spike_stability_engine.compute_spike_stability_features,
+    result = v.map_async(parallel_optimize_spike_stability_engine_CA1Pyr.compute_spike_stability_features,
                          [[rheobase+0.1, 300.], [rheobase+0.75, 100.]])
     last_buffer_len = []
     while not result.ready():
@@ -195,7 +195,7 @@ else:
 if len(sys.argv) > 2:
     mech_filename = str(sys.argv[2])
 else:
-    mech_filename = '041817 GC optimizing spike stability'
+    mech_filename = '041317 GC optimizing excitability'
 if len(sys.argv) > 3:
     cluster_id = sys.argv[3]
     c = Client(cluster_id=cluster_id)
@@ -220,7 +220,7 @@ hist.xlabels = xlabels['na_ka_stability']
 x0['na_ka_stability'] = [1.439E-02, 1.004E-02, 3.933E+00, 1.460E+00, 1.012E+00, 2.006E+00, 2.995E+00, 8.498E-04]
 # lowest Err: 2.427E+04
 xmin['na_ka_stability'] = [0.01, 0.01, 0.1, 1., 1., 1., 1., 0.0005]
-xmax['na_ka_stability'] = [0.05, 0.05, 6., 2., 5., 5., 5., 0.005]
+xmax['na_ka_stability'] = [0.05, 0.05, 6., 2., 5., 3., 3., 0.005]
 
 max_niter = 2100  # max number of iterations to run
 niter_success = 400  # max number of interations without significant progress before aborting optimization
@@ -233,10 +233,10 @@ dv.block = True
 global_start_time = time.time()
 
 
-dv.execute('run parallel_optimize_spike_stability_engine %i \"%s\"' % (int(spines), mech_filename))
+dv.execute('run parallel_optimize_spike_stability_engine_CA1Pyr %i \"%s\"' % (int(spines), mech_filename))
 # time.sleep(60)
 v = c.load_balanced_view()
-
+"""
 result = optimize.basinhopping(na_ka_stability_error, x0['na_ka_stability'], niter=max_niter,
                                niter_success=niter_success, disp=True, interval=40,
                                minimizer_kwargs=minimizer_kwargs, take_step=take_step)
@@ -247,6 +247,6 @@ best_x = hist.report_best()
 # hist.export_to_pkl(history_filename)
 dv['x'] = best_x
 # dv['x'] = x0['na_ka_stability']
-c[0].apply(parallel_optimize_spike_stability_engine.update_mech_dict)
-sys.stdout.flush()
-# plot_best(x0['na_ka_stability'])
+c[0].apply(parallel_optimize_spike_stability_engine_CA1Pyr.update_mech_dict)
+"""
+plot_best(x0['na_ka_stability'])
