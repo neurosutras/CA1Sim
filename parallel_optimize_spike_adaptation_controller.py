@@ -211,7 +211,7 @@ else:
 if len(sys.argv) > 2:
     mech_filename = str(sys.argv[2])
 else:
-    mech_filename = '041417 GC optimizing excitability'
+    mech_filename = '041917 GC optimizing spike adaptation'
 if len(sys.argv) > 3:
     cluster_id = sys.argv[3]
     c = Client(cluster_id=cluster_id)

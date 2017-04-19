@@ -40,7 +40,7 @@ else:
 if len(sys.argv) > 2:
     mech_filename = str(sys.argv[2])
 else:
-    mech_filename = '041417 GC optimizing excitability'
+    mech_filename = '041917 GC optimizing spike adaptation'
 
 
 @interactive
@@ -226,7 +226,8 @@ cell.modify_mech_param('soma', 'CadepK', 'gcakmult', 1.)
 rec_locs = {'soma': 0., 'axon': 1.}
 rec_nodes = {'soma': cell.tree.root, 'axon': cell.axon[2]}
 
-sim = QuickSim(duration, verbose=False, cvode=False, dt=dt)
+# sim = QuickSim(duration, verbose=False, cvode=False, dt=dt)
+sim = QuickSim(duration, verbose=False, cvode=True)
 sim.append_stim(cell, cell.tree.root, loc=0., amp=0., delay=equilibrate, dur=stim_dur)
 sim.append_stim(cell, cell.tree.root, loc=0., amp=0., delay=0., dur=duration)
 
