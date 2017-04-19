@@ -319,8 +319,8 @@ dend_loc = candidate_locs[index]
 rec_locs = {'soma': 0., 'dend': dend_loc, 'axon': 1.}
 rec_nodes = {'soma': cell.tree.root, 'dend': dend, 'axon': cell.axon[2]}
 
-# sim = QuickSim(duration, cvode=False, dt=dt, verbose=False)
-sim = QuickSim(duration, cvode=True, verbose=False)
+sim = QuickSim(duration, cvode=False, dt=dt, verbose=False)
+# sim = QuickSim(duration, cvode=True, verbose=False)
 sim.append_stim(cell, cell.tree.root, loc=0., amp=0., delay=equilibrate, dur=stim_dur)
 sim.append_stim(cell, cell.tree.root, loc=0., amp=0., delay=0., dur=duration)
 

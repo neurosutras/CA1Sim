@@ -226,8 +226,8 @@ cell.modify_mech_param('soma', 'CadepK', 'gcakmult', 1.)
 rec_locs = {'soma': 0., 'axon': 1.}
 rec_nodes = {'soma': cell.tree.root, 'axon': cell.axon[2]}
 
-# sim = QuickSim(duration, verbose=False, cvode=False, dt=dt)
-sim = QuickSim(duration, verbose=False, cvode=True)
+sim = QuickSim(duration, verbose=False, cvode=False, dt=dt)
+# sim = QuickSim(duration, verbose=False, cvode=True)
 sim.append_stim(cell, cell.tree.root, loc=0., amp=0., delay=equilibrate, dur=stim_dur)
 sim.append_stim(cell, cell.tree.root, loc=0., amp=0., delay=0., dur=duration)
 
