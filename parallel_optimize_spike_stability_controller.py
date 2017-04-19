@@ -138,6 +138,9 @@ def plot_best(x=None, discard=True):
     """
     Run simulations on the engines with the last best set of parameters, have the engines export their results to .hdf5,
     and then read in and plot the results.
+
+    Note: ipcluster can only have 2 cores. If there are more, the extra engines will have sim objects that are not
+    updated, leading to errors.
     :param x: array
     """
     if x is None:
@@ -211,15 +214,17 @@ hist.xlabels = xlabels['na_ka_stability']
 
 
 # [soma.gkabar, soma.gkdrbar, soma.sh_nas/x, axon.gkdrbar factor, dend.gkabar factor,
-#            'soma.gCa factor', 'soma.gCadepK factor', 'soma.gkmbar']
+#            soma.gCa factor, soma.gCadepK factor, soma.gkmbar]
 
 # x0['na_ka_stability'] = [0.0308, 0.0220, 4.667, 4.808, 4.032, 1.297, 1.023]  # Error: 1.5170E+03
 # x0['na_ka_stability'] = [1.107E-02, 2.207E-02, 5.489E+00, 1.491E+00, 1.034E+00, 1.9445E+00, 1.9967E+00, 2.9317E-03]
 # Error: 1.628E+03
 # x0['na_ka_stability'] = [1.439E-02, 1.004E-02, 3.933E+00, 1.460E+00, 1.012E+00, 2.006E+00, 2.995E+00, 8.498E-04]
 # Error: 2928.37
-x0['na_ka_stability'] = [1.439E-02, 1.004E-02, 3.933E+00, 1.460E+00, 1.012E+00, 2.006E+00, 2.995E+00, 8.498E-04]
+#x0['na_ka_stability'] = [1.439E-02, 1.004E-02, 3.933E+00, 1.460E+00, 1.012E+00, 2.006E+00, 2.995E+00, 8.498E-04]
 # lowest Err: 2.427E+04
+x0['na_ka_stability'] = [1.396E-02, 1.006E-02, 3.360E+00, 1.657E+00, 1.141E+00, 1.726E+00, 2.997E+00, 1.562E-03]
+# Error: 1.806E+04
 xmin['na_ka_stability'] = [0.01, 0.01, 0.1, 1., 1., 1., 1., 0.0005]
 xmax['na_ka_stability'] = [0.05, 0.05, 6., 2., 5., 5., 5., 0.005]
 
@@ -237,7 +242,7 @@ global_start_time = time.time()
 dv.execute('run parallel_optimize_spike_stability_engine %i \"%s\"' % (int(spines), mech_filename))
 time.sleep(60)
 v = c.load_balanced_view()
-
+"""
 result = optimize.basinhopping(na_ka_stability_error, x0['na_ka_stability'], niter=max_niter,
                                niter_success=niter_success, disp=True, interval=40,
                                minimizer_kwargs=minimizer_kwargs, take_step=take_step)
@@ -249,5 +254,5 @@ best_x = hist.report_best()
 dv['x'] = best_x
 # dv['x'] = x0['na_ka_stability']
 c[0].apply(parallel_optimize_spike_stability_engine.update_mech_dict)
-
-# plot_best(x0['na_ka_stability'])
+"""
+plot_best(x0['na_ka_stability'])

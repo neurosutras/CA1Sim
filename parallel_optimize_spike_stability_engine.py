@@ -29,7 +29,7 @@ soma_na_gbar = 0.04
 # [soma.gkabar, soma.gkdrbar, soma.sh_nas/x, axon.gkdrbar factor, dend.gkabar factor,
 #            'soma.gCa factor', 'soma.gCadepK factor', 'soma.gkmbar']
 xmin['na_ka_stability'] = [0.01, 0.01, 0.1, 1., 1., 1., 1., 0.0005]
-xmax['na_ka_stability'] = [0.05, 0.05, 6., 2., 5., 3., 3., 0.005]
+xmax['na_ka_stability'] = [0.05, 0.05, 6., 2., 5., 5., 5., 0.005]
 
 check_bounds = CheckBounds(xmin, xmax)
 
@@ -316,8 +316,8 @@ index = candidate_diams.index(max(candidate_diams))
 dend = candidate_branches[index]
 dend_loc = candidate_locs[index]
 
-rec_locs = {'soma': 0., 'dend': dend_loc}
-rec_nodes = {'soma': cell.tree.root, 'dend': dend}
+rec_locs = {'soma': 0., 'dend': dend_loc, 'axon': 1.}
+rec_nodes = {'soma': cell.tree.root, 'dend': dend, 'axon': cell.axon[2]}
 
 sim = QuickSim(duration, cvode=False, dt=dt, verbose=False)
 sim.append_stim(cell, cell.tree.root, loc=0., amp=0., delay=equilibrate, dur=stim_dur)
