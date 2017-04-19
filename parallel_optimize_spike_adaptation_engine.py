@@ -28,7 +28,7 @@ xmax = {}
 
 # [soma.gCa factor, soma.gCadepK factor, soma.gkmbar]
 xmin['spike_adaptation'] = [1., 1., 0.0005]
-xmax['spike_adaptation'] = [3., 3., 0.005]
+xmax['spike_adaptation'] = [5., 5., 0.005]
 
 check_bounds = CheckBounds(xmin, xmax)
 
