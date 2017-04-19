@@ -244,7 +244,7 @@ global_start_time = time.time()
 
 
 dv.execute('run parallel_optimize_spike_adaptation_engine %i \"%s\"' % (int(spines), mech_filename))
-# time.sleep(60)
+time.sleep(60)
 v = c.load_balanced_view()
 
 # Err, final_result = spike_adaptation_error(x0['spike_adaptation'], True)
