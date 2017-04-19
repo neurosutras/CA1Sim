@@ -246,7 +246,7 @@ def optimize_ais_delay(x):
             axon_vm = np.interp(t, sim.tvec, sim.get_rec('axon')['vec'])
             axon_dvdt = np.gradient(axon_vm, dt)
             left = th_x - int(2. / dt)
-            right = th_x + int(2. / dt)
+            right = th_x + int(5. / dt)
             ais_peak = np.max(ais_dvdt[left:right])
             ais_peak_t = np.where(ais_dvdt[left:right] == ais_peak)[0][0] * dt
             axon_peak = np.max(axon_dvdt[left:right])
