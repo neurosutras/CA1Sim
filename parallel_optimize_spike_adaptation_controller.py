@@ -221,10 +221,11 @@ else:
 # These values will now be saved in the mech dictionary that is updated by previous round of optimization
 # x0['spike_adaptation'] = [1., 1., 0.0015]
 # x0['spike_adaptation'] = [1.244E+00, 1.986E+00, 1.943E-03]
-x0['spike_adaptation'] = [1.9445E+00, 1.9967E+00, 2.9317E-03]
+# x0['spike_adaptation'] = [1.9445E+00, 1.9967E+00, 2.9317E-03]
+x0['spike_adaptation'] = [2.9898E+00, 2.9858E+00, 4.9696E-03]
 xlabels['spike_adaptation'] = ['soma.gCa factor', 'soma.gCadepK factor', 'soma.gkmbar']
 xmin['spike_adaptation'] = [1., 1., 0.0005]
-xmax['spike_adaptation'] = [3., 3., 0.005]
+xmax['spike_adaptation'] = [5., 5., 0.005]
 
 max_niter = 2100  # max number of iterations to run
 niter_success = 400  # max number of interations without significant progress before aborting optimization
@@ -235,7 +236,7 @@ minimizer_kwargs = dict(method=null_minimizer)
 check_bounds = CheckBounds(xmin, xmax)
 hist = optimize_history()
 hist.xlabels = xlabels
-history_filename = '041417 spike adaptation'
+history_filename = '041917 spike adaptation'
 
 dv = c[:]
 dv.block = True
@@ -243,7 +244,7 @@ global_start_time = time.time()
 
 
 dv.execute('run parallel_optimize_spike_adaptation_engine %i \"%s\"' % (int(spines), mech_filename))
-time.sleep(60)
+# time.sleep(60)
 v = c.load_balanced_view()
 
 # Err, final_result = spike_adaptation_error(x0['spike_adaptation'], True)
@@ -259,5 +260,5 @@ best_x = hist.report_best()
 dv['x'] = best_x
 # dv['x'] = x0['spike_adaptation']
 c[0].apply(parallel_optimize_spike_adaptation_engine.update_mech_dict)
-
+sys.stdout.flush()
 # plot_best(x0['spike_adaptation'])

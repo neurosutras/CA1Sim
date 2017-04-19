@@ -2381,7 +2381,8 @@ class CA1_Pyr(HocCell):
         HocCell.__init__(self, morph_filename, mech_filename, gid, existing_hoc_cell)
         self.random.seed(self.gid)  # This cell will always have the same spine and GABA_A synapse locations as long as
                                     # they are inserted in the same order
-        self.make_standard_soma_and_axon(soma_length=16., soma_diam=9., ais_length=30., axon_length=500.)
+        # self.make_standard_soma_and_axon(soma_length=16., soma_diam=9., ais_length=30., axon_length=500.)
+        self.make_standard_soma_and_axon(soma_length=14., soma_diam=9., ais_length=15., axon_length=500.)
         self.load_morphology(preserve_3d=preserve_3d)
         self.generate_excitatory_synapse_locs()
         self.generate_inhibitory_synapse_locs()
