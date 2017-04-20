@@ -131,6 +131,8 @@ def spike_adaptation_error(x, full_output=False):
     final_result['adi'] = map(final_result['adi'].__getitem__, indexes)
     final_result['f_I'] = map(final_result['f_I'].__getitem__, indexes)
     f_I_Err = 0.
+    target_f_I = [experimental_f_I_slope * np.log((rheobase + i_inj_increment * (i + 1)) / rheobase)
+                  for i in range(num_increments)]
     for i, this_rate in enumerate(final_result['f_I']):
         f_I_Err += ((this_rate - target_f_I[i]) / (0.01 * target_f_I[i])) ** 2.
     Err = adi_Err + f_I_Err
@@ -193,10 +195,10 @@ for i in range(3, len(experimental_spike_times)+1):
     experimental_adaptation_indexes.append(get_adaptation_index(experimental_spike_times[:i]))
 
 # 50 spikes/s/nA
-experimental_f_I_slope = 50.
-i_inj_increment = 0.1
+experimental_f_I_slope = 53.
+# GC experimental f-I data from Kowalski J...Pernía-Andrade AJ, Hippocampus, 2016
+i_inj_increment = 0.05
 num_increments = 8
-target_f_I = [experimental_f_I_slope * i_inj_increment * (i + 1) for i in range(num_increments)]
 
 x0 = {}
 xlabels = {}

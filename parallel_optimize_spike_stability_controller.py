@@ -65,7 +65,7 @@ def na_ka_stability_error(x, plot=0):
     rheobase = result['amp']
 
     result = v.map_async(parallel_optimize_spike_stability_engine.compute_spike_stability_features,
-                         [[rheobase+0.1, 400.], [rheobase+0.75, 100.]])
+                         [[rheobase+0.05, 300.], [rheobase+0.5, 100.]])
     last_buffer_len = []
     while not result.ready():
         time.sleep(1.)
@@ -99,10 +99,9 @@ def na_ka_stability_error(x, plot=0):
     indexes.sort(key=temp_dict['amp'].__getitem__)
     temp_dict['amp'] = map(temp_dict['amp'].__getitem__, indexes)
     temp_dict['rate'] = map(temp_dict['rate'].__getitem__, indexes)
-    target_f_I = experimental_f_I_slope * (temp_dict['amp'][0] - rheobase)
+    target_f_I = experimental_f_I_slope * np.log(temp_dict['amp'][0] / rheobase)
     final_result['rate'] = temp_dict['rate'][0]
     f_I_Err = ((temp_dict['rate'][0] - target_f_I) / (0.01 * target_f_I))**2.
-
     Err = f_I_Err
     for target in final_result:
         if target not in hist.features:
@@ -181,7 +180,8 @@ target_val['na_ka'] = {'v_rest': v_init, 'v_th': -48., 'soma_peak': 40., 'ADP': 
 target_range['na_ka'] = {'v_rest': 0.25, 'v_th': .1, 'soma_peak': 2., 'ADP': 0.01, 'AHP': .05,
                          'stability': 1., 'ais_delay': 0.001, 'slow_depo': 0.5, 'dend_amp': 0.005}
 
-experimental_f_I_slope = 50. # 50 spikes/s/nA; GC experimental spike adaptation data from Brenner...Aldrich, Nat. Neurosci., 2005
+experimental_f_I_slope = 53.  # Hz/ln(pA); rate = slope * ln(current - rheobase)
+# GC experimental f-I data from Kowalski J...Pernía-Andrade AJ, Hippocampus, 2016
 
 x0 = {}
 xlabels = {}

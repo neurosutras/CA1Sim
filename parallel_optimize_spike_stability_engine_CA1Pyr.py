@@ -28,7 +28,7 @@ soma_na_gbar = 0.04
 # [soma.gkabar, soma.gkdrbar, soma.sh_nas/x, axon.gkdrbar factor, dend.gkabar factor,
 #            'soma.gCa factor', 'soma.gCadepK factor', 'soma.gkmbar']
 xmin['na_ka_stability'] = [0.01, 0.01, 0.1, 1., 1., 1., 1., 0.0005]
-xmax['na_ka_stability'] = [0.05, 0.05, 6., 2., 5., 3., 3., 0.005]
+xmax['na_ka_stability'] = [0.05, 0.05, 6., 2., 5., 5., 5., 0.005]
 
 check_bounds = CheckBounds(xmin, xmax)
 
@@ -290,8 +290,8 @@ duration = equilibrate + stim_dur
 dt = 0.02
 amp = 0.3
 th_dvdt = 10.
-v_init = -77.
-v_active = -77.
+v_init = -67.
+v_active = -61.
 
 cell = CA1_Pyr(morph_filename=morph_filename, mech_filename=mech_filename, full_spines=spines)
 if spines is False:

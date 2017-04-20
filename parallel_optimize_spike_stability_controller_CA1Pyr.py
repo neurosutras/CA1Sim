@@ -34,7 +34,7 @@ def na_ka_stability_error(x, plot=0):
     """
     hist.x_values.append(x)
     formatted_x = '[' + ', '.join(['%.3E' % xi for xi in x]) + ']'
-    print 'Trying x: %s: %s' % (os.getpid(), str(xlabels['na_ka_stability']), formatted_x)
+    print 'Trying x: %s: %s' % (str(xlabels['na_ka_stability']), formatted_x)
     if not check_bounds.within_bounds(x, 'na_ka_stability'):
         print 'Process %i: Aborting - Parameters outside optimization bounds.' % (os.getpid())
         Err = 1e9
@@ -65,7 +65,7 @@ def na_ka_stability_error(x, plot=0):
     rheobase = result['amp']
 
     result = v.map_async(parallel_optimize_spike_stability_engine_CA1Pyr.compute_spike_stability_features,
-                         [[rheobase+0.1, 300.], [rheobase+0.75, 100.]])
+                         [[rheobase+0.05, 300.], [rheobase+0.5, 100.]])
     last_buffer_len = []
     while not result.ready():
         time.sleep(1.)
@@ -99,10 +99,9 @@ def na_ka_stability_error(x, plot=0):
     indexes.sort(key=temp_dict['amp'].__getitem__)
     temp_dict['amp'] = map(temp_dict['amp'].__getitem__, indexes)
     temp_dict['rate'] = map(temp_dict['rate'].__getitem__, indexes)
-    target_f_I = experimental_f_I_slope * (temp_dict['amp'][0] - rheobase)
+    target_f_I = experimental_f_I_slope * np.log(temp_dict['amp'][0] / rheobase)
     final_result['rate'] = temp_dict['rate'][0]
     f_I_Err = ((temp_dict['rate'][0] - target_f_I) / (0.01 * target_f_I))**2.
-
     Err = f_I_Err
     for target in final_result:
         if target not in hist.features:
@@ -176,12 +175,13 @@ target_val = {}
 target_range = {}
 target_val['v_rest'] = {'soma': v_init, 'tuft_offset': 0.}
 target_range['v_rest'] = {'soma': 0.25, 'tuft_offset': 0.1}
-target_val['na_ka'] = {'v_rest': v_init, 'v_th': -48., 'soma_peak': 40., 'ADP': 0., 'AHP': 4.,
-                       'stability': 0., 'ais_delay': 0., 'slow_depo': 20., 'dend_amp': 0.3}
+target_val['na_ka'] = {'v_rest': v_init, 'v_th': -51., 'soma_peak': 40., 'ADP': 0., 'AHP': 4.,
+                       'stability': 0., 'ais_delay': 0., 'slow_depo': 20., 'dend_amp': 0.6}
 target_range['na_ka'] = {'v_rest': 0.25, 'v_th': .1, 'soma_peak': 2., 'ADP': 0.01, 'AHP': .05,
                          'stability': 1., 'ais_delay': 0.001, 'slow_depo': 0.5, 'dend_amp': 0.005}
 
-experimental_f_I_slope = 50. # 50 spikes/s/nA; GC experimental spike adaptation data from Brenner...Aldrich, Nat. Neurosci., 2005
+experimental_f_I_slope = 12.  # Hz/ln(pA); rate = slope * ln(current - rheobase)
+# CA1Pyr experimental f-I data from Kowalski J...Pernia-Andrade AJ, Hippocampus, 2016
 
 x0 = {}
 xlabels = {}
@@ -195,7 +195,7 @@ else:
 if len(sys.argv) > 2:
     mech_filename = str(sys.argv[2])
 else:
-    mech_filename = '041317 GC optimizing excitability'
+    mech_filename = '041817 CA1Pyr optimizing spike stability'
 if len(sys.argv) > 3:
     cluster_id = sys.argv[3]
     c = Client(cluster_id=cluster_id)
@@ -212,15 +212,9 @@ hist.xlabels = xlabels['na_ka_stability']
 # [soma.gkabar, soma.gkdrbar, soma.sh_nas/x, axon.gkdrbar factor, dend.gkabar factor,
 #            'soma.gCa factor', 'soma.gCadepK factor', 'soma.gkmbar']
 
-# x0['na_ka_stability'] = [0.0308, 0.0220, 4.667, 4.808, 4.032, 1.297, 1.023]  # Error: 1.5170E+03
-# x0['na_ka_stability'] = [1.107E-02, 2.207E-02, 5.489E+00, 1.491E+00, 1.034E+00, 1.9445E+00, 1.9967E+00, 2.9317E-03]
-# Error: 1.628E+03
-# x0['na_ka_stability'] = [1.439E-02, 1.004E-02, 3.933E+00, 1.460E+00, 1.012E+00, 2.006E+00, 2.995E+00, 8.498E-04]
-# Error: 2928.37
-x0['na_ka_stability'] = [1.439E-02, 1.004E-02, 3.933E+00, 1.460E+00, 1.012E+00, 2.006E+00, 2.995E+00, 8.498E-04]
-# lowest Err: 2.427E+04
+x0['na_ka_stability'] = [0.0305, 0.0478, 1.7, 1., 2.8, 2.006E+00, 2.995E+00, 0.0015]
 xmin['na_ka_stability'] = [0.01, 0.01, 0.1, 1., 1., 1., 1., 0.0005]
-xmax['na_ka_stability'] = [0.05, 0.05, 6., 2., 5., 3., 3., 0.005]
+xmax['na_ka_stability'] = [0.05, 0.05, 6., 2., 5., 5., 5., 0.005]
 
 max_niter = 2100  # max number of iterations to run
 niter_success = 400  # max number of interations without significant progress before aborting optimization
