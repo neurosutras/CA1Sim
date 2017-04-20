@@ -181,7 +181,7 @@ target_range['na_ka'] = {'v_rest': 0.25, 'v_th': .1, 'soma_peak': 2., 'ADP': 0.0
                          'stability': 1., 'ais_delay': 0.001, 'slow_depo': 0.5, 'dend_amp': 0.005}
 
 experimental_f_I_slope = 53.  # Hz/ln(pA); rate = slope * ln(current - rheobase)
-# GC experimental f-I data from Kowalski J...Pernía-Andrade AJ, Hippocampus, 2016
+# GC experimental f-I data from Kowalski J...Pernia-Andrade AJ, Hippocampus, 2016
 
 x0 = {}
 xlabels = {}

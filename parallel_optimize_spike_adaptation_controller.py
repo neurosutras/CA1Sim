@@ -196,7 +196,7 @@ for i in range(3, len(experimental_spike_times)+1):
 
 # 50 spikes/s/nA
 experimental_f_I_slope = 53.
-# GC experimental f-I data from Kowalski J...Pernía-Andrade AJ, Hippocampus, 2016
+# GC experimental f-I data from Kowalski J...Pernia-Andrade AJ, Hippocampus, 2016
 i_inj_increment = 0.05
 num_increments = 8
 
