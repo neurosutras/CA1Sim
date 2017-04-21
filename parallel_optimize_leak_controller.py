@@ -214,22 +214,6 @@ def plot_best(x=None, discard=True):
             os.remove(data_dir + rec_filename + '.hdf5')
 
 
-def update_pas_exp(x):
-    """
-
-    x0 = [2.28e-05, 1.58e-06, 58.4]
-    :param x: array [soma.g_pas, dend.g_pas slope, dend.g_pas tau]
-    """
-    if spines is False:
-        cell.reinit_mechanisms(reset_cable=True)
-    cell.modify_mech_param('soma', 'pas', 'g', x[0])
-    cell.modify_mech_param('apical', 'pas', 'g', origin='soma', slope=x[1], tau=x[2])
-    for sec_type in ['basal', 'axon_hill', 'axon', 'ais', 'trunk', 'apical', 'tuft', 'spine_neck', 'spine_head']:
-        cell.reinitialize_subset_mechanisms(sec_type, 'pas')
-    if spines is False:
-        cell.correct_for_spines()
-
-
 v_init = -77.
 soma_ek = -77.
 
