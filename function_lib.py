@@ -2245,6 +2245,8 @@ class optimize_history(object):
                 plt.xlabel(self.xlabels[index])
                 plt.ylabel(feature)
                 plt.legend(loc='upper right', scatterpoints=1, frameon=False, framealpha=0.5)
+        plt.show()
+        plt.close()
 
 
 def sigmoid(p, x):

@@ -99,7 +99,7 @@ def na_ka_stability_error(x, plot=0):
     indexes.sort(key=temp_dict['amp'].__getitem__)
     temp_dict['amp'] = map(temp_dict['amp'].__getitem__, indexes)
     temp_dict['rate'] = map(temp_dict['rate'].__getitem__, indexes)
-    target_f_I = experimental_f_I_slope * (temp_dict['amp'][0] - rheobase)
+    target_f_I = experimental_f_I_slope * np.log10((temp_dict['amp'][0]-rheobase)*1000.)
     final_result['rate'] = temp_dict['rate'][0]
     f_I_Err = ((temp_dict['rate'][0] - target_f_I) / (0.01 * target_f_I))**2.
 
@@ -226,7 +226,6 @@ xmax['na_ka_stability'] = [0.05, 0.05, 6., 2., 5., 5., 5., 0.005]
 
 max_niter = 2100  # max number of iterations to run
 niter_success = 400  # max number of interations without significant progress before aborting optimization
-
 take_step = Normalized_Step(x0['na_ka_stability'], xmin['na_ka_stability'], xmax['na_ka_stability'])
 minimizer_kwargs = dict(method=null_minimizer)
 

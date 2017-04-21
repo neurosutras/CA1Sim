@@ -30,23 +30,7 @@ mkl.set_num_threads(1)
 
 neurotree_filename = '121516_DGC_trees.pkl'
 neurotree_dict = read_from_pkl(morph_dir+neurotree_filename)
-
 history_filename = '030517 leak optimization history'
-
-
-def check_bounds(x, param_name):
-    """
-    Check that the current set of parameters for optimization are within the desired bounds.
-    :param x: array
-    :param param_name: str
-    :return: bool
-    """
-    for i in range(len(x)):
-        if ((xmin[param_name][i] is not None and x[i] < xmin[param_name][i]) or
-                (xmax[param_name][i] is not None and x[i] > xmax[param_name][i])):
-            return False
-    return True
-
 
 class History(object):
     def __init__(self):
@@ -141,7 +125,7 @@ def pas_error(x):
     :param x: array (soma.g_pas, dend.g_pas slope, dend.g_pas tau, dend.g_pas xhalf)
     :return: float
     """
-    if not check_bounds(x, 'pas'):
+    if not check_bounds.within_bounds(x, 'pas'):
         print 'Aborting: Invalid parameter values.'
         return 1e9
     start_time = time.time()
@@ -277,8 +261,10 @@ if len(sys.argv) > 3:
 else:
     c = Client()
 
-# xlabels['pas'] = ['soma.g_pas', 'dend.g_pas slope', 'dend.g_pas tau']
+check_bounds = CheckBounds(xmin, xmax)
 xlabels['pas'] = ['soma.g_pas', 'dend.g_pas slope', 'dend.g_pas tau']
+hist = optimize_history()
+hist.xlabels = xlabels['pas']
 
 if spines:
     x0['pas'] = [3.80E-08, 8.08E-07, 6.78E+01]  # Err: 2.527E-09
@@ -293,7 +279,7 @@ else:
 
 hist.xlabels = xlabels['pas']
 
-explore_niter = 700  # max number of iterations to run
+explore_niter = 2100  # max number of iterations to run
 polish_niter = 400
 take_step = Normalized_Step(x0['pas'], xmin['pas'], xmax['pas'])
 minimizer_kwargs = dict(method=null_minimizer)
@@ -307,20 +293,22 @@ v = c.load_balanced_view()
 
 """
 result = optimize.basinhopping(pas_error, x0['pas'], niter=explore_niter, niter_success=explore_niter,
-                               disp=True, interval=20, minimizer_kwargs=minimizer_kwargs, take_step=take_step)
+                               disp=True, interval=40, minimizer_kwargs=minimizer_kwargs, take_step=take_step)
 
 polished_result = optimize.minimize(pas_error, result.x, method='Nelder-Mead', options={'ftol': 1e-5,
                                                     'disp': True, 'maxiter': polish_niter})
 
 
-polished_result = optimize.minimize(pas_error, x0['pas'], method='Nelder-Mead', options={'ftol': 1e-5, 'disp': True,
+polished_result = optimize.minimize(pas_error, x0['pas'], method='Nelder-Mead', options={'fatol': 1e-5, 'xatol': 1e-3, 'disp': True,
                                                                                          'maxiter': polish_niter})
 
 print polished_result
 best_x = hist.report_best()
 hist.export_to_pkl(history_filename)
 """
-cell = DG_GC(neurotree_dict=neurotree_dict[0], mech_filename=mech_filename, full_spines=spines)
-# update_pas_exp(best_x)
-update_pas_exp(x0['pas'])
-# cell.export_mech_dict(cell.mech_filename)
+
+dv['x'] = hist.report_best()
+# dv['x'] = x0['pas']
+c[0].apply(parallel_optimize_leak_engine.update_mech_dict)
+sys.stdout.flush()
+# plot_best(x0['pas'])

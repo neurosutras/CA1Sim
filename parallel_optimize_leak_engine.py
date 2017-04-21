@@ -94,6 +94,10 @@ def offset_vm(description, vm_target=None):
     sim.tstop = duration
     return v_rest
 
+@interactive
+def update_mech_dict():
+    update_pas_exp(x)
+    cell.export_mech_dict(cell.mech_filename)
 
 @interactive
 def update_pas_exp(x):
