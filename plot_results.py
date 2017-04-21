@@ -8,11 +8,11 @@ import scipy.signal as signal
 import scipy.stats as stats
 
 mpl.rcParams['svg.fonttype'] = 'none'
-mpl.rcParams['font.size'] = 16.
+mpl.rcParams['font.size'] = 14.
 # mpl.rcParams['font.size'] = 14.
 #mpl.rcParams['font.sans-serif'] = 'Arial'
-mpl.rcParams['font.sans-serif'] = 'Calibri'
-# mpl.rcParams['font.sans-serif'] = 'Myriad Pro'
+#mpl.rcParams['font.sans-serif'] = 'Calibri'
+mpl.rcParams['font.sans-serif'] = 'Myriad Pro'
 mpl.rcParams['text.usetex'] = False
 #mpl.rcParams['figure.figsize'] = 6, 4.3
 """

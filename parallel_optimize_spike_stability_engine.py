@@ -40,14 +40,13 @@ else:
 if len(sys.argv) > 2:
     mech_filename = str(sys.argv[2])
 else:
-    mech_filename = '041817 GC optimizing spike stability'
+    mech_filename = '042117 GC optimizing spike stability'
 
 
 @interactive
 def get_spike_shape(vm):
     """
 
-    :param t: array
     :param vm: array
     :return: tuple of float: (v_peak, th_v, ADP, AHP)
     """
@@ -62,14 +61,16 @@ def get_spike_shape(vm):
     v_before = np.mean(vm[th_x-int(0.1/dt):th_x])
     v_peak = np.max(vm[th_x:th_x+int(5./dt)])
     x_peak = np.where(vm[th_x:th_x+int(5./dt)] == v_peak)[0][0]
-    v_AHP = np.min(vm[th_x+x_peak:th_x+int(12./dt)])
-    x_AHP = np.where(vm[th_x+x_peak:th_x+int(12./dt)] == v_AHP)[0][0]
+    # end = min(th_x + int(50. / dt), len(vm))
+    end = len(vm)
+    v_AHP = np.min(vm[th_x + x_peak:end])
+    x_AHP = np.where(vm[th_x + x_peak:end] == v_AHP)[0][0]
     AHP = v_before - v_AHP
     # if spike waveform includes an ADP before an AHP, return the value of the ADP in order to increase error function
     rising_x = np.where(dvdt[th_x+x_peak:th_x+x_peak+x_AHP] > 0.)[0]
     if rising_x.any():
         v_ADP = np.max(vm[th_x+x_peak+rising_x[0]:th_x+x_peak+x_AHP])
-        ADP = v_ADP - v_AHP
+        ADP = v_ADP - th_v
     else:
         ADP = 0.
     return v_peak, th_v, ADP, AHP
@@ -191,8 +192,9 @@ def compute_spike_shape_features(local_x=None, plot=False):
     # sim.cvode_state = True
     soma_vm = offset_vm('soma', v_active)
     result = {'v_rest': soma_vm}
-    sim.modify_stim(0, node=cell.tree.root, loc=0., dur=100.)
-    duration = equilibrate + 100.
+    stim_dur = 150.
+    sim.modify_stim(0, node=cell.tree.root, loc=0., dur=stim_dur)
+    duration = equilibrate + stim_dur
     sim.tstop = duration
     t = np.arange(0., duration, dt)
     spike = False
@@ -211,6 +213,7 @@ def compute_spike_shape_features(local_x=None, plot=False):
             amp += d_amp
             if sim.verbose:
                 print 'increasing amp to %.3f' % amp
+    sim.parameters['amp'] = amp
     i_th['soma'] = amp
     peak, threshold, ADP, AHP = get_spike_shape(vm)
     dend_vm = np.interp(t, sim.tvec, sim.get_rec('dend')['vec'])
@@ -269,7 +272,7 @@ def compute_spike_stability_features(input_param, local_x=None, plot=False):
     v_before = np.max(vm[int((equilibrate - 50.)/dt):int((equilibrate - 1.)/dt)])
     v_after = np.max(vm[-int(50./dt):-1])
     stability += abs(v_before - v_rest) + abs(v_after - v_rest)
-    v_min_late = np.min(vm[int((equilibrate + 80.)/dt):int((equilibrate + 99.)/dt)])
+    v_min_late = np.min(vm[int((equilibrate + stim_dur - 20.)/dt):int((equilibrate + stim_dur - 1.)/dt)])
     result['stability'] = stability
     result['v_min_late'] = v_min_late
     print 'Process %i took %.1f s to test spike stability with amp: %.3f' % (os.getpid(), time.time()-start_time, amp)
@@ -281,7 +284,7 @@ def export_sim_results():
     """
     Export the most recent time and recorded waveforms from the QuickSim object.
     """
-    with h5py.File(data_dir+rec_filename+'.hdf5', 'w') as f:
+    with h5py.File(data_dir+rec_filename+'.hdf5', 'a') as f:
         sim.export_to_file(f)
 
 
@@ -297,6 +300,7 @@ v_active = -77.
 cell = DG_GC(neurotree_dict=neurotree_dict[0], mech_filename=mech_filename, full_spines=spines)
 if spines is False:
     cell.correct_for_spines()
+cell.set_terminal_branch_na_gradient()
 
 # get the thickest apical dendrite ~200 um from the soma
 candidate_branches = []
@@ -339,8 +343,8 @@ if type(cell.mech_dict['apical']['kap']['gkabar']) == list:
 else:
     orig_ka_dend_slope = cell.mech_dict['apical']['kap']['gkabar']['slope']
 
-orig_ka_soma_gkabar = cell.mech_dict['soma']['kap']['gkabar']['value']
-orig_ka_dend_gkabar = orig_ka_soma_gkabar + orig_ka_dend_slope * 300.
+# orig_ka_soma_gkabar = cell.mech_dict['soma']['kap']['gkabar']['value']
+# orig_ka_dend_gkabar = orig_ka_soma_gkabar + orig_ka_dend_slope * 300.
 
 """
 sim.append_rec(cell, cell.tree.root, loc=0.5, object=cell.tree.root.sec(0.5), param='_ref_ina_nas',

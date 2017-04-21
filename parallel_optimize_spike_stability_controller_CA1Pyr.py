@@ -173,11 +173,9 @@ soma_ek = -77.
 # the target values and acceptable ranges
 target_val = {}
 target_range = {}
-target_val['v_rest'] = {'soma': v_init, 'tuft_offset': 0.}
-target_range['v_rest'] = {'soma': 0.25, 'tuft_offset': 0.1}
-target_val['na_ka'] = {'v_rest': v_init, 'v_th': -51., 'soma_peak': 40., 'ADP': 0., 'AHP': 4.,
+target_val['na_ka'] = {'v_rest': v_init, 'v_th': -51., 'soma_peak': 40., 'ADP': 0., 'AHP': 3.,
                        'stability': 0., 'ais_delay': 0., 'slow_depo': 20., 'dend_amp': 0.6}
-target_range['na_ka'] = {'v_rest': 0.25, 'v_th': .1, 'soma_peak': 2., 'ADP': 0.01, 'AHP': .05,
+target_range['na_ka'] = {'v_rest': 0.25, 'v_th': .05, 'soma_peak': 2., 'ADP': 0.01, 'AHP': .01,
                          'stability': 1., 'ais_delay': 0.001, 'slow_depo': 0.5, 'dend_amp': 0.005}
 
 experimental_f_I_slope = 12.  # Hz/ln(pA); rate = slope * ln(current - rheobase)
@@ -212,12 +210,14 @@ hist.xlabels = xlabels['na_ka_stability']
 # [soma.gkabar, soma.gkdrbar, soma.sh_nas/x, axon.gkdrbar factor, dend.gkabar factor,
 #            'soma.gCa factor', 'soma.gCadepK factor', 'soma.gkmbar']
 
-x0['na_ka_stability'] = [0.0305, 0.0478, 1.7, 1., 2.8, 2.006E+00, 2.995E+00, 0.0015]
+# x0['na_ka_stability'] = [0.0305, 0.0478, 1.7, 1., 2.8, 2.006E+00, 2.995E+00, 0.0015]
+x0['na_ka_stability'] = [1.136E-02, 3.995E-02, 3.968E+00, 1.323E+00, 3.007E+00, 1.357E+00, 4.207E+00, 3.880E-03]
+# Err: 1.360E+03
 xmin['na_ka_stability'] = [0.01, 0.01, 0.1, 1., 1., 1., 1., 0.0005]
 xmax['na_ka_stability'] = [0.05, 0.05, 6., 2., 5., 5., 5., 0.005]
 
-max_niter = 2100  # max number of iterations to run
-niter_success = 400  # max number of interations without significant progress before aborting optimization
+max_niter = 1500  # max number of iterations to run
+ninterval = max_niter / 50
 
 take_step = Normalized_Step(x0['na_ka_stability'], xmin['na_ka_stability'], xmax['na_ka_stability'])
 minimizer_kwargs = dict(method=null_minimizer)
@@ -232,7 +232,7 @@ dv.execute('run parallel_optimize_spike_stability_engine_CA1Pyr %i \"%s\"' % (in
 v = c.load_balanced_view()
 """
 result = optimize.basinhopping(na_ka_stability_error, x0['na_ka_stability'], niter=max_niter,
-                               niter_success=niter_success, disp=True, interval=40,
+                               niter_success=niter_success, disp=True, interval=ninterval,
                                minimizer_kwargs=minimizer_kwargs, take_step=take_step)
 print result
 
@@ -243,4 +243,5 @@ dv['x'] = best_x
 # dv['x'] = x0['na_ka_stability']
 c[0].apply(parallel_optimize_spike_stability_engine_CA1Pyr.update_mech_dict)
 """
+# plot_best(best_x)
 plot_best(x0['na_ka_stability'])

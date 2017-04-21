@@ -46,7 +46,6 @@ else:
 def get_spike_shape(vm):
     """
 
-    :param t: array
     :param vm: array
     :return: tuple of float: (v_peak, th_v, ADP, AHP)
     """
@@ -61,14 +60,15 @@ def get_spike_shape(vm):
     v_before = np.mean(vm[th_x-int(0.1/dt):th_x])
     v_peak = np.max(vm[th_x:th_x+int(5./dt)])
     x_peak = np.where(vm[th_x:th_x+int(5./dt)] == v_peak)[0][0]
-    v_AHP = np.min(vm[th_x+x_peak:th_x+int(12./dt)])
-    x_AHP = np.where(vm[th_x+x_peak:th_x+int(12./dt)] == v_AHP)[0][0]
+    end = min(th_x+int(50./dt), len(vm))
+    v_AHP = np.min(vm[th_x+x_peak:end])
+    x_AHP = np.where(vm[th_x+x_peak:end] == v_AHP)[0][0]
     AHP = v_before - v_AHP
     # if spike waveform includes an ADP before an AHP, return the value of the ADP in order to increase error function
     rising_x = np.where(dvdt[th_x+x_peak:th_x+x_peak+x_AHP] > 0.)[0]
     if rising_x.any():
         v_ADP = np.max(vm[th_x+x_peak+rising_x[0]:th_x+x_peak+x_AHP])
-        ADP = v_ADP - v_AHP
+        ADP = v_ADP - th_v
     else:
         ADP = 0.
     return v_peak, th_v, ADP, AHP
@@ -137,7 +137,7 @@ def update_mech_dict():
 def update_na_ka_stability(x):
     """
 
-    :param x: array [soma.gkabar, soma.gkdrbar, soma.sh_nas/x, axon.gkdrbar factor, dend.gkabar factor,
+    :param x: array [soma.gkabar, soma.gkdrbar, soma.sh_nas/x, axon.gkbar factor, dend.gkabar factor,
             soma.gCa factor, soma.gCadepK factor, soma.gkmbar]
     """
     cell.modify_mech_param('soma', 'kdr', 'gkdrbar', x[1])
@@ -160,10 +160,11 @@ def update_na_ka_stability(x):
     cell.reinitialize_subset_mechanisms('axon_hill', 'kap')
     cell.reinitialize_subset_mechanisms('axon_hill', 'kdr')
     cell.modify_mech_param('ais', 'kdr', 'gkdrbar', x[1] * x[3])
+    cell.modify_mech_param('ais', 'kap', 'gkabar', x[0] * x[3])
     cell.reinitialize_subset_mechanisms('axon', 'kdr')
+    cell.reinitialize_subset_mechanisms('axon', 'kap')
     cell.modify_mech_param('axon_hill', 'nax', 'sh', x[2])
     for sec_type in ['ais', 'axon']:
-        cell.reinitialize_subset_mechanisms(sec_type, 'kap')
         cell.modify_mech_param(sec_type, 'nax', 'sh', origin='axon_hill')
     cell.modify_mech_param('soma', 'Ca', 'gcamult', x[5])
     cell.modify_mech_param('soma', 'CadepK', 'gcakmult', x[6])
@@ -203,7 +204,7 @@ def compute_spike_shape_features(local_x=None, plot=False):
         vm = np.interp(t, sim.tvec, sim.get_rec('soma')['vec'])
         if np.any(vm[:int(equilibrate/dt)] > -30.):
             print 'Process %i: Aborting - spontaneous firing' % (os.getpid())
-            return None
+            # return None
         if np.any(vm[int(equilibrate/dt):int((equilibrate+50.)/dt)] > -30.):
             spike = True
         else:
@@ -268,7 +269,7 @@ def compute_spike_stability_features(input_param, local_x=None, plot=False):
     v_before = np.max(vm[int((equilibrate - 50.)/dt):int((equilibrate - 1.)/dt)])
     v_after = np.max(vm[-int(50./dt):-1])
     stability += abs(v_before - v_rest) + abs(v_after - v_rest)
-    v_min_late = np.min(vm[int((equilibrate + 80.)/dt):int((equilibrate + 99.)/dt)])
+    v_min_late = np.min(vm[int((equilibrate + stim_dur - 20.)/dt):int((equilibrate + stim_dur - 1.)/dt)])
     result['stability'] = stability
     result['v_min_late'] = v_min_late
     print 'Process %i took %.1f s to test spike stability with amp: %.3f' % (os.getpid(), time.time()-start_time, amp)
@@ -296,6 +297,7 @@ v_active = -61.
 cell = CA1_Pyr(morph_filename=morph_filename, mech_filename=mech_filename, full_spines=spines)
 if spines is False:
     cell.correct_for_spines()
+cell.set_terminal_branch_na_gradient()
 
 # look for a trunk bifurcation
 trunk_bifurcation = [trunk for trunk in cell.trunk if cell.is_bifurcation(trunk, 'trunk')]
@@ -311,8 +313,8 @@ else:
 tuft = trunk
 trunk = trunk_bifurcation[0]
 
-rec_locs = {'soma': 0., 'trunk': 1., 'tuft': 1.}
-rec_nodes = {'soma': cell.tree.root, 'trunk': trunk, 'tuft': tuft}
+rec_locs = {'soma': 0., 'trunk': 1., 'tuft': 1., 'axon': 1.}
+rec_nodes = {'soma': cell.tree.root, 'trunk': trunk, 'tuft': tuft, 'axon': cell.axon[2]}
 
 sim = QuickSim(duration, cvode=False, dt=dt, verbose=False)
 sim.append_stim(cell, cell.tree.root, loc=0., amp=0., delay=equilibrate, dur=stim_dur)
@@ -333,8 +335,8 @@ if type(cell.mech_dict['apical']['kap']['gkabar']) == list:
 else:
     orig_ka_dend_slope = cell.mech_dict['apical']['kap']['gkabar']['slope']
 
-orig_ka_soma_gkabar = cell.mech_dict['soma']['kap']['gkabar']['value']
-orig_ka_dend_gkabar = orig_ka_soma_gkabar + orig_ka_dend_slope * 300.
+# orig_ka_soma_gkabar = cell.mech_dict['soma']['kap']['gkabar']['value']
+# orig_ka_dend_gkabar = orig_ka_soma_gkabar + orig_ka_dend_slope * 300.
 
 """
 sim.append_rec(cell, cell.tree.root, loc=0.5, object=cell.tree.root.sec(0.5), param='_ref_ina_nas',

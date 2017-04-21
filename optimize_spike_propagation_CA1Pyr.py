@@ -1,12 +1,11 @@
-__author__ = 'Grace Ng'
+__author__ = 'Aaron D. Milstein'
 from specify_cells2 import *
 from plot_results import *
 import sys
 import os
 import random
 
-neurotree_filename = '121516_DGC_trees.pkl'
-neurotree_dict = read_from_pkl(morph_dir+neurotree_filename)
+morph_filename = 'EB2-late-bifurcation.swc'
 
 if len(sys.argv) > 1:
     spines = bool(int(sys.argv[1]))
@@ -15,7 +14,7 @@ else:
 if len(sys.argv) > 2:
     mech_filename = str(sys.argv[2])
 else:
-    mech_filename = '042017 GC optimized spike propagation'
+    mech_filename = '041817 CA1Pyr optimizing spike stability'
 
 
 def offset_vm(description, vm_target=None):
@@ -86,7 +85,8 @@ def get_spike_shape(vm):
     v_before = np.mean(vm[th_x-int(0.1/dt):th_x])
     v_peak = np.max(vm[th_x:th_x+int(5./dt)])
     x_peak = np.where(vm[th_x:th_x+int(5./dt)] == v_peak)[0][0]
-    end = min(th_x + int(50. / dt), len(vm))
+    # end = min(th_x + int(50. / dt), len(vm))
+    end = len(vm)
     v_AHP = np.min(vm[th_x + x_peak:end])
     x_AHP = np.where(vm[th_x + x_peak:end] == v_AHP)[0][0]
     AHP = v_before - v_AHP
@@ -130,8 +130,9 @@ def ais_delay_error(x, plot=0):
     start_time = time.time()
     update_ais_delay(x)
     offset_vm('soma', v_active)
-    sim.modify_stim(0, node=cell.tree.root, loc=0., dur=100.)
-    duration = equilibrate + 100.
+    stim_dur = 150.
+    sim.modify_stim(0, node=cell.tree.root, loc=0., dur=stim_dur)
+    duration = equilibrate + stim_dur
     sim.tstop = duration
     t = np.arange(0., duration, dt)
     spike = False
@@ -280,10 +281,10 @@ duration = equilibrate + stim_dur
 dt = 0.02
 amp = 0.3
 th_dvdt = 10.
-v_init = -77.
-v_active = -77.
+v_init = -67.
+v_active = -61.
 
-cell = DG_GC(neurotree_dict=neurotree_dict[0], mech_filename=mech_filename, full_spines=spines)
+cell = CA1_Pyr(morph_filename=morph_filename, mech_filename=mech_filename, full_spines=spines)
 if spines is False:
     cell.correct_for_spines()
 cell.set_terminal_branch_na_gradient()
@@ -300,16 +301,23 @@ sim.append_stim(cell, cell.tree.root, loc=0., amp=0., delay=0., dur=duration)
 for description, node in rec_nodes.iteritems():
     sim.append_rec(cell, node, loc=rec_locs[description], description=description)
 
+sim.append_rec(cell, cell.axon[0], loc=0.5, description='axon_hill')
+sim.append_rec(cell, cell.axon[2], loc=0.5, description='axon_center')
+sim.append_rec(cell, cell.axon[2], loc=1.0, description='axon_end')
+sim.append_rec(cell, cell.tree.root, loc=0.5, object=cell.tree.root.sec(0.5), param='_ref_ca_i_CadepK',
+               description='soma intra_Ca')
+
+
 i_holding = {'soma': 0.00}
 i_th = {'soma': 0.05}
 
 #the target values and acceptable ranges
 target_val = {}
 target_range = {}
-target_val['na_ka'] = {'v_rest': v_init, 'th_v': -48., 'soma_peak': 40., 'distal_dend_amp': 0.3, 'ADP': 0., 'AHP': 4.,
-                       'stability': 0., 'ais_delay': 0., 'slow_depo': 25.}
-target_range['na_ka'] = {'v_rest': 0.25, 'th_v': .1, 'soma_peak': 2., 'distal_dend_amp': 0.01, 'ADP': 0.01, 'AHP': .2,
-                         'stability': 1., 'ais_delay': 0.0005, 'slow_depo': 1.}
+target_val['na_ka'] = {'v_rest': v_init, 'th_v': -51., 'soma_peak': 40., 'ADP': 0., 'AHP': 3.,
+                       'stability': 0., 'ais_delay': 0., 'slow_depo': 20., 'dend_amp': 0.6}
+target_range['na_ka'] = {'v_rest': 0.25, 'th_v': .05, 'soma_peak': 2., 'ADP': 0.01, 'AHP': .01,
+                         'stability': 1., 'ais_delay': 0.001, 'slow_depo': 0.5, 'dend_amp': 0.005}
 
 x0 = {}
 xmin = {}
@@ -320,12 +328,13 @@ axon_gbar_nax = cell.axon[2].sec.gbar_nax
 xlabels = {}
 xlabels['ais_delay'] = ['ais.sha_nas', 'ais.gbar_nax']
 
-# x0['ais_delay'] = [-1., 1.1*axon_gbar_nax]
-# x0['ais_delay'] = [-2.391E+00, 8.856E-02]
-# x0['ais_delay'] = [-2.628E+00, 1.752E-01]
-x0['ais_delay'] = [-2.659E+00, 1.681E-01]  # Err: 1.168E+03
-xmin['ais_delay'] = [-5., 1.1*axon_gbar_nax]
-xmax['ais_delay'] = [-1., 5.*axon_gbar_nax]
+# x0['ais_delay'] = [-3.6, 0.4]
+# xmin['ais_delay'] = [-5., 1.1*axon_gbar_nax]
+# xmax['ais_delay'] = [-1., 5.*axon_gbar_nax]
+
+x0['ais_delay'] = [-6., 0.41]
+xmin['ais_delay'] = [-6., 1.1*axon_gbar_nax]
+xmax['ais_delay'] = [-1., 6.*axon_gbar_nax]
 
 hist = optimize_history()
 hist.xlabels = xlabels['ais_delay']
@@ -335,12 +344,12 @@ check_bounds = CheckBounds(xmin, xmax)
 x1 = x0['ais_delay']
 
 max_niter = 1000  # max number of iterations to run
-niter_success = 400  # max number of interations without significant progress before aborting optimization
+niter_success = 400  # max number of iterations without significant progress before aborting optimization
 
 take_step = Normalized_Step(x0['ais_delay'], xmin['ais_delay'], xmax['ais_delay'])
 minimizer_kwargs = dict(method=null_minimizer)
 
-
+"""
 result = optimize.basinhopping(ais_delay_error, x1, niter=max_niter,
                                niter_success=niter_success, disp=True, interval=20,
                                minimizer_kwargs=minimizer_kwargs, take_step=take_step)
@@ -357,3 +366,5 @@ best_x = result.x
 # best_x = x1
 update_ais_delay(best_x)
 cell.export_mech_dict(cell.mech_filename)
+"""
+ais_delay_error(x1, plot=True)

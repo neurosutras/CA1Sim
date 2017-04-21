@@ -219,6 +219,7 @@ v_active = -77.
 cell = DG_GC(neurotree_dict=neurotree_dict[0], mech_filename=mech_filename, full_spines=spines)
 if spines is False:
     cell.correct_for_spines()
+cell.set_terminal_branch_na_gradient()
 
 cell.modify_mech_param('soma', 'Ca', 'gcamult', 1.)
 cell.modify_mech_param('soma', 'CadepK', 'gcakmult', 1.)
