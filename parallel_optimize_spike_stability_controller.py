@@ -63,9 +63,10 @@ def na_ka_stability_error(x, plot=0):
         return Err
     final_result = result
     rheobase = result['amp']
-
+    if plot:
+        c[0].apply(parallel_optimize_spike_stability_engine.export_sim_results)
     result = v.map_async(parallel_optimize_spike_stability_engine.compute_spike_stability_features,
-                         [[rheobase+0.1, 400.], [rheobase+0.75, 100.]])
+                         [[rheobase+0.05, 300.], [rheobase+0.5, 100.]])
     last_buffer_len = []
     while not result.ready():
         time.sleep(1.)
@@ -99,10 +100,9 @@ def na_ka_stability_error(x, plot=0):
     indexes.sort(key=temp_dict['amp'].__getitem__)
     temp_dict['amp'] = map(temp_dict['amp'].__getitem__, indexes)
     temp_dict['rate'] = map(temp_dict['rate'].__getitem__, indexes)
-    target_f_I = experimental_f_I_slope * np.log10((temp_dict['amp'][0]-rheobase)*1000.)
+    target_f_I = experimental_f_I_slope * np.log(temp_dict['amp'][0] / rheobase)
     final_result['rate'] = temp_dict['rate'][0]
     f_I_Err = ((temp_dict['rate'][0] - target_f_I) / (0.01 * target_f_I))**2.
-
     Err = f_I_Err
     for target in final_result:
         if target not in hist.features:
@@ -145,7 +145,7 @@ def plot_best(x=None, discard=True):
         else:
             raise Exception('Please specify input parameters (history might be empty).')
     else:
-        na_ka_stability_error(x)
+        na_ka_stability_error(x, plot=True)
     dv.execute('export_sim_results()')
     rec_file_list = [filename for filename in dv['rec_filename'] if os.path.isfile(data_dir + filename + '.hdf5')]
     for i, rec_filename in enumerate(rec_file_list):
@@ -174,14 +174,13 @@ soma_ek = -77.
 # the target values and acceptable ranges
 target_val = {}
 target_range = {}
-target_val['v_rest'] = {'soma': v_init, 'tuft_offset': 0.}
-target_range['v_rest'] = {'soma': 0.25, 'tuft_offset': 0.1}
 target_val['na_ka'] = {'v_rest': v_init, 'v_th': -48., 'soma_peak': 40., 'ADP': 0., 'AHP': 4.,
                        'stability': 0., 'ais_delay': 0., 'slow_depo': 20., 'dend_amp': 0.3}
-target_range['na_ka'] = {'v_rest': 0.25, 'v_th': .1, 'soma_peak': 2., 'ADP': 0.01, 'AHP': .05,
+target_range['na_ka'] = {'v_rest': 0.25, 'v_th': .01, 'soma_peak': 2., 'ADP': 0.01, 'AHP': .05,
                          'stability': 1., 'ais_delay': 0.001, 'slow_depo': 0.5, 'dend_amp': 0.005}
 
-experimental_f_I_slope = 50. # 50 spikes/s/nA; GC experimental spike adaptation data from Brenner...Aldrich, Nat. Neurosci., 2005
+experimental_f_I_slope = 53.  # Hz/ln(pA); rate = slope * ln(current - rheobase)
+# GC experimental f-I data from Kowalski J...Pernia-Andrade AJ, Hippocampus, 2016
 
 x0 = {}
 xlabels = {}
@@ -195,7 +194,7 @@ else:
 if len(sys.argv) > 2:
     mech_filename = str(sys.argv[2])
 else:
-    mech_filename = '041817 GC optimizing spike stability'
+    mech_filename = '042117 GC optimizing spike stability'
 if len(sys.argv) > 3:
     cluster_id = sys.argv[3]
     c = Client(cluster_id=cluster_id)
@@ -219,13 +218,17 @@ hist.xlabels = xlabels['na_ka_stability']
 # Error: 2928.37
 # x0['na_ka_stability'] = [1.439E-02, 1.004E-02, 3.933E+00, 1.460E+00, 1.012E+00, 2.006E+00, 2.995E+00, 8.498E-04]
 # lowest Err: 2.427E+04
-x0['na_ka_stability'] = [1.396E-02, 1.006E-02, 3.360E+00, 1.657E+00, 1.141E+00, 1.726E+00, 2.997E+00, 1.562E-03]
+# x0['na_ka_stability'] = [1.396E-02, 1.006E-02, 3.360E+00, 1.657E+00, 1.141E+00, 1.726E+00, 2.997E+00, 1.562E-03]
 # Error: 1.806E+04
+x0['na_ka_stability'] = [1.233E-02, 1.302E-02, 1.903E+00, 1.722E+00, 1.216E+00, 1.359E+00, 1.888E+00, 2.367E-03]
+# Error: 2.7982E+03
 xmin['na_ka_stability'] = [0.01, 0.01, 0.1, 1., 1., 1., 1., 0.0005]
 xmax['na_ka_stability'] = [0.05, 0.05, 6., 2., 5., 5., 5., 0.005]
 
-max_niter = 2100  # max number of iterations to run
+max_niter = 1500  # max number of iterations to run
+ninterval = max_niter / 50
 niter_success = 400  # max number of interations without significant progress before aborting optimization
+
 take_step = Normalized_Step(x0['na_ka_stability'], xmin['na_ka_stability'], xmax['na_ka_stability'])
 minimizer_kwargs = dict(method=null_minimizer)
 
@@ -233,21 +236,22 @@ dv = c[:]
 dv.block = True
 global_start_time = time.time()
 
-
 dv.execute('run parallel_optimize_spike_stability_engine %i \"%s\"' % (int(spines), mech_filename))
 time.sleep(60)
 v = c.load_balanced_view()
 
+
 result = optimize.basinhopping(na_ka_stability_error, x0['na_ka_stability'], niter=max_niter,
-                               niter_success=niter_success, disp=True, interval=40,
+                               niter_success=niter_success, disp=True, interval=ninterval,
                                minimizer_kwargs=minimizer_kwargs, take_step=take_step)
 print result
 
-history_filename = '041917 spike stability optimization history'
+# history_filename = '041917 spike stability optimization history'
 best_x = hist.report_best()
 # hist.export_to_pkl(history_filename)
 dv['x'] = best_x
 # dv['x'] = x0['na_ka_stability']
 c[0].apply(parallel_optimize_spike_stability_engine.update_mech_dict)
 sys.stdout.flush()
+
 # plot_best(x0['na_ka_stability'])

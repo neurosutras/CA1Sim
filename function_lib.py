@@ -1947,6 +1947,8 @@ def clean_axes(axes):
     """
     if not type(axes) in [np.ndarray, list]:
         axes = [axes]
+    elif type(axes) == np.ndarray:
+        axes = axes.flatten()
     for axis in axes:
         axis.tick_params(direction='out')
         axis.spines['top'].set_visible(False)

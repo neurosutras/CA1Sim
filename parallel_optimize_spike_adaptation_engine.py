@@ -28,7 +28,7 @@ xmax = {}
 
 # [soma.gCa factor, soma.gCadepK factor, soma.gkmbar]
 xmin['spike_adaptation'] = [1., 1., 0.0005]
-xmax['spike_adaptation'] = [3., 3., 0.005]
+xmax['spike_adaptation'] = [5., 5., 0.005]
 
 check_bounds = CheckBounds(xmin, xmax)
 
@@ -219,6 +219,7 @@ v_active = -77.
 cell = DG_GC(neurotree_dict=neurotree_dict[0], mech_filename=mech_filename, full_spines=spines)
 if spines is False:
     cell.correct_for_spines()
+cell.set_terminal_branch_na_gradient()
 
 cell.modify_mech_param('soma', 'Ca', 'gcamult', 1.)
 cell.modify_mech_param('soma', 'CadepK', 'gcakmult', 1.)
@@ -226,8 +227,8 @@ cell.modify_mech_param('soma', 'CadepK', 'gcakmult', 1.)
 rec_locs = {'soma': 0., 'axon': 1.}
 rec_nodes = {'soma': cell.tree.root, 'axon': cell.axon[2]}
 
-# sim = QuickSim(duration, verbose=False, cvode=False, dt=dt)
-sim = QuickSim(duration, verbose=False, cvode=True)
+sim = QuickSim(duration, verbose=False, cvode=False, dt=dt)
+# sim = QuickSim(duration, verbose=False, cvode=True)
 sim.append_stim(cell, cell.tree.root, loc=0., amp=0., delay=equilibrate, dur=stim_dur)
 sim.append_stim(cell, cell.tree.root, loc=0., amp=0., delay=0., dur=duration)
 

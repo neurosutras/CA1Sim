@@ -2287,7 +2287,7 @@ class QuickSim(object):
         plt.show()
         plt.close()
 
-    def export_to_file(self, f, simiter=0):
+    def export_to_file(self, f, simiter=None):
         """
         Extracts important parameters from the lists of stimulation and recording sites, and exports to an HDF5
         database. Arrays are saved as datasets and metadata is saved as attributes.
@@ -2295,6 +2295,8 @@ class QuickSim(object):
         :param simiter: int
         """
         start_time = time.time()
+        if simiter is None:
+            simiter = len(f)
         if str(simiter) not in f:
             f.create_group(str(simiter))
         f[str(simiter)].create_dataset('time', compression='gzip', compression_opts=9, data=self.tvec)
