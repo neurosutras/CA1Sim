@@ -221,6 +221,23 @@ def compute_spike_shape_features(local_x=None, plot=False):
     dend_peak = np.max(dend_vm[th_x:th_x + int(10. / dt)])
     dend_pre = np.mean(dend_vm[th_x - int(0.2 / dt):th_x - int(0.1 / dt)])
     result['dend_amp'] = (dend_peak - dend_pre) / (peak - threshold)
+
+    #calculate AIS delay
+    ais_vm = np.interp(t, sim.tvec, sim.get_rec('ais')['vec'])
+    ais_dvdt = np.gradient(ais_vm, dt)
+    axon_vm = np.interp(t, sim.tvec, sim.get_rec('axon')['vec'])
+    axon_dvdt = np.gradient(axon_vm, dt)
+    left = th_x - int(2. / dt)
+    right = th_x + int(5. / dt)
+    ais_peak = np.max(ais_dvdt[left:right])
+    ais_peak_t = np.where(ais_dvdt[left:right] == ais_peak)[0][0] * dt
+    axon_peak = np.max(axon_dvdt[left:right])
+    axon_peak_t = np.where(axon_dvdt[left:right] == axon_peak)[0][0] * dt
+    if axon_peak_t >= ais_peak_t + dt:
+        result['ais_delay'] = 0.
+    else:
+        result['ais_delay'] = ais_peak_t + dt - axon_peak_t
+
     print 'Process %i took %.1f s to find spike rheobase at amp: %.3f' % (os.getpid(), time.time() - start_time, amp)
     if plot:
         sim.plot()
@@ -320,8 +337,10 @@ index = candidate_diams.index(max(candidate_diams))
 dend = candidate_branches[index]
 dend_loc = candidate_locs[index]
 
-rec_locs = {'soma': 0., 'dend': dend_loc, 'axon': 1.}
-rec_nodes = {'soma': cell.tree.root, 'dend': dend, 'axon': cell.axon[2]}
+axon_seg_locs = [seg.x for seg in cell.axon[2].sec]
+
+rec_locs = {'soma': 0., 'dend': dend_loc, 'ais': 1., 'axon': axon_seg_locs[0]}
+rec_nodes = {'soma': cell.tree.root, 'dend': dend, 'ais': cell.axon[1], 'axon': cell.axon[2]}
 
 sim = QuickSim(duration, cvode=False, dt=dt, verbose=False)
 # sim = QuickSim(duration, cvode=True, verbose=False)
@@ -332,7 +351,7 @@ for description, node in rec_nodes.iteritems():
     sim.append_rec(cell, node, loc=rec_locs[description], description=description)
 
 i_holding = {'soma': 0.}
-i_th = {'soma': 0.05}
+i_th = {'soma': 0.1}
 
 spike_output_vec = h.Vector()
 cell.spike_detector.record(spike_output_vec)
