@@ -63,7 +63,8 @@ def na_ka_stability_error(x, plot=0):
         return Err
     final_result = result
     rheobase = result['amp']
-
+    if plot:
+        c[0].apply(parallel_optimize_spike_stability_engine_CA1Pyr.export_sim_results)
     result = v.map_async(parallel_optimize_spike_stability_engine_CA1Pyr.compute_spike_stability_features,
                          [[rheobase+0.05, 300.], [rheobase+0.5, 100.]])
     last_buffer_len = []
@@ -144,7 +145,7 @@ def plot_best(x=None, discard=True):
         else:
             raise Exception('Please specify input parameters (history might be empty).')
     else:
-        na_ka_stability_error(x)
+        na_ka_stability_error(x, plot=True)
     dv.execute('export_sim_results()')
     rec_file_list = [filename for filename in dv['rec_filename'] if os.path.isfile(data_dir + filename + '.hdf5')]
     for i, rec_filename in enumerate(rec_file_list):

@@ -60,7 +60,8 @@ def get_spike_shape(vm):
     v_before = np.mean(vm[th_x-int(0.1/dt):th_x])
     v_peak = np.max(vm[th_x:th_x+int(5./dt)])
     x_peak = np.where(vm[th_x:th_x+int(5./dt)] == v_peak)[0][0]
-    end = min(th_x+int(50./dt), len(vm))
+    # end = min(th_x+int(50./dt), len(vm))
+    end = len(vm)
     v_AHP = np.min(vm[th_x+x_peak:end])
     x_AHP = np.where(vm[th_x+x_peak:end] == v_AHP)[0][0]
     AHP = v_before - v_AHP
@@ -191,8 +192,9 @@ def compute_spike_shape_features(local_x=None, plot=False):
     # sim.cvode_state = True
     soma_vm = offset_vm('soma', v_active)
     result = {'v_rest': soma_vm}
-    sim.modify_stim(0, node=cell.tree.root, loc=0., dur=100.)
-    duration = equilibrate + 100.
+    stim_dur = 150.
+    sim.modify_stim(0, node=cell.tree.root, loc=0., dur=stim_dur)
+    duration = equilibrate + stim_dur
     sim.tstop = duration
     t = np.arange(0., duration, dt)
     spike = False
@@ -211,6 +213,7 @@ def compute_spike_shape_features(local_x=None, plot=False):
             amp += d_amp
             if sim.verbose:
                 print 'increasing amp to %.3f' % amp
+    sim.parameters['amp'] = amp
     i_th['soma'] = amp
     peak, threshold, ADP, AHP = get_spike_shape(vm)
     dend_vm = np.interp(t, sim.tvec, sim.get_rec('tuft')['vec'])
@@ -281,7 +284,7 @@ def export_sim_results():
     """
     Export the most recent time and recorded waveforms from the QuickSim object.
     """
-    with h5py.File(data_dir+rec_filename+'.hdf5', 'w') as f:
+    with h5py.File(data_dir+rec_filename+'.hdf5', 'a') as f:
         sim.export_to_file(f)
 
 
@@ -313,8 +316,9 @@ else:
 tuft = trunk
 trunk = trunk_bifurcation[0]
 
-rec_locs = {'soma': 0., 'trunk': 1., 'tuft': 1., 'axon': 1.}
-rec_nodes = {'soma': cell.tree.root, 'trunk': trunk, 'tuft': tuft, 'axon': cell.axon[2]}
+rec_locs = {'soma': 0., 'trunk': 1., 'tuft': 1., 'ais': 1., 'axon_center': 0.5}
+rec_nodes = {'soma': cell.tree.root, 'trunk': trunk, 'tuft': tuft, 'ais': cell.axon[1],
+             'axon_center': cell.axon[2]}
 
 sim = QuickSim(duration, cvode=False, dt=dt, verbose=False)
 sim.append_stim(cell, cell.tree.root, loc=0., amp=0., delay=equilibrate, dur=stim_dur)
@@ -323,12 +327,15 @@ sim.append_stim(cell, cell.tree.root, loc=0., amp=0., delay=0., dur=duration)
 for description, node in rec_nodes.iteritems():
     sim.append_rec(cell, node, loc=rec_locs[description], description=description)
 
-i_holding = {'soma': 0.}
-i_th = {'soma': 0.05}
+sim.append_rec(cell, cell.axon[2], loc=0.5, description='axon_center')
+
+i_holding = {'soma': 0.05}
+i_th = {'soma': 0.1}
 
 spike_output_vec = h.Vector()
 cell.spike_detector.record(spike_output_vec)
 
+"""
 if type(cell.mech_dict['apical']['kap']['gkabar']) == list:
     orig_ka_dend_slope = \
         (element for element in cell.mech_dict['apical']['kap']['gkabar'] if 'slope' in element).next()['slope']
@@ -338,7 +345,7 @@ else:
 # orig_ka_soma_gkabar = cell.mech_dict['soma']['kap']['gkabar']['value']
 # orig_ka_dend_gkabar = orig_ka_soma_gkabar + orig_ka_dend_slope * 300.
 
-"""
+
 sim.append_rec(cell, cell.tree.root, loc=0.5, object=cell.tree.root.sec(0.5), param='_ref_ina_nas',
                description='Soma nas_i')
 sim.append_rec(cell, cell.tree.root, loc=0.5, object=cell.tree.root.sec(0.5), param='_ref_ik_kap',
