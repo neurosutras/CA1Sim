@@ -63,6 +63,7 @@ def na_ka_stability_error(x, plot=0):
         return Err
     final_result = result
     rheobase = result['amp']
+    final_result['ais_delay'] = result['ais_delay']
     if plot:
         c[0].apply(parallel_optimize_spike_stability_engine.export_sim_results)
     result = v.map_async(parallel_optimize_spike_stability_engine.compute_spike_stability_features,
@@ -108,7 +109,7 @@ def na_ka_stability_error(x, plot=0):
         if target not in hist.features:
             hist.features[target] = []
         hist.features[target].append(final_result[target])
-    for target in ['v_th', 'ADP', 'AHP', 'stability', 'slow_depo', 'dend_amp']:
+    for target in ['v_th', 'ADP', 'AHP', 'stability', 'slow_depo', 'dend_amp', 'ais_delay']:
         # don't penalize AHP or slow_depo less than target
         if not ((target == 'AHP' and final_result[target] < target_val['na_ka'][target]) or
                 (target == 'slow_depo' and final_result[target] < target_val['na_ka'][target])):
@@ -123,10 +124,10 @@ def na_ka_stability_error(x, plot=0):
     print 'Simulation took %i s' % (time.time()-start_time)
     print 'Process %i: [soma.gkabar, soma.gkdrbar, soma.sh_nas/x, axon.gkdrbar factor, dend.gkabar factor, ' \
           'soma.gCa factor, soma.gCadepK factor, soma.gkmbar]: %s, amp: %.3f, v_rest: %.1f, threshold: %.1f, ' \
-          'ADP: %.1f, AHP: %.1f, stability: %.2f, slow_depo: %.2f, dend_amp: %.2f, rate %.3f' % \
+          'ADP: %.1f, AHP: %.1f, stability: %.2f, slow_depo: %.2f, dend_amp: %.2f, rate %.3f, ais_delay %.3f' % \
           (os.getpid(), formatted_x, final_result['amp'], final_result['v_rest'], final_result['v_th'],
            final_result['ADP'], final_result['AHP'], final_result['stability'], final_result['slow_depo'],
-           final_result['dend_amp'], final_result['rate'])
+           final_result['dend_amp'], final_result['rate'], final_result['ais_delay'])
     print 'Process %i: f_I Error: %.4E, Error: %.4E' % (os.getpid(), f_I_Err, Err)
     hist.error_values.append(Err)
     sys.stdout.flush()
