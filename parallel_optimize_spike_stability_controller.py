@@ -177,8 +177,8 @@ target_val = {}
 target_range = {}
 target_val['na_ka'] = {'v_rest': v_init, 'v_th': -48., 'soma_peak': 40., 'ADP': 0., 'AHP': 4.,
                        'stability': 0., 'ais_delay': 0., 'slow_depo': 20., 'dend_amp': 0.3}
-target_range['na_ka'] = {'v_rest': 0.25, 'v_th': .01, 'soma_peak': 2., 'ADP': 0.01, 'AHP': .05,
-                         'stability': 1., 'ais_delay': 0.001, 'slow_depo': 0.5, 'dend_amp': 0.005}
+target_range['na_ka'] = {'v_rest': 0.25, 'v_th': .01, 'soma_peak': 2., 'ADP': 0.01, 'AHP': .005,
+                         'stability': 1., 'ais_delay': 0.0005, 'slow_depo': 0.5, 'dend_amp': 0.0002}
 
 experimental_f_I_slope = 53.  # Hz/ln(pA); rate = slope * ln(current - rheobase)
 # GC experimental f-I data from Kowalski J...Pernia-Andrade AJ, Hippocampus, 2016
@@ -221,9 +221,11 @@ hist.xlabels = xlabels['na_ka_stability']
 # lowest Err: 2.427E+04
 # x0['na_ka_stability'] = [1.396E-02, 1.006E-02, 3.360E+00, 1.657E+00, 1.141E+00, 1.726E+00, 2.997E+00, 1.562E-03]
 # Error: 1.806E+04
-x0['na_ka_stability'] = [1.233E-02, 1.302E-02, 1.903E+00, 1.722E+00, 1.216E+00, 1.359E+00, 1.888E+00, 2.367E-03]
+# x0['na_ka_stability'] = [1.233E-02, 1.302E-02, 1.903E+00, 1.722E+00, 1.216E+00, 1.359E+00, 1.888E+00, 2.367E-03]
 # Error: 2.7982E+03
-xmin['na_ka_stability'] = [0.01, 0.01, 0.1, 1., 1., 1., 1., 0.0005]
+x0['na_ka_stability'] = [4.132E-02, 1.002E-02, 5.950E+00, 1.323E+00, 3.347E+00, 1.000E+00, 1.001E+00, 3.410E-03]
+# lowest Err: 1.919E+04
+xmin['na_ka_stability'] = [0.01, 0.01, 0.1, 1., 1., 0.1, 0.1, 0.0005]
 xmax['na_ka_stability'] = [0.05, 0.05, 6., 2., 5., 5., 5., 0.005]
 
 max_niter = 1500  # max number of iterations to run
@@ -249,10 +251,12 @@ print result
 
 # history_filename = '041917 spike stability optimization history'
 best_x = hist.report_best()
+sys.stdout.flush()
+"""
 # hist.export_to_pkl(history_filename)
 dv['x'] = best_x
 # dv['x'] = x0['na_ka_stability']
 c[0].apply(parallel_optimize_spike_stability_engine.update_mech_dict)
 sys.stdout.flush()
-
-# plot_best(x0['na_ka_stability'])
+"""
+#plot_best(x0['na_ka_stability'])

@@ -170,8 +170,9 @@ def update_na_ka_stability(x):
     cell.modify_mech_param('soma', 'Ca', 'gcamult', x[5])
     cell.modify_mech_param('soma', 'CadepK', 'gcakmult', x[6])
     cell.modify_mech_param('soma', 'km3', 'gkmbar', x[7])
-    for sec_type in ['axon_hill', 'ais', 'axon']:
-        cell.reinitialize_subset_mechanisms(sec_type, 'km3')
+    cell.modify_mech_param('ais', 'km3', 'gkmbar', x[7] * 3.)
+    cell.modify_mech_param('axon_hill', 'km3', 'gkmbar', origin='soma')
+    cell.modify_mech_param('axon', 'km3', 'gkmbar', origin='ais')
 
 
 @interactive
@@ -372,6 +373,13 @@ sim.append_rec(cell, cell.tree.root, loc=0.5, object=cell.tree.root.sec(0.5), pa
                description='Soma kap_i')
 sim.append_rec(cell, cell.tree.root, loc=0.5, object=cell.tree.root.sec(0.5), param='_ref_ik_kdr',
                description='Soma kdr_i')
+
 sim.append_rec(cell, cell.tree.root, loc=0.5, object=cell.tree.root.sec(0.5), param='_ref_gk_km3',
                description='Soma km_g')
+sim.append_rec(cell, cell.tree.root, loc=0.5, object=cell.tree.root.sec(0.5), param='_ref_i_Ca',
+               description='Soma Ca_i')
+sim.append_rec(cell, cell.tree.root, loc=0.5, object=cell.tree.root.sec(0.5), param='_ref_ca_i_CadepK',
+               description='Soma CadepK_intra_Ca')
+sim.append_rec(cell, cell.tree.root, loc=0.5, object=cell.tree.root.sec(0.5), param='_ref_i_CadepK',
+               description='Soma CadepK_i')
 """

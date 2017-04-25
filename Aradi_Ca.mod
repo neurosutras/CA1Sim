@@ -21,7 +21,7 @@ UNITS {
 
 PARAMETER {
 	ca0 = .00007	(mM)		: initial calcium concentration inside
-	cao = 1.6		  (mM)	  : calcium concentration outside
+	cao = 1.3		  (mM)	  : calcium concentration outside
 	tau = 9		    (ms)
 	taucadiv = 1
 	tauctdiv = 1
@@ -69,7 +69,7 @@ BREAKPOINT {
 }
 
 DERIVATIVE state {	: exact when v held constant; integrates over dt step
-	ca_i' = -B*ica - taucadiv*(ca_i-ca0)/tau
+	ca_i' = -B*ica - decay_rate(ca_i)
 	ainf = alphaa(v)/(alphaa(v) + betaa(v))
 	taua = 1/(alphaa(v) + betaa(v))
 	a' = (ainf - a)/taua
@@ -89,6 +89,17 @@ INITIAL {
 	d = alphad(v)/(alphad(v)+betad(v))
 	e = alphae(v)/(alphae(v)+betae(v))
 	gbar = gtcabar + gncabar + glcabar 
+}
+
+FUNCTION decay_rate(ca_i (mM)) {
+	LOCAL rate, min_rate
+	min_rate = 0.0015
+	rate = taucadiv*(ca_i-ca0)/tau
+	if (rate < min_rate) {
+		decay_rate = min_rate
+	} else {
+		decay_rate = rate
+	}
 }
 
 FUNCTION alphaa(v (mV)) (/ms) {

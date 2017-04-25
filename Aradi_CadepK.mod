@@ -64,7 +64,7 @@ BREAKPOINT {
 }
 
 DERIVATIVE state {	: exact when v held constant; integrates over dt step
-	ca_i' = -B*ica - taucadiv*(ca_i-ca0)/tau
+	ca_i' = -B*ica - decay_rate(ca_i)
 	q' = tauskdiv*(ask*alphaq(ca_i)*(1-q)-bsk*betaq(ca_i)*q)
 	r' = alphar*(1-r)-betar(v)*r
 	s' = (sinf(ca_i)-s)/stau
@@ -77,6 +77,18 @@ INITIAL {
   	s = sinf(ca_i)
   	gbar = gbkbar + gskbar
 }
+
+FUNCTION decay_rate(ca_i (mM)) {
+	LOCAL rate, min_rate
+	min_rate = 0.0015
+	rate = taucadiv*(ca_i-ca0)/tau
+	if (rate < min_rate) {
+		decay_rate = min_rate
+	} else {
+		decay_rate = rate
+	}
+}
+
 
 FUNCTION exp1(A (/ms), d, k, x (mM)) (/ms) {
 	UNITSOFF
@@ -111,6 +123,3 @@ FUNCTION exptrap(x) {
     exptrap = exp(x)
   }
 }
-
-
-
