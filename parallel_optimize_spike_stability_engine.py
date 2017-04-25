@@ -19,19 +19,11 @@ rec_filename = str(time.strftime('%m%d%Y', time.gmtime()))+'_'+str(time.strftime
                '_pid'+str(os.getpid())+'_sim_output'
 
 # placeholder for optimization parameter, must be pushed to each engine on each iteration
-# x: array [soma.gkabar, soma.gkdrbar, axon.gkabar_kap factor, axon.gbar_nax factor, soma.sh_nas/x]
-x = None  # Placeholder for parameters pushed from controller.
-
-xmin = {}
-xmax = {}
-
-soma_na_gbar = 0.04
 # [soma.gkabar, soma.gkdrbar, soma.sh_nas/x, axon.gkdrbar factor, dend.gkabar factor,
 #            'soma.gCa factor', 'soma.gCadepK factor', 'soma.gkmbar']
-xmin['na_ka_stability'] = [0.01, 0.01, 0.1, 1., 1., 1., 1., 0.0005]
-xmax['na_ka_stability'] = [0.05, 0.05, 6., 2., 5., 5., 5., 0.005]
+x = None
 
-check_bounds = CheckBounds(xmin, xmax)
+soma_na_gbar = 0.04
 
 if len(sys.argv) > 1:
     spines = bool(int(sys.argv[1]))
@@ -185,9 +177,6 @@ def compute_spike_shape_features(local_x=None, plot=False):
     """
     if local_x is None:
         local_x = x
-    if not check_bounds.within_bounds(local_x, 'na_ka_stability'):
-        print 'Process %i: Aborting - Parameters outside optimization bounds.' % (os.getpid())
-        return None
     start_time = time.time()
     update_na_ka_stability(local_x)
     # sim.cvode_state = True
@@ -263,9 +252,6 @@ def compute_spike_stability_features(input_param, local_x=None, plot=False):
     sim.parameters['amp'] = amp
     if local_x is None:
         local_x = x
-    if not check_bounds.within_bounds(local_x, 'na_ka_stability'):
-        print 'Process %i: Aborting - Parameters outside optimization bounds.' % (os.getpid())
-        return 1e9
     start_time = time.time()
     update_na_ka_stability(local_x)
     # sim.cvode_state = True

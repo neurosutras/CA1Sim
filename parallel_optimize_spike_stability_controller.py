@@ -57,7 +57,7 @@ def na_ka_stability_error(x, plot=0):
         sys.stdout.flush()
     result = result.get()
     if result is None:
-        print 'Cell is spontaneously firing, or parameters are out of bounds.'
+        print 'Process %i: Aborting - Cell is spontaneously firing.'
         Err = 1e9
         hist.error_values.append(Err)
         return Err
