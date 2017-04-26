@@ -2,14 +2,13 @@ __author__ = 'Grace Ng'
 from specify_cells2 import *
 from function_lib import *
 import time
-import random
 import os
 import sys
 from ipyparallel import interactive
 import pprint
-import mkl
+# import mkl
 
-mkl.set_num_threads(1)
+# mkl.set_num_threads(1)
 """
 Builds a cell locally so each engine is ready to receive jobs one at a time, specified by string corresponding to the
 section type to test R_inp.
@@ -33,12 +32,13 @@ else:
     if spines:
         mech_filename = '120116 DG_GC pas spines'
     else:
-        mech_filename = '030217 GC optimizing excitability'
+        # mech_filename = '030217 GC optimizing excitability'
+        mech_filename = '042617 GC retuning leak'
 
 i_holding = {'soma': 0., 'dend': 0., 'distal_dend': 0.}
 
 # placeholder for optimization parameter, must be pushed to each engine on each iteration
-# x: array ['soma.g_pas', 'dend.g_pas slope', 'dend.g_pas tau', 'dend.gpas max_loc']
+# x: array ['soma.g_pas', 'dend.g_pas slope', 'dend.g_pas tau']
 x = []
 
 
@@ -94,10 +94,12 @@ def offset_vm(description, vm_target=None):
     sim.tstop = duration
     return v_rest
 
+
 @interactive
 def update_mech_dict():
     update_pas_exp(x)
     cell.export_mech_dict(cell.mech_filename)
+
 
 @interactive
 def update_pas_exp(x):
@@ -196,12 +198,12 @@ candidate_branches = []
 candidate_diams = []
 candidate_locs = []
 for branch in cell.apical:
-    if ((cell.get_distance_to_node(cell.tree.root, branch, 0.) >= 250.) &
-            (cell.get_distance_to_node(cell.tree.root, branch, 1.) > 300.)):
+    if ((cell.get_distance_to_node(cell.tree.root, branch, 0.) >= 200.) &
+            (cell.get_distance_to_node(cell.tree.root, branch, 1.) > 300.) & (not cell.is_terminal(branch))):
         candidate_branches.append(branch)
         for seg in branch.sec:
             loc = seg.x
-            if cell.get_distance_to_node(cell.tree.root, branch, loc) > 300.:
+            if cell.get_distance_to_node(cell.tree.root, branch, loc) > 250.:
                 candidate_diams.append(branch.sec(loc).diam)
                 candidate_locs.append(loc)
                 break
@@ -209,7 +211,7 @@ index = candidate_diams.index(max(candidate_diams))
 dend = candidate_branches[index]
 dend_loc = candidate_locs[index]
 
-# get the thickest terminal branch > 300 um from the soma
+# get the most distal terminal branch > 300 um from the soma
 candidate_branches = []
 candidate_end_distances = []
 for branch in (branch for branch in cell.apical if cell.is_terminal(branch)):

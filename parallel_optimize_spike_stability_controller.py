@@ -28,7 +28,7 @@ def na_ka_stability_error(x, plot=0):
     """
 
     :param x: array [soma.gkabar, soma.gkdrbar, axon.gkabar_kap factor, axon.gbar_nax factor, soma.sh_nas/x,
-                    axon.gkdrbar factor, dend.gkabar factor]
+                    axon.gkbar factor, dend.gkabar factor]
     :param plot: int
     :return: float
     """
@@ -122,7 +122,7 @@ def na_ka_stability_error(x, plot=0):
     hist.features['rate'].append(final_result['rate'])
 
     print 'Simulation took %i s' % (time.time()-start_time)
-    print 'Process %i: [soma.gkabar, soma.gkdrbar, soma.sh_nas/x, axon.gkdrbar factor, dend.gkabar factor, ' \
+    print 'Process %i: [soma.gkabar, soma.gkdrbar, soma.sh_nas/x, axon.gkbar factor, dend.gkabar factor, ' \
           'soma.gCa factor, soma.gCadepK factor, soma.gkmbar]: %s, amp: %.3f, v_rest: %.1f, threshold: %.1f, ' \
           'ADP: %.1f, AHP: %.1f, stability: %.2f, slow_depo: %.2f, dend_amp: %.2f, rate %.3f, ais_delay %.3f' % \
           (os.getpid(), formatted_x, final_result['amp'], final_result['v_rest'], final_result['v_th'],
@@ -195,7 +195,8 @@ else:
 if len(sys.argv) > 2:
     mech_filename = str(sys.argv[2])
 else:
-    mech_filename = '042117 GC optimizing spike stability'
+    # mech_filename = '042117 GC optimizing spike stability'
+    mech_filename = '042617 GC optimizing spike stability'
 if len(sys.argv) > 3:
     cluster_id = sys.argv[3]
     c = Client(cluster_id=cluster_id)
@@ -203,13 +204,13 @@ else:
     c = Client()
 
 check_bounds = CheckBounds(xmin, xmax)
-xlabels['na_ka_stability'] = ['soma.gkabar', 'soma.gkdrbar', 'soma.sh_nas/x', 'axon.gkdrbar factor',
+xlabels['na_ka_stability'] = ['soma.gkabar', 'soma.gkdrbar', 'soma.sh_nas/x', 'axon.gkbar factor',
                               'dend.gkabar factor', 'soma.gCa factor', 'soma.gCadepK factor', 'soma.gkmbar']
 hist = optimize_history()
 hist.xlabels = xlabels['na_ka_stability']
 
 
-# [soma.gkabar, soma.gkdrbar, soma.sh_nas/x, axon.gkdrbar factor, dend.gkabar factor,
+# [soma.gkabar, soma.gkdrbar, soma.sh_nas/x, axon.gkbar factor, dend.gkabar factor,
 #            'soma.gCa factor', 'soma.gCadepK factor', 'soma.gkmbar']
 
 # x0['na_ka_stability'] = [0.0308, 0.0220, 4.667, 4.808, 4.032, 1.297, 1.023]  # Error: 1.5170E+03
@@ -223,10 +224,12 @@ hist.xlabels = xlabels['na_ka_stability']
 # Error: 1.806E+04
 # x0['na_ka_stability'] = [1.233E-02, 1.302E-02, 1.903E+00, 1.722E+00, 1.216E+00, 1.359E+00, 1.888E+00, 2.367E-03]
 # Error: 2.7982E+03
-x0['na_ka_stability'] = [4.132E-02, 1.002E-02, 5.950E+00, 1.323E+00, 3.347E+00, 1.000E+00, 1.001E+00, 3.410E-03]
+# x0['na_ka_stability'] = [4.132E-02, 1.002E-02, 5.950E+00, 1.323E+00, 3.347E+00, 1.000E+00, 1.001E+00, 3.410E-03]
 # lowest Err: 1.919E+04
-xmin['na_ka_stability'] = [0.01, 0.01, 0.1, 1., 1., 0.1, 0.1, 0.0005]
-xmax['na_ka_stability'] = [0.05, 0.05, 6., 2., 5., 5., 5., 0.005]
+x0['na_ka_stability'] = [3.924E-02, 1.018E-02, 3.413E+00, 1.203E+00, 2.595E+00, 8.620E-01, 1.094E+00, 1.546E-03]
+# Err: 2.3691e+06
+xmin['na_ka_stability'] = [0.01, 0.01, 0.1, 1., 0.1, 0.1, 0.1, 0.0005]
+xmax['na_ka_stability'] = [0.05, 0.05, 6., 3., 5., 5., 5., 0.005]
 
 max_niter = 1500  # max number of iterations to run
 ninterval = max_niter / 50
@@ -240,10 +243,10 @@ dv.block = True
 global_start_time = time.time()
 
 dv.execute('run parallel_optimize_spike_stability_engine %i \"%s\"' % (int(spines), mech_filename))
-time.sleep(60)
+# time.sleep(60)
 v = c.load_balanced_view()
 
-
+"""
 result = optimize.basinhopping(na_ka_stability_error, x0['na_ka_stability'], niter=max_niter,
                                niter_success=niter_success, disp=True, interval=ninterval,
                                minimizer_kwargs=minimizer_kwargs, take_step=take_step)
@@ -252,11 +255,11 @@ print result
 # history_filename = '041917 spike stability optimization history'
 best_x = hist.report_best()
 sys.stdout.flush()
-"""
+
 # hist.export_to_pkl(history_filename)
 dv['x'] = best_x
 # dv['x'] = x0['na_ka_stability']
 c[0].apply(parallel_optimize_spike_stability_engine.update_mech_dict)
 sys.stdout.flush()
 """
-#plot_best(x0['na_ka_stability'])
+plot_best(x0['na_ka_stability'])

@@ -32,6 +32,7 @@ neurotree_filename = '121516_DGC_trees.pkl'
 neurotree_dict = read_from_pkl(morph_dir+neurotree_filename)
 history_filename = '030517 leak optimization history'
 
+
 class History(object):
     def __init__(self):
         """
@@ -238,7 +239,8 @@ if len(sys.argv) > 2:
     mech_filename = str(sys.argv[2])
 else:
     # mech_filename = '121516 DG_GC pas spines'
-    mech_filename = '030217 GC optimizing excitability'
+    # mech_filename = '030217 GC optimizing excitability'
+    mech_filename = '042617 GC retuning leak'
 if len(sys.argv) > 3:
     cluster_id = sys.argv[3]
     c = Client(cluster_id=cluster_id)
@@ -247,7 +249,6 @@ else:
 
 check_bounds = CheckBounds(xmin, xmax)
 xlabels['pas'] = ['soma.g_pas', 'dend.g_pas slope', 'dend.g_pas tau']
-hist = optimize_history()
 hist.xlabels = xlabels['pas']
 
 if spines:
@@ -281,18 +282,19 @@ result = optimize.basinhopping(pas_error, x0['pas'], niter=explore_niter, niter_
 
 polished_result = optimize.minimize(pas_error, result.x, method='Nelder-Mead', options={'ftol': 1e-5,
                                                     'disp': True, 'maxiter': polish_niter})
+"""
 
-
-polished_result = optimize.minimize(pas_error, x0['pas'], method='Nelder-Mead', options={'fatol': 1e-5, 'xatol': 1e-3, 'disp': True,
+polished_result = optimize.minimize(pas_error, x0['pas'], method='Nelder-Mead', options={'fatol': 1e-5, 'xatol': 1e-3,
+                                                                                         'disp': True,
                                                                                          'maxiter': polish_niter})
 
 print polished_result
 best_x = hist.report_best()
-hist.export_to_pkl(history_filename)
-"""
+# hist.export_to_pkl(history_filename)
 
-dv['x'] = hist.report_best()
+
+# dv['x'] = hist.report_best()
 # dv['x'] = x0['pas']
-c[0].apply(parallel_optimize_leak_engine.update_mech_dict)
+# c[0].apply(parallel_optimize_leak_engine.update_mech_dict)
 sys.stdout.flush()
 # plot_best(x0['pas'])

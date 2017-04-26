@@ -19,7 +19,7 @@ rec_filename = str(time.strftime('%m%d%Y', time.gmtime()))+'_'+str(time.strftime
                '_pid'+str(os.getpid())+'_sim_output'
 
 # placeholder for optimization parameter, must be pushed to each engine on each iteration
-# [soma.gkabar, soma.gkdrbar, soma.sh_nas/x, axon.gkdrbar factor, dend.gkabar factor,
+# [soma.gkabar, soma.gkdrbar, soma.sh_nas/x, axon.gkbar factor, dend.gkabar factor,
 #            'soma.gCa factor', 'soma.gCadepK factor', 'soma.gkmbar']
 x = None
 
@@ -32,7 +32,8 @@ else:
 if len(sys.argv) > 2:
     mech_filename = str(sys.argv[2])
 else:
-    mech_filename = '042117 GC optimizing spike stability'
+    # mech_filename = '042117 GC optimizing spike stability'
+    mech_filename = '042617 GC optimizing spike stability'
 
 
 @interactive
@@ -131,7 +132,7 @@ def update_mech_dict():
 def update_na_ka_stability(x):
     """
 
-    :param x: array [soma.gkabar, soma.gkdrbar, soma.sh_nas/x, axon.gkdrbar factor, dend.gkabar factor,
+    :param x: array [soma.gkabar, soma.gkdrbar, soma.sh_nas/x, axon.gkbar factor, dend.gkabar factor,
             soma.gCa factor, soma.gCadepK factor, soma.gkmbar]
     """
     cell.modify_mech_param('soma', 'kdr', 'gkdrbar', x[1])
@@ -154,10 +155,11 @@ def update_na_ka_stability(x):
     cell.reinitialize_subset_mechanisms('axon_hill', 'kap')
     cell.reinitialize_subset_mechanisms('axon_hill', 'kdr')
     cell.modify_mech_param('ais', 'kdr', 'gkdrbar', x[1] * x[3])
+    cell.modify_mech_param('ais', 'kap', 'gkabar', x[0] * x[3])
     cell.reinitialize_subset_mechanisms('axon', 'kdr')
+    cell.reinitialize_subset_mechanisms('axon', 'kap')
     cell.modify_mech_param('axon_hill', 'nax', 'sh', x[2])
     for sec_type in ['ais', 'axon']:
-        cell.reinitialize_subset_mechanisms(sec_type, 'kap')
         cell.modify_mech_param(sec_type, 'nax', 'sh', origin='axon_hill')
     cell.modify_mech_param('soma', 'Ca', 'gcamult', x[5])
     cell.modify_mech_param('soma', 'CadepK', 'gcakmult', x[6])
@@ -171,7 +173,7 @@ def update_na_ka_stability(x):
 def compute_spike_shape_features(local_x=None, plot=False):
     """
     :param local_x: array [soma.gkabar, soma.gkdrbar, axon.gkabar_kap factor, axon.gbar_nax factor, soma.sh_nas/x,
-                    axon.gkdrbar factor, dend.gkabar factor]
+                    axon.gkbar factor, dend.gkabar factor]
     :param plot: bool
     :return: float
     """
