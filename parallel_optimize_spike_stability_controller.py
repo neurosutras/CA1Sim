@@ -196,7 +196,7 @@ if len(sys.argv) > 2:
     mech_filename = str(sys.argv[2])
 else:
     # mech_filename = '042117 GC optimizing spike stability'
-    mech_filename = '042617 GC optimizing spike stability'
+    mech_filename = '042717 GC optimizing spike stability'
 if len(sys.argv) > 3:
     cluster_id = sys.argv[3]
     c = Client(cluster_id=cluster_id)
@@ -253,11 +253,11 @@ result = optimize.basinhopping(na_ka_stability_error, x0['na_ka_stability'], nit
                                niter_success=niter_success, disp=True, interval=ninterval,
                                minimizer_kwargs=minimizer_kwargs, take_step=take_step)
 print result
-
+"""
 # history_filename = '041917 spike stability optimization history'
 best_x = hist.report_best()
 sys.stdout.flush()
-"""
+
 # hist.export_to_pkl(history_filename)
 dv['x'] = best_x
 # dv['x'] = x0['na_ka_stability']

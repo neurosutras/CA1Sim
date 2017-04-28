@@ -33,7 +33,7 @@ if len(sys.argv) > 2:
     mech_filename = str(sys.argv[2])
 else:
     # mech_filename = '042117 GC optimizing spike stability'
-    mech_filename = '042617 GC optimizing spike stability'
+    mech_filename = '042717 GC optimizing spike stability'
 
 
 @interactive
@@ -151,8 +151,8 @@ def update_na_ka_stability(x):
                                replace=False)
         cell.modify_mech_param(sec_type, 'kdr', 'gkdrbar', origin='soma')
         cell.modify_mech_param(sec_type, 'nas', 'sha', 0.)
+        cell.modify_mech_param(sec_type, 'nas', 'gbar', soma_na_gbar)
     cell.set_terminal_branch_na_gradient()
-    cell.modify_mech_param('axon', 'nax', 'gbar', soma_na_gbar * 2.)
     cell.reinitialize_subset_mechanisms('axon_hill', 'kap')
     cell.reinitialize_subset_mechanisms('axon_hill', 'kdr')
     cell.modify_mech_param('ais', 'kdr', 'gkdrbar', x[1] * x[3])
@@ -160,6 +160,8 @@ def update_na_ka_stability(x):
     cell.modify_mech_param('axon', 'kdr', 'gkdrbar', origin='ais')
     cell.modify_mech_param('axon', 'kap', 'gkabar', origin='ais')
     cell.modify_mech_param('axon_hill', 'nax', 'sh', x[2])
+    cell.modify_mech_param('axon_hill', 'nax', 'gbar', soma_na_gbar)
+    cell.modify_mech_param('axon', 'nax', 'gbar', soma_na_gbar * 2.)
     for sec_type in ['ais', 'axon']:
         cell.modify_mech_param(sec_type, 'nax', 'sh', origin='axon_hill')
     cell.modify_mech_param('soma', 'Ca', 'gcamult', x[5])
