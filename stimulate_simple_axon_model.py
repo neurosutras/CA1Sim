@@ -98,7 +98,7 @@ def get_plateau(vm):
     plateau = np.min(vm[start:end]) - baseline
     return plateau
 
-def stim_sweep(f, vm_amp_targets=[-5., 15., 35.], step_sizes=[0.01, 0.01, 0.01]):
+def stim_sweep(f, vm_amp_targets=[-5., 15., 40.], step_sizes=[0.01, 0.01, 0.01]):
     """
 
     :param f: :class:'h5py.File'
@@ -149,7 +149,8 @@ v_init = -65.
 
 #mech_filename = '102715 simple_axon_model_no_na_reduced_k'
 #mech_filename = '102715 simple_axon_model_no_na'
-mech_filename = '102715 simple_axon_model'
+# mech_filename = '102715 simple_axon_model'
+mech_filename = '042717 simple_axon_model_no_na_no_k'
 
 #mech_filename = '101815 simple_axon_model_uniform_km2_no_na'
 #mech_filename = '101815 simple_axon_model_uniform_km2_no_na_reduced_kap_kdr_km2'
@@ -182,9 +183,9 @@ offset_vm()
 
 #rec_filename = '102715 test simple_axon_model_no_na_reduced_k'
 #rec_filename = '102715 test simple_axon_model_no_na'
-rec_filename = '102715 test simple_axon_model'
+# rec_filename = '102715 test simple_axon_model'
 #rec_filename = '102815 test simple_axon_model_spike_height'
-
+rec_filename = '042717 test simple_axon_model_no_na_no_k'
 
 with h5py.File(data_dir+rec_filename+'.hdf5', 'w') as f:
     stim_sweep(f)

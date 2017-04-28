@@ -4,32 +4,39 @@ from plot_results import *
 
 rec_filenames = ['102715 test simple_axon_model_no_na',
                  '102715 test simple_axon_model_no_na_reduced_k',
+                 '042717 test simple_axon_model_no_na_no_k',
                  '102715 test simple_axon_model']
 
 figure_title = '102815 simple axon model'
 
-titles = ['0% gNa, 100% gK', '0% gNa, 30% gK', '100% gNa, 100% gK']
+titles = ['0% gNa, 100% gK', '0% gNa, 30% gK', '0% gNa, 0% gK', '100% gNa, 100% gK']
 propagation = {}
 dt = 0.01
 
 for i, title in enumerate(titles):
     distances, propagation[title] = process_simple_axon_model_output(rec_filenames[i])
 
-colors = ['k', 'r', 'b']
+colors = ['k', 'r', 'b', 'w']
 
 target_voltages = [-5.0, 15.0, 40.0]
 
 for target_voltage in target_voltages:
+    fig, axes = plt.subplots(1)
     for i, title in enumerate(titles):
-        plt.scatter(distances, propagation[title][target_voltage], color=colors[i], label=title)
-    plt.legend(loc='best', frameon=False, framealpha=0.5)
-    plt.xlabel('Distance From Soma (um)')
-    plt.ylabel('Voltage Propagation')
-    plt.title('Somatic Voltage Amplitude ~ %i mV' % target_voltage)
+        if i == 3:
+            axes.scatter(distances, propagation[title][target_voltage], color=colors[i], edgecolor='k', label=title)
+        else:
+            axes.scatter(distances, propagation[title][target_voltage], color=colors[i], label=title)
+    axes.legend(loc='best', frameon=False, framealpha=0.5)
+    axes.set_xlabel('Distance from soma (um)')
+    axes.set_ylabel('Propagation (axon/soma)')
+    clean_axes(axes)
+    #plt.title('Somatic Voltage Amplitude ~ %i mV' % target_voltage)
     #plt.savefig(data_dir+figure_title+' - voltage prop amp %i.svg' % target_voltage, format='svg')
-    plt.show()
-    plt.close()
+plt.show()
+plt.close()
 
+"""
 for i, title in enumerate(titles[:-1]):
     with h5py.File(data_dir+rec_filenames[i]+'.hdf5', 'r') as f:
         sim = f['2']
@@ -54,7 +61,7 @@ for i, title in enumerate(titles[:-1]):
         plt.show()
         plt.close()
 
-"""
+
 rec_filename = '102815 test simple_axon_model_spike_traces'
 with '100% gNa, 100% gK' as title:
     with h5py.File(data_dir+rec_filename+'.hdf5', 'r') as f:

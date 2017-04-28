@@ -28,7 +28,7 @@ def na_ka_stability_error(x, plot=0):
     """
 
     :param x: array [soma.gkabar, soma.gkdrbar, axon.gkabar_kap factor, axon.gbar_nax factor, soma.sh_nas/x,
-                    axon.gkdrbar factor, dend.gkabar factor]
+                    axon.gkbar factor, dend.gkabar factor]
     :param plot: int
     :return: float
     """
@@ -57,12 +57,13 @@ def na_ka_stability_error(x, plot=0):
         sys.stdout.flush()
     result = result.get()
     if result is None:
-        print 'Cell is spontaneously firing, or parameters are out of bounds.'
+        print 'Process %i: Aborting - Cell is spontaneously firing.'
         Err = 1e9
         hist.error_values.append(Err)
         return Err
     final_result = result
     rheobase = result['amp']
+    final_result['ais_delay'] = result['ais_delay']
     if plot:
         c[0].apply(parallel_optimize_spike_stability_engine_CA1Pyr.export_sim_results)
     result = v.map_async(parallel_optimize_spike_stability_engine_CA1Pyr.compute_spike_stability_features,
@@ -108,7 +109,7 @@ def na_ka_stability_error(x, plot=0):
         if target not in hist.features:
             hist.features[target] = []
         hist.features[target].append(final_result[target])
-    for target in ['v_th', 'ADP', 'AHP', 'stability', 'slow_depo', 'dend_amp']:
+    for target in ['v_th', 'ADP', 'AHP', 'stability', 'slow_depo', 'dend_amp', 'ais_delay']:
         # don't penalize AHP or slow_depo less than target
         if not ((target == 'AHP' and final_result[target] < target_val['na_ka'][target]) or
                 (target == 'slow_depo' and final_result[target] < target_val['na_ka'][target])):
@@ -121,12 +122,12 @@ def na_ka_stability_error(x, plot=0):
     hist.features['rate'].append(final_result['rate'])
 
     print 'Simulation took %i s' % (time.time()-start_time)
-    print 'Process %i: [soma.gkabar, soma.gkdrbar, soma.sh_nas/x, axon.gkdrbar factor, dend.gkabar factor, ' \
+    print 'Process %i: [soma.gkabar, soma.gkdrbar, soma.sh_nas/x, axon.gkbar factor, dend.gkabar factor, ' \
           'soma.gCa factor, soma.gCadepK factor, soma.gkmbar]: %s, amp: %.3f, v_rest: %.1f, threshold: %.1f, ' \
-          'ADP: %.1f, AHP: %.1f, stability: %.2f, slow_depo: %.2f, dend_amp: %.2f, rate %.3f' % \
+          'ADP: %.1f, AHP: %.1f, stability: %.2f, slow_depo: %.2f, dend_amp: %.2f, rate %.3f, ais_delay %.3f' % \
           (os.getpid(), formatted_x, final_result['amp'], final_result['v_rest'], final_result['v_th'],
            final_result['ADP'], final_result['AHP'], final_result['stability'], final_result['slow_depo'],
-           final_result['dend_amp'], final_result['rate'])
+           final_result['dend_amp'], final_result['rate'], final_result['ais_delay'])
     print 'Process %i: f_I Error: %.4E, Error: %.4E' % (os.getpid(), f_I_Err, Err)
     hist.error_values.append(Err)
     sys.stdout.flush()
@@ -176,8 +177,8 @@ target_val = {}
 target_range = {}
 target_val['na_ka'] = {'v_rest': v_init, 'v_th': -51., 'soma_peak': 40., 'ADP': 0., 'AHP': 3.,
                        'stability': 0., 'ais_delay': 0., 'slow_depo': 20., 'dend_amp': 0.6}
-target_range['na_ka'] = {'v_rest': 0.25, 'v_th': .05, 'soma_peak': 2., 'ADP': 0.01, 'AHP': .01,
-                         'stability': 1., 'ais_delay': 0.001, 'slow_depo': 0.5, 'dend_amp': 0.005}
+target_range['na_ka'] = {'v_rest': 0.25, 'v_th': .01, 'soma_peak': 2., 'ADP': 0.01, 'AHP': .005,
+                         'stability': 1., 'ais_delay': 0.0005, 'slow_depo': 0.5, 'dend_amp': 0.0002}
 
 experimental_f_I_slope = 12.  # Hz/ln(pA); rate = slope * ln(current - rheobase)
 # CA1Pyr experimental f-I data from Kowalski J...Pernia-Andrade AJ, Hippocampus, 2016
@@ -194,7 +195,7 @@ else:
 if len(sys.argv) > 2:
     mech_filename = str(sys.argv[2])
 else:
-    mech_filename = '041817 CA1Pyr optimizing spike stability'
+    mech_filename = '042817 CA1Pyr optimizing spike stability'
 if len(sys.argv) > 3:
     cluster_id = sys.argv[3]
     c = Client(cluster_id=cluster_id)
@@ -202,23 +203,22 @@ else:
     c = Client()
 
 check_bounds = CheckBounds(xmin, xmax)
-xlabels['na_ka_stability'] = ['soma.gkabar', 'soma.gkdrbar', 'soma.sh_nas/x', 'axon.gkdrbar factor',
+xlabels['na_ka_stability'] = ['soma.gkabar', 'soma.gkdrbar', 'soma.sh_nas/x', 'axon.gkbar factor',
                               'dend.gkabar factor', 'soma.gCa factor', 'soma.gCadepK factor', 'soma.gkmbar']
 hist = optimize_history()
 hist.xlabels = xlabels['na_ka_stability']
 
 
-# [soma.gkabar, soma.gkdrbar, soma.sh_nas/x, axon.gkdrbar factor, dend.gkabar factor,
+# [soma.gkabar, soma.gkdrbar, soma.sh_nas/x, axon.gkbar factor, dend.gkabar factor,
 #            'soma.gCa factor', 'soma.gCadepK factor', 'soma.gkmbar']
 
-# x0['na_ka_stability'] = [0.0305, 0.0478, 1.7, 1., 2.8, 2.006E+00, 2.995E+00, 0.0015]
-x0['na_ka_stability'] = [1.136E-02, 3.995E-02, 3.968E+00, 1.323E+00, 3.007E+00, 1.357E+00, 4.207E+00, 3.880E-03]
-# Err: 1.360E+03
-xmin['na_ka_stability'] = [0.01, 0.01, 0.1, 1., 1., 1., 1., 0.0005]
-xmax['na_ka_stability'] = [0.05, 0.05, 6., 2., 5., 5., 5., 0.005]
+x0['na_ka_stability'] = [0.0305, 0.0478, 1.7, 2.97, 2.8, 1., 1., 0.0015]
+xmin['na_ka_stability'] = [0.01, 0.01, 0.1, 1., 0.1, 0.1, 0.1, 0.0005]
+xmax['na_ka_stability'] = [0.05, 0.05, 6., 3., 5., 5., 5., 0.005]
 
 max_niter = 1500  # max number of iterations to run
 ninterval = max_niter / 50
+niter_success = 400  # max number of iterations without significant progress before aborting optimization
 
 take_step = Normalized_Step(x0['na_ka_stability'], xmin['na_ka_stability'], xmax['na_ka_stability'])
 minimizer_kwargs = dict(method=null_minimizer)
@@ -229,20 +229,18 @@ global_start_time = time.time()
 
 
 dv.execute('run parallel_optimize_spike_stability_engine_CA1Pyr %i \"%s\"' % (int(spines), mech_filename))
-# time.sleep(60)
+time.sleep(60)
 v = c.load_balanced_view()
-"""
+
 result = optimize.basinhopping(na_ka_stability_error, x0['na_ka_stability'], niter=max_niter,
                                niter_success=niter_success, disp=True, interval=ninterval,
                                minimizer_kwargs=minimizer_kwargs, take_step=take_step)
 print result
 
-history_filename = '041417 spike stability optimization history'
 best_x = hist.report_best()
+sys.stdout.flush()
+
+# history_filename = '041417 spike stability optimization history'
 # hist.export_to_pkl(history_filename)
-dv['x'] = best_x
-# dv['x'] = x0['na_ka_stability']
-c[0].apply(parallel_optimize_spike_stability_engine_CA1Pyr.update_mech_dict)
-"""
 # plot_best(best_x)
-plot_best(x0['na_ka_stability'])
+# plot_best(x0['na_ka_stability'])

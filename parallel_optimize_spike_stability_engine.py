@@ -37,13 +37,14 @@ else:
 
 
 @interactive
-def get_spike_shape(vm):
+def get_spike_shape(vm, spike_times):
     """
 
     :param vm: array
     :return: tuple of float: (v_peak, th_v, ADP, AHP)
     """
-    vm = vm[int((equilibrate+1.)/dt):]
+    start = int((equilibrate+1.)/dt)
+    vm = vm[start:]
     dvdt = np.gradient(vm, dt)
     th_x = np.where(dvdt > th_dvdt)[0]
     if th_x.any():
@@ -54,10 +55,12 @@ def get_spike_shape(vm):
     v_before = np.mean(vm[th_x-int(0.1/dt):th_x])
     v_peak = np.max(vm[th_x:th_x+int(5./dt)])
     x_peak = np.where(vm[th_x:th_x+int(5./dt)] == v_peak)[0][0]
-    # end = min(th_x + int(50. / dt), len(vm))
-    end = len(vm)
-    v_AHP = np.min(vm[th_x + x_peak:end])
-    x_AHP = np.where(vm[th_x + x_peak:end] == v_AHP)[0][0]
+    if len(spike_times) > 1:
+        end = max(th_x+x_peak, int((spike_times[1] - 5.) / dt) - start)
+    else:
+        end = len(vm)
+    v_AHP = np.min(vm[th_x+x_peak:end])
+    x_AHP = np.where(vm[th_x+x_peak:end] == v_AHP)[0][0]
     AHP = v_before - v_AHP
     # if spike waveform includes an ADP before an AHP, return the value of the ADP in order to increase error function
     rising_x = np.where(dvdt[th_x+x_peak:th_x+x_peak+x_AHP] > 0.)[0]
@@ -155,7 +158,7 @@ def update_na_ka_stability(x):
     cell.set_terminal_branch_na_gradient()
     cell.reinitialize_subset_mechanisms('axon_hill', 'kap')
     cell.reinitialize_subset_mechanisms('axon_hill', 'kdr')
-    cell.modify_mech_param('ais', 'kdr', 'gkdrbar', x[1] * x[3])
+    cell.modify_mech_param('ais', 'kdr', 'gkdrbar', origin='soma')
     cell.modify_mech_param('ais', 'kap', 'gkabar', x[0] * x[3])
     cell.modify_mech_param('axon', 'kdr', 'gkdrbar', origin='ais')
     cell.modify_mech_param('axon', 'kap', 'gkabar', origin='ais')
@@ -347,33 +350,3 @@ i_th = {'soma': 0.1}
 
 spike_output_vec = h.Vector()
 cell.spike_detector.record(spike_output_vec)
-
-if type(cell.mech_dict['apical']['kap']['gkabar']) == list:
-    orig_ka_dend_slope = \
-        (element for element in cell.mech_dict['apical']['kap']['gkabar'] if 'slope' in element).next()['slope']
-else:
-    orig_ka_dend_slope = cell.mech_dict['apical']['kap']['gkabar']['slope']
-
-# orig_ka_soma_gkabar = cell.mech_dict['soma']['kap']['gkabar']['value']
-# orig_ka_dend_gkabar = orig_ka_soma_gkabar + orig_ka_dend_slope * 300.
-
-"""
-sim.append_rec(cell, cell.tree.root, loc=0.5, object=cell.tree.root.sec(0.5), param='_ref_ina_nas',
-               description='Soma nas_i')
-sim.append_rec(cell, cell.tree.root, loc=0.5, object=cell.tree.root.sec(0.5), param='_ref_ik_kap',
-               description='Soma kap_i')
-sim.append_rec(cell, cell.tree.root, loc=0.5, object=cell.tree.root.sec(0.5), param='_ref_ik_kdr',
-               description='Soma kdr_i')
-
-sim.append_rec(cell, cell.tree.root, loc=0.5, object=cell.tree.root.sec(0.5), param='_ref_gk_km3',
-               description='Soma km_g')
-
-sim.append_rec(cell, cell.tree.root, loc=0.5, object=cell.tree.root.sec(0.5), param='_ref_i_Ca',
-               description='Soma Ca_i')
-sim.append_rec(cell, cell.tree.root, loc=0.5, object=cell.tree.root.sec(0.5), param='_ref_ca_i_CadepK',
-               description='Soma CadepK_intra_Ca')
-sim.append_rec(cell, cell.tree.root, loc=0.5, object=cell.tree.root.sec(0.5), param='_ref_ca_i_Ca',
-               description='Soma Ca_intra_Ca')
-sim.append_rec(cell, cell.tree.root, loc=0.5, object=cell.tree.root.sec(0.5), param='_ref_i_CadepK',
-               description='Soma CadepK_i')
-"""
