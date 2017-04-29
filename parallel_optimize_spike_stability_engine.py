@@ -213,7 +213,7 @@ def compute_spike_shape_features(local_x=None, plot=False):
                 print 'increasing amp to %.3f' % amp
     sim.parameters['amp'] = amp
     i_th['soma'] = amp
-    peak, threshold, ADP, AHP = get_spike_shape(vm)
+    peak, threshold, ADP, AHP = get_spike_shape(vm, cell.spike_detector.get_recordvec().to_python())
     dend_vm = np.interp(t, sim.tvec, sim.get_rec('dend')['vec'])
     th_x = np.where(vm[int(equilibrate / dt):] >= threshold)[0][0] + int(equilibrate / dt)
     dend_peak = np.max(dend_vm[th_x:th_x + int(10. / dt)])
