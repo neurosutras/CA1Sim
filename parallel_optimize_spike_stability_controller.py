@@ -103,7 +103,7 @@ def na_ka_stability_error(x, plot=0):
     temp_dict['rate'] = map(temp_dict['rate'].__getitem__, indexes)
     target_f_I = experimental_f_I_slope * np.log(temp_dict['amp'][0] / rheobase)
     final_result['rate'] = temp_dict['rate'][0]
-    f_I_Err = ((temp_dict['rate'][0] - target_f_I) / (0.01 * target_f_I))**2.
+    f_I_Err = ((temp_dict['rate'][0] - target_f_I) / (0.001 * target_f_I))**2.
     Err = f_I_Err
     for target in final_result:
         if target not in hist.features:
@@ -230,7 +230,9 @@ hist.xlabels = xlabels['na_ka_stability']
 # Err: 2.3691e+06
 # x0['na_ka_stability'] = [4.269E-02, 1.022E-02, 4.073E+00, 1.326E+00, 1.395E+00, 7.338E-01, 1.398E+00, 6.896E-04]
 # Err: 2.3989E+06
-x0['na_ka_stability'] = [2.312E-02, 1.441E-02, 5.411E+00, 1.535E+00, 2.582E+00, 6.474E-01, 1.474E+00, 2.649E-03]
+# x0['na_ka_stability'] = [2.312E-02, 1.441E-02, 5.411E+00, 1.535E+00, 2.582E+00, 6.474E-01, 1.474E+00, 2.649E-03]
+x0['na_ka_stability'] = [2.434E-02, 1.133E-02, 5.403E+00, 1.569E+00, 2.375E+00, 1.902E-01, 1.371E+00, 2.903E-03]
+# Err: 1.2453E+05
 xmin['na_ka_stability'] = [0.01, 0.01, 0.1, 1., 0.1, 0.1, 0.1, 0.0005]
 xmax['na_ka_stability'] = [0.05, 0.05, 6., 3., 5., 5., 5., 0.005]
 
@@ -246,7 +248,7 @@ dv.block = True
 global_start_time = time.time()
 
 dv.execute('run parallel_optimize_spike_stability_engine %i \"%s\"' % (int(spines), mech_filename))
-time.sleep(60)
+# time.sleep(60)
 v = c.load_balanced_view()
 
 
@@ -260,4 +262,5 @@ best_x = hist.report_best()
 sys.stdout.flush()
 
 # hist.export_to_pkl(history_filename)
+
 # plot_best(x0['na_ka_stability'])
