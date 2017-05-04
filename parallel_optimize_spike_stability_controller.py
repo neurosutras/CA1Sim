@@ -196,7 +196,7 @@ if len(sys.argv) > 2:
     mech_filename = str(sys.argv[2])
 else:
     # mech_filename = '042117 GC optimizing spike stability'
-    mech_filename = '042617 GC optimizing spike stability'
+    mech_filename = '042717 GC optimizing spike stability'
 if len(sys.argv) > 3:
     cluster_id = sys.argv[3]
     c = Client(cluster_id=cluster_id)
@@ -226,14 +226,17 @@ hist.xlabels = xlabels['na_ka_stability']
 # Error: 2.7982E+03
 # x0['na_ka_stability'] = [4.132E-02, 1.002E-02, 5.950E+00, 1.323E+00, 3.347E+00, 1.000E+00, 1.001E+00, 3.410E-03]
 # lowest Err: 1.919E+04
-x0['na_ka_stability'] = [3.924E-02, 1.018E-02, 3.413E+00, 1.203E+00, 2.595E+00, 8.620E-01, 1.094E+00, 1.546E-03]
+# x0['na_ka_stability'] = [3.924E-02, 1.018E-02, 3.413E+00, 1.203E+00, 2.595E+00, 8.620E-01, 1.094E+00, 1.546E-03]
 # Err: 2.3691e+06
+# x0['na_ka_stability'] = [4.269E-02, 1.022E-02, 4.073E+00, 1.326E+00, 1.395E+00, 7.338E-01, 1.398E+00, 6.896E-04]
+# Err: 2.3989E+06
+x0['na_ka_stability'] = [2.312E-02, 1.441E-02, 5.411E+00, 1.535E+00, 2.582E+00, 6.474E-01, 1.474E+00, 2.649E-03]
 xmin['na_ka_stability'] = [0.01, 0.01, 0.1, 1., 0.1, 0.1, 0.1, 0.0005]
 xmax['na_ka_stability'] = [0.05, 0.05, 6., 3., 5., 5., 5., 0.005]
 
 max_niter = 1500  # max number of iterations to run
 ninterval = max_niter / 50
-niter_success = 400  # max number of interations without significant progress before aborting optimization
+niter_success = 400  # max number of iterations without significant progress before aborting optimization
 
 take_step = Normalized_Step(x0['na_ka_stability'], xmin['na_ka_stability'], xmax['na_ka_stability'])
 minimizer_kwargs = dict(method=null_minimizer)
@@ -255,11 +258,6 @@ print result
 # history_filename = '041917 spike stability optimization history'
 best_x = hist.report_best()
 sys.stdout.flush()
-"""
+
 # hist.export_to_pkl(history_filename)
-dv['x'] = best_x
-# dv['x'] = x0['na_ka_stability']
-c[0].apply(parallel_optimize_spike_stability_engine.update_mech_dict)
-sys.stdout.flush()
-"""
 # plot_best(x0['na_ka_stability'])

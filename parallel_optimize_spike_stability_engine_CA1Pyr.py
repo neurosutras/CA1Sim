@@ -18,19 +18,11 @@ rec_filename = str(time.strftime('%m%d%Y', time.gmtime()))+'_'+str(time.strftime
                '_pid'+str(os.getpid())+'_sim_output'
 
 # placeholder for optimization parameter, must be pushed to each engine on each iteration
-# x: array [soma.gkabar, soma.gkdrbar, axon.gkabar_kap factor, axon.gbar_nax factor, soma.sh_nas/x]
-x = None  # Placeholder for parameters pushed from controller.
-
-xmin = {}
-xmax = {}
+# [soma.gkabar, soma.gkdrbar, soma.sh_nas/x, axon.gkbar factor, dend.gkabar factor,
+#            'soma.gCa factor', 'soma.gCadepK factor', 'soma.gkmbar']
+x = None
 
 soma_na_gbar = 0.04
-# [soma.gkabar, soma.gkdrbar, soma.sh_nas/x, axon.gkdrbar factor, dend.gkabar factor,
-#            'soma.gCa factor', 'soma.gCadepK factor', 'soma.gkmbar']
-xmin['na_ka_stability'] = [0.01, 0.01, 0.1, 1., 1., 1., 1., 0.0005]
-xmax['na_ka_stability'] = [0.05, 0.05, 6., 2., 5., 5., 5., 0.005]
-
-check_bounds = CheckBounds(xmin, xmax)
 
 if len(sys.argv) > 1:
     spines = bool(int(sys.argv[1]))
@@ -39,17 +31,18 @@ else:
 if len(sys.argv) > 2:
     mech_filename = str(sys.argv[2])
 else:
-    mech_filename = '041817 CA1Pyr optimizing spike stability'
+    mech_filename = '042817 CA1Pyr optimizing spike stability'
 
 
 @interactive
-def get_spike_shape(vm):
+def get_spike_shape(vm, spike_times):
     """
 
     :param vm: array
     :return: tuple of float: (v_peak, th_v, ADP, AHP)
     """
-    vm = vm[int((equilibrate+1.)/dt):]
+    start = int((equilibrate+1.)/dt)
+    vm = vm[start:]
     dvdt = np.gradient(vm, dt)
     th_x = np.where(dvdt > th_dvdt)[0]
     if th_x.any():
@@ -60,8 +53,10 @@ def get_spike_shape(vm):
     v_before = np.mean(vm[th_x-int(0.1/dt):th_x])
     v_peak = np.max(vm[th_x:th_x+int(5./dt)])
     x_peak = np.where(vm[th_x:th_x+int(5./dt)] == v_peak)[0][0]
-    # end = min(th_x+int(50./dt), len(vm))
-    end = len(vm)
+    if len(spike_times) > 1:
+        end = max(th_x+x_peak, int((spike_times[1] - 5.) / dt) - start)
+    else:
+        end = len(vm)
     v_AHP = np.min(vm[th_x+x_peak:end])
     x_AHP = np.where(vm[th_x+x_peak:end] == v_AHP)[0][0]
     AHP = v_before - v_AHP
@@ -160,33 +155,31 @@ def update_na_ka_stability(x):
     cell.modify_mech_param('axon', 'nax', 'gbar', soma_na_gbar * 2.)
     cell.reinitialize_subset_mechanisms('axon_hill', 'kap')
     cell.reinitialize_subset_mechanisms('axon_hill', 'kdr')
-    cell.modify_mech_param('ais', 'kdr', 'gkdrbar', x[1] * x[3])
+    cell.modify_mech_param('ais', 'kdr', 'gkdrbar', origin='soma')
     cell.modify_mech_param('ais', 'kap', 'gkabar', x[0] * x[3])
-    cell.reinitialize_subset_mechanisms('axon', 'kdr')
-    cell.reinitialize_subset_mechanisms('axon', 'kap')
+    cell.modify_mech_param('axon', 'kdr', 'gkdrbar', origin='ais')
+    cell.modify_mech_param('axon', 'kap', 'gkabar', origin='ais')
     cell.modify_mech_param('axon_hill', 'nax', 'sh', x[2])
     for sec_type in ['ais', 'axon']:
         cell.modify_mech_param(sec_type, 'nax', 'sh', origin='axon_hill')
     cell.modify_mech_param('soma', 'Ca', 'gcamult', x[5])
     cell.modify_mech_param('soma', 'CadepK', 'gcakmult', x[6])
     cell.modify_mech_param('soma', 'km3', 'gkmbar', x[7])
-    for sec_type in ['axon_hill', 'ais', 'axon']:
-        cell.reinitialize_subset_mechanisms(sec_type, 'km3')
+    cell.modify_mech_param('ais', 'km3', 'gkmbar', x[7] * 3.)
+    cell.modify_mech_param('axon_hill', 'km3', 'gkmbar', origin='soma')
+    cell.modify_mech_param('axon', 'km3', 'gkmbar', origin='ais')
 
 
 @interactive
 def compute_spike_shape_features(local_x=None, plot=False):
     """
     :param local_x: array [soma.gkabar, soma.gkdrbar, axon.gkabar_kap factor, axon.gbar_nax factor, soma.sh_nas/x,
-                    axon.gkdrbar factor, dend.gkabar factor]
+                    axon.gkbar factor, dend.gkabar factor]
     :param plot: bool
     :return: float
     """
     if local_x is None:
         local_x = x
-    if not check_bounds.within_bounds(local_x, 'na_ka_stability'):
-        print 'Process %i: Aborting - Parameters outside optimization bounds.' % (os.getpid())
-        return None
     start_time = time.time()
     update_na_ka_stability(local_x)
     # sim.cvode_state = True
@@ -206,7 +199,7 @@ def compute_spike_shape_features(local_x=None, plot=False):
         vm = np.interp(t, sim.tvec, sim.get_rec('soma')['vec'])
         if np.any(vm[:int(equilibrate/dt)] > -30.):
             print 'Process %i: Aborting - spontaneous firing' % (os.getpid())
-            # return None
+            return None
         if np.any(vm[int(equilibrate/dt):int((equilibrate+50.)/dt)] > -30.):
             spike = True
         else:
@@ -215,12 +208,29 @@ def compute_spike_shape_features(local_x=None, plot=False):
                 print 'increasing amp to %.3f' % amp
     sim.parameters['amp'] = amp
     i_th['soma'] = amp
-    peak, threshold, ADP, AHP = get_spike_shape(vm)
+    peak, threshold, ADP, AHP = get_spike_shape(vm, cell.spike_detector.get_recordvec().to_python())
     dend_vm = np.interp(t, sim.tvec, sim.get_rec('tuft')['vec'])
     th_x = np.where(vm[int(equilibrate / dt):] >= threshold)[0][0] + int(equilibrate / dt)
     dend_peak = np.max(dend_vm[th_x:th_x + int(10. / dt)])
     dend_pre = np.mean(dend_vm[th_x - int(0.2 / dt):th_x - int(0.1 / dt)])
     result['dend_amp'] = (dend_peak - dend_pre) / (peak - threshold)
+
+    #calculate AIS delay
+    ais_vm = np.interp(t, sim.tvec, sim.get_rec('ais')['vec'])
+    ais_dvdt = np.gradient(ais_vm, dt)
+    axon_vm = np.interp(t, sim.tvec, sim.get_rec('axon')['vec'])
+    axon_dvdt = np.gradient(axon_vm, dt)
+    left = th_x - int(2. / dt)
+    right = th_x + int(5. / dt)
+    ais_peak = np.max(ais_dvdt[left:right])
+    ais_peak_t = np.where(ais_dvdt[left:right] == ais_peak)[0][0] * dt
+    axon_peak = np.max(axon_dvdt[left:right])
+    axon_peak_t = np.where(axon_dvdt[left:right] == axon_peak)[0][0] * dt
+    if axon_peak_t >= ais_peak_t + dt:
+        result['ais_delay'] = 0.
+    else:
+        result['ais_delay'] = ais_peak_t + dt - axon_peak_t
+
     print 'Process %i took %.1f s to find spike rheobase at amp: %.3f' % (os.getpid(), time.time() - start_time, amp)
     if plot:
         sim.plot()
@@ -245,9 +255,6 @@ def compute_spike_stability_features(input_param, local_x=None, plot=False):
     sim.parameters['amp'] = amp
     if local_x is None:
         local_x = x
-    if not check_bounds.within_bounds(local_x, 'na_ka_stability'):
-        print 'Process %i: Aborting - Parameters outside optimization bounds.' % (os.getpid())
-        return 1e9
     start_time = time.time()
     update_na_ka_stability(local_x)
     # sim.cvode_state = True
@@ -316,9 +323,11 @@ else:
 tuft = trunk
 trunk = trunk_bifurcation[0]
 
-rec_locs = {'soma': 0., 'trunk': 1., 'tuft': 1., 'ais': 1., 'axon_center': 0.5}
+axon_seg_locs = [seg.x for seg in cell.axon[2].sec]
+
+rec_locs = {'soma': 0., 'trunk': 1., 'tuft': 1., 'ais': 1., 'axon': axon_seg_locs[0]}
 rec_nodes = {'soma': cell.tree.root, 'trunk': trunk, 'tuft': tuft, 'ais': cell.axon[1],
-             'axon_center': cell.axon[2]}
+             'axon': cell.axon[2]}
 
 sim = QuickSim(duration, cvode=False, dt=dt, verbose=False)
 sim.append_stim(cell, cell.tree.root, loc=0., amp=0., delay=equilibrate, dur=stim_dur)
@@ -327,31 +336,8 @@ sim.append_stim(cell, cell.tree.root, loc=0., amp=0., delay=0., dur=duration)
 for description, node in rec_nodes.iteritems():
     sim.append_rec(cell, node, loc=rec_locs[description], description=description)
 
-sim.append_rec(cell, cell.axon[2], loc=0.5, description='axon_center')
-
 i_holding = {'soma': 0.05}
 i_th = {'soma': 0.1}
 
 spike_output_vec = h.Vector()
 cell.spike_detector.record(spike_output_vec)
-
-"""
-if type(cell.mech_dict['apical']['kap']['gkabar']) == list:
-    orig_ka_dend_slope = \
-        (element for element in cell.mech_dict['apical']['kap']['gkabar'] if 'slope' in element).next()['slope']
-else:
-    orig_ka_dend_slope = cell.mech_dict['apical']['kap']['gkabar']['slope']
-
-# orig_ka_soma_gkabar = cell.mech_dict['soma']['kap']['gkabar']['value']
-# orig_ka_dend_gkabar = orig_ka_soma_gkabar + orig_ka_dend_slope * 300.
-
-
-sim.append_rec(cell, cell.tree.root, loc=0.5, object=cell.tree.root.sec(0.5), param='_ref_ina_nas',
-               description='Soma nas_i')
-sim.append_rec(cell, cell.tree.root, loc=0.5, object=cell.tree.root.sec(0.5), param='_ref_ik_kap',
-               description='Soma kap_i')
-sim.append_rec(cell, cell.tree.root, loc=0.5, object=cell.tree.root.sec(0.5), param='_ref_ik_kdr',
-               description='Soma kdr_i')
-sim.append_rec(cell, cell.tree.root, loc=0.5, object=cell.tree.root.sec(0.5), param='_ref_gk_km3',
-               description='Soma km_g')
-"""
