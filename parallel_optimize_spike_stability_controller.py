@@ -6,7 +6,6 @@ from ipyparallel import Client
 from IPython.display import clear_output
 from plot_results import *
 import scipy.optimize as optimize
-# import mkl
 
 """
 Aims for spike initiation at initial segment by increasing nax density and decreasing activation V1/2 relative to soma,
@@ -20,8 +19,6 @@ Parallel version dynamically submits jobs to available cores.
 Assumes a controller is already running in another process with:
 ipcluster start -n num_cores
 """
-
-# mkl.set_num_threads(1)
 
 
 def na_ka_stability_error(x, plot=0):
@@ -250,7 +247,7 @@ dv.block = True
 global_start_time = time.time()
 
 dv.execute('run parallel_optimize_spike_stability_engine %i \"%s\"' % (int(spines), mech_filename))
-# time.sleep(60)
+time.sleep(60)
 v = c.load_balanced_view()
 
 
