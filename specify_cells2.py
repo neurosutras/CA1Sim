@@ -2336,7 +2336,11 @@ class QuickSim(object):
             distance = cell.get_distance_to_node(cell.tree.root, node, rec['loc'])
             rec_out.attrs['soma_distance'] = distance
             distance = cell.get_distance_to_node(cell.get_dendrite_origin(node), node, rec['loc'])
+            is_terminal = int(cell.is_terminal(node))
+            branch_order = cell.get_branch_order(node)
             rec_out.attrs['branch_distance'] = distance
+            rec_out.attrs['is_terminal'] = is_terminal
+            rec_out.attrs['branch_order'] = branch_order
             rec_out.attrs['ylabel'] = rec['ylabel']
             rec_out.attrs['units'] = rec['units']
             if 'description' in rec:
