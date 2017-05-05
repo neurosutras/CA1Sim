@@ -3,14 +3,18 @@ from specify_cells2 import *
 import os
 import sys
 from ipyparallel import interactive
-# import mkl
+
 
 """
 Builds a cell locally so each engine is ready to receive jobs one at a time, specified by a value for the amplitude of
 a somatic current injection to test spike shape and stability.
 """
+try:
+    import mkl
+    mkl.set_num_threads(1)
+except:
+    pass
 
-# mkl.set_num_threads(1)
 
 neurotree_filename = '121516_DGC_trees.pkl'
 neurotree_dict = read_from_pkl(morph_dir+neurotree_filename)
@@ -153,7 +157,7 @@ def update_na_ka_stability(x):
         cell.modify_mech_param(sec_type, 'kad', 'gkabar', origin='soma', min_loc=300., value=x[0]+slope*300.,
                                replace=False)
         cell.modify_mech_param(sec_type, 'kdr', 'gkdrbar', origin='soma')
-        cell.modify_mech_param(sec_type, 'nas', 'sha', 0.)
+        cell.modify_mech_param(sec_type, 'nas', 'sha', 5.)
         cell.modify_mech_param(sec_type, 'nas', 'gbar', soma_na_gbar)
     cell.set_terminal_branch_na_gradient()
     cell.reinitialize_subset_mechanisms('axon_hill', 'kap')
@@ -225,7 +229,7 @@ def compute_spike_shape_features(local_x=None, plot=False):
     dend_pre = np.mean(dend_vm[th_x - int(0.2 / dt):th_x - int(0.1 / dt)])
     result['dend_amp'] = (dend_peak - dend_pre) / (peak - threshold)
 
-    #calculate AIS delay
+    # calculate AIS delay
     ais_vm = np.interp(t, sim.tvec, sim.get_rec('ais')['vec'])
     ais_dvdt = np.gradient(ais_vm, dt)
     axon_vm = np.interp(t, sim.tvec, sim.get_rec('axon')['vec'])
@@ -248,6 +252,8 @@ def compute_spike_shape_features(local_x=None, plot=False):
     result['ADP'] = ADP
     result['AHP'] = AHP
     result['amp'] = amp
+    result['spike_count'] = len(spike_times)
+
     return result
 
 

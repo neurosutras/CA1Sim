@@ -13,6 +13,7 @@ import scipy.optimize as optimize
 import scipy.signal as signal
 import random
 import pprint
+import sys
 # from neuron import h  # must be found in system $PYTHONPATH
 
 
@@ -2287,3 +2288,16 @@ class Pr(object):
         self.F += self.f
         self.D *= self.d
         return self.P
+
+
+class Logger(object):
+    def __init__(self, filename):
+        self.terminal = sys.stdout
+        self.log = open(filename, "a")
+
+    def write(self, message):
+        self.terminal.write(message)
+        self.log.write(message)
+
+    def flush(self):
+        self.terminal.flush()

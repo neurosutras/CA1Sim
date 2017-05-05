@@ -63,7 +63,6 @@ def na_ka_stability_error(x, plot=0):
         return Err
     final_result = result
     rheobase = result['amp']
-    final_result['ais_delay'] = result['ais_delay']
     if plot:
         c[0].apply(parallel_optimize_spike_stability_engine.export_sim_results)
     result = v.map_async(parallel_optimize_spike_stability_engine.compute_spike_stability_features,
@@ -103,7 +102,8 @@ def na_ka_stability_error(x, plot=0):
     temp_dict['rate'] = map(temp_dict['rate'].__getitem__, indexes)
     target_f_I = experimental_f_I_slope * np.log(temp_dict['amp'][0] / rheobase)
     final_result['rate'] = temp_dict['rate'][0]
-    f_I_Err = ((temp_dict['rate'][0] - target_f_I) / (0.001 * target_f_I))**2.
+    f_I_Err = ((final_result['rate'] - target_f_I) / (0.001 * target_f_I))**2.
+    f_I_Err += ((final_result['spike_count'] - 1.) / 0.01)**2.
     Err = f_I_Err
     for target in final_result:
         if target not in hist.features:
@@ -231,14 +231,16 @@ hist.xlabels = xlabels['na_ka_stability']
 # x0['na_ka_stability'] = [4.269E-02, 1.022E-02, 4.073E+00, 1.326E+00, 1.395E+00, 7.338E-01, 1.398E+00, 6.896E-04]
 # Err: 2.3989E+06
 # x0['na_ka_stability'] = [2.312E-02, 1.441E-02, 5.411E+00, 1.535E+00, 2.582E+00, 6.474E-01, 1.474E+00, 2.649E-03]
-x0['na_ka_stability'] = [2.434E-02, 1.133E-02, 5.403E+00, 1.569E+00, 2.375E+00, 1.902E-01, 1.371E+00, 2.903E-03]
+# x0['na_ka_stability'] = [2.434E-02, 1.133E-02, 5.403E+00, 1.569E+00, 2.375E+00, 1.902E-01, 1.371E+00, 2.903E-03]
 # Err: 1.2453E+05
+x0['na_ka_stability'] = [2.108E-02, 4.299E-02, 1.219E+00, 1.225E+00, 1.285E-01, 3.364E-01, 4.096E+00, 4.286E-03]
+# Err: 4.6192E+05
 xmin['na_ka_stability'] = [0.01, 0.01, 0.1, 1., 0.1, 0.1, 0.1, 0.0005]
 xmax['na_ka_stability'] = [0.05, 0.05, 6., 3., 5., 5., 5., 0.005]
 
 max_niter = 1500  # max number of iterations to run
 ninterval = max_niter / 50
-niter_success = 400  # max number of iterations without significant progress before aborting optimization
+niter_success = 600  # max number of iterations without significant progress before aborting optimization
 
 take_step = Normalized_Step(x0['na_ka_stability'], xmin['na_ka_stability'], xmax['na_ka_stability'])
 minimizer_kwargs = dict(method=null_minimizer)
