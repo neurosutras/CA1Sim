@@ -46,6 +46,13 @@ while not result.ready():
     clear_output()
 results = result.get()
 print 'Parallel execution took:', time.time()-start_time, 's'
+
+rec_file_list = [filename for filename in dv['rec_filename'] if os.path.isfile(data_dir+filename+'.hdf5')]
+combine_output_files(rec_file_list, new_rec_filename)
+for filename in rec_file_list:
+    os.remove(data_dir+filename+'.hdf5')
+
+"""
 distances = {}
 param_vals = {}
 for result in results:
@@ -57,7 +64,7 @@ for param_name in parallel_optimize_EPSP_amp_engine_GC.param_names:
         param_vals[sec_type][param_name] = []
 for result in results:
     distances[result['sec_type']].append(result['distance'])
-    for i, param_name in enumerate(parallel_optimize_EPSP_amp_engine_GC.param_names):
+    for  i, param_name in enumerate(parallel_optimize_EPSP_amp_engine_GC.param_names):
         param_vals[result['sec_type']][param_name].append(result['result'][i])
 with h5py.File(data_dir+new_rec_filename+'.hdf5', 'w') as f:
     f.attrs['syn_type'] = parallel_optimize_EPSP_amp_engine_GC.syn_type
@@ -69,4 +76,5 @@ with h5py.File(data_dir+new_rec_filename+'.hdf5', 'w') as f:
         for param_name in param_vals[sec_type]:
             f[sec_type].create_dataset(param_name, compression='gzip', compression_opts=9,
                                        data=param_vals[sec_type][param_name])
-plot_synaptic_parameter(new_rec_filename)
+"""
+# plot_synaptic_parameter_GC(new_rec_filename, parallel_optimize_EPSP_amp_engine_GC.param_names)

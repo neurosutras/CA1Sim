@@ -59,8 +59,8 @@ def optimize_single_synapse(syn_index):
     #result = optimize.minimize(epsp_amp_error, x0, method='L-BFGS-B', args=(syn,), options={'ftol': 1e-3},
     #                           bounds=xbounds)
     # options={'maxfun': 25}
-    result = optimize.minimize(epsp_amp_error, x0, method='Nelder-Mead', args=(syn,), options={'xtol': 1e-7,
-                                                                                    'ftol': 1e-3, 'maxiter': 20})
+    result = optimize.minimize(epsp_amp_error, x0, method='Nelder-Mead', args=(syn,), options={'xatol': 1e-7,
+                                                                                    'fatol': 1e-3, 'maxiter': 20})
     syn.source.play(h.Vector())  # playing an empty vector turns this synapse off for future runs while keeping the
                                  # VecStim source object in existence so it can be activated again
     print 'Process:', os.getpid(), 'optimized Spine:', syn.node.index, 'on Node:', syn.node.parent.parent.name, ' in ' \

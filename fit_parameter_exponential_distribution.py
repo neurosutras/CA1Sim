@@ -13,7 +13,8 @@ import scipy.stats as stats
 # rec_filename = '072515 optimized basal ka_scale dend_sh_ar_nas - EB2 - AMPAR_scaling'
 # rec_filename = '102915 interim dendritic excitability - AMPAR_scaling'
 # rec_filename = '012816 altered intrinsic properties - AMPAR_scaling'
-rec_filename = '020516 altered km2 rinp - AMPAR_scaling'
+# rec_filename = '020516 altered km2 rinp - AMPAR_scaling'
+rec_filename = '042617 GC optimizing spike stability - AMPAR_scaling'
 
 def fit_exp_linear(t, y, y0=0):
     """
@@ -28,15 +29,16 @@ def fit_exp_linear(t, y, y0=0):
     return np.exp(logA), 1/tau
 
 
-def exp_offset(x, y0, slope, tau):
+def exp_offset(x, y0, x0, slope, tau):
     """
 
     :param x:
     :param y0:
+    :param x0:
     :param slope:
     :return:
     """
-    return y0 + slope * (np.exp(x/tau) - 1.)
+    return y0 + slope * (np.exp((x-x0)/tau) - 1.)
 
 def fit_synaptic_parameter_distribution(rec_filename, sec_type, syn_type, param_name):
     """
@@ -92,10 +94,10 @@ def fit_synaptic_parameter_distribution2(rec_filename, sec_type, syn_type, param
             sorted_dataset = np.array(map(dataset.__getitem__, indexes))
             interp_distances = np.arange(0, sorted_distances[-1], 1.)
 
-            popt, pcov = optimize.curve_fit(exp_offset, sorted_distances, sorted_dataset, p0=[7.e-4, 1.e-4, 89.])
+            popt, pcov = optimize.curve_fit(exp_offset, sorted_distances, sorted_dataset, p0=[7.e-4, 0., 1.e-4, 89.])
 
-            y0, A, tau = popt
-            fit = (y0 - A) + A * np.exp(interp_distances/tau)
+            y0, x0, A, tau = popt
+            fit = (y0 - A) + A * np.exp((interp_distances-x0)/tau)
 
             plt.scatter(sorted_distances, sorted_dataset, label=syn_type+': '+param_name)
             plt.plot(interp_distances, fit, label='fit')
@@ -106,7 +108,7 @@ def fit_synaptic_parameter_distribution2(rec_filename, sec_type, syn_type, param
             plt.show()
         else:
             raise Exception('rec_filename is not formatted correctly or does not contain the specified data.')
-    return [y0, A, tau]
+    return [y0, x0, A, tau]
 
 
 """
@@ -123,6 +125,10 @@ basal_av = np.mean([basal_EB1, basal_EB2], axis=0)
 x_av = basal_av
 """
 
-result = [y0, A, tau] = fit_synaptic_parameter_distribution2(rec_filename, 'trunk', 'AMPA_KIN', 'gmax')
-#x = fit_synaptic_parameter_distribution(rec_filename, 'basal', 'AMPA_KIN', 'gmax')
+# CA1 Pyramidal Cells
+# result = [y0, A, tau] = fit_synaptic_parameter_distribution2(rec_filename, 'trunk', 'AMPA_KIN', 'gmax')
+# x = fit_synaptic_parameter_distribution(rec_filename, 'basal', 'AMPA_KIN', 'gmax')
+
+# DG Granule Cells
+result = [y0, A, tau] = fit_synaptic_parameter_distribution2(rec_filename, 'apical', 'AMPA_KIN', 'gmax')
 print result

@@ -93,7 +93,7 @@ def stimulate_single_synapse(syn_index):
 
 equilibrate = 250.  # time to steady-state
 duration = 450.
-v_init = -67.
+v_init = -77.
 NMDA_type = 'NMDA_KIN5'
 #syn_types = ['AMPA_KIN', NMDA_type]
 syn_types = ['AMPA_KIN']
