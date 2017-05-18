@@ -6,7 +6,7 @@ import matplotlib as mpl
 import numpy as np
 import scipy.signal as signal
 import scipy.stats as stats
-from specify_cells2 import *
+# from specify_cells2 import *
 
 mpl.rcParams['svg.fonttype'] = 'none'
 mpl.rcParams['font.size'] = 14.
@@ -1710,7 +1710,7 @@ def plot_synaptic_parameter_GC(rec_file_list, param_names=None, description_list
 
 
 def plot_synaptic_param_distribution(cell, syn_type, param_name, scale_factor=1., param_label=None,
-                                 ylabel='Peak conductance', yunits='uS', svg_title=None, spines=False):
+                                 ylabel='Peak conductance', yunits='uS', svg_title=None):
     """
     Takes a cell as input rather than a file. No simulation is required, this method just takes a fully specified cell
     and plots the relationship between distance and the specified synaptic parameter for all spines. Used while
@@ -1738,16 +1738,15 @@ def plot_synaptic_param_distribution(cell, syn_type, param_name, scale_factor=1.
         param_vals = []
 
         for branch in cell.get_nodes_of_subtype(sec_type):
-            if spines:
-                for spine in branch.spines:
-                    syn_list.extend(spine.synapses)
-            else:
-                syn_loc_list = branch.synapse_locs['excitatory']
-                for syn_loc in syn_loc_list:
-                    syn = Synapse(cell, branch, syn_type, loc=syn_loc, stochastic=0)
-                    syn_list.extend(syn)
+            for spine in branch.spines:
+                syn_list.extend(spine.synapses)
+            syn_list.extend(branch.synapses)
         for syn in [syn for syn in syn_list if syn_type in syn._syn]:
-            distances.append(cell.get_distance_to_node(cell.tree.root, syn.node.parent.parent, syn.loc))
+            if syn.node.type == 'spine_head':
+                this_distance = cell.get_distance_to_node(cell.tree.root, syn.node.parent.parent, syn.loc)
+            else:
+                this_distance = cell.get_distance_to_node(cell.tree.root, syn.node, syn.loc)
+            distances.append(this_distance)
             if sec_type == 'basal':
                     distances[-1] *= -1
             param_vals.append(getattr(syn.target(syn_type), param_name) * scale_factor)

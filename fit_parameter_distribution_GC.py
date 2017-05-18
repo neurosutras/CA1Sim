@@ -43,10 +43,10 @@ def select_synpases_for_fitting(rec_filename, syn_type, param_name, branch_cutof
             input_loc = sim.attrs['input_loc']
             is_terminal = sim['rec']['2'].attrs['is_terminal']
             branch_order = sim['rec']['2'].attrs['branch_order']
-            #if branch_order <= branch_cutoff and not is_terminal:
+            if branch_order <= branch_cutoff and not is_terminal:
             #found that all branches with order >=5 are terminal
             # if not is_terminal:
-            if branch_order <= branch_cutoff or not is_terminal:
+            #if branch_order <= branch_cutoff or not is_terminal:
             # more error
                 distances.append(sim['rec']['2'].attrs['soma_distance'])
                 dataset.append(sim.attrs[param_name])
@@ -86,3 +86,5 @@ def fit_synaptic_parameter_distribution(sorted_dataset, sorted_distances, syn_ty
 sorted_dataset, sorted_distances, syn_type, param_name = select_synpases_for_fitting(rec_filename, 'AMPA_KIN', 'gmax', 5)
 result = [y0, x0, A, tau] = fit_synaptic_parameter_distribution(sorted_dataset, sorted_distances, syn_type, param_name)
 print result
+
+#[y0, x0, A, tau] = [0.0017237199429116546, 14.361692003965528, 7.977391921662206e-05, 79.081981369526119]

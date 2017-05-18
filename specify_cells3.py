@@ -792,67 +792,68 @@ class HocCell(object):
         :param syn_type: str
         :param donor: :class:'SHocNode' or None
         """
-        if 'custom' in rules.keys():
-            method_exists = hasattr(self, rules['custom'])
+        if 'custom' in rules:
+            method_exists = hasattr(self, rules['custom']['method'])
             if method_exists:
-                method_to_call = getattr(self, rules['custom'])
+                method_to_call = getattr(self, rules['custom']['method'])
                 method_to_call(node, param_name, baseline, rules, syn_type, donor)
             else:
                 raise Exception('The custom method is not defined for this cell type.')
-        syn_list = []
-        syn_list.extend(node.synapses)
-        for spine in node.spines:
-            syn_list.extend(spine.synapses)
-        if 'min_loc' in rules:
-            min_distance = rules['min_loc']
         else:
-            min_distance = 0.
-        if 'max_loc' in rules:
-            max_distance = rules['max_loc']
-        else:
-            max_distance = None
-        if 'variance' in rules and rules['variance'] == 'normal':
-            normal = True
-        else:
-            normal = False
-        for syn in syn_list:
-            if syn_type in syn._syn:  # not all synapses contain every synaptic mechanism
-                target = syn.target(syn_type)
-                if donor is None:
-                    if normal:
-                        value = self.random.normal(baseline, baseline / 6.)
-                        setattr(target, param_name, value)
-                    else:
-                        setattr(target, param_name, baseline)
-                else:
-                    distance = self.get_distance_to_node(donor, node, syn.loc)
-                    # note: if only some synapses in a section meet the location constraints, the synaptic parameter
-                    # will maintain its default value in all other locations. values for other locations must be
-                    # specified with an additional entry in the mechanism dictionary
-                    if distance >= min_distance and (max_distance is None or distance <= max_distance):
-                        if 'slope' in rules:
-                            distance -= min_distance
-                            if 'tau' in rules:  # exponential gradient
-                                if 'xhalf' in rules:  # sigmoidal gradient
-                                    offset = baseline - rules['slope'] / (1. + np.exp(rules['xhalf'] / rules['tau']))
-                                    value = offset + rules['slope'] / (1. + np.exp((rules['xhalf'] - distance) /
-                                                                                   rules['tau']))
-                                else:
-                                    offset = baseline - rules['slope']
-                                    value = offset + rules['slope'] * np.exp(distance / rules['tau'])
-                            else:  # linear gradient
-                                value = baseline + rules['slope'] * distance
-                            if 'min' in rules and value < rules['min']:
-                                value = rules['min']
-                            # elif value < 0.:
-                            #    value = 0.
-                            elif 'max' in rules and value > rules['max']:
-                                value = rules['max']
-                        else:
-                            value = baseline
+            syn_list = []
+            syn_list.extend(node.synapses)
+            for spine in node.spines:
+                syn_list.extend(spine.synapses)
+            if 'min_loc' in rules:
+                min_distance = rules['min_loc']
+            else:
+                min_distance = 0.
+            if 'max_loc' in rules:
+                max_distance = rules['max_loc']
+            else:
+                max_distance = None
+            if 'variance' in rules and rules['variance'] == 'normal':
+                normal = True
+            else:
+                normal = False
+            for syn in syn_list:
+                if syn_type in syn._syn:  # not all synapses contain every synaptic mechanism
+                    target = syn.target(syn_type)
+                    if donor is None:
                         if normal:
-                            value = self.random.normal(value, value / 6.)
-                        setattr(target, param_name, value)
+                            value = self.random.normal(baseline, baseline / 6.)
+                            setattr(target, param_name, value)
+                        else:
+                            setattr(target, param_name, baseline)
+                    else:
+                        distance = self.get_distance_to_node(donor, node, syn.loc)
+                        # note: if only some synapses in a section meet the location constraints, the synaptic parameter
+                        # will maintain its default value in all other locations. values for other locations must be
+                        # specified with an additional entry in the mechanism dictionary
+                        if distance >= min_distance and (max_distance is None or distance <= max_distance):
+                            if 'slope' in rules:
+                                distance -= min_distance
+                                if 'tau' in rules:  # exponential gradient
+                                    if 'xhalf' in rules:  # sigmoidal gradient
+                                        offset = baseline - rules['slope'] / (1. + np.exp(rules['xhalf'] / rules['tau']))
+                                        value = offset + rules['slope'] / (1. + np.exp((rules['xhalf'] - distance) /
+                                                                                       rules['tau']))
+                                    else:
+                                        offset = baseline - rules['slope']
+                                        value = offset + rules['slope'] * np.exp(distance / rules['tau'])
+                                else:  # linear gradient
+                                    value = baseline + rules['slope'] * distance
+                                if 'min' in rules and value < rules['min']:
+                                    value = rules['min']
+                                # elif value < 0.:
+                                #    value = 0.
+                                elif 'max' in rules and value > rules['max']:
+                                    value = rules['max']
+                            else:
+                                value = baseline
+                            if normal:
+                                value = self.random.normal(value, value / 6.)
+                            setattr(target, param_name, value)
 
     def set_special_mech_param_linear_gradient(self, mech_name, param_name, sec_type_list, criterion, end_val):
         """
@@ -925,10 +926,7 @@ class HocCell(object):
         if sec_type in ['spine_head', 'spine_neck']:
             return self.get_dendrite_origin(node.parent, parent_type)
         elif parent_type is not None:
-            if parent_type == sec_type:
-                return node.parent
-            else:
-                return self._get_node_along_path_to_root(node, parent_type)
+            return self._get_node_along_path_to_root(node.parent, parent_type)
         elif sec_type in ['basal', 'trunk', 'axon_hill', 'ais', 'axon']:
             return self._get_node_along_path_to_root(node, 'soma')
         elif sec_type in ['apical', 'tuft']:
@@ -981,6 +979,8 @@ class HocCell(object):
                 return None
             elif node.parent.type == node.type:
                 return self._get_closest_synapse(node.parent, 1., syn_type, downstream=False)
+            else:
+                return None
         else:
             min_distance = 1.
             target_syn = None
@@ -1050,7 +1050,7 @@ class HocCell(object):
             print 'Exception: Cannot set spatial resolution without a specified origin or value'
             raise KeyError
 
-    def modify_mech_param(self, sec_type, mech_name, param_name=None, value=None, origin=None, slope=None, tau=None,
+    def modify_mech_param(self, sec_type, mech_name, param_name=None, custom=None, value=None, origin=None, slope=None, tau=None,
                           xhalf=None, min=None, max=None, min_loc=None, max_loc=None, outside=None, syn_type=None,
                           variance=None,
                           replace=True):
@@ -1096,7 +1096,7 @@ class HocCell(object):
                     raise Exception('Cannot set synaptic mechanism parameter: {} without a specified point '
                                     'process'.format(param_name))
                 else:
-                    self._modify_synaptic_mech_param(sec_type, param_name, value, origin, slope, tau, xhalf, min, max,
+                    self._modify_synaptic_mech_param(sec_type, param_name, custom, value, origin, slope, tau, xhalf, min, max,
                                                      min_loc, max_loc, outside, syn_type, variance, replace)
                     return
             rules = {}
@@ -1106,6 +1106,8 @@ class HocCell(object):
                         mech_name, param_name, origin))
                 else:
                     rules['origin'] = origin
+            if not custom is None:
+                rules['custom'] = custom
             if not value is None:
                 rules['value'] = value
             if not slope is None:
@@ -1177,7 +1179,7 @@ class HocCell(object):
             if verbose:
                 pprint.pprint(self.mech_dict)
 
-    def _modify_synaptic_mech_param(self, sec_type, param_name=None, value=None, origin=None, slope=None, tau=None,
+    def _modify_synaptic_mech_param(self, sec_type, param_name=None, custom=None, value=None, origin=None, slope=None, tau=None,
                                     xhalf=None, min=None, max=None, min_loc=None, max_loc=None, outside=None,
                                     syn_type=None,
                                     variance=None, replace=True):
@@ -1212,6 +1214,8 @@ class HocCell(object):
                     syn_type, param_name, origin))
             else:
                 rules['origin'] = origin
+        if not custom is None:
+            rules['custom'] = custom
         if not value is None:
             rules['value'] = value
         if not slope is None:
@@ -1537,6 +1541,7 @@ class HocCell(object):
                         node.reinit_diam()
             if loop == 0:
                 self.reinit_mechanisms()
+
 
     @property
     def gid(self):
@@ -2729,7 +2734,7 @@ class DG_GC(HocCell):
         self.set_special_mech_param_linear_gradient(na_type, 'gbar', ['apical'],
                                                     self.is_terminal, gmin)
 
-    def set_nonterminal_gmax_gradient(self, node, param_name, baseline, rules, syn_type, donor=None, branch_cutoff=None):
+    def custom_inheritance_by_nonterm_branchord(self, node, param_name, baseline, rules, syn_type, donor=None):
         """
 
         :param node: :class:'SHocNode'
@@ -2738,9 +2743,9 @@ class DG_GC(HocCell):
         :param rules: dict
         :param syn_type: str
         :param donor: :class:'SHocNode' or None
-        :param branch_cutoff: int
         :return:
         """
+        branch_cutoff = rules['custom']['branch_cutoff']
         syn_list = []
         syn_list.extend(node.synapses)
         for spine in node.spines:
@@ -2760,48 +2765,27 @@ class DG_GC(HocCell):
         for syn in syn_list:
             if syn_type in syn._syn:  # not all synapses contain every synaptic mechanism
                 target = syn.target(syn_type)
-                if donor is None:
-                    if normal:
-                        value = self.random.normal(baseline, baseline / 6.)
-                        setattr(target, param_name, value)
-                    else:
-                        setattr(target, param_name, baseline)
-                else:
-                    distance = self.get_distance_to_node(donor, node, syn.loc)
-                    # note: if only some synapses in a section meet the location constraints, the synaptic parameter
-                    # will maintain its default value in all other locations. values for other locations must be
-                    # specified with an additional entry in the mechanism dictionary
-                    if distance >= min_distance and (max_distance is None or distance <= max_distance):
-                        if not node.is_terminal and (branch_cutoff is None or node.branch_order <= branch_cutoff):
-                            if 'slope' in rules:
-                                distance -= min_distance
-                                if 'tau' in rules:  # exponential gradient
-                                    if 'xhalf' in rules:  # sigmoidal gradient
-                                        offset = baseline - rules['slope'] / (1. + np.exp(rules['xhalf'] / rules['tau']))
-                                        value = offset + rules['slope'] / (1. + np.exp((rules['xhalf'] - distance) /
-                                                                                       rules['tau']))
-                                    else:
-                                        offset = baseline - rules['slope']
-                                        value = offset + rules['slope'] * np.exp(distance / rules['tau'])
-                                else:  # linear gradient
-                                    value = baseline + rules['slope'] * distance
-                                if 'min' in rules and value < rules['min']:
-                                    value = rules['min']
-                                # elif value < 0.:
-                                #    value = 0.
-                                elif 'max' in rules and value > rules['max']:
-                                    value = rules['max']
+                distance = self.get_distance_to_node(self.tree.root, node, syn.loc)
+                # note: if only some synapses in a section meet the location constraints, the synaptic parameter
+                # will maintain its default value in all other locations. values for other locations must be
+                # specified with an additional entry in the mechanism dictionary
+                if distance >= min_distance and (max_distance is None or distance <= max_distance):
+                    if self.is_terminal(node) or (branch_cutoff is not None and self.get_branch_order(node) > branch_cutoff):
+                        source = self._get_closest_synapse(node.parent, 1., syn_type=syn_type, downstream=False)
+                        if source is not None:
+                            setattr(target, param_name, getattr(source.target(syn_type), param_name))
+                        else:
+                            if 'min' in rules and value < rules['min']:
+                                value = rules['min']
+                            # elif value < 0.:
+                            #    value = 0.
+                            elif 'max' in rules and value > rules['max']:
+                                value = rules['max']
                             else:
                                 value = baseline
                             if normal:
                                 value = self.random.normal(value, value / 6.)
                             setattr(target, param_name, value)
-                        else:
-                            source = self.get_dendrite_origin(node, parent_type=node.type)
-                            if branch_cutoff is not None:
-                                while source.branch_order > branch_cutoff:
-                                    source = self.get_dendrite_origin(node, parent_type=node.type)
-                            setattr(target, param_name, source.value)
 
 #Write a function that, given the location of a node (or section?), applies the rules and returns the value of the parameter at that location.
 #This function will be in the general SHoc Cell class.
@@ -2813,6 +2797,3 @@ class DG_GC(HocCell):
 
 #Special function: checks whether the node fits certain criteria. If yes, applies a special rule. Otherwise, it calls the generic
 #function to calculate the correct value of the parameter.
-
-
-
