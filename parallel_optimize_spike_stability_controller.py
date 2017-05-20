@@ -100,7 +100,7 @@ def na_ka_stability_error(x, plot=0):
     target_f_I = experimental_f_I_slope * np.log(temp_dict['amp'][0] / rheobase)
     final_result['rate'] = temp_dict['rate'][0]
     f_I_Err = ((final_result['rate'] - target_f_I) / (0.001 * target_f_I))**2.
-    f_I_Err += ((final_result['spike_count'] - 1.) / 0.01)**2.
+    f_I_Err += ((final_result['spike_count'] - 1.) / 0.002)**2.
     Err = f_I_Err
     for target in final_result:
         if target not in hist.features:
@@ -111,13 +111,6 @@ def na_ka_stability_error(x, plot=0):
         if not ((target == 'AHP' and final_result[target] < target_val['na_ka'][target]) or
                 (target == 'slow_depo' and final_result[target] < target_val['na_ka'][target])):
             Err += ((target_val['na_ka'][target] - final_result[target])/target_range['na_ka'][target])**2.
-            if target not in hist.features:
-                hist.features[target] = []
-            hist.features[target].append(final_result[target])
-    if 'rate' not in hist.features:
-        hist.features['rate'] = []
-    hist.features['rate'].append(final_result['rate'])
-
     print 'Simulation took %i s' % (time.time()-start_time)
     print 'Process %i: [soma.gkabar, soma.gkdrbar, soma.sh_nas/x, axon.gkbar factor, dend.gkabar factor, ' \
           'soma.gCa factor, soma.gCadepK factor, soma.gkmbar]: %s, amp: %.3f, v_rest: %.1f, threshold: %.1f, ' \
@@ -233,7 +226,7 @@ hist.xlabels = xlabels['na_ka_stability']
 x0['na_ka_stability'] = [2.108E-02, 4.299E-02, 1.219E+00, 1.225E+00, 1.285E-01, 3.364E-01, 4.096E+00, 4.286E-03]
 # Err: 4.6192E+05
 xmin['na_ka_stability'] = [0.01, 0.01, 0.1, 1., 0.1, 0.1, 0.1, 0.0005]
-xmax['na_ka_stability'] = [0.05, 0.05, 6., 3., 5., 5., 5., 0.005]
+xmax['na_ka_stability'] = [0.05, 0.06, 6., 3., 5., 5., 5., 0.005]
 
 max_niter = 1500  # max number of iterations to run
 ninterval = max_niter / 50
@@ -247,7 +240,7 @@ dv.block = True
 global_start_time = time.time()
 
 dv.execute('run parallel_optimize_spike_stability_engine %i \"%s\"' % (int(spines), mech_filename))
-time.sleep(60)
+# time.sleep(60)
 v = c.load_balanced_view()
 
 
@@ -259,7 +252,5 @@ print result
 # history_filename = '041917 spike stability optimization history'
 best_x = hist.report_best()
 sys.stdout.flush()
-
 # hist.export_to_pkl(history_filename)
-
 # plot_best(x0['na_ka_stability'])

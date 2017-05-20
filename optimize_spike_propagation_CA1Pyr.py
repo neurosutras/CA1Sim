@@ -25,7 +25,7 @@ else:
 
 
 log_dir = 'data/'
-log_filename = str(time.strftime('%m%d%Y', time.gmtime()))+'_'+str(time.strftime('%H%M%S', time.gmtime()))+\
+log_filename = str(time.strftime('%m%d%Y', time.localtime()))+'_'+str(time.strftime('%H%M%S', time.localtime()))+\
                '_optimize_spike_propagation_CA1Pyr.o'
 
 sys.stdout = Logger(log_dir+log_filename)
@@ -267,7 +267,8 @@ xlabels = {}
 xlabels['ais_delay'] = ['ais.sha_nas', 'ais.gbar_nax']
 
 # x0['ais_delay'] = [-3.6, 0.4]
-x0['ais_delay'] = [-5.540E+00, 3.568E-01]
+# x0['ais_delay'] = [-5.540E+00, 3.568E-01]
+x0['ais_delay'] = [-4.768E+00, 4.595E-01]
 xmin['ais_delay'] = [-6., 1.1*axon_gbar_nax]
 xmax['ais_delay'] = [-1., 6.*axon_gbar_nax]
 
@@ -284,15 +285,15 @@ niter_success = 400  # max number of iterations without significant progress bef
 take_step = Normalized_Step(x0['ais_delay'], xmin['ais_delay'], xmax['ais_delay'])
 minimizer_kwargs = dict(method=null_minimizer)
 
-
+"""
 result = optimize.basinhopping(ais_delay_error, x1, niter=max_niter,
                                niter_success=niter_success, disp=True, interval=20,
                                minimizer_kwargs=minimizer_kwargs, take_step=take_step)
 x1 = result.x
-"""
+
 result = optimize.minimize(ais_delay_error, x1, method='Nelder-Mead', options={'fatol': 1e-4, 'xatol': 1e-3,
                                                                                'disp': True, 'maxiter': niter_success})
-"""
+
 # result = optimize.minimize(ais_delay_error, x1, method='Powell', options={'disp': True, 'maxiter': niter_success})
 # best_x = optimize_ais_delay([-1., 1.1*axon_gbar_nax])
 # best_x = optimize_ais_delay(x0['ais_delay'])
@@ -302,3 +303,4 @@ result = optimize.minimize(ais_delay_error, x1, method='Nelder-Mead', options={'
 # update_ais_delay(best_x)
 # cell.export_mech_dict(cell.mech_filename)
 # ais_delay_error(x1, plot=True)
+"""

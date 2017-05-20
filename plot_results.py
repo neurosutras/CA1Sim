@@ -1,15 +1,14 @@
 __author__ = 'milsteina'
-from function_lib import *
-from matplotlib import cm
-import matplotlib.lines as mlines
 import matplotlib as mpl
-import numpy as np
-import scipy.signal as signal
+import matplotlib.lines as mlines
 import scipy.stats as stats
-from specify_cells2 import *
+import matplotlib.gridspec as gridspec
+from matplotlib import cm
+from function_lib import *
+# from specify_cells2 import *
 
 mpl.rcParams['svg.fonttype'] = 'none'
-mpl.rcParams['font.size'] = 14.
+mpl.rcParams['font.size'] = 12.
 # mpl.rcParams['font.size'] = 14.
 #mpl.rcParams['font.sans-serif'] = 'Arial'
 #mpl.rcParams['font.sans-serif'] = 'Calibri'
