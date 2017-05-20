@@ -213,7 +213,7 @@ xmax1 = [6000., 6000., 1., 1., 1., 2.5]
 
 induction = 1
 
-result = optimize_explore(x0, xmin1, xmax1, ramp_population_error, induction, maxfev=700)
+result = optimize_explore(x0, xmin1, xmax1, ramp_population_error, induction, maxfev=1000)
 x1 = result['x']
 """
 polished_result = optimize_polish(x1, xmin1, xmax1, ramp_population_error, induction, maxfev=600, method='Nelder-Mead')  
