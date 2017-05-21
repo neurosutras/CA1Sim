@@ -18,17 +18,14 @@ try:
 except:
     pass
 
-if len(sys.argv) > 1:
-    experimental_file_dir = sys.argv[1]
-else:
-    experimental_file_dir = data_dir
 
-if len(sys.argv) > 2:
-    cluster_id = sys.argv[2]
+if len(sys.argv) > 1:
+    cluster_id = sys.argv[1]
     c = Client(cluster_id=cluster_id)
 else:
     c = Client()
 
+experimental_file_dir = data_dir
 experimental_filenames = {'cell': '121216 magee lab first induction', 'spont_cell': '120216 magee lab spont'}
 
 cell_ids = []
@@ -46,8 +43,6 @@ global_start_time = time.time()
 for i, engine in enumerate(c):
     engine.execute('run parallel_optimize_BTSP_kinetic_rule_engine_052017 \"%s\" \"%s\"' % (cell_ids[i], labels[i]))
 time.sleep(60)
-
-dv['experimental_file_dir'] = experimental_file_dir
 
 
 class History(object):

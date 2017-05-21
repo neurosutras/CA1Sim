@@ -13,10 +13,9 @@
 set -x
 
 cd $HOME/CA1Sim
-data_dir="data/"
 cluster_id="$1"
 ipcontroller --ip='*' --quiet --cluster-id=$cluster_id &
 sleep 60
-mpirun -np 30 ipengine --quiet --cluster-id=$cluster_id &
+mpirun -np 2 ipengine --quiet --cluster-id=$cluster_id &
 sleep 60
-python parallel_optimize_BTSP_kinetic_rule_controller_052017.py "$data_dir" $cluster_id
+python parallel_optimize_BTSP_kinetic_rule_controller_052017.py $cluster_id
