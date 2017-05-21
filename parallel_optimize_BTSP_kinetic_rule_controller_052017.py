@@ -20,7 +20,17 @@ except:
 
 
 if len(sys.argv) > 1:
-    cluster_id = sys.argv[1]
+    cell_id = str(sys.argv[1])
+else:
+    cell_id = '1'
+
+if len(sys.argv) > 2:
+    label = str(sys.argv[2])
+else:
+    label = 'cell'
+
+if len(sys.argv) > 3:
+    cluster_id = sys.argv[3]
     c = Client(cluster_id=cluster_id)
 else:
     c = Client()
@@ -40,8 +50,8 @@ dv = c[:]
 dv.block = True
 global_start_time = time.time()
 
-for i, engine in enumerate(c):
-    engine.execute('run parallel_optimize_BTSP_kinetic_rule_engine_052017 \"%s\" \"%s\"' % (cell_ids[i], labels[i]))
+for i in range(len(c)):
+    c[i].execute('run parallel_optimize_BTSP_kinetic_rule_engine_052017 %s %s' % (cell_ids[i], labels[i]))
 time.sleep(60)
 
 
@@ -207,6 +217,7 @@ xmin1 = [100., 100., 0., 0., 0., 1.5]
 xmax1 = [6000., 6000., 1., 1., 1., 2.5]
 
 induction = 1
+
 
 result = optimize_explore(x0, xmin1, xmax1, ramp_population_error, induction, maxfev=1000)
 x1 = result['x']

@@ -20,7 +20,7 @@ except:
 if len(sys.argv) > 1:
     cell_id = str(sys.argv[1])
 else:
-    cell_id = None
+    cell_id = '1'
 
 experimental_filenames = {'cell': '121216 magee lab first induction', 'spont_cell': '120216 magee lab spont'}
 

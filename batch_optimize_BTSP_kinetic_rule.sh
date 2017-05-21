@@ -12,10 +12,12 @@
 #
 set -x
 
-cd $HOME/CA1Sim
+# cd $HOME/CA1Sim
 cluster_id="$1"
+null_cell_id=1
+null_label=cell
 ipcontroller --ip='*' --quiet --cluster-id=$cluster_id &
 sleep 60
-mpirun -np 2 ipengine --quiet --cluster-id=$cluster_id &
+mpirun -np 30 ipengine --quiet --cluster-id=$cluster_id &
 sleep 60
-python parallel_optimize_BTSP_kinetic_rule_controller_052017.py $cluster_id
+python parallel_optimize_BTSP_kinetic_rule_controller_052017.py $null_cell_id $null_label $cluster_id
