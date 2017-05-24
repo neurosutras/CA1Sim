@@ -25,8 +25,8 @@ else:
 if len(sys.argv) > 2:
     mech_filename = str(sys.argv[2])
 else:
-    # mech_filename = '042117 GC optimizing spike stability'
-    mech_filename = '042617 GC optimizing spike stability'
+    # mech_filename = '042617 GC optimizing spike stability'
+    mech_filename = '051917 GC optimizing EPSP'
 if len(sys.argv) > 3:
     cluster_id = sys.argv[3]
     c = Client(cluster_id=cluster_id)

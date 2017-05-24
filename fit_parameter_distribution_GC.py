@@ -10,8 +10,20 @@ import scipy.stats as stats
 rec_filename = '042617 GC optimizing spike stability - AMPAR_scaling'
 
 
-
+"""
 def exp_offset(x, y0, x0, slope, tau):
+
+
+    :param x:
+    :param y0:
+    :param x0:
+    :param slope:
+    :return:
+
+    return y0 + slope * (np.exp((x-x0)/tau) - 1.)
+"""
+
+def exp_offset(x, y0, slope, tau):
     """
 
     :param x:
@@ -20,7 +32,7 @@ def exp_offset(x, y0, x0, slope, tau):
     :param slope:
     :return:
     """
-    return y0 + slope * (np.exp((x-x0)/tau) - 1.)
+    return y0 + slope * (np.exp((x)/tau) - 1.)
 
 def select_synpases_for_fitting(rec_filename, syn_type, param_name, branch_cutoff):
     """
@@ -31,6 +43,7 @@ def select_synpases_for_fitting(rec_filename, syn_type, param_name, branch_cutof
     :param param_name:
     :return:
     """
+    node_list = []
     with h5py.File(data_dir+rec_filename+'.hdf5', 'r') as f:
         if 'syn_type' in f.itervalues().next().attrs.keys():
             if f.itervalues().next().attrs['syn_type'] != syn_type:
@@ -45,15 +58,17 @@ def select_synpases_for_fitting(rec_filename, syn_type, param_name, branch_cutof
             branch_order = sim['rec']['2'].attrs['branch_order']
             if branch_order <= branch_cutoff and not is_terminal:
             #found that all branches with order >=5 are terminal
-            # if not is_terminal:
+            #if not is_terminal:
             #if branch_order <= branch_cutoff or not is_terminal:
             # more error
+                node_list.append(sim['rec']['2'].attrs['index'])
                 distances.append(sim['rec']['2'].attrs['soma_distance'])
                 dataset.append(sim.attrs[param_name])
         indexes = range(len(distances))
         indexes.sort(key=distances.__getitem__)
         sorted_distances = np.array(map(distances.__getitem__, indexes))
         sorted_dataset = np.array(map(dataset.__getitem__, indexes))
+    print set(node_list)
     return sorted_dataset, sorted_distances, syn_type, param_name
 
 
@@ -66,10 +81,10 @@ def fit_synaptic_parameter_distribution(sorted_dataset, sorted_distances, syn_ty
     :param param_name: str
     """
     interp_distances = np.arange(0, sorted_distances[-1], 1.)
-    popt, pcov = optimize.curve_fit(exp_offset, sorted_distances, sorted_dataset, p0=[7.e-4, 0., 1.e-4, 89.])
+    popt, pcov = optimize.curve_fit(exp_offset, sorted_distances, sorted_dataset, p0=[7.e-4, 0., 89.])
 
-    y0, x0, A, tau = popt
-    fit = (y0 - A) + A * np.exp((interp_distances-x0)/tau)
+    y0, A, tau = popt
+    fit = (y0 - A) + A * np.exp((interp_distances)/tau)
 
     plt.scatter(sorted_distances, sorted_dataset, label=syn_type+': '+param_name)
     plt.plot(interp_distances, fit, label='fit')
@@ -79,12 +94,14 @@ def fit_synaptic_parameter_distribution(sorted_dataset, sorted_distances, syn_ty
     plt.legend(loc="best", scatterpoints=1, frameon=False, framealpha=0.5)
     plt.show()
     print popt, pcov
-    return [y0, x0, A, tau]
+    return [y0, A, tau]
 
 
 # DG Granule Cells
 sorted_dataset, sorted_distances, syn_type, param_name = select_synpases_for_fitting(rec_filename, 'AMPA_KIN', 'gmax', 5)
-result = [y0, x0, A, tau] = fit_synaptic_parameter_distribution(sorted_dataset, sorted_distances, syn_type, param_name)
+result = [y0, A, tau] = fit_synaptic_parameter_distribution(sorted_dataset, sorted_distances, syn_type, param_name)
 print result
 
 #[y0, x0, A, tau] = [0.0017237199429116546, 14.361692003965528, 7.977391921662206e-05, 79.081981369526119]
+#[y0, A, tau] = [  1.71052379e-03   6.65158925e-05   7.90793466e+01]  # 051917
+# min_distance = 140.625, y(min_distance) = 0.0020378

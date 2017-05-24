@@ -77,4 +77,4 @@ with h5py.File(data_dir+new_rec_filename+'.hdf5', 'w') as f:
             f[sec_type].create_dataset(param_name, compression='gzip', compression_opts=9,
                                        data=param_vals[sec_type][param_name])
 """
-# plot_synaptic_parameter_GC(new_rec_filename, parallel_optimize_EPSP_amp_engine_GC.param_names)
+plot_synaptic_parameter_GC(new_rec_filename, parallel_optimize_EPSP_amp_engine_GC.param_names)

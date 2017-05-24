@@ -1,5 +1,6 @@
 __author__ = 'milsteina' and 'Grace Ng'
-from specify_cells2 import *
+# from specify_cells2 import *
+from specify_cells3 import *
 import random
 import os
 import sys
@@ -21,7 +22,8 @@ else:
 if len(sys.argv) > 2:
     mech_filename = str(sys.argv[2])
 else:
-    mech_filename = '042617 GC optimizing spike stability'
+    # mech_filename = '042617 GC optimizing spike stability'
+    mech_filename = '051917 GC optimizing EPSP'
 
 
 def offset_vm(node, loc, index):
@@ -144,7 +146,7 @@ for branch in cell.apical:
             syn_loc = syn_loc_list[0]
             syn = Synapse(cell, branch, syn_types, loc=syn_loc, stochastic=0)
             syn_list.append(syn)
-cell.modify_mech_param('apical', 'synapse', 'gmax', value=0.002, syn_type='AMPA_KIN')
+# cell.modify_mech_param('apical', 'synapse', 'gmax', value=0.002, syn_type='AMPA_KIN')
 cell.init_synaptic_mechanisms()
 
 sim = QuickSim(duration)  # , verbose=False)

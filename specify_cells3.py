@@ -1050,10 +1050,9 @@ class HocCell(object):
             print 'Exception: Cannot set spatial resolution without a specified origin or value'
             raise KeyError
 
-    def modify_mech_param(self, sec_type, mech_name, param_name=None, custom=None, value=None, origin=None, slope=None, tau=None,
+    def modify_mech_param(self, sec_type, mech_name, param_name=None, value=None, origin=None, slope=None, tau=None,
                           xhalf=None, min=None, max=None, min_loc=None, max_loc=None, outside=None, syn_type=None,
-                          variance=None,
-                          replace=True):
+                          variance=None, replace=True, custom=None):
         """
         Modifies or inserts new membrane mechanisms into hoc sections of type sec_type. First updates the mechanism
         dictionary, then sets the corresponding hoc parameters. This method is meant to be called manually during
@@ -1076,6 +1075,7 @@ class HocCell(object):
         :param syn_type: str
         :param variance: str
         :param replace: bool
+        :param custom: dict
         """
         global verbose
         backup_content = None
@@ -1096,8 +1096,8 @@ class HocCell(object):
                     raise Exception('Cannot set synaptic mechanism parameter: {} without a specified point '
                                     'process'.format(param_name))
                 else:
-                    self._modify_synaptic_mech_param(sec_type, param_name, custom, value, origin, slope, tau, xhalf, min, max,
-                                                     min_loc, max_loc, outside, syn_type, variance, replace)
+                    self._modify_synaptic_mech_param(sec_type, param_name, value, origin, slope, tau, xhalf, min, max,
+                                                     min_loc, max_loc, outside, syn_type, variance, replace, custom)
                     return
             rules = {}
             if not origin is None:
@@ -1179,10 +1179,9 @@ class HocCell(object):
             if verbose:
                 pprint.pprint(self.mech_dict)
 
-    def _modify_synaptic_mech_param(self, sec_type, param_name=None, custom=None, value=None, origin=None, slope=None, tau=None,
+    def _modify_synaptic_mech_param(self, sec_type, param_name=None, value=None, origin=None, slope=None, tau=None,
                                     xhalf=None, min=None, max=None, min_loc=None, max_loc=None, outside=None,
-                                    syn_type=None,
-                                    variance=None, replace=True):
+                                    syn_type=None, variance=None, replace=True, custom=None):
 
         """
         Modifies or inserts new synaptic point process mechanisms into hoc sections of type sec_type. First updates the
@@ -1204,6 +1203,7 @@ class HocCell(object):
         :param syn_type: str
         :param variance: str
         :param replace: bool
+        :param custom: dict
         """
         global verbose
         backup_content = None
@@ -2786,14 +2786,3 @@ class DG_GC(HocCell):
                             if normal:
                                 value = self.random.normal(value, value / 6.)
                             setattr(target, param_name, value)
-
-#Write a function that, given the location of a node (or section?), applies the rules and returns the value of the parameter at that location.
-#This function will be in the general SHoc Cell class.
-
-# General SHoc class: take in a custom tag that tells it to call a special function, which
-#checks whether the node falls within certain criteria.
-
-#Then, modify the inheritance function in the SHoc Cell class.
-
-#Special function: checks whether the node fits certain criteria. If yes, applies a special rule. Otherwise, it calls the generic
-#function to calculate the correct value of the parameter.
