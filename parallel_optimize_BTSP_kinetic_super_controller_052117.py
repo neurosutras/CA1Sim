@@ -1,6 +1,6 @@
 __author__ = 'milsteina'
 from function_lib import *
-import parallel_optimize_BTSP
+import parallel_optimize_BTSP_kinetic_sub_controller_052117
 from ipyparallel import Client
 from IPython.display import clear_output
 
@@ -20,39 +20,30 @@ except:
 
 
 if len(sys.argv) > 1:
-    cell_id = str(sys.argv[1])
-else:
-    cell_id = '1'
-
-if len(sys.argv) > 2:
-    label = str(sys.argv[2])
-else:
-    label = 'cell'
-
-if len(sys.argv) > 3:
-    cluster_id = sys.argv[3]
+    cluster_id = sys.argv[1]
     c = Client(cluster_id=cluster_id)
 else:
+    cluster_id = None
     c = Client()
 
-experimental_file_dir = data_dir
-experimental_filenames = {'cell': '121216 magee lab first induction', 'spont_cell': '120216 magee lab spont'}
+if len(sys.argv) > 2:
+    sub_controller_id = int(sys.argv[2])
+else:
+    sub_controller_id = 0
 
-cell_ids = []
-labels = []
+if len(sys.argv) > 3:
+    group_size = int(sys.argv[3])
+else:
+    group_size = 1
 
-for label, experimental_filename in experimental_filenames.iteritems():
-    with h5py.File(experimental_file_dir+experimental_filename+'.hdf5') as f:
-        cell_ids.extend(f.keys())
-        labels.extend([label for i in range(len(f))])
 
-dv = c[:]
-dv.block = True
 global_start_time = time.time()
+dv = c[::group_size]
+dv.block = True
 
-for i in range(len(c)):
-    c[i].execute('run parallel_optimize_BTSP_kinetic_rule_engine_052017 %s %s' % (cell_ids[i], labels[i]))
-time.sleep(60)
+for id in dv.targets:
+    c[id].execute('run parallel_optimize_BTSP_kinetic_sub_controller_052117 %s %i %i ' %
+                  (cluster_id, id, group_size), block=True)
 
 
 class History(object):
@@ -100,58 +91,6 @@ def check_bounds(x, xmin, xmax):
                 (xmax[i] is not None and x[i] > xmax[i])):
             return False
     return True
-
-
-def ramp_population_error(x, xmin, xmax, induction):
-    """
-    Push the specified parameters to the engines. Each engine processes a different cell from an experimental dataset.
-    Calculate the mean error across engines.
-    :param x: array [local_decay_tau, global_decay_tau, local_kon, global_kon, global_koff, saturated_delta_weights]
-    :param xmin: array
-    :param xmax: array
-    :return: float
-    """
-    formatted_x = '[' + ', '.join(['%.3E' % xi for xi in x]) + ']'
-    if induction is None:
-        induction = 1
-    print 'Controller: trying x: %s' % formatted_x
-    if not check_bounds(x, xmin, xmax):
-        print 'Aborting: Invalid parameter values.'
-        hist.x.append(x)
-        hist.Err.append(1e9)
-        return 1e9
-    start_time = time.time()
-    dv['x'] = x
-    dv['induction'] = induction
-    result = c[:].apply(parallel_optimize_BTSP.ramp_error_parametric)
-    last_buffer_len = []
-    ready = False
-    while not ready:
-        try:
-            ready = result.ready()
-            time.sleep(1.)
-            clear_output()
-            for i, stdout in enumerate(result.stdout):
-                if (i + 1) > len(last_buffer_len):
-                    last_buffer_len.append(0)
-                if stdout:
-                    lines = stdout.splitlines()
-                    if len(lines) > last_buffer_len[i]:
-                        for line in lines[last_buffer_len[i]:]:
-                            print line
-                        last_buffer_len[i] = len(lines)
-            sys.stdout.flush()
-        except:
-            ready = True
-    result = result.get()
-    Err = np.mean(result)
-    print result
-    print 'Controller: Mean error: %.4E; calculation of error across all cells took %i s' % (Err,
-                                                                                             time.time() - start_time)
-    sys.stdout.flush()
-    hist.x.append(x)
-    hist.Err.append(Err)
-    return Err
 
 
 def optimize_polish(x, xmin, xmax, error_function, induction=None, maxfev=None, method='Nelder-Mead'):
@@ -219,9 +158,13 @@ xmax1 = [6000., 6000., 1., 1., 1., 2.5]
 induction = 1
 
 
+result = dv.apply_sync(parallel_optimize_BTSP_kinetic_sub_controller_052117.report, x0, induction)
+print result
+
+"""
 result = optimize_explore(x0, xmin1, xmax1, ramp_population_error, induction, maxfev=1000)
 x1 = result['x']
-"""
+
 polished_result = optimize_polish(x1, xmin1, xmax1, ramp_population_error, induction, maxfev=600, method='Nelder-Mead')  
     # method='Powell')
 x1 = polished_result['x']

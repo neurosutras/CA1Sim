@@ -12,7 +12,7 @@
 #
 set -x
 
-# cd $HOME/CA1Sim
+cd $HOME/CA1Sim
 cluster_id="$1"
 null_cell_id=1
 null_label=cell

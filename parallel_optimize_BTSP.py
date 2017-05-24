@@ -1,6 +1,7 @@
 __author__ = 'milsteina'
-from function_lib import  *
+from function_lib import *
 from ipyparallel import interactive
+import click
 
 """
 These methods attempt to fit the experimental BTSP data with a simple 3-state markov-like process model with 
@@ -17,61 +18,211 @@ except:
     pass
 
 
-if len(sys.argv) > 1:
-    cell_id = str(sys.argv[1])
-else:
-    cell_id = '1'
-
+experimental_file_dir = data_dir
 experimental_filenames = {'cell': '121216 magee lab first induction', 'spont_cell': '120216 magee lab spont'}
 
-if len(sys.argv) > 2:
-    label = str(sys.argv[2])
-else:
-    label = 'cell'
+dt = 1.  # ms
+down_dt = 10.  # ms; lower temporal resolution to speed up calculation during optimization
+equilibrate = 250.  # time to steady-state
+global_theta_cycle_duration = 150.  # ms
+input_field_width = 90.  # cm
+track_length = 187.  # cm
 
-if label in ['cell', 'spont_cell']:
-    experimental_filename = experimental_filenames[label]
-else:
-    raise Exception('Unknown label or category of data.')
+spatial_resolution = 1.  # CA3 place field inputs per cm of linear track
+# generates a predicted 6 mV depolarization from gaussian weights with peak = 2.5
+EPSP_scaling_factor = 3.7635E-03  # may need to be re-determined empirically when spatial resolution changes
 
-experimental_file_dir = data_dir
+binned_dx = track_length / 100.  # cm
+binned_x = np.arange(0., track_length+binned_dx/2., binned_dx)[:100] + binned_dx/2.
+generic_dx = binned_dx / 100.  # cm
+generic_x = np.arange(0., track_length, generic_dx)
 
-# placeholder for parameters pushed from controller
-# [local_decay_tau, global_decay_tau, local_kon, global_kon, global_koff, saturated_delta_weights]
-x = [6.318E+02, 1.707E+02, 3.604E-01, 2.497E-01, 1.020E-01, 2.]
-induction = 1
+default_run_vel = 30.  # cm/s
+generic_position_dt = generic_dx / default_run_vel * 1000.
+generic_t = np.arange(0., len(generic_x)*generic_position_dt, generic_position_dt)[:len(generic_x)]
+generic_track_duration = len(generic_t) * generic_position_dt
+
+default_interp_t = np.arange(0., generic_t[-1], dt)
+default_interp_x = np.interp(default_interp_t, generic_t, generic_x)
+
+extended_x = np.concatenate([generic_x - track_length, generic_x, generic_x + track_length])
+
+position = {}
+ramp = {}
+induction_locs = {}
+induction_durs = {}
+t = {}
+interp_t = {}
+interp_x = {}
+run_vel = {}
+run_vel_gate = {}
+complete_t, complete_x, complete_rate_maps, complete_induction_gates = {}, {}, {}, {}
+
+vel_window_dur = 10.  # ms
+vel_window_bins = int(vel_window_dur / dt) / 2
+
+track_equilibrate = 2. * global_theta_cycle_duration
+track_duration = {}
+
+excitatory_peak_rate = 40.
+v_init = -67.
+
+local_random = random.Random()
+
+gauss_sigma = input_field_width / 3. / np.sqrt(2.)  # contains 99.7% gaussian area
+
+num_inputs = int(track_length * spatial_resolution)
+peak_locs = np.linspace(0., track_length, num_inputs + 1)[:-1]
 
 
-class History(object):
-    def __init__(self):
-        """
+@click.command()
+@click.option("--cluster-id", type=str, default=None)
+@click.option("--group-size", type=int, default=1)
+def main(cluster_id, group_size):
+    """
+    
+    :param cluster_id: str 
+    :param group_size: int
+    """
+    from ipyparallel import Client
 
-        """
-        self.x = []
-        self.Err = []
+    global c
+    global all_engines
+    global sub_clients
 
-    def report_best(self):
-        """
+    if cluster_id is not None:
+        c = Client(cluster_id=cluster_id)
+    else:
+        c = Client()
 
-        :return: array
-        """
-        lowest_Err = min(self.Err)
-        index = self.Err.index(lowest_Err)
-        best_x = self.x[index]
-        formatted_x = '[' + ', '.join(['%.3E' % xi for xi in best_x]) + ']'
-        print 'best x: %s' % formatted_x
-        print 'lowest Err: %.3E' % lowest_Err
-        return best_x
+    all_engines = c[:]
+    all_engines.block = True
+    all_engines.execute('from parallel_optimize_BTSP_kinetic_rule_engine_052017 import *', block=True)
 
-    def export(self, hist_filename):
-        """
-        Save the history to .pkl
-        """
-        saved_history = {'x': self.x, 'Err': self.Err}
-        write_to_pkl(data_dir+hist_filename+'.pkl', saved_history)
+    sub_clients = c[::group_size+1]
+    sub_clients.block = True
+    result = sub_clients.map_sync(init_sub_client, [cluster_id for id in sub_clients.targets], sub_clients.targets,
+                                  [group_size for id in sub_clients.targets])
+    print result
 
 
-hist = History()
+@interactive
+def init_sub_client(cluster_id=None, sub_client_id=0, group_size=1):
+    """
+    
+    :param cluster_id: str 
+    :param sub_client_id: int
+    :param group_size: int
+    :return: 
+    """
+    from ipyparallel import Client
+
+    global c
+    global dv
+
+    if cluster_id is not None:
+        c = Client(cluster_id=cluster_id)
+    else:
+        c = Client()
+    dv = c[sub_client_id+1:sub_client_id+1+group_size]
+
+    cell_ids = []
+    labels = []
+
+    for label, experimental_filename in experimental_filenames.iteritems():
+        with h5py.File(experimental_file_dir + experimental_filename + '.hdf5') as f:
+            cell_ids.extend(f.keys())
+            labels.extend([label for i in range(len(f))])
+
+    result = dv.map_sync(init_engine, cell_ids[:len(dv)], labels[:len(dv)])
+
+    return os.getpid(), dv.targets, result
+
+
+@interactive
+def init_engine(cell_id=None, label=None):
+    """
+    
+    :param cell_id: str 
+    :param label: str
+    """
+    if cell_id is None:
+        raise Exception('Process: %i cannot initialize engine without specifying cell_id and label')
+
+    globals()['cell_id'] = cell_id
+    globals()['label'] = label
+
+    if label in ['cell', 'spont_cell']:
+        experimental_filename = experimental_filenames[label]
+    else:
+        raise Exception('Unknown label or category of data.')
+
+    with h5py.File(experimental_file_dir + experimental_filename + '.hdf5', 'r') as f:
+        sampling_rate = f[cell_id].attrs['sampling_rate']
+        track_length = f[cell_id].attrs['track_length']
+        position_dt = 1000. / sampling_rate  # convert s to ms
+        for induction in f[cell_id]:
+            position[int(induction)] = []
+            induction_locs[int(induction)] = []
+            induction_durs[int(induction)] = []
+            t[int(induction)] = []
+            for trial in f[cell_id][induction]['position'].itervalues():
+                this_position = np.array(trial) / np.max(trial) * track_length
+                position[int(induction)].append(this_position)
+                t[int(induction)].append(
+                    np.arange(0., len(this_position) * position_dt, position_dt)[:len(this_position)])
+                induction_locs[int(induction)].append(trial.attrs['induction_loc'])
+                induction_durs[int(induction)].append(trial.attrs['induction_dur'])
+            ramp[int(induction)] = signal.savgol_filter(f[cell_id][induction]['ramp'][:], 19, 4, mode='wrap')
+
+    for induction in position:
+        interp_t[induction] = []
+        interp_x[induction] = []
+        run_vel[induction] = []
+        run_vel_gate[induction] = []
+        for i in range(len(position[induction])):
+            this_interp_t = np.arange(0., t[induction][i][-1] + dt / 2., dt)
+            interp_t[induction].append(this_interp_t)
+            this_interp_x = np.interp(interp_t[induction][i], t[induction][i], position[induction][i])
+            interp_x[induction].append(this_interp_x)
+            padded_t = np.insert(this_interp_t, 0, this_interp_t[-vel_window_bins - 1:-1] - this_interp_t[-1])
+            padded_t = np.append(padded_t, this_interp_t[1:vel_window_bins + 1] + this_interp_t[-1])
+            padded_x = np.insert(this_interp_x, 0, this_interp_x[-vel_window_bins - 1:-1] - track_length)
+            padded_x = np.append(padded_x, this_interp_x[1:vel_window_bins + 1] + track_length)
+            this_run_vel = []
+            for j in range(vel_window_bins, vel_window_bins + len(this_interp_x)):
+                this_run_vel.append(np.sum(np.diff(padded_x[j - vel_window_bins:j + vel_window_bins + 1])) /
+                                    np.sum(np.diff(padded_t[j - vel_window_bins:j + vel_window_bins + 1])) * 1000.)
+            this_run_vel = np.array(this_run_vel)
+            this_run_vel_gate = np.zeros_like(this_run_vel)
+            this_run_vel_gate[np.where(this_run_vel > 5.)[0]] = 1.
+            run_vel[induction].append(this_run_vel)
+            run_vel_gate[induction].append(this_run_vel_gate)
+
+    for induction in position:
+        track_duration[induction] = [interp_t[induction][i][-1] for i in range(len(position[induction]))]
+
+    global spatial_rate_maps
+    spatial_rate_maps = generate_spatial_rate_maps()  # x=generic_x
+
+    for induction in position:
+        complete_t[induction], complete_x[induction], complete_rate_maps[induction] = \
+            generate_complete_rate_maps(induction, spatial_rate_maps)
+        complete_induction_gates[induction] = generate_complete_induction_gate(induction)
+
+    global input_matrix
+    input_matrix = compute_EPSP_matrix(spatial_rate_maps, generic_x)  # x=default_interp_x
+
+    global baseline
+    baseline = None
+
+    for induction in position:
+        if baseline is None:
+            ramp_baseline_indexes = np.where(np.array(ramp[induction]) <= np.percentile(ramp[induction], 10.))[0]
+            baseline = np.mean(ramp[induction][ramp_baseline_indexes])
+        ignore = subtract_baseline(ramp[induction], baseline)
+
+    return os.getpid(), label, cell_id
 
 
 def calculate_ramp_features(ramp, induction_loc, offset=False):
@@ -129,7 +280,7 @@ def wrap_around_and_compress(waveform, interp_x):
     after = np.array(waveform[2 * len(interp_x):])
     within = np.array(waveform[len(interp_x):2 * len(interp_x)])
     waveform = within[:len(interp_x)] + before[:len(interp_x)] + after[:len(interp_x)]
-    
+
     return waveform
 
 
@@ -243,124 +394,6 @@ def compute_EPSP_matrix(rate_maps, this_interp_x):
         this_EPSP_map = np.convolve(this_EPSP_map, epsp_filter)[:3 * len(default_interp_x)]
         EPSP_maps.append(this_EPSP_map[len(default_interp_x):2 * len(default_interp_x)])
     return np.array(EPSP_maps)
-
-
-dt = 1.  # ms
-down_dt = 10.  # ms; lower temporal resolution to speed up calculation during optimization
-equilibrate = 250.  # time to steady-state
-global_theta_cycle_duration = 150.  # ms
-input_field_width = 90.  # cm
-track_length = 187.  # cm
-
-spatial_resolution = 1.  # CA3 place field inputs per cm of linear track
-# generates a predicted 6 mV depolarization from gaussian weights with peak = 2.5
-EPSP_scaling_factor = 3.7635E-03  # may need to be re-determined empirically when spatial resolution changes
-
-binned_dx = track_length / 100.  # cm
-binned_x = np.arange(0., track_length+binned_dx/2., binned_dx)[:100] + binned_dx/2.
-generic_dx = binned_dx / 100.  # cm
-generic_x = np.arange(0., track_length, generic_dx)
-
-default_run_vel = 30.  # cm/s
-generic_position_dt = generic_dx / default_run_vel * 1000.
-generic_t = np.arange(0., len(generic_x)*generic_position_dt, generic_position_dt)[:len(generic_x)]
-generic_track_duration = len(generic_t) * generic_position_dt
-
-default_interp_t = np.arange(0., generic_t[-1], dt)
-default_interp_x = np.interp(default_interp_t, generic_t, generic_x)
-
-extended_x = np.concatenate([generic_x - track_length, generic_x, generic_x + track_length])
-
-position = {}
-ramp = {}
-induction_locs = {}
-induction_durs = {}
-t = {}
-interp_t = {}
-interp_x = {}
-run_vel = {}
-run_vel_gate = {}
-
-
-if cell_id is not None:
-    with h5py.File(experimental_file_dir+experimental_filename+'.hdf5', 'r') as f:
-        sampling_rate = f[cell_id].attrs['sampling_rate']
-        track_length = f[cell_id].attrs['track_length']
-        position_dt = 1000./sampling_rate  # convert s to ms
-        for induction in f[cell_id]:
-            position[int(induction)] = []
-            induction_locs[int(induction)] = []
-            induction_durs[int(induction)] = []
-            t[int(induction)] = []
-            for trial in f[cell_id][induction]['position'].itervalues():
-                this_position = np.array(trial) / np.max(trial) * track_length
-                position[int(induction)].append(this_position)
-                t[int(induction)].append(
-                    np.arange(0., len(this_position)*position_dt, position_dt)[:len(this_position)])
-                induction_locs[int(induction)].append(trial.attrs['induction_loc'])
-                induction_durs[int(induction)].append(trial.attrs['induction_dur'])
-            ramp[int(induction)] = signal.savgol_filter(f[cell_id][induction]['ramp'][:], 19, 4, mode='wrap')
-
-vel_window_dur = 10.  # ms
-vel_window_bins = int(vel_window_dur/dt)/2
-
-for induction in position:
-    interp_t[induction] = []
-    interp_x[induction] = []
-    run_vel[induction] = []
-    run_vel_gate[induction] = []
-    for i in range(len(position[induction])):
-        this_interp_t = np.arange(0., t[induction][i][-1] + dt / 2., dt)
-        interp_t[induction].append(this_interp_t)
-        this_interp_x = np.interp(interp_t[induction][i], t[induction][i], position[induction][i])
-        interp_x[induction].append(this_interp_x)
-        padded_t = np.insert(this_interp_t, 0, this_interp_t[-vel_window_bins-1:-1] - this_interp_t[-1])
-        padded_t = np.append(padded_t, this_interp_t[1:vel_window_bins+1] + this_interp_t[-1])
-        padded_x = np.insert(this_interp_x, 0, this_interp_x[-vel_window_bins-1:-1] - track_length)
-        padded_x = np.append(padded_x, this_interp_x[1:vel_window_bins+1] + track_length)
-        this_run_vel = []
-        for j in range(vel_window_bins, vel_window_bins+len(this_interp_x)):
-            this_run_vel.append(np.sum(np.diff(padded_x[j - vel_window_bins:j + vel_window_bins + 1])) /
-                                np.sum(np.diff(padded_t[j - vel_window_bins:j + vel_window_bins + 1])) * 1000.)
-        this_run_vel = np.array(this_run_vel)
-        this_run_vel_gate = np.zeros_like(this_run_vel)
-        this_run_vel_gate[np.where(this_run_vel>5.)[0]] = 1.
-        run_vel[induction].append(this_run_vel)
-        run_vel_gate[induction].append(this_run_vel_gate)
-
-
-track_equilibrate = 2. * global_theta_cycle_duration
-track_duration = {induction:
-                      [interp_t[induction][i][-1] for i in range(len(position[induction]))] for induction in position}
-
-excitatory_peak_rate = 40.
-v_init = -67.
-
-local_random = random.Random()
-
-gauss_sigma = input_field_width / 3. / np.sqrt(2.)  # contains 99.7% gaussian area
-
-num_inputs = int(track_length * spatial_resolution)
-peak_locs = np.linspace(0., track_length, num_inputs+1)[:-1]
-
-spatial_rate_maps = generate_spatial_rate_maps()  # x=generic_x
-
-complete_t, complete_x, complete_rate_maps, complete_induction_gates = {}, {}, {}, {}
-for induction in position:
-    complete_t[induction], complete_x[induction], complete_rate_maps[induction] = \
-        generate_complete_rate_maps(induction, spatial_rate_maps)
-    complete_induction_gates[induction] = generate_complete_induction_gate(induction)
-
-input_matrix = compute_EPSP_matrix(spatial_rate_maps, generic_x)  # x=default_interp_x
-
-baseline = None
-for induction in position:
-    if baseline is None:
-        ramp_baseline_indexes = np.where(np.array(ramp[induction]) <= np.percentile(ramp[induction], 10.))[0]
-        baseline = np.mean(ramp[induction][ramp_baseline_indexes])
-    ignore = subtract_baseline(ramp[induction], baseline)
-
-print 'Process: %i ready to optimize %s %s' % (os.getpid(), label, cell_id)
 
 
 @interactive
@@ -503,11 +536,11 @@ def calculate_delta_weights(x, local_kernel, global_kernel, complete_rate_maps, 
 
 
 @interactive
-def ramp_error_parametric(local_x=None, local_induction=None, baseline=None, plot=False, full_output=False):
+def ramp_error_parametric(x, induction=None, baseline=None, plot=False, full_output=False):
     """
     Given a set of model parameters, and run velocities during plasticity induction, this method calculates a set of 
     synaptic weights consistent with the provided experimental ramp data.
-    :param local_x: array [local_decay_tau, global_decay_tau, local_kon, global_kon, global_koff, 
+    :param x: array [local_decay_tau, global_decay_tau, local_kon, global_kon, global_koff, 
                             saturated_delta_weights]
     :param induction: int: key for dicts of arrays
     :param baseline: float
@@ -515,20 +548,16 @@ def ramp_error_parametric(local_x=None, local_induction=None, baseline=None, plo
     :param full_output: bool: whether to return all relevant objects (True), or just Err (False)
     :return: float
     """
-    if local_x is None:
-        local_x = x
-    formatted_x = '[' + ', '.join(['%.3E' % xi for xi in local_x]) + ']'
-    if local_induction is None:
-        local_induction = induction
-    this_induction_loc = np.mean([induction_loc for induction_loc in induction_locs[local_induction] if
+    formatted_x = '[' + ', '.join(['%.3E' % xi for xi in x]) + ']'
+    this_induction_loc = np.mean([induction_loc for induction_loc in induction_locs[induction] if
                                   induction_loc is not None])
     # print 'Process: %i trying x: %s for %s %s, induction_loc: %.1f' % (os.getpid(), formatted_x, label, cell_id,
                                                                        # this_induction_loc)
     sys.stdout.flush()
-    exp_ramp = np.array(ramp[local_induction])
+    exp_ramp = np.array(ramp[induction])
     start_time = time.time()
     local_kernel, global_kernel = build_kernels(x, plot)
-    delta_weights, state_machine_output = calculate_delta_weights(local_x, local_kernel, global_kernel, complete_rate_maps,
+    delta_weights, state_machine_output = calculate_delta_weights(x, local_kernel, global_kernel, complete_rate_maps,
                                                                   induction, plot, full_output)
     # print 'Process: %i calculated synaptic weights in %i s' % (os.getpid(), time.time() - start_time)
     sys.stdout.flush()
@@ -604,8 +633,6 @@ def ramp_error_parametric(local_x=None, local_induction=None, baseline=None, plo
     print 'model: amp: %.1f, ramp_width: %.1f, peak_shift: %.1f, asymmetry: %.1f, start_loc: %.1f, end_loc: %.1f' % \
           (amp['model'], width['model'], peak_shift['model'], ratio['model'], start_loc['model'], end_loc['model'])
     sys.stdout.flush()
-    hist.x.append(local_x)
-    hist.Err.append(Err)
     if full_output:
         return local_kernel, global_kernel, weights, model_ramp, model_baseline, Err, state_machine_output
     else:
@@ -744,16 +771,11 @@ def estimate_weights_nonparametric(ramp, input_matrix, induction=None, baseline=
 
 
 @interactive
-def process_local(output_filename=None, plot=False, local_x=None):
+def process_local(x, output_filename=None, plot=False):
     """
     
     :return: 
     """
-    if local_x is None:
-        x = x
-    else:
-        x = local_x
-
     local_kernel = {}
     global_kernel = {}
     weights_parametric = {}
@@ -874,4 +896,8 @@ def process_local(output_filename=None, plot=False, local_x=None):
                 for key, value in state_machine_output[induction].iteritems():
                     f[label][cell_id][induction]['states'].create_dataset(key, compression='gzip', compression_opts=9,
                                                   data=value)
+
+
+if __name__ == '__main__':
+    main()
 
