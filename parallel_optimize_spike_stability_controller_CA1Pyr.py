@@ -1,4 +1,4 @@
-__author__ = 'Grace Ng'
+__author__ = 'Aaron D. Milstein'
 import parallel_optimize_spike_stability_engine_CA1Pyr
 import sys
 import os
@@ -6,7 +6,7 @@ from ipyparallel import Client
 from IPython.display import clear_output
 from plot_results import *
 import scipy.optimize as optimize
-# import mkl
+
 
 """
 Aims for spike initiation at initial segment by increasing nax density and decreasing activation V1/2 relative to soma,
@@ -20,8 +20,6 @@ Parallel version dynamically submits jobs to available cores.
 Assumes a controller is already running in another process with:
 ipcluster start -n num_cores
 """
-
-# mkl.set_num_threads(1)
 
 
 def na_ka_stability_error(x, plot=0):
@@ -63,7 +61,6 @@ def na_ka_stability_error(x, plot=0):
         return Err
     final_result = result
     rheobase = result['amp']
-    final_result['ais_delay'] = result['ais_delay']
     if plot:
         c[0].apply(parallel_optimize_spike_stability_engine_CA1Pyr.export_sim_results)
     result = v.map_async(parallel_optimize_spike_stability_engine_CA1Pyr.compute_spike_stability_features,
@@ -103,7 +100,8 @@ def na_ka_stability_error(x, plot=0):
     temp_dict['rate'] = map(temp_dict['rate'].__getitem__, indexes)
     target_f_I = experimental_f_I_slope * np.log(temp_dict['amp'][0] / rheobase)
     final_result['rate'] = temp_dict['rate'][0]
-    f_I_Err = ((temp_dict['rate'][0] - target_f_I) / (0.01 * target_f_I))**2.
+    f_I_Err = ((final_result['rate'] - target_f_I) / (0.001 * target_f_I))**2.
+    f_I_Err += ((final_result['spike_count'] - 1.) / 0.01)**2.
     Err = f_I_Err
     for target in final_result:
         if target not in hist.features:
@@ -195,7 +193,7 @@ else:
 if len(sys.argv) > 2:
     mech_filename = str(sys.argv[2])
 else:
-    mech_filename = '042817 CA1Pyr optimizing spike stability'
+    mech_filename = '050317 CA1Pyr optimizing spike stability'
 if len(sys.argv) > 3:
     cluster_id = sys.argv[3]
     c = Client(cluster_id=cluster_id)
@@ -212,13 +210,15 @@ hist.xlabels = xlabels['na_ka_stability']
 # [soma.gkabar, soma.gkdrbar, soma.sh_nas/x, axon.gkbar factor, dend.gkabar factor,
 #            'soma.gCa factor', 'soma.gCadepK factor', 'soma.gkmbar']
 
-x0['na_ka_stability'] = [0.0305, 0.0478, 1.7, 2.97, 2.8, 1., 1., 0.0015]
+# x0['na_ka_stability'] = [0.0305, 0.0478, 1.7, 2.97, 2.8, 1., 1., 0.0015]
+x0['na_ka_stability'] = [2.398E-02, 4.769E-02, 1.826E+00, 2.511E+00, 1.655E+00, 7.369E-01, 3.858E+00, 2.779E-03]
+# Err: 2.0735E+05
 xmin['na_ka_stability'] = [0.01, 0.01, 0.1, 1., 0.1, 0.1, 0.1, 0.0005]
 xmax['na_ka_stability'] = [0.05, 0.05, 6., 3., 5., 5., 5., 0.005]
 
 max_niter = 1500  # max number of iterations to run
 ninterval = max_niter / 50
-niter_success = 400  # max number of iterations without significant progress before aborting optimization
+niter_success = 600  # max number of iterations without significant progress before aborting optimization
 
 take_step = Normalized_Step(x0['na_ka_stability'], xmin['na_ka_stability'], xmax['na_ka_stability'])
 minimizer_kwargs = dict(method=null_minimizer)
@@ -229,9 +229,9 @@ global_start_time = time.time()
 
 
 dv.execute('run parallel_optimize_spike_stability_engine_CA1Pyr %i \"%s\"' % (int(spines), mech_filename))
-time.sleep(60)
+# time.sleep(60)
 v = c.load_balanced_view()
-
+"""
 result = optimize.basinhopping(na_ka_stability_error, x0['na_ka_stability'], niter=max_niter,
                                niter_success=niter_success, disp=True, interval=ninterval,
                                minimizer_kwargs=minimizer_kwargs, take_step=take_step)
@@ -243,4 +243,5 @@ sys.stdout.flush()
 # history_filename = '041417 spike stability optimization history'
 # hist.export_to_pkl(history_filename)
 # plot_best(best_x)
-# plot_best(x0['na_ka_stability'])
+"""
+plot_best(x0['na_ka_stability'])

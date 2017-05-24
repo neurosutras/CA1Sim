@@ -1,7 +1,6 @@
 __author__ = 'milsteina'
 import math
 import pickle
-import os.path
 import datetime
 import copy
 import time
@@ -13,6 +12,8 @@ import scipy.optimize as optimize
 import scipy.signal as signal
 import random
 import pprint
+import sys
+import os
 # from neuron import h  # must be found in system $PYTHONPATH
 
 
@@ -2287,3 +2288,217 @@ class Pr(object):
         self.F += self.f
         self.D *= self.d
         return self.P
+
+
+class Logger(object):
+    def __init__(self, filename):
+        self.terminal = sys.stdout
+        self.log = open(filename, "a")
+
+    def write(self, message):
+        self.terminal.write(message)
+        self.log.write(message)
+
+    def flush(self):
+        self.terminal.flush()
+
+
+def list_find (f, lst):
+    i = 0
+    for x in lst:
+        if f(x):
+            return i
+        else:
+            i += 1
+    return None
+
+
+class StateMachine(object):
+    """
+
+    """
+
+    def __init__(self, ti=0., dt=1., states=None, rates=None):
+        """
+
+        :param ti: float 
+        :param dt: float
+        :param states: dict
+        :param rates: dict
+        """
+        self.dt = dt
+        self.init_states = dict()
+        self.states = dict()
+        self.states_history = dict()
+        self.rates = dict()
+        if states is not None:
+            self.update_states(states)
+        if rates is not None:
+            self.update_rates(rates)  # {'A': {'B': constant or iterable}}
+        self.ti = ti
+        self.t = self.ti
+        self.t_history = np.array([self.t])
+        self.i = 0
+
+    def reset(self):
+        """
+
+        :param ti: 
+        :return: 
+        """
+        self.t = self.ti
+        self.i = 0
+        self.t_history = np.array([self.t])
+        self.states = dict(self.init_states)
+        for s0 in self.states:
+            self.states_history[s0] = np.array([self.states[s0]])
+
+    def get_current_rates(self):
+        """
+
+        :return: 
+        """
+        current = {}
+        for s0 in self.rates:
+            if s0 not in current:
+                current[s0] = {}
+            for s1 in self.rates[s0]:
+                r = self.rates[s0][s1]
+                if hasattr(r, '__iter__'):
+                    if len(r) - 1 < self.i:
+                        raise Exception('Insufficient array length for nonstationary rate: %s to %s ' % (s0, s1))
+                    this_r = r[self.i]
+                else:
+                    this_r = r
+                current[s0][s1] = this_r
+        return current
+
+    def update_transition(self, s0, s1, r):
+        """
+
+        :param s0: str
+        :param s1: str
+        :param r: float or array
+        """
+        if s0 not in self.states:
+            raise Exception('Can\'t update transition from invalid state: %s' % s0)
+        if s1 not in self.states:
+            raise Exception('Can\'t update transition to invalid state: %s' % s1)
+        if s0 not in self.rates:
+            self.rates[s0] = {}
+        self.rates[s0][s1] = r
+
+    def update_rates(self, rates):
+        """
+
+        :param rates: dict  
+        """
+        for s0 in rates:
+            for s1, r in rates[s0].iteritems():
+                self.update_transition(s0, s1, r)
+
+    def update_states(self, states):
+        """
+
+        :param states: dict 
+        :return: 
+        """
+        for s, v in states.iteritems():
+            self.init_states[s] = v
+            self.states[s] = v
+            self.states_history[s] = np.array([v])
+
+    def get_out_rate(self, state):
+        """
+
+        :param state: str
+        :return: float 
+        """
+        if state not in self.states:
+            raise Exception('Invalid state: %s' % state)
+        if state not in self.rates:
+            raise Exception('State: %s has no outgoing transitions' % state)
+        out_rate = 0.
+        for s1 in self.rates[state]:
+            r = self.rates[state][s1]
+            if hasattr(r, '__iter__'):
+                if len(r) - 1 < self.i:
+                    raise Exception('Insufficient array length for nonstationary rate: %s to %s ' % (state, s1))
+                this_r = r[self.i]
+            else:
+                this_r = r
+            out_rate += this_r
+        return out_rate
+
+    def step(self, n=1):
+        """
+
+        :param n: int 
+        """
+        for i in range(n):
+            next_states = dict(self.states)
+            for s0 in self.rates:
+                total_out_prob = self.get_out_rate(s0) * self.dt
+                if total_out_prob > 1.:
+                    factor = 1. / total_out_prob
+                else:
+                    factor = 1.
+                for s1 in self.rates[s0]:
+                    r = self.rates[s0][s1]
+                    if hasattr(r, '__iter__'):
+                        if len(r) - 1 < self.i:
+                            raise Exception('Insufficient array length for nonstationary rate: %s to %s ' % (s0, s1))
+                        this_r = r[self.i]
+                    else:
+                        this_r = r
+                    # print 'this_r: %.4E, factor: %.4E, %s: %.4E' % (this_r, factor, s0, self.states[s0])
+                    this_delta = this_r * self.dt * factor * self.states[s0]
+                    next_states[s0] -= this_delta
+                    next_states[s1] += this_delta
+            self.states = dict(next_states)
+            for s0 in self.states:
+                self.states_history[s0] = np.append(self.states_history[s0], self.states[s0])
+            self.i += 1
+            self.t += self.dt
+            self.t_history = np.append(self.t_history, self.t)
+
+    def run(self):
+        """
+
+        """
+        self.reset()
+        min_steps = None
+        for s0 in self.rates:
+            for s1 in self.rates[s0]:
+                r = self.rates[s0][s1]
+                if hasattr(r, '__iter__'):
+                    if min_steps is None:
+                        min_steps = len(r)
+                    else:
+                        min_steps = min(min_steps, len(r))
+        if min_steps is None:
+            raise Exception('Use step method to specify number of steps for stationary process.')
+        self.step(min_steps)
+
+    def plot(self, states=None):
+        """
+
+        :param states: 
+        :return: 
+        """
+        if states is None:
+            states = self.states.keys()
+        elif not hasattr(states, '__iter__'):
+            states = [states]
+        fig, axes = plt.subplots(1)
+        for state in states:
+            if state in self.states:
+                axes.plot(self.t_history, self.states_history[state], label=state)
+            else:
+                print 'Not including invalid state: %s' % state
+        axes.set_xlabel('Time (ms)')
+        axes.set_ylabel('Occupancy')
+        axes.legend(loc='best', frameon=False, framealpha=0.5)
+        clean_axes(axes)
+        plt.show()
+        plt.close()

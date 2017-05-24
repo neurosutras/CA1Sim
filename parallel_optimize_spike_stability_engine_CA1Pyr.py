@@ -3,14 +3,19 @@ from specify_cells2 import *
 import os
 import sys
 from ipyparallel import interactive
-# import mkl
 
 """
 Builds a cell locally so each engine is ready to receive jobs one at a time, specified by a value for the amplitude of
 a somatic current injection to test spike shape and stability.
 """
 
-# mkl.set_num_threads(1)
+
+try:
+    import mkl
+    mkl.set_num_threads(1)
+except:
+    pass
+
 
 morph_filename = 'EB2-late-bifurcation.swc'
 
@@ -31,7 +36,7 @@ else:
 if len(sys.argv) > 2:
     mech_filename = str(sys.argv[2])
 else:
-    mech_filename = '042817 CA1Pyr optimizing spike stability'
+    mech_filename = '050317 CA1Pyr optimizing spike stability'
 
 
 @interactive
@@ -208,14 +213,19 @@ def compute_spike_shape_features(local_x=None, plot=False):
                 print 'increasing amp to %.3f' % amp
     sim.parameters['amp'] = amp
     i_th['soma'] = amp
-    peak, threshold, ADP, AHP = get_spike_shape(vm, cell.spike_detector.get_recordvec().to_python())
+    spike_times = cell.spike_detector.get_recordvec().to_python()
+    peak, threshold, ADP, AHP = get_spike_shape(vm, spike_times)
     dend_vm = np.interp(t, sim.tvec, sim.get_rec('tuft')['vec'])
     th_x = np.where(vm[int(equilibrate / dt):] >= threshold)[0][0] + int(equilibrate / dt)
-    dend_peak = np.max(dend_vm[th_x:th_x + int(10. / dt)])
+    if len(spike_times) > 1:
+        end = min(th_x + int(10. / dt), int((spike_times[1] - 5.)/dt))
+    else:
+        end = th_x + int(10. / dt)
+    dend_peak = np.max(dend_vm[th_x:end])
     dend_pre = np.mean(dend_vm[th_x - int(0.2 / dt):th_x - int(0.1 / dt)])
     result['dend_amp'] = (dend_peak - dend_pre) / (peak - threshold)
 
-    #calculate AIS delay
+    # calculate AIS delay
     ais_vm = np.interp(t, sim.tvec, sim.get_rec('ais')['vec'])
     ais_dvdt = np.gradient(ais_vm, dt)
     axon_vm = np.interp(t, sim.tvec, sim.get_rec('axon')['vec'])
@@ -238,6 +248,8 @@ def compute_spike_shape_features(local_x=None, plot=False):
     result['ADP'] = ADP
     result['AHP'] = AHP
     result['amp'] = amp
+    result['spike_count'] = len(spike_times)
+
     return result
 
 

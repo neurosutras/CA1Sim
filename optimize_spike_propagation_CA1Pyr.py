@@ -3,7 +3,14 @@ from specify_cells2 import *
 from plot_results import *
 import sys
 import os
-import random
+
+
+try:
+    import mkl
+    mkl.set_num_threads(1)
+except:
+    pass
+
 
 morph_filename = 'EB2-late-bifurcation.swc'
 
@@ -14,7 +21,14 @@ else:
 if len(sys.argv) > 2:
     mech_filename = str(sys.argv[2])
 else:
-    mech_filename = '041817 CA1Pyr optimizing spike stability'
+    mech_filename = '050317 CA1Pyr optimizing spike stability'
+
+
+log_dir = 'data/'
+log_filename = str(time.strftime('%m%d%Y', time.localtime()))+'_'+str(time.strftime('%H%M%S', time.localtime()))+\
+               '_optimize_spike_propagation_CA1Pyr.o'
+
+sys.stdout = Logger(log_dir+log_filename)
 
 
 def offset_vm(description, vm_target=None):
@@ -68,13 +82,14 @@ def offset_vm(description, vm_target=None):
     return v_rest
 
 
-def get_spike_shape(vm):
+def get_spike_shape(vm, spike_times):
     """
 
     :param vm: array
     :return: tuple of float: (v_peak, th_v, ADP, AHP)
     """
-    vm = vm[int((equilibrate+1.)/dt):]
+    start = int((equilibrate+1.)/dt)
+    vm = vm[start:]
     dvdt = np.gradient(vm, dt)
     th_x = np.where(dvdt > th_dvdt)[0]
     if th_x.any():
@@ -85,10 +100,12 @@ def get_spike_shape(vm):
     v_before = np.mean(vm[th_x-int(0.1/dt):th_x])
     v_peak = np.max(vm[th_x:th_x+int(5./dt)])
     x_peak = np.where(vm[th_x:th_x+int(5./dt)] == v_peak)[0][0]
-    # end = min(th_x + int(50. / dt), len(vm))
-    end = len(vm)
-    v_AHP = np.min(vm[th_x + x_peak:end])
-    x_AHP = np.where(vm[th_x + x_peak:end] == v_AHP)[0][0]
+    if len(spike_times) > 1:
+        end = max(th_x+x_peak, int((spike_times[1] - 5.) / dt) - start)
+    else:
+        end = len(vm)
+    v_AHP = np.min(vm[th_x+x_peak:end])
+    x_AHP = np.where(vm[th_x+x_peak:end] == v_AHP)[0][0]
     AHP = v_before - v_AHP
     # if spike waveform includes an ADP before an AHP, return the value of the ADP in order to increase error function
     rising_x = np.where(dvdt[th_x+x_peak:th_x+x_peak+x_AHP] > 0.)[0]
@@ -152,10 +169,11 @@ def ais_delay_error(x, plot=0):
             if sim.verbose:
                 print 'increasing amp to %.3f' % amp
     i_th['soma'] = amp
-    peak, threshold, ADP, AHP = get_spike_shape(vm)
+    spike_times = cell.spike_detector.get_recordvec().to_python()
+    peak, threshold, ADP, AHP = get_spike_shape(vm, spike_times)
     result = {}
     result['soma_peak'] = peak
-    result['th_v'] = threshold
+    result['v_th'] = threshold
     th_x = np.where(vm[int(equilibrate/dt):] >= threshold)[0][0] + int(equilibrate/dt)
     ais_vm = np.interp(t, sim.tvec, sim.get_rec('ais')['vec'])
     ais_dvdt = np.gradient(ais_vm, dt)
@@ -192,89 +210,6 @@ def ais_delay_error(x, plot=0):
     return Err
 
 
-def optimize_ais_delay(x):
-    """
-    Simplex does not perform well for finding a good parameter set for ais initiation of APs. This is an ad hoc method
-    to find a ballpark to feed into simplex.
-    :param x: array
-    :return: array
-    """
-    perturb = (-0.1, 0.01)
-    ais_delay_error(x)
-    min_Err = 1e9
-    max_iter = 80
-    iter = 0
-    best_x = list(x)
-    while min_Err > 0. and iter < max_iter:
-        index = random.randint(0, 1)
-        candidate_x = list(x)
-        candidate_x[index] += perturb[index]
-        if not check_bounds.within_bounds(candidate_x, 'ais_delay'):
-            print 'Process %i: Iteration %i - Parameters outside optimization bounds.' % (os.getpid(), iter)
-        else:
-            x = list(candidate_x)
-            start_time = time.time()
-            update_ais_delay(x)
-            offset_vm('soma', v_active)
-            sim.modify_stim(0, node=cell.tree.root, loc=0., dur=100.)
-            duration = equilibrate + 100.
-            sim.tstop = duration
-            t = np.arange(0., duration, dt)
-            spike = False
-            d_amp = 0.01
-            amp = i_th['soma'] - 0.02
-            while not spike:
-                sim.modify_stim(0, amp=amp)
-                sim.run(v_active)
-                vm = np.interp(t, sim.tvec, sim.get_rec('soma')['vec'])
-                if amp == np.any(vm[:int(equilibrate / dt)] > -30.):
-                    print 'Process %i: Aborting - spontaneous firing' % (os.getpid())
-                    return 1e9
-                if np.any(vm[int(equilibrate / dt):int((equilibrate + 50.) / dt)] > -30.):
-                    spike = True
-                else:
-                    amp += d_amp
-                    if sim.verbose:
-                        print 'increasing amp to %.3f' % amp
-            i_th['soma'] = amp
-            peak, threshold, ADP, AHP = get_spike_shape(vm)
-            result = {}
-            result['soma_peak'] = peak
-            result['th_v'] = threshold
-            th_x = np.where(vm[int(equilibrate / dt):] >= threshold)[0][0] + int(equilibrate / dt)
-            ais_vm = np.interp(t, sim.tvec, sim.get_rec('ais')['vec'])
-            ais_dvdt = np.gradient(ais_vm, dt)
-            axon_vm = np.interp(t, sim.tvec, sim.get_rec('axon')['vec'])
-            axon_dvdt = np.gradient(axon_vm, dt)
-            left = th_x - int(2. / dt)
-            right = th_x + int(5. / dt)
-            ais_peak = np.max(ais_dvdt[left:right])
-            ais_peak_t = np.where(ais_dvdt[left:right] == ais_peak)[0][0] * dt
-            axon_peak = np.max(axon_dvdt[left:right])
-            axon_peak_t = np.where(axon_dvdt[left:right] == axon_peak)[0][0] * dt
-            if axon_peak_t > ais_peak_t + dt:
-                result['ais_delay'] = 0.
-            else:
-                result['ais_delay'] = ais_peak_t + dt - axon_peak_t
-            Err = 0.
-            target = 'ais_delay'
-            Err += ((target_val['na_ka'][target] - result[target]) / target_range['na_ka'][target]) ** 2.
-            # attempt to find the minimal combination that produces the desired delay
-            print 'Simulation took %i s' % (time.time() - start_time)
-            print 'Process %i (Iter %i): [ais.sha_nas, ais.gbar_nas]: [%.3E, %.3E], ais_delay: %.3E, ' \
-                  'soma_peak: %.1f, threshold: %.1f' % (os.getpid(), iter, x[0], x[1], result['ais_delay'], peak,
-                                                        threshold)
-            print 'Process %i: Error: %.4E' % (os.getpid(), Err)
-            if Err == 0.:
-                return x
-            if Err < min_Err:
-                min_Err = Err
-                best_x = list(x)
-        iter += 1
-        sys.stdout.flush()
-    return best_x
-
-
 equilibrate = 250.  # time to steady-state
 stim_dur = 500.
 duration = equilibrate + stim_dur
@@ -308,16 +243,19 @@ sim.append_rec(cell, cell.tree.root, loc=0.5, object=cell.tree.root.sec(0.5), pa
                description='soma intra_Ca')
 
 
-i_holding = {'soma': 0.00}
-i_th = {'soma': 0.05}
+i_holding = {'soma': 0.05}
+i_th = {'soma': 0.1}
+
+spike_output_vec = h.Vector()
+cell.spike_detector.record(spike_output_vec)
 
 #the target values and acceptable ranges
 target_val = {}
 target_range = {}
-target_val['na_ka'] = {'v_rest': v_init, 'th_v': -51., 'soma_peak': 40., 'ADP': 0., 'AHP': 3.,
+target_val['na_ka'] = {'v_rest': v_init, 'v_th': -51., 'soma_peak': 40., 'ADP': 0., 'AHP': 3.,
                        'stability': 0., 'ais_delay': 0., 'slow_depo': 20., 'dend_amp': 0.6}
-target_range['na_ka'] = {'v_rest': 0.25, 'th_v': .05, 'soma_peak': 2., 'ADP': 0.01, 'AHP': .01,
-                         'stability': 1., 'ais_delay': 0.001, 'slow_depo': 0.5, 'dend_amp': 0.005}
+target_range['na_ka'] = {'v_rest': 0.25, 'v_th': .02, 'soma_peak': 2., 'ADP': 0.01, 'AHP': .005,
+                         'stability': 1., 'ais_delay': 0.0005, 'slow_depo': 0.5, 'dend_amp': 0.0002}
 
 x0 = {}
 xmin = {}
@@ -329,10 +267,8 @@ xlabels = {}
 xlabels['ais_delay'] = ['ais.sha_nas', 'ais.gbar_nax']
 
 # x0['ais_delay'] = [-3.6, 0.4]
-# xmin['ais_delay'] = [-5., 1.1*axon_gbar_nax]
-# xmax['ais_delay'] = [-1., 5.*axon_gbar_nax]
-
-x0['ais_delay'] = [-6., 0.41]
+# x0['ais_delay'] = [-5.540E+00, 3.568E-01]
+x0['ais_delay'] = [-4.768E+00, 4.595E-01]
 xmin['ais_delay'] = [-6., 1.1*axon_gbar_nax]
 xmax['ais_delay'] = [-1., 6.*axon_gbar_nax]
 
@@ -356,15 +292,15 @@ result = optimize.basinhopping(ais_delay_error, x1, niter=max_niter,
 x1 = result.x
 
 result = optimize.minimize(ais_delay_error, x1, method='Nelder-Mead', options={'fatol': 1e-4, 'xatol': 1e-3,
-                                                                               'disp': True, 'maxiter': 400})
+                                                                               'disp': True, 'maxiter': niter_success})
 
-
+# result = optimize.minimize(ais_delay_error, x1, method='Powell', options={'disp': True, 'maxiter': niter_success})
 # best_x = optimize_ais_delay([-1., 1.1*axon_gbar_nax])
 # best_x = optimize_ais_delay(x0['ais_delay'])
 # best_x = hist.report_best()
-best_x = result.x
+# best_x = result.x
 # best_x = x1
-update_ais_delay(best_x)
-cell.export_mech_dict(cell.mech_filename)
+# update_ais_delay(best_x)
+# cell.export_mech_dict(cell.mech_filename)
+# ais_delay_error(x1, plot=True)
 """
-ais_delay_error(x1, plot=True)
