@@ -124,7 +124,16 @@ neurotree_filename = '121516_DGC_trees.pkl'
 neurotree_dict = read_from_pkl(morph_dir+neurotree_filename)
 history_filename = '030517 leak optimization history'
 
+
+equilibrate = 250.  # time to steady-state
+stim_dur = 500.
+duration = equilibrate + stim_dur
+dt = 0.01
+amp = 0.3
+th_dvdt = 10.
 v_init = -77.
+v_active = -77.
+i_holding = {'soma': 0., 'dend': 0., 'distal_dend': 0.}
 soma_ek = -77.
 
 # the target values and acceptable ranges
@@ -145,15 +154,19 @@ xlabels['pas'] = ['soma.g_pas', 'dend.g_pas slope', 'dend.g_pas tau']
 hist = History()
 hist.xlabels = xlabels['pas']
 
+"""
 explore_niter = 2100  # max number of iterations to run
 polish_niter = 400
 take_step = Normalized_Step(x0['pas'], xmin['pas'], xmax['pas'])
 minimizer_kwargs = dict(method=null_minimizer)
+"""
 
+
+default_mech_filename = '042717 GC optimizing spike stability'
 
 @click.command()
 @click.option("--spines", type=bool, default=False)
-@click.option("--mech_filename", type=str, default='042617 GC retuning leak')
+@click.option("--mech_filename", type=str, default=None)
 @click.option("--cluster-id", type=str, default=None)
 @click.option("--group-size", type=int, default=1)
 def main(spines, mech_filename, cluster_id, group_size):
@@ -175,26 +188,48 @@ def main(spines, mech_filename, cluster_id, group_size):
     else:
         c = Client()
 
+    if mech_filename is None:
+        mech_filename = default_mech_filename
+
     all_engines = c[:]
     all_engines.block = True
-    all_engines.execute('from parallel_optimize_leak import *', block=True)
 
     sub_clients = c[::group_size+1]
     sub_clients.block = True
-    result = optimize.basinhopping(pas_error, x0['pas'], niter=explore_niter, niter_success=explore_niter,
-                                   disp=True, interval=40, minimizer_kwargs=minimizer_kwargs, take_step=take_step)
-    #Need to distribute x values to subclients, then evaluate result to determine next sequence
+    sub_clients.execute('from parallel_optimize_leak import *', block=True)
     result = sub_clients.map_sync(init_sub_client, [spines for id in sub_clients.targets],
                                   [mech_filename for id in sub_clients.targets], [cluster_id for id in sub_clients.targets],
                                   sub_clients.targets, [group_size for id in sub_clients.targets])
-    print result
+    if spines:
+        x0['pas'] = [3.80E-08, 8.08E-07, 6.78E+01]  # Err: 2.527E-09
+        xmin['pas'] = [1.0E-18, 1.0E-12, 25.]
+        xmax['pas'] = [1.0E-7, 1.0E-4, 400.]
+    else:
+        x0['pas'] = [1.050E-10, 1.058E-08, 3.886E+01]  # Error: 4.187E-09
+        xmin['pas'] = [1.0E-18, 1.0E-12, 25.]
+        xmax['pas'] = [1.0E-6, 1.0E-4, 400.]
+    #Need to distribute x values to subclients, then evaluate result to determine next sequence
+    """
+    result = optimize.basinhopping(pas_error, x0['pas'], niter=explore_niter, niter_success=explore_niter,
+                                   disp=True, interval=40, minimizer_kwargs=minimizer_kwargs, take_step=take_step)
+    """
+
+    # best_x = hist.report_best()
+    # hist.export_to_pkl(history_filename)
+
+
+    # dv['x'] = hist.report_best()
+    # dv['x'] = x0['pas']
+    # c[0].apply(parallel_optimize_leak_engine.update_mech_dict)
+    sys.stdout.flush()
+    # plot_best(x0['pas'])
+    # print result
 
 
 @interactive
-def init_sub_client(spines=False, mech_filename='042617 GC retuning leak', cluster_id=None, sub_client_id=0, group_size=1):
+def init_sub_client(spines=False, mech_filename=None, cluster_id=None, sub_client_id=0, group_size=1):
     """
 
-    :param spines: bool
     :param mech_filename: str
     :param cluster_id: str
     :param sub_client_id: int
@@ -211,26 +246,96 @@ def init_sub_client(spines=False, mech_filename='042617 GC retuning leak', clust
     else:
         c = Client()
 
-    if spines:
-        x0['pas'] = [3.80E-08, 8.08E-07, 6.78E+01]  # Err: 2.527E-09
-        xmin['pas'] = [1.0E-18, 1.0E-12, 25.]
-        xmax['pas'] = [1.0E-7, 1.0E-4, 400.]
-    else:
-        # x0['pas'] = [4.94E-08, 3.74E-06, 9.67E+01]  # Err: 3.995E-11
-        # x0['pas'] = [8.905E-11, 1.180E-08, 3.927E+01]  # Error: 3.310E-09
-        x0['pas'] = [1.050E-10, 1.058E-08, 3.886E+01]  # Error: 4.187E-09
-        xmin['pas'] = [1.0E-18, 1.0E-12, 25.]
-        xmax['pas'] = [1.0E-6, 1.0E-4, 400.]
+    if mech_filename is None:
+        mech_filename = default_mech_filename
 
-    dv = c[sub_client_id+1:sub_client_id+1+group_size]
+    dv = c[sub_client_id + 1:sub_client_id + 1 + group_size]
+    dv.execute('from parallel_optimize_leak import *', block=True)
 
+    dv.map_sync(init_engine, [spines for int in range(group_size)],
+                                  [mech_filename for int in range(group_size)])
     global_start_time = time.time()
     # time.sleep(60)
     c.load_balanced_view()
 
+    if 'pas' not in xmin.keys():
+        if spines:
+            xmin['pas'] = [1.0E-18, 1.0E-12, 25.]
+            xmax['pas'] = [1.0E-7, 1.0E-4, 400.]
+        else:
+            xmin['pas'] = [1.0E-18, 1.0E-12, 25.]
+            xmax['pas'] = [1.0E-6, 1.0E-4, 400.]
+    return os.getpid(), dv.targets
 
-    return os.getpid(), dv.targets, result
 
+@interactive
+def init_engine(spines=False, mech_filename=None):
+    """
+
+    :param spines: bool
+    :param mech_filename: str
+    :return:
+    """
+    if mech_filename is None:
+        mech_filename = default_mech_filename
+
+    globals()['spines'] = spines
+    global sim_description
+    if spines:
+        sim_description = 'with_spines'
+    else:
+        sim_description = 'no_spines'
+
+    global cell
+    cell = DG_GC(neurotree_dict=neurotree_dict[0], mech_filename=mech_filename, full_spines=spines)
+    cell.zero_na()
+
+    # get the thickest apical dendrite ~200 um from the soma
+    candidate_branches = []
+    candidate_diams = []
+    candidate_locs = []
+    for branch in cell.apical:
+        if ((cell.get_distance_to_node(cell.tree.root, branch, 0.) >= 200.) &
+                (cell.get_distance_to_node(cell.tree.root, branch, 1.) > 300.) & (not cell.is_terminal(branch))):
+            candidate_branches.append(branch)
+            for seg in branch.sec:
+                loc = seg.x
+                if cell.get_distance_to_node(cell.tree.root, branch, loc) > 250.:
+                    candidate_diams.append(branch.sec(loc).diam)
+                    candidate_locs.append(loc)
+                    break
+    index = candidate_diams.index(max(candidate_diams))
+    dend = candidate_branches[index]
+    dend_loc = candidate_locs[index]
+
+    # get the most distal terminal branch > 300 um from the soma
+    candidate_branches = []
+    candidate_end_distances = []
+    for branch in (branch for branch in cell.apical if cell.is_terminal(branch)):
+        if cell.get_distance_to_node(cell.tree.root, branch, 0.) >= 300.:
+            candidate_branches.append(branch)
+            candidate_end_distances.append(cell.get_distance_to_node(cell.tree.root, branch, 1.))
+    index = candidate_end_distances.index(max(candidate_end_distances))
+    distal_dend = candidate_branches[index]
+    distal_dend_loc = 1.
+
+    global rec_locs
+    rec_locs = {'soma': 0., 'dend': dend_loc, 'distal_dend': distal_dend_loc}
+    global rec_nodes
+    rec_nodes = {'soma': cell.tree.root, 'dend': dend, 'distal_dend': distal_dend}
+    global rec_filename
+    rec_filename = str(time.strftime('%m%d%Y', time.gmtime())) + '_' + str(time.strftime('%H%M%S', time.gmtime())) + \
+                   '_pid' + str(os.getpid()) + '_sim_output'
+
+    global sim
+    sim = QuickSim(duration, verbose=False)
+    sim.append_stim(cell, cell.tree.root, loc=0., amp=0., delay=equilibrate, dur=stim_dur)
+    sim.append_stim(cell, cell.tree.root, loc=0., amp=0., delay=0., dur=duration)
+
+    for description, node in rec_nodes.iteritems():
+        sim.append_rec(cell, node, loc=rec_locs[description], description=description)
+
+@interactive
 def pas_error(x):
     """
     Distribute simulations across available engines for optimization of leak conductance density gradient.
@@ -241,13 +346,13 @@ def pas_error(x):
         print 'Aborting: Invalid parameter values.'
         return 1e9
     start_time = time.time()
-    dv['x'] = x
+
     hist.x_values.append(x)
 
     sec_list = ['soma', 'dend', 'distal_dend']
     formatted_x = '[' + ', '.join(['%.3E' % xi for xi in x]) + ']'
     print 'Process %i using current x: %s: %s' % (os.getpid(), str(xlabels['pas']), formatted_x)
-    result = v.map_async(parallel_optimize_leak_engine.get_Rinp_for_section, sec_list)
+    result = dv.map_async(get_Rinp_for_section, sec_list, [x for entry in sec_list])
     last = []
     while not result.ready():
         time.sleep(1.)
@@ -260,6 +365,21 @@ def pas_error(x):
         if len(last) > len(sec_list):
             last = last[-len(sec_list):]
         sys.stdout.flush()
+    """
+    last_buffer_len = 0
+    while not result.ready():
+        time.sleep(1.)
+        clear_output()
+        stdout = result.stdout
+        if stdout:
+            lines = stdout.splitlines()
+            #fails because stdout is a list of strings, not a string
+            if len(lines) > last_buffer_len:
+                for line in lines[last_buffer_len:]:
+                    print line
+                last_buffer_len = len(lines)
+        sys.stdout.flush()
+    """
     result = result.get()
 
     Err = 0.
@@ -288,6 +408,136 @@ def pas_error(x):
                                                                                 final_result['distal_dend'], Err)
     return Err
 
+
+@interactive
+def offset_vm(description, vm_target=None):
+    """
+
+    :param description: str
+    :param vm_target: float
+    """
+    if vm_target is None:
+        vm_target = v_init
+    sim.modify_stim(0, amp=0.)
+    node = rec_nodes[description]
+    loc = rec_locs[description]
+    rec_dict = sim.get_rec(description)
+    sim.modify_stim(1, node=node, loc=loc, amp=0.)
+    rec = rec_dict['vec']
+    offset = True
+    sim.tstop = equilibrate
+    t = np.arange(0., equilibrate, dt)
+    sim.modify_stim(1, amp=i_holding[description])
+    sim.run(vm_target)
+    vm = np.interp(t, sim.tvec, rec)
+    v_rest = np.mean(vm[int((equilibrate - 3.)/dt):int((equilibrate - 1.)/dt)])
+    initial_v_rest = v_rest
+    if v_rest < vm_target - 0.5:
+        i_holding[description] += 0.01
+        while offset:
+            if sim.verbose:
+                print 'increasing i_holding to %.3f (%s)' % (i_holding[description], description)
+            sim.modify_stim(1, amp=i_holding[description])
+            sim.run(vm_target)
+            vm = np.interp(t, sim.tvec, rec)
+            v_rest = np.mean(vm[int((equilibrate - 3.)/dt):int((equilibrate - 1.)/dt)])
+            if v_rest < vm_target - 0.5:
+                i_holding[description] += 0.01
+            else:
+                offset = False
+    elif v_rest > vm_target + 0.5:
+        i_holding[description] -= 0.01
+        while offset:
+            if sim.verbose:
+                print 'decreasing i_holding to %.3f (%s)' % (i_holding[description], description)
+            sim.modify_stim(1, amp=i_holding[description])
+            sim.run(vm_target)
+            vm = np.interp(t, sim.tvec, rec)
+            v_rest = np.mean(vm[int((equilibrate - 3.)/dt):int((equilibrate - 1.)/dt)])
+            if v_rest > vm_target + 0.5:
+                i_holding[description] -= 0.01
+            else:
+                offset = False
+    sim.tstop = duration
+    return v_rest
+
+
+@interactive
+def update_mech_dict(x):
+    update_pas_exp(x)
+    cell.export_mech_dict(cell.mech_filename)
+
+
+@interactive
+def update_pas_exp(x):
+    """
+
+    x0 = [2.28e-05, 1.58e-06, 58.4]
+    :param x: array [soma.g_pas, dend.g_pas slope, dend.g_pas tau]
+    """
+    if spines is False:
+        cell.reinit_mechanisms(reset_cable=True)
+    cell.modify_mech_param('soma', 'pas', 'g', x[0])
+    cell.modify_mech_param('apical', 'pas', 'g', origin='soma', slope=x[1], tau=x[2])
+    for sec_type in ['axon_hill', 'axon', 'ais', 'apical', 'spine_neck', 'spine_head']:
+        cell.reinitialize_subset_mechanisms(sec_type, 'pas')
+    if spines is False:
+        cell.correct_for_spines()
+
+
+def print_gpas_cm_values():
+    sec_types = ['apical']
+    gpas_values = {s: [] for s in sec_types}
+    cm_values = {s: [] for s in sec_types}
+    for i in [0, 10, 20]:
+        node = cell.get_nodes_of_subtype('apical')[i]
+        for i, segment in enumerate(node.sec):
+            node.sec.push()
+            h.pop_section()
+            gpas_values['apical'].append(node.sec(segment.x).g_pas)
+            cm_values['apical'].append(node.sec(segment.x).cm)
+    print 'g_pas: '
+    pprint.pprint(gpas_values)
+    print 'cm '
+    pprint.pprint(cm_values)
+
+
+@interactive
+def get_Rinp_for_section(section, x):
+    """
+    Inject a hyperpolarizing step current into the specified section, and return the steady-state input resistance.
+    :param section: str
+    :return: dict: {str: float}
+    """
+    start_time = time.time()
+    sim.tstop = duration
+    sim.parameters['section'] = section
+    sim.parameters['target'] = 'Rinp'
+    sim.parameters['optimization'] = 'pas'
+    sim.parameters['description'] = sim_description
+    amp = -0.05
+    update_pas_exp(x)
+    cell.zero_na()
+    offset_vm(section)
+    loc = rec_locs[section]
+    node = rec_nodes[section]
+    rec = sim.get_rec(section)
+    sim.modify_stim(0, node=node, loc=loc, amp=amp, dur=stim_dur)
+    sim.run(v_init)
+    Rinp = get_Rinp(np.array(sim.tvec), np.array(rec['vec']), equilibrate, duration, amp)[2]
+    result = {section: Rinp}
+    print 'Process:', os.getpid(), 'calculated Rinp for %s in %.1f s, Rinp: %.1f' % (section, time.time() - start_time,
+                                                                                    Rinp)
+    return result
+
+
+@interactive
+def export_sim_results():
+    """
+    Export the most recent time and recorded waveforms from the QuickSim object.
+    """
+    with h5py.File(data_dir+rec_filename+'.hdf5', 'w') as f:
+        sim.export_to_file(f)
 
 def plot_best(x=None, discard=True):
     """
@@ -324,23 +574,3 @@ def plot_best(x=None, discard=True):
     if discard:
         for rec_filename in rec_file_list:
             os.remove(data_dir + rec_filename + '.hdf5')
-
-
-
-
-
-
-
-
-
-
-
-best_x = hist.report_best()
-# hist.export_to_pkl(history_filename)
-
-
-# dv['x'] = hist.report_best()
-# dv['x'] = x0['pas']
-# c[0].apply(parallel_optimize_leak_engine.update_mech_dict)
-sys.stdout.flush()
-# plot_best(x0['pas'])
