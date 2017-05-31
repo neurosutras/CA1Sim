@@ -86,7 +86,7 @@ class PopulationStorage(object):
                      if not individual.survivor]
             evaluate(group)
         else:
-            group = [deepcopy(individual) for population in self.history[:-generation] for individual in population]
+            group = [deepcopy(individual) for population in self.history[-generation:] for individual in population]
             evaluate(group)
         indexes = range(len(group))
         rank = [individual.rank for individual in group]
@@ -490,7 +490,7 @@ class BGen(object):
         """
         if not self.evaluated:
             raise Exception('BGen: Current generation has not yet been evaluated.')
-        self.survivors = self.storage.get_best(self.num_survivors, generation='last')
+        self.survivors = self.storage.get_best(self.num_survivors, generation=self.adaptive_step_interval)
         for individual in self.survivors:
             individual.survivor = True
         new_population = []
@@ -503,7 +503,5 @@ class BGen(object):
         """
 
         """
-        if not self.evaluated:
-            raise Exception('BGen: Current generation has not yet been evaluated.')
         new_population = [Individual(self.take_step(individual.x)) for individual in self.population]
         self.population = new_population
