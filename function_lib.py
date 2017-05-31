@@ -466,7 +466,7 @@ def model_scaled_exp(t, A, tau, A0=0):
     return A*np.exp(t/tau)+A0
 
 
-def null_minimizer(fun, x0, args, **options):
+def null_minimizer(fun, x0, *args, **options):
     """
     Rather than allow basinhopping to pass each local mimimum to a gradient descent algorithm for polishing, this method
     just catches and passes all local minima so basinhopping can proceed.

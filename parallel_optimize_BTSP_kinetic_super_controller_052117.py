@@ -149,7 +149,7 @@ def optimize_explore(x, xmin, xmax, error_function, induction=None, maxfev=None)
     return {'x': result.x, 'Err': result.fun}
 
 
-x0 = [6.318E+02, 1.707E+02, 3.604E-01, 2.497E-01, 1.020E-01, 2.]  # Error: 4.274E+04 (max weight = 3)
+x0 = [6.318E+02, 1.707E+02, 3.604E-01, 2.497E-01, 1.020E-01, 2.]  # Error: 4.274E+04 (saturated_delta_weight = 2)
 
 
 xmin1 = [100., 100., 0., 0., 0., 1.5]
