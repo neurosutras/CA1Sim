@@ -276,13 +276,13 @@ dv.execute('run parallel_optimize_leak_engine %i \"%s\"' % (int(spines), mech_fi
 # time.sleep(60)
 v = c.load_balanced_view()
 
-"""
+
 result = optimize.basinhopping(pas_error, x0['pas'], niter=explore_niter, niter_success=explore_niter,
                                disp=True, interval=40, minimizer_kwargs=minimizer_kwargs, take_step=take_step)
 
 polished_result = optimize.minimize(pas_error, result.x, method='Nelder-Mead', options={'ftol': 1e-5,
                                                     'disp': True, 'maxiter': polish_niter})
-"""
+
 
 polished_result = optimize.minimize(pas_error, x0['pas'], method='Nelder-Mead', options={'fatol': 1e-5, 'xatol': 1e-3,
                                                                                          'disp': True,

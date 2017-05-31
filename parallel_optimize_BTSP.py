@@ -18,6 +18,13 @@ except:
     pass
 
 
+script_filename = 'parallel_optimize_BTSP'
+
+x0 = [6.318E+02, 1.707E+02, 3.604E-01, 2.497E-01, 1.020E-01, 2.]  # Error: 4.274E+04 (saturated_delta_weight = 2)
+
+xmin1 = [100., 100., 0., 0., 0., 1.5]
+xmax1 = [6000., 6000., 1., 1., 1., 2.5]
+
 experimental_file_dir = data_dir
 experimental_filenames = {'cell': '121216 magee lab first induction', 'spont_cell': '120216 magee lab spont'}
 
@@ -97,7 +104,7 @@ def main(cluster_id, group_size):
 
     all_engines = c[:]
     all_engines.block = True
-    all_engines.execute('from parallel_optimize_BTSP_kinetic_rule_engine_052017 import *', block=True)
+    all_engines.execute('from %s import *' % script_filename, block=True)
 
     sub_clients = c[::group_size+1]
     sub_clients.block = True
@@ -899,5 +906,5 @@ def process_local(x, output_filename=None, plot=False):
 
 
 if __name__ == '__main__':
-    main()
+    main(args=sys.argv[(list_find(lambda s: s.find(script_filename+'.py') != -1,sys.argv)+1):])
 
