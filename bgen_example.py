@@ -52,7 +52,7 @@ def plot_history(storage):
 x0 = [0., 0.]
 
 bgen = BGen(x0, param_names, objective_names, 50, bounds=bounds, evaluate=evaluate_basinhopping,
-                 seed=0, max_gens=100, adaptive_step_interval=10, adaptive_step_factor=0.9, ngen_success=None,
+                 seed=0, max_gens=100, adaptive_step_interval=1, adaptive_step_factor=0.9, ngen_success=None,
                  survival_rate=0.5, disp=True)
 
 for param_list in bgen():

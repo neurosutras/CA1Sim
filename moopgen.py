@@ -46,19 +46,25 @@ class PopulationStorage(object):
         """
         self.param_names = param_names
         self.objective_names = objective_names
-        self.history = []
+        self.history = []  # a list of populations, of length max_gens
+        self.survivors = []  # a list of populations (some may be empty), of length max_gens
 
-    def append(self, population):
+    def append(self, population, survivors=None):
         """
 
         :param population: list of :class:'Individual'
+        :param survivors: list of :class:'Individual'
         """
+        if survivors is None:
+            survivors = []
+        self.survivors.append(deepcopy(survivors))
         self.history.append(deepcopy(population))
 
     def get_best(self, n=1, generation=None, evaluate=None):
         """
         If 'last' generation is specified, and rankings have not already been stored, compute new rankings.
-        If generations is specified as an integer q, compute new rankings for the last q generations.
+        If generations is specified as an integer q, compute new rankings for the last q generations, including the set
+        of survivors produced closest to, but before the qth generation.
         If 'all' generations is specified, collapse across all generations, exclude copies of Individuals that survived
         across generations, and compute new global rankings.
         Return the n best.
@@ -69,24 +75,27 @@ class PopulationStorage(object):
         """
         if generation is None:
             generation = 'all'
-        elif generation not in ['all', 'last'] and type(generation) != int:
             print 'PopulationStorage: Defaulting to get_best across all generations.'
+        elif generation not in ['all', 'last'] and type(generation) != int:
             generation = 'all'
+            print 'PopulationStorage: Defaulting to get_best across all generations.'
         if evaluate is None:
             evaluate = evaluate_basinhopping
         elif not isinstance(evaluate, collections.Callable):
             raise TypeError("PopulationStorage: evaluate must be callable.")
         if generation == 'last':
-            group = [individual for individual in self.history[-1] if individual.rank is not None]
-            if not group:
-                evaluate(self.history[-1])
-                group = [individual for individual in self.history[-1] if individual.rank is not None]
+            recent_survivors = self.survivors[-1]  # may be empty
+            group = [individual for individual in self.history[-1] + recent_survivors if individual.rank is not None]
+            if len(group) < len(self.history[-1] + recent_survivors):
+                group = [deepcopy(individual) for individual in self.history[-1] + recent_survivors]
+                evaluate(group)
         elif generation == 'all':
-            group = [deepcopy(individual) for population in self.history for individual in population
-                     if not individual.survivor]
+            group = [deepcopy(individual) for population in self.history for individual in population]
             evaluate(group)
         else:
+            generation = min(len(self.history), generation)
             group = [deepcopy(individual) for population in self.history[-generation:] for individual in population]
+            group.extend([deepcopy(individual) for individual in self.survivors[-generation]])
             evaluate(group)
         indexes = range(len(group))
         rank = [individual.rank for individual in group]
@@ -473,8 +482,8 @@ class BGen(object):
         """
         Assign fitness
         """
-        self._evaluate(self.survivors + self.population)
-        self.storage.append(self.survivors + self.population)
+        self._evaluate(self.population + self.survivors)
+        self.storage.append(self.population, self.survivors)
         self.evaluated = True
 
     def init_population(self):
