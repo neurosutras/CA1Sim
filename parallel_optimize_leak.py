@@ -441,8 +441,9 @@ def process_pas_results(results):
                 else:
                     objectives[pop_id]['distal_dend R_inp'] = 0.
     processed_results = {}
-    processed_results['features'] = features.values()
-    processed_results['objectives'] = objectives.values()
+    sorted_features = collections.OrderedDict(sorted(features.items()))
+    processed_results['features'] = sorted(features)
+    processed_results['objectives'] = sorted(objectives)
     return processed_results
 
 
@@ -577,12 +578,13 @@ def export_sim_results():
     with h5py.File(data_dir+rec_filename+'.hdf5', 'w') as f:
         sim.export_to_file(f)
 
+""""
 def plot_best(dv, x=None, discard=True):
-    """
+
     Run simulations on the engines with the last best set of parameters, have the engines export their results to .hdf5,
     and then read in and plot the results.
     :param x: array
-    """
+
     if x is None:
         if hist.x_values:
             pas_error(hist.report_best())
@@ -612,3 +614,4 @@ def plot_best(dv, x=None, discard=True):
     if discard:
         for rec_filename in rec_file_list:
             os.remove(data_dir + rec_filename + '.hdf5')
+"""
