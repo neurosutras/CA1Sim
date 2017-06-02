@@ -341,7 +341,7 @@ def run_optimization(group_size, group_cores, pop_size, pop_cores, generator, x0
 
 
 @interactive
-def run_generation(group_size, group_cores, pop_size, pop_cores, test_function, generation):
+def run_generation(group_size, pop_size, generation):
     c.load_balanced_view()
     start_time = time.time()
     global results
@@ -349,10 +349,11 @@ def run_generation(group_size, group_cores, pop_size, pop_cores, test_function, 
     final_results = []
     possibles = globals().copy()
     possibles.update(locals())
-    method = possibles.get(test_function)
+    method = possibles.get(get_features)
     if not method:
-        raise NotImplementedError("Method %s not implemented" % test_function)
+        raise NotImplementedError("Method %s not implemented" % get_features)
 
+    pop_cores = len(c)
     num_operating_groups = math.floor(pop_cores/group_cores)
     group_indexes = range(0, pop_size)
     for operating_group_ind in range(0, num_operating_groups):
@@ -405,9 +406,9 @@ def run_generation(group_size, group_cores, pop_size, pop_cores, test_function, 
     print('Simulation took %.3f s' % (time.time() - start_time))
     possibles = globals().copy()
     possibles.update(locals())
-    method = possibles.get(processing_function)
+    method = possibles.get(get_objectives)
     if not method:
-        raise NotImplementedError("Method %s not implemented" % processing_function)
+        raise NotImplementedError("Method %s not implemented" % get_objectives)
     features, objectives = method(final_results)
     return features, objectives
 
@@ -418,9 +419,6 @@ def test_pas(dv, x, pop_id, client_range):
     :param x: array (soma.g_pas, dend.g_pas slope, dend.g_pas tau, dend.g_pas xhalf)
     :return: float
     """
-    if not check_bounds.within_bounds(x, 'pas'):
-        print 'Aborting: Invalid parameter values.'
-        return 1e9
     sec_list = ['soma', 'dend', 'distal_dend']
     formatted_x = '[' + ', '.join(['%.3E' % xi for xi in x]) + ']'
     print 'Process %i using current x: %s: %s' % (os.getpid(), str(param_names), formatted_x)
