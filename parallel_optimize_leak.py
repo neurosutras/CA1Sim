@@ -117,12 +117,14 @@ class History(object):
         plt.show()
         plt.close()
 
+
+script_filename = 'parallel_optimize_leak.py'
 history_filename = '030517 leak optimization history'
 
 equilibrate = 250.  # time to steady-state
 stim_dur = 500.
 duration = equilibrate + stim_dur
-dt = 0.01
+dt = 0.02
 amp = 0.3
 th_dvdt = 10.
 v_init = -77.
@@ -133,9 +135,10 @@ soma_ek = -77.
 default_mech_file_path = data_dir + '042717 GC optimizing spike stability.pkl'
 default_neurotree_file_path = morph_dir + '121516_DGC_trees.pkl'
 default_param_gen = 'BGen'
-default_objective_func = 'pas_error'
+default_get_features = 'get_Rinp_features'
+default_get_objectives = 'get_objectives'
 
-default_x_dict = {'soma.g_pas': 1.050E-10, 'dend.g_pas slope': 1.058E-08, 'dend.g_pas tau': 3.886E+01}  # Error: 4.187E-09
+default_x0_dict = {'soma.g_pas': 1.050E-10, 'dend.g_pas slope': 1.058E-08, 'dend.g_pas tau': 3.886E+01}  # Error: 4.187E-09
 default_bounds_dict = {'soma.g_pas': (1.0E-18, 1.0E-6), 'dend.g_pas slope': (1.0E-12, 1.0E-4),
                   'dend.g_pas tau': (25., 400.)}
 default_feature_names = ['soma R_inp', 'dend R_inp', 'distal_dend R_inp']
@@ -155,9 +158,10 @@ default_param_file_path = None
 @click.option("--group-size", type=int, default=1)
 @click.option("--pop-size", type=int, default=50)
 @click.option("--param-gen", type=str, default=None)
-@click.option("--objective_func", type=str, default=None)
+@click.option("--get_features", type=str, default=None)
+@click.option("--get_objectives", type=str, default=None)
 def main(cluster_id, spines, mech_file_path, neurotree_file_path, neurotree_index, param_file_path, adaptive_interval,
-         group_size, pop_size, param_gen, objective_func):
+         group_size, pop_size, param_gen, get_features, get_objectives):
     """
 
     :param cluster_id: str
@@ -170,7 +174,8 @@ def main(cluster_id, spines, mech_file_path, neurotree_file_path, neurotree_inde
     :param group_size: int
     :param pop_size: int
     :param param_gen: str (name of callable)
-    :param objective_func: str (name of callable)
+    :param get_features: str (name of callable)
+    :param get_objectives: str (name of callable)
     """
     global c
 
@@ -198,28 +203,41 @@ def main(cluster_id, spines, mech_file_path, neurotree_file_path, neurotree_inde
 
     if param_file_path is not None:
         params_dict = read_from_pkl(param_file_path)
-        default_x0_dict = params_dict['x0']
-        default_bounds_dict = params_dict['bounds']
-        default_feature_names = params_dict['feature_names']
-        default_objective_names = params_dict['objective_names']
-
-    param_names = default_x0_dict.keys()
-    x0 = [default_x0_dict[key] for key in default_x0_dict]
-    bounds = [default_bounds_dict[key] for key in default_x0_dict]
-    feature_names = default_feature_names
-    objective_names = default_objective_names
+        param_names = params_dict['x0'].keys()
+        x0 = [params_dict['x0'][key] for key in param_names]
+        bounds = [params_dict['bounds'][key] for key in param_names]
+        feature_names = params_dict['feature_names']
+        objective_names = params_dict['objective_names']
+    else:
+        param_names = default_x0_dict.keys()
+        x0 = [default_x0_dict[key] for key in param_names]
+        bounds = [default_bounds_dict[key] for key in param_names]
+        feature_names = default_feature_names
+        objective_names = default_objective_names
 
     globals()['adaptive_interval'] = adaptive_interval
 
     if param_gen is None:
         param_gen = default_param_gen
     if param_gen not in globals():
-        raise NameError('%s has not been imported, or is not a valid class of parameter generator.' % param_gen)
-    ParamGenClass = globals()[param_gen]
+        raise NameError('Multi-Objective Optimization: %s has not been imported, or is not a valid class of parameter '
+                        'generator.' % param_gen)
+    else:
+        globals()['param_gen'] = param_gen
 
-    if objective_func is None:
-        objective_func = default_objective_func
-    globals()['objective_func'] = objective_func
+    if get_features is None:
+        get_features = default_get_features
+    if get_features not in globals() or not callable(globals()[get_features]):
+        raise NameError('Multi-Objective Optimization: get_features: %s has not been imported, or is not a callable '
+                        'function.' % get_features)
+    globals()['get_features'] = globals()[get_features]
+
+    if get_objectives is None:
+        get_objectives = default_get_objectives
+    if get_objectives not in globals() or not callable(globals()[get_objectives]):
+        raise NameError('Multi-Objective Optimization: get_objectives: %s has not been imported, or is not a callable '
+                        'function.' % get_objectives)
+    globals()['get_objectives'] = globals()[get_objectives]
 
     if group_size > num_procs:
         group_size = num_procs
@@ -230,8 +248,8 @@ def main(cluster_id, spines, mech_file_path, neurotree_file_path, neurotree_inde
         iter_per_gen += 1
 
     print 'Multi-Objective Optimization: %s; Total processes: %i; Population size: %i; Group size: %i; ' \
-          'Objective function: %s; Iterations / generation: %i' % (param_gen, num_procs, pop_size, group_size,
-                                                                   objective_func, iter_per_gen)
+          'Feature calculator: %s; Objective calculator: %s; Iterations / generation: %i' % \
+          (param_gen, num_procs, pop_size, group_size, get_features, get_objectives, iter_per_gen)
     if un_utilized > 0:
         print 'Multi-Objective Optimization: %i processes are unutilized' % un_utilized
 
@@ -297,8 +315,7 @@ def init_engine(spines=False, mech_file_path=None, neurotree_file_path=None, neu
     global rec_nodes
     rec_nodes = {'soma': cell.tree.root, 'dend': dend, 'distal_dend': distal_dend}
     global rec_filename
-    rec_filename = str(time.strftime('%m%d%Y', time.gmtime())) + '_' + str(time.strftime('%H%M%S', time.gmtime())) + \
-                   '_pid' + str(os.getpid()) + '_sim_output'
+    rec_filename = 'sim_output'+datetime.datetime.today().strftime('%m%d%Y%H%M')+'_pid'+str(os.getpid())
 
     global sim
     sim = QuickSim(duration, verbose=False)
@@ -541,6 +558,26 @@ def print_gpas_cm_values():
 
 
 @interactive
+def get_objectives(*args):
+    """
+
+    :param args:
+    :return:
+    """
+    pass
+
+
+@interactive
+def get_Rinp_features(*args):
+    """
+
+    :param args:
+    :return:
+    """
+    pass
+
+
+@interactive
 def get_Rinp_for_section(section, x):
     """
     Inject a hyperpolarizing step current into the specified section, and return the steady-state input resistance.
@@ -615,3 +652,7 @@ def plot_best(dv, x=None, discard=True):
         for rec_filename in rec_file_list:
             os.remove(data_dir + rec_filename + '.hdf5')
 """
+
+
+if __name__ == '__main__':
+    main(args=sys.argv[(list_find(lambda s: s.find(script_filename) != -1,sys.argv)+1):])
