@@ -22,10 +22,10 @@ class HocCell(object):
     type to create rules for synaptic mechanisms.
     """
 
-    def __init__(self, morph_filename=None, mech_filename=None, gid=0, existing_hoc_cell=None, neurotree_dict=None):
+    def __init__(self, morph_file_path=None, mech_file_path=None, gid=0, existing_hoc_cell=None, neurotree_dict=None):
         """
-        :param morph_filename: str : path to .swc file containing morphology
-        :param mech_filename: str : path to .pkl file specifying cable parameters and membrane mechanisms
+        :param morph_file_path: str : path to .swc file containing morphology
+        :param mech_file_path: str : path to .pkl file specifying cable parameters and membrane mechanisms
         :param gid: int
         :param existing_hoc_cell: :class: 'h.hocObject' : instance of a cell template class already built in hoc
         :param neurotree_dict: dict : read from a parallelized .hdf5 file
@@ -34,11 +34,11 @@ class HocCell(object):
         self.tree = btmorph.STree2()  # Builds a simple tree to store nodes of type 'SHocNode'
         self.index = 0  # Keep track of number of nodes
         self._node_dict = {'soma': [], 'axon': [], 'basal': [], 'trunk': [], 'apical': [], 'tuft': [], 'spine': []}
-        self.mech_filename = mech_filename
-        self.mech_dict = self.load_mech_dict(mech_filename)  # Refer to function_lib for description of structure of
-        # mechanism dictionary. loads from .pkl or
-        # default_mech_dict in function_lib
-        self.morph_filename = morph_filename
+        self.mech_file_path = mech_file_path
+        self.mech_dict = self.load_mech_dict(mech_file_path)    # Refer to function_lib for description of structure of
+                                                                # mechanism dictionary. loads from .pkl or
+                                                                # default_mech_dict in function_lib
+        self.morph_file_path = morph_file_path
         self.existing_hoc_cell = existing_hoc_cell
         self.neurotree_dict = neurotree_dict
         self.random = np.random.RandomState()
@@ -49,10 +49,10 @@ class HocCell(object):
         Loads morphology from files provided during initialization. self.tree.root must already be defined, for example
         by creating a standard soma by running self.make_standard_soma_and_axon
         """
-        if not self.morph_filename is None:
+        if not self.morph_file_path is None:
             self.load_morphology_from_swc(preserve_3d)
-            self.reinit_mechanisms()  # Membrane mechanisms must be reinitialized whenever cable properties (Ra, cm) or
-            # spatial resolution (nseg) changes.
+            self.reinit_mechanisms()    # Membrane mechanisms must be reinitialized whenever cable properties (Ra, cm)
+                                        # or spatial resolution (nseg) changes.
         elif not self.existing_hoc_cell is None:
             self.load_morphology_from_hoc()
             self.reinit_mechanisms()
@@ -108,7 +108,7 @@ class HocCell(object):
         :param preserve_3d: bool
         """
         raw_tree = btmorph.STree2()  # import the full tree from an SWC file
-        raw_tree.read_SWC_tree_from_file(morph_dir + self.morph_filename, types=range(10))
+        raw_tree.read_SWC_tree_from_file(self.morph_file_path, types=range(10))
         self.clean_swc_diams(raw_tree.root)
         for child in raw_tree.root.children:
             if preserve_3d:
@@ -121,7 +121,6 @@ class HocCell(object):
         This method reads from a dictionary (extracted from a parallelized .hdf5 file) to build an STree2 comprised of
         SHocNode nodes associated with hoc sections, connects the hoc sections, and initializes various parameters: Ra,
         cm, L, diam, nseg
-        :param morph_filename: str
         :param preserve_3d: bool
         """
         raw_tree = self.read_neurotree_from_dict()
@@ -489,14 +488,14 @@ class HocCell(object):
         else:
             return self._node_dict[sec_type]
 
-    def load_mech_dict(self, mech_filename=None):
+    def load_mech_dict(self, mech_file_path=None):
         """
         This method loads the dictionary specifying membrane mechanism parameters. If a .pkl file is not provided, a
         global variable default_mech_dict from function_lib is used.
-        :param mech_filename: str
+        :param mech_file_path: str
         """
-        if not mech_filename is None:
-            return read_from_pkl(data_dir + mech_filename + '.pkl')
+        if not mech_file_path is None:
+            return read_from_pkl(mech_file_path)
         else:
             local_mech_dict = copy.deepcopy(default_mech_dict)
             return local_mech_dict
@@ -1281,16 +1280,16 @@ class HocCell(object):
             if verbose:
                 pprint.pprint(self.mech_dict)
 
-    def export_mech_dict(self, mech_filename=None):
+    def export_mech_dict(self, mech_file_path=None):
         """
         Following modifications to the mechanism dictionary either during model specification or parameter optimization,
         this method stores the current mech_dict to a pickle file stamped with the date and time. This allows the
         current set of mechanism parameters to be recalled later.
         """
-        if mech_filename is None:
-            mech_filename = 'mech_dict_' + datetime.datetime.today().strftime('%m%d%Y%H%M')
-        write_to_pkl(data_dir + mech_filename + '.pkl', self.mech_dict)
-        print "Exported mechanism dictionary to " + mech_filename + '.pkl'
+        if mech_file_path is None:
+            mech_file_path = data_dir + 'mech_dict_' + datetime.datetime.today().strftime('%m%d%Y%H%M') + '.pkl'
+        write_to_pkl(mech_file_path, self.mech_dict)
+        print "Exported mechanism dictionary to " + mech_file_path
 
     def get_node_by_distance_to_soma(self, distance, sec_type):
         """
@@ -2412,18 +2411,18 @@ class CA1_Pyr(HocCell):
 
     """
 
-    def __init__(self, morph_filename=None, mech_filename=None, gid=0, existing_hoc_cell=None, full_spines=True,
+    def __init__(self, morph_file_path=None, mech_file_path=None, gid=0, existing_hoc_cell=None, full_spines=True,
                  preserve_3d=True):
         """
 
-        :param morph_filename:
-        :param mech_filename:
+        :param morph_file_path:
+        :param mech_file_path:
         :param gid:
         :param existing_hoc_cell:
         :param full_spines:
         :param preserve_3d:
         """
-        HocCell.__init__(self, morph_filename, mech_filename, gid, existing_hoc_cell)
+        HocCell.__init__(self, morph_file_path, mech_file_path, gid, existing_hoc_cell)
         self.random.seed(self.gid)  # This cell will always have the same spine and GABA_A synapse locations as long as
         # they are inserted in the same order
         # self.make_standard_soma_and_axon(soma_length=16., soma_diam=9., ais_length=30., axon_length=500.)
@@ -2604,18 +2603,18 @@ class DG_GC(HocCell):
 
     """
 
-    def __init__(self, morph_filename=None, mech_filename=None, gid=0, existing_hoc_cell=None, neurotree_dict=None,
+    def __init__(self, morph_file_path=None, mech_file_path=None, gid=0, existing_hoc_cell=None, neurotree_dict=None,
                  full_spines=True, preserve_3d=True):
         """
 
-        :param morph_filename:
-        :param mech_filename:
+        :param morph_file_path:
+        :param mech_file_path:
         :param gid:
         :param existing_hoc_cell:
         :param full_spines:
         :param preserve_3d:
         """
-        HocCell.__init__(self, morph_filename, mech_filename, gid, existing_hoc_cell, neurotree_dict)
+        HocCell.__init__(self, morph_file_path, mech_file_path, gid, existing_hoc_cell, neurotree_dict)
         self.random.seed(self.gid)  # This cell will always have the same spine and GABA_A synapse locations as long as
         # they are inserted in the same order
         self.make_standard_soma_and_axon(soma_length=18.6, soma_diam=10.3, ais_length=20., axon_length=1000.)

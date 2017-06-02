@@ -8,8 +8,7 @@ import time
 import os
 import sys
 import pprint
-import importlib
-import mkl
+from moopgen import *
 
 """
 Aims for spike initiation at initial segment by increasing nax density and decreasing activation V1/2 relative to soma,
@@ -27,6 +26,13 @@ Parallel version dynamically submits jobs to available cores.
 Assumes a controller is already running in another process with:
 ipcluster start -n num_cores
 """
+
+try:
+    import mkl
+    mkl.set_num_threads(1)
+except:
+    pass
+
 
 class History(object):
     def __init__(self):
@@ -111,18 +117,7 @@ class History(object):
         plt.show()
         plt.close()
 
-
-try:
-    import mkl
-    mkl.set_num_threads(1)
-except:
-    pass
-
-
-neurotree_filename = '121516_DGC_trees.pkl'
-neurotree_dict = read_from_pkl(morph_dir+neurotree_filename)
 history_filename = '030517 leak optimization history'
-
 
 equilibrate = 250.  # time to steady-state
 stim_dur = 500.
@@ -135,133 +130,138 @@ v_active = -77.
 i_holding = {'soma': 0., 'dend': 0., 'distal_dend': 0.}
 soma_ek = -77.
 
-default_mech_filename = '042717 GC optimizing spike stability'
-default_generator_type = 'moopgen'
-default_test_function = 'test_pas'
-default_error_function = 'pas_error'
-default_x0_spines = [3.80E-08, 8.08E-07, 6.78E+01]  # Err: 2.527E-09
-default_bounds_spines = [{'pas': [1.0E-18, 1.0E-12, 25.]}, {'pas': [1.0E-7, 1.0E-4, 400.]}]
-default_x0_no_spines = [1.050E-10, 1.058E-08, 3.886E+01]  # Error: 4.187E-09
-default_bounds_no_spines = [{'pas': [1.0E-18, 1.0E-12, 25.]}, {'pas': [1.0E-6, 1.0E-4, 400.]}]
-default_param_names = ['soma.g_pas', 'dend.g_pas slope', 'dend.g_pas tau']
-default_objective_names = ['soma', 'dend', 'distal_dend']
+default_mech_file_path = data_dir + '042717 GC optimizing spike stability.pkl'
+default_neurotree_file_path = morph_dir + '121516_DGC_trees.pkl'
+default_param_gen = 'BGen'
+default_objective_func = 'pas_error'
+
+default_x_dict = {'soma.g_pas': 1.050E-10, 'dend.g_pas slope': 1.058E-08, 'dend.g_pas tau': 3.886E+01}  # Error: 4.187E-09
+default_bounds_dict = {'soma.g_pas': (1.0E-18, 1.0E-6), 'dend.g_pas slope': (1.0E-12, 1.0E-4),
+                  'dend.g_pas tau': (25., 400.)}
+default_feature_names = ['soma R_inp', 'dend R_inp', 'distal_dend R_inp']
+default_objective_names = ['soma R_inp', 'dend R_inp', 'distal_dend R_inp']
+# we should load defaults from a file if we're going to be running optimizations with many more parameters
+default_param_file_path = None
+
 
 @click.command()
-@click.option("--cluster_id", type=str, prompt='Cluster ID')
+@click.option("--cluster-id", type=str, default=None)
 @click.option("--spines", type=bool, default=False)
-@click.option("--mech_filename", type=str, default=None)
-@click.option("--group_size", type=int, default=1)
-@click.option("--group_cores", type=int, default=1)
-@click.option("--pop_size", type=int, default=1)
-@click.option("--pop_cores", type=int, default=1)
-@click.option("--generator_type", type=str, default=None)
-@click.option("--test_function", type=str, default=None)
-@click.option("--error_function", type=str, default=None)
-@click.option("--x0", type=list, default=None)
-@click.option("--bounds", type=list, default=None)
-@click.option("--param_names", type=list, default=None)
-@click.option("--objective_names", type=list, default=None)
-def main(cluster_id, spines, mech_filename, group_size, group_cores, pop_size, pop_cores, generator_type,
-         test_function, error_function, x0, bounds, param_names, objective_names):
+@click.option("--mech-file-path", type=click.Path(exists=True, file_okay=True, dir_okay=False), default=None)
+@click.option("--neurotree-file-path", type=click.Path(exists=True, file_okay=True, dir_okay=False), default=None)
+@click.option("--neurotree-index", type=int, default=0)
+@click.option("--param-file-path", type=click.Path(exists=True, file_okay=True, dir_okay=False), default=None)
+@click.option("--adaptive-interval", type=int, default=1)
+@click.option("--group-size", type=int, default=1)
+@click.option("--pop-size", type=int, default=50)
+@click.option("--param-gen", type=str, default=None)
+@click.option("--objective_func", type=str, default=None)
+def main(cluster_id, spines, mech_file_path, neurotree_file_path, neurotree_index, param_file_path, adaptive_interval,
+         group_size, pop_size, param_gen, objective_func):
     """
 
     :param cluster_id: str
     :param spines: bool
-    :param mech_filename: str
+    :param mech_file_path: str (path)
+    :param neurotree_file_path: str (path)
+    :param neurotree_index: int
+    :param param_file_path: str (path)
+    :param adaptive_interval: int
     :param group_size: int
-    :param group_cores: int
     :param pop_size: int
-    :param pop_cores: int
-    :param generator_type: str (name of module)
-    :param test_function: str
-    :param error_function: str
-    :param x0: array
-    :param bounds: list of tuples
-    :param param_names: list of str
-    :param objective_names: list of str
-    :return:
+    :param param_gen: str (name of callable)
+    :param objective_func: str (name of callable)
     """
     global c
-    global all_engines
 
     if cluster_id is not None:
         c = Client(cluster_id=cluster_id)
     else:
         c = Client()
 
-    if mech_filename is None:
-        mech_filename = default_mech_filename
+    num_procs = len(c)
 
-    print 'Running optimization. Total cores: %i with population size %i. %i groups, %i cores each. Will require' \
-          '%i rounds per iteration' % (pop_cores, pop_size, group_size, group_cores,
-                                       math.ceil(group_size/group_cores)*math.ceil(pop_size/math.floor(pop_cores/group_cores)))
-    all_engines = c[:]
-    all_engines.block = True
-    all_engines.execute('from parallel_optimize_leak import *', block=True)
-    result_init = all_engines.map_sync(init_engine, [spines for id in all_engines.targets],
-                                  [mech_filename for id in all_engines.targets])
-    if generator_type is None:
-        generator_type = default_generator_type
-    if x0 is None:
-        if spines:
-            x0 = default_x0_spines
-        else:
-            x0 = default_x0_no_spines
-    if bounds is None:
-        if spines:
-            bounds = default_bounds_spines
-        else:
-            bounds = default_bounds_no_spines
-    if param_names is None:
-        param_names = default_param_names
-    globals()['param_names'] = param_names
-    if objective_names is None:
-        objective_names = default_objective_names
-    globals()['objective_names'] = objective_names
-    generator_mod = importlib.import_module(generator_type)
-    generator = generator_mod.BGen(x0, param_names, objective_names, pop_size, bounds)
-    if test_function is None:
-        test_function = default_test_function
-    if error_function is None:
-        error_function = default_error_function
-    result_optimize = run_optimization(group_size, group_cores, pop_size, pop_cores, generator, test_function, error_function,
-                                       x0, bounds)
+    if mech_file_path is None:
+        mech_file_path = default_mech_file_path
 
-    """
-    result = optimize.basinhopping(pas_error, x0['pas'], niter=explore_niter, niter_success=explore_niter,
-                                   disp=True, interval=40, minimizer_kwargs=minimizer_kwargs, take_step=take_step)
+    if neurotree_file_path is None:
+        neurotree_file_path = default_neurotree_file_path
 
-    # best_x = hist.report_best()
-    # hist.export_to_pkl(history_filename)
-    # dv['x'] = hist.report_best()
-    # dv['x'] = x0['pas']
-    # c[0].apply(parallel_optimize_leak_engine.update_mech_dict)
-    sys.stdout.flush()
-    # plot_best(x0['pas'])
-    # print result
-    """
+    if param_file_path is None:
+        param_file_path = default_param_file_path
+
+    global x0
+    global param_names
+    global bounds
+    global feature_names
+    global objective_names
+
+    if param_file_path is not None:
+        params_dict = read_from_pkl(param_file_path)
+        default_x0_dict = params_dict['x0']
+        default_bounds_dict = params_dict['bounds']
+        default_feature_names = params_dict['feature_names']
+        default_objective_names = params_dict['objective_names']
+
+    param_names = default_x0_dict.keys()
+    x0 = [default_x0_dict[key] for key in default_x0_dict]
+    bounds = [default_bounds_dict[key] for key in default_x0_dict]
+    feature_names = default_feature_names
+    objective_names = default_objective_names
+
+    globals()['adaptive_interval'] = adaptive_interval
+
+    if param_gen is None:
+        param_gen = default_param_gen
+    if param_gen not in globals():
+        raise NameError('%s has not been imported, or is not a valid class of parameter generator.' % param_gen)
+    ParamGenClass = globals()[param_gen]
+
+    if objective_func is None:
+        objective_func = default_objective_func
+    globals()['objective_func'] = objective_func
+
+    if group_size > num_procs:
+        group_size = num_procs
+        print 'Multi-Objective Optimization: group_size adjusted to not exceed num_processes: %i' % num_procs
+    un_utilized = num_procs % group_size
+    iter_per_gen = pop_size / num_procs * group_size
+    if iter_per_gen / group_size * num_procs < pop_size:
+        iter_per_gen += 1
+
+    print 'Multi-Objective Optimization: %s; Total processes: %i; Population size: %i; Group size: %i; ' \
+          'Objective function: %s; Iterations / generation: %i' % (param_gen, num_procs, pop_size, group_size,
+                                                                   objective_func, iter_per_gen)
+    if un_utilized > 0:
+        print 'Multi-Objective Optimization: %i processes are unutilized' % un_utilized
+
+    c[:].execute('from parallel_optimize_leak import *', block=True)
+    c[:].map_sync(init_engine, [spines] * num_procs, [mech_file_path] * num_procs, [neurotree_file_path] * num_procs,
+                  [neurotree_index] * num_procs)
 
 
 @interactive
-def init_engine(spines=False, mech_filename=None):
+def init_engine(spines=False, mech_file_path=None, neurotree_file_path=None, neurotree_index=0):
     """
 
     :param spines: bool
-    :param mech_filename: str
-    :return:
+    :param mech_file_path: str
+    :param neurotree_file_path: str
+    :param neurotree_index: int
     """
-    if mech_filename is None:
-        mech_filename = default_mech_filename
+    if mech_file_path is None:
+        mech_file_path = default_mech_file_path
 
     globals()['spines'] = spines
-    global sim_description
-    if spines:
-        sim_description = 'with_spines'
-    else:
-        sim_description = 'no_spines'
+
+    if neurotree_file_path is None:
+        neurotree_file_path = default_neurotree_file_path
+    neurotree_dict = read_from_pkl(neurotree_file_path)[neurotree_index]
 
     global cell
-    cell = DG_GC(neurotree_dict=neurotree_dict[0], mech_filename=mech_filename, full_spines=spines)
+    cell = DG_GC(neurotree_dict=neurotree_dict, mech_file_path=mech_file_path, full_spines=spines)
+    # in order to use a single engine to compute many different objectives, we're going to need a way to reset the cell
+    # to the original state by re-initializing the mech_dict from the mech_file_path
     cell.zero_na()
 
     # get the thickest apical dendrite ~200 um from the soma
@@ -308,6 +308,8 @@ def init_engine(spines=False, mech_filename=None):
 
     for description, node in rec_nodes.iteritems():
         sim.append_rec(cell, node, loc=rec_locs[description], description=description)
+    sim.parameters['spines'] = spines
+
 
 @interactive
 def run_optimization(group_size, group_cores, pop_size, pop_cores, generator, test_function, error_function,
@@ -502,7 +504,7 @@ def offset_vm(description, vm_target=None):
 @interactive
 def update_mech_dict(x):
     update_pas_exp(x)
-    cell.export_mech_dict(cell.mech_filename)
+    cell.export_mech_dict(cell.mech_file_path)
 
 
 @interactive
@@ -551,7 +553,6 @@ def get_Rinp_for_section(section, x):
     sim.parameters['section'] = section
     sim.parameters['target'] = 'Rinp'
     sim.parameters['optimization'] = 'pas'
-    sim.parameters['description'] = sim_description
     amp = -0.05
     update_pas_exp(x)
     cell.zero_na()
