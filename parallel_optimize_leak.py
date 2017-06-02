@@ -262,7 +262,6 @@ def init_engine(spines=False, mech_file_path=None, neurotree_file_path=None, neu
     cell = DG_GC(neurotree_dict=neurotree_dict, mech_file_path=mech_file_path, full_spines=spines)
     # in order to use a single engine to compute many different objectives, we're going to need a way to reset the cell
     # to the original state by re-initializing the mech_dict from the mech_file_path
-    cell.zero_na()
 
     # get the thickest apical dendrite ~200 um from the soma
     candidate_branches = []
@@ -318,15 +317,9 @@ def run_optimization(group_size, group_cores, pop_size, pop_cores, generator, te
     check_bounds = CheckBounds(bounds[0], bounds[1])
     global generation
     generation = generator.__call__()
-    results = run_generation(group_size, group_cores, pop_size, pop_cores, test_function, generation)
 
-    possibles = globals().copy()
-    possibles.update(locals())
-    method = possibles.get(error_function)
-    if not method:
-        raise NotImplementedError("Method %s not implemented" % error_function)
-    global errors
-    errors = method(results)
+    #run generations within a loop, up to max_iterations
+    run_generation(group_size, group_cores, pop_size, pop_cores, test_function, generation)
 
 
 @interactive
@@ -392,11 +385,16 @@ def run_generation(group_size, group_cores, pop_size, pop_cores, test_function, 
             new_result = method(dv, generation[group_ind].x, group_ind)
             results[operating_group_ind] = new_result
     print('Simulation took %.3f s' % (time.time() - start_time))
-    return final_results
+    possibles = globals().copy()
+    possibles.update(locals())
+    method = possibles.get(processing_function)
+    if not method:
+        raise NotImplementedError("Method %s not implemented" % processing_function)
+    processed_results = method(final_results)
 
 
 @interactive
-def test_pas(dv, x, group_ind):
+def test_pas(dv, x, pop_id, client_range):
     """
     Distribute simulations across available engines for optimization of leak conductance density gradient.
     :param x: array (soma.g_pas, dend.g_pas slope, dend.g_pas tau, dend.g_pas xhalf)
@@ -409,43 +407,43 @@ def test_pas(dv, x, group_ind):
     formatted_x = '[' + ', '.join(['%.3E' % xi for xi in x]) + ']'
     print 'Process %i using current x: %s: %s' % (os.getpid(), str(param_names), formatted_x)
     result = dv.map_async(get_Rinp_for_section, sec_list, [x for entry in sec_list])
-    formatted_result = [group_ind, result]
+    formatted_result = {'pop_id': pop_id, 'client_range': client_range, 'result': result}
     return formatted_result
 
 @interactive
-def pas_error(results):
+def process_pas_results(results):
+    """
+
+    :param results: dict, with 'pop_id' and 'data' as keys
+    :return:
+    """
     # the target values and acceptable ranges
     target_val = {}
     target_range = {}
-    target_val['pas'] = {'soma': 295., 'dend': 375.}
-    target_range['pas'] = {'soma': 0.5, 'dend': 1.}
-    target_val['v_rest'] = {'soma': v_init, 'tuft_offset': 0.}
-    target_range['v_rest'] = {'soma': 0.25, 'tuft_offset': 0.1}
+    target_val = {'soma R_inp': 295., 'dend R_inp': 375.}
+    target_range['pas'] = {'soma R_inp': 0.5, 'dend R_inp': 1.}
 
+    features = {}
+    objectives = {}
     for result in results:
-        group_index = result[0]
-        Err = {}
-        final_result = {}
-        for dict in result[1]:
-            final_result.update(dict)
-        for section in target_val['pas']:
-            Err[section] = ((target_val['pas'][section] - final_result[section]) / target_range['pas'][section]) ** 2.
-        section = 'distal_dend'
-        # add catch for decreasing terminal end input resistance too much
-        if final_result['distal_dend'] < final_result['dend']:
-            Err += ((final_result['dend'] - final_result['distal_dend']) / target_range['pas']['dend']) ** 2.
-            #fix this!!
-
-        for section in objective_names:
-            generation[group_index].objectives[section] = Err[section]
-
-        print 'Process %i: %s: %s; soma R_inp: %.1f, dend R_inp: %.1f, distal_dend R_inp: %.1f; Err: %.3E' % (os.getpid(),
-                                                                                    str(xlabels['pas']), formatted_x,
-                                                                                    final_result['soma'],
-                                                                                    final_result['dend'],
-                                                                                    final_result['distal_dend'], Err)
-        errors.append(Err)
-    return errors
+        pop_id = result['pop_id']
+        for feature_name in feature_names:
+            features[pop_id][feature_name] = result['data'][feature_name]
+        for objective_name in objective_names:
+            if objective_name != 'distal_dend R_inp':
+                objectives[pop_id][objective_name] = ((target_val[objective_name] - result['data'][objective_name]) /
+                                                      target_range[objective_name]) ** 2.
+            else:
+                # add catch for decreasing terminal end input resistance too much
+                if result['data']['distal_dend R_inp'] < result['data']['dend R_inp']:
+                    objectives[pop_id]['distal_dend R_inp'] = ((result['data']['dend R_inp'] -
+                                                result['data']['distal_dend R_inp']) / target_range['dend R_inp']) ** 2.
+                else:
+                    objectives[pop_id]['distal_dend R_inp'] = 0.
+    processed_results = {}
+    processed_results['features'] = features.values()
+    processed_results['objectives'] = objectives.values()
+    return processed_results
 
 
 @interactive
@@ -563,7 +561,9 @@ def get_Rinp_for_section(section, x):
     sim.modify_stim(0, node=node, loc=loc, amp=amp, dur=stim_dur)
     sim.run(v_init)
     Rinp = get_Rinp(np.array(sim.tvec), np.array(rec['vec']), equilibrate, duration, amp)[2]
-    result = {section: Rinp}
+    result = {}
+    if section+' R_inp' in objective_names:
+        result[section+' R_inp'] = Rinp
     print 'Process:', os.getpid(), 'calculated Rinp for %s in %.1f s, Rinp: %.1f' % (section, time.time() - start_time,
                                                                                     Rinp)
     return result
