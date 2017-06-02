@@ -408,8 +408,8 @@ def run_generation(group_size, group_cores, pop_size, pop_cores, test_function, 
     method = possibles.get(processing_function)
     if not method:
         raise NotImplementedError("Method %s not implemented" % processing_function)
-    processed_results = method(final_results)
-
+    features, objectives = method(final_results)
+    return features, objectives
 
 @interactive
 def test_pas(dv, x, pop_id, client_range):
@@ -465,10 +465,7 @@ def process_pas_results(results):
     sorted_objectives_keys = objectives.keys()
     sorted_objectives_keys.sort()
     sorted_objectives = [objectives[key] for key in sorted_objectives_keys]
-    processed_results['features'] = sorted_features
-    processed_results['objectives'] = sorted_objectives
-    return processed_results
-
+    return sorted_features, sorted_objectives
 
 @interactive
 def offset_vm(description, vm_target=None):
