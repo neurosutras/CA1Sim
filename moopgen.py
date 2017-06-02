@@ -1,10 +1,12 @@
 __author__ = 'Aaron D. Milstein'
 
 import numpy as np
-import scipy.optimize
+import matplotlib.pyplot as plt
+from matplotlib.pyplot import cm
 import collections
 from scipy._lib._util import check_random_state
 from copy import deepcopy
+
 
 """
 Here we have used scipy.optimize.basinhopping and emoo as inspiration in designing a parallel computing-compatible
@@ -60,7 +62,7 @@ class PopulationStorage(object):
         self.survivors.append(deepcopy(survivors))
         self.history.append(deepcopy(population))
 
-    def get_best(self, n=1, generation=None, evaluate=None):
+    def get_best(self, n=1, generations=None, evaluate=None, modify=False):
         """
         If 'last' generation is specified, and rankings have not already been stored, compute new rankings.
         If generations is specified as an integer q, compute new rankings for the last q generations, including the set
@@ -68,41 +70,89 @@ class PopulationStorage(object):
         If 'all' generations is specified, collapse across all generations, exclude copies of Individuals that survived
         across generations, and compute new global rankings.
         Return the n best.
+        If modify is True, allow changes to the rankings of Individuals stored in history, otherwise operate on and
+        discard copies.
         :param n: int
-        :param generation: str or int
+        :param generations: str or int
         :param evaluate: callable
+        :param modify: bool
         :return: list of :class:'Individual'
         """
-        if generation is None:
-            generation = 'all'
+        if generations is None:
+            generations = 'all'
             print 'PopulationStorage: Defaulting to get_best across all generations.'
-        elif generation not in ['all', 'last'] and type(generation) != int:
-            generation = 'all'
+        elif generations not in ['all', 'last'] and type(generations) != int:
+            generations = 'all'
             print 'PopulationStorage: Defaulting to get_best across all generations.'
         if evaluate is None:
             evaluate = evaluate_basinhopping
         elif not isinstance(evaluate, collections.Callable):
             raise TypeError("PopulationStorage: evaluate must be callable.")
-        if generation == 'last':
+        if generations == 'last':
             recent_survivors = self.survivors[-1]  # may be empty
             group = [individual for individual in self.history[-1] + recent_survivors if individual.rank is not None]
             if len(group) < len(self.history[-1] + recent_survivors):
-                group = [deepcopy(individual) for individual in self.history[-1] + recent_survivors]
+                if modify:
+                    group = [individual for individual in self.history[-1] + recent_survivors]
+                else:
+                    group = [deepcopy(individual) for individual in self.history[-1] + recent_survivors]
                 evaluate(group)
-        elif generation == 'all':
-            group = [deepcopy(individual) for population in self.history for individual in population]
+        elif generations == 'all':
+            if modify:
+                group = [individual for population in self.history for individual in population]
+            else:
+                group = [deepcopy(individual) for population in self.history for individual in population]
             evaluate(group)
         else:
-            generation = min(len(self.history), generation)
-            group = [deepcopy(individual) for population in self.history[-generation:] for individual in population]
-            group.extend([deepcopy(individual) for individual in self.survivors[-generation]])
+            generations = min(len(self.history), generations)
+            if modify:
+                group = [individual for population in self.history[-generations:] for individual in population]
+                group.extend([individual for individual in self.survivors[-generations]])
+            else:
+                group = [deepcopy(individual) for population in self.history[-generations:] for individual in population]
+                group.extend([deepcopy(individual) for individual in self.survivors[-generations]])
             evaluate(group)
         indexes = range(len(group))
         rank = [individual.rank for individual in group]
         indexes.sort(key=rank.__getitem__)
         group = map(group.__getitem__, indexes)
-
         return group[:n]
+
+    def plot_history(self):
+        """
+
+        """
+        colors = list(cm.rainbow(np.linspace(0, 1, len(self.history))))
+        for this_attr in ['fitness', 'energy', 'distance', 'survivor']:
+            plt.figure()
+            for j, population in enumerate(self.history):
+                plt.scatter([indiv.rank for indiv in population], [getattr(indiv, this_attr) for indiv in population],
+                            c=colors[j], alpha=0.1)
+                plt.scatter([indiv.rank for indiv in self.survivors[j]],
+                            [getattr(indiv, this_attr) for indiv in self.survivors[j]], c=colors[j], alpha=0.5)
+            plt.title(this_attr)
+        for i, param_name in enumerate(self.param_names):
+            this_attr = 'x'
+            plt.figure()
+            for j, population in enumerate(self.history):
+                plt.scatter([indiv.rank for indiv in population],
+                            [getattr(indiv, this_attr)[i] for indiv in population],
+                            c=colors[j], alpha=0.1)
+                plt.scatter([indiv.rank for indiv in self.survivors[j]],
+                            [getattr(indiv, this_attr)[i] for indiv in self.survivors[j]], c=colors[j], alpha=0.5)
+            plt.title(param_name)
+        for i, objective_name in enumerate(self.objective_names):
+            this_attr = 'objectives'
+            plt.figure()
+            for j, population in enumerate(self.history):
+                plt.scatter([indiv.rank for indiv in population],
+                            [getattr(indiv, this_attr)[i] for indiv in population],
+                            c=colors[j], alpha=0.1)
+                plt.scatter([indiv.rank for indiv in self.survivors[j]],
+                            [getattr(indiv, this_attr)[i] for indiv in self.survivors[j]], c=colors[j], alpha=0.5)
+            plt.title(objective_name)
+        plt.show()
+        plt.close()
 
 
 class BoundedStep(object):
@@ -243,24 +293,44 @@ def sort_by_crowding_distance(population):
     return population
 
 
-def assign_rank_by_energy(population):
+def sort_by_energy(population):
     """
-    Modifies in place the rank attributes of each Individual in the population. Sorts the population by total energy
-    (sum of all objectives).
+    Sorts the population by total energy (sum of all objectives). Returns the sorted population.
     :param population: list of :class:'Individual'
     """
     pop_size = len(population)
     indexes = range(len(population))
     energy_vals = [individual.energy for individual in population if individual.energy is not None]
     if len(energy_vals) < pop_size:
-        raise Exception('assign_rank_by_energy: energy has not been stored for all Individuals in population')
+        raise Exception('sort_by_energy: energy has not been stored for all Individuals in population')
     indexes.sort(key=energy_vals.__getitem__)
     population = map(population.__getitem__, indexes)
-    for rank, individual in enumerate(population):
+    return population
+
+
+def assign_rank_by_fitness_and_energy(population):
+    """
+    Modifies in place the rank attributes of each Individual in the population. Within each group of Individuals with
+    equivalent fitness, sorts by total energy (sum of all objectives).
+    :param population: list of :class:'Individual'
+    """
+    pop_size = len(population)
+    fitness_vals = [individual.fitness for individual in population]
+    if len(fitness_vals) < pop_size:
+        raise Exception('assign_rank_by_fitness_and_energy: fitness has not been stored for all Individuals in '
+                        'population')
+    max_fitness = max(fitness_vals)
+    new_population = []
+    for fitness in range(max_fitness + 1):
+        new_front = [individual for individual in population if individual.fitness == fitness]
+        new_sorted_front = sort_by_energy(new_front)
+        new_population.extend(new_sorted_front)
+    # now that population is sorted, assign rank to Individuals
+    for rank, individual in enumerate(new_population):
         individual.rank = rank
 
 
-def assign_rank_by_crowding_distance(population):
+def assign_rank_by_fitness_and_crowding_distance(population):
     """
     Modifies in place the distance and rank attributes of each Individual in the population. This is appropriate for
     early generations of evolutionary optimization, and helps to preserve diversity of solutions. However, once all
@@ -271,8 +341,8 @@ def assign_rank_by_crowding_distance(population):
     pop_size = len(population)
     fitness_vals = [individual.fitness for individual in population]
     if len(fitness_vals) < pop_size:
-        raise Exception('assign_rank_by_crowding_distance: fitness has not been stored for all Individuals in '
-                        'population')
+        raise Exception('assign_rank_by_fitness_and_crowding_distance: fitness has not been stored for all Individuals '
+                        'in population')
     max_fitness = max(fitness_vals)
     if max_fitness > 0:
         new_population = []
@@ -280,11 +350,11 @@ def assign_rank_by_crowding_distance(population):
             new_front = [individual for individual in population if individual.fitness == fitness]
             new_sorted_front = sort_by_crowding_distance(new_front)
             new_population.extend(new_sorted_front)
-        # now that population is sorted, assign rank to Individuals
-        for rank, individual in enumerate(new_population):
-            individual.rank = rank
     else:
-        assign_rank_by_energy(population)
+        new_population = sort_by_energy(population)
+    # now that population is sorted, assign rank to Individuals
+    for rank, individual in enumerate(new_population):
+        individual.rank = rank
 
 
 def assign_fitness_by_dominance(population, disp=False):
@@ -355,16 +425,16 @@ def evaluate_basinhopping(population, disp=False):
     Modifies in place the fitness and rank attributes of each Individual in the population.
     :param population: list of :class:'Individual'
     :param disp: bool
-    :return:
     """
     assign_fitness_by_dominance(population)
-    assign_rank_by_energy(population)
+    assign_rank_by_fitness_and_energy(population)
 
 
 def evaluate_random(population, disp):
     """
     Modifies in place the rank attribute of each Individual in the population.
     :param population: list of :class:'Individual'
+    :param disp: bool
     """
     rank_vals = range(len(population))
     np.random.shuffle(rank_vals)
@@ -430,10 +500,11 @@ class BGen(object):
         self.evaluated = False
         self.population = []
         self.survivors = []
+        self.final_survivors = None
 
     def __call__(self):
         """
-        A generator that yields a population of size pop_size as a list of individuals.
+        A generator that yields a list of size pop_size of parameter arrays.
         :yields: list of :class:'Individual'
         """
         self.num_gen = 0
@@ -446,7 +517,6 @@ class BGen(object):
                     raise Exception('BGen: Gen %i, objectives have not been stored for all Individuals in '
                                     'population' % self.num_gen)
                 if self.num_gen % self.adaptive_step_interval == 0:
-                    self.evaluate()
                     new_step_size = self.take_step.stepsize * self.adaptive_step_factor
                     if self.disp:
                         print 'BGen: Gen %i, previous step_size: %.2f, new step_size: %.2f' % \
@@ -459,8 +529,19 @@ class BGen(object):
             self.objectives_stored = False
             if self.disp:
                 print 'BGen: Gen %i, yielding parameters for population size %i' % (self.num_gen, self.pop_size)
-            yield [individual.x for individual in self.population]
             self.num_gen += 1
+            yield [individual.x for individual in self.population]
+        # evaluate the final, potentially incomplete interval of generations
+        if self.objectives_stored and not self.evaluated:
+            generations = self.num_gen % self.adaptive_step_interval
+            if generations == 0:
+                generations = self.adaptive_step_interval
+            self.final_survivors = self.storage.get_best(self.num_survivors,
+                                  generations=generations, evaluate=self._evaluate,
+                                  modify=True)
+            for individual in self.final_survivors:
+                individual.survivor = True
+            self.evaluated = True
 
     def set_objectives(self, objectives):
         """
@@ -476,6 +557,7 @@ class BGen(object):
             self.population[i].energy = np.sum(this_objectives)
         if self.disp:
             print 'BGen: Gen %i, storing objectives for population size %i' % (self.num_gen, self.pop_size)
+        self.storage.append(self.population, self.survivors)
         self.objectives_stored = True
 
     def evaluate(self):
@@ -483,7 +565,6 @@ class BGen(object):
         Assign fitness
         """
         self._evaluate(self.population + self.survivors)
-        self.storage.append(self.population, self.survivors)
         self.evaluated = True
 
     def init_population(self):
@@ -494,12 +575,12 @@ class BGen(object):
 
     def step_survivors(self):
         """
-        Consider the highest ranked Individuals of the current generation to be the survivors. Seed the next
-        generation with steps taken from the surviving set of parameters.
+        Consider the highest ranked Individuals of the previous interval of generations to be the survivors. Seed the
+        next generation with steps taken from the surviving set of parameters.
         """
-        if not self.evaluated:
-            raise Exception('BGen: Current generation has not yet been evaluated.')
-        self.survivors = self.storage.get_best(self.num_survivors, generation=self.adaptive_step_interval)
+        self.survivors = self.storage.get_best(self.num_survivors,
+                                               generations=self.adaptive_step_interval, evaluate=self._evaluate,
+                                               modify=True)
         for individual in self.survivors:
             individual.survivor = True
         new_population = []
@@ -514,3 +595,9 @@ class BGen(object):
         """
         new_population = [Individual(self.take_step(individual.x)) for individual in self.population]
         self.population = new_population
+
+    def report_best(self, generations=None):
+        """
+        Format and print the contents of self.final_survivors.
+        """
+        pass
