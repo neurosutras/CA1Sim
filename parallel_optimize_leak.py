@@ -1,15 +1,14 @@
 __author__ = 'Grace Ng'
-from function_lib import *
 from ipyparallel import interactive
+from ipyparallel import Client
 import click
 from IPython.display import clear_output
-from plot_results import *
 from specify_cells3 import *
-import scipy.optimize as optimize
 import time
 import os
 import sys
 import pprint
+import importlib
 import mkl
 
 """
@@ -136,52 +135,54 @@ v_active = -77.
 i_holding = {'soma': 0., 'dend': 0., 'distal_dend': 0.}
 soma_ek = -77.
 
-# the target values and acceptable ranges
-target_val = {}
-target_range = {}
-target_val['pas'] = {'soma': 295., 'dend': 375.}
-target_range['pas'] = {'soma': 0.5, 'dend': 1.}
-target_val['v_rest'] = {'soma': v_init, 'tuft_offset': 0.}
-target_range['v_rest'] = {'soma': 0.25, 'tuft_offset': 0.1}
-
-x0 = {}
-xlabels = {}
-xmin = {}
-xmax = {}
-
-check_bounds = CheckBounds(xmin, xmax)
-xlabels['pas'] = ['soma.g_pas', 'dend.g_pas slope', 'dend.g_pas tau']
-hist = History()
-hist.xlabels = xlabels['pas']
-
-"""
-explore_niter = 2100  # max number of iterations to run
-polish_niter = 400
-take_step = Normalized_Step(x0['pas'], xmin['pas'], xmax['pas'])
-minimizer_kwargs = dict(method=null_minimizer)
-"""
-
-
 default_mech_filename = '042717 GC optimizing spike stability'
+default_generator_type = 'moopgen'
+default_test_function = 'test_pas'
+default_error_function = 'pas_error'
+default_x0_spines = [3.80E-08, 8.08E-07, 6.78E+01]  # Err: 2.527E-09
+default_bounds_spines = [{'pas': [1.0E-18, 1.0E-12, 25.]}, {'pas': [1.0E-7, 1.0E-4, 400.]}]
+default_x0_no_spines = [1.050E-10, 1.058E-08, 3.886E+01]  # Error: 4.187E-09
+default_bounds_no_spines = [{'pas': [1.0E-18, 1.0E-12, 25.]}, {'pas': [1.0E-6, 1.0E-4, 400.]}]
+default_param_names = ['soma.g_pas', 'dend.g_pas slope', 'dend.g_pas tau']
+default_objective_names = ['soma', 'dend', 'distal_dend']
 
 @click.command()
+@click.option("--cluster_id", type=str, prompt='Cluster ID')
 @click.option("--spines", type=bool, default=False)
 @click.option("--mech_filename", type=str, default=None)
-@click.option("--cluster-id", type=str, default=None)
-@click.option("--group-size", type=int, default=1)
-def main(spines, mech_filename, cluster_id, group_size):
+@click.option("--group_size", type=int, default=1)
+@click.option("--group_cores", type=int, default=1)
+@click.option("--pop_size", type=int, default=1)
+@click.option("--pop_cores", type=int, default=1)
+@click.option("--generator_type", type=str, default=None)
+@click.option("--test_function", type=str, default=None)
+@click.option("--error_function", type=str, default=None)
+@click.option("--x0", type=list, default=None)
+@click.option("--bounds", type=list, default=None)
+@click.option("--param_names", type=list, default=None)
+@click.option("--objective_names", type=list, default=None)
+def main(cluster_id, spines, mech_filename, group_size, group_cores, pop_size, pop_cores, generator_type,
+         test_function, error_function, x0, bounds, param_names, objective_names):
     """
 
+    :param cluster_id: str
     :param spines: bool
     :param mech_filename: str
-    :param cluster_id: str
     :param group_size: int
+    :param group_cores: int
+    :param pop_size: int
+    :param pop_cores: int
+    :param generator_type: str (name of module)
+    :param test_function: str
+    :param error_function: str
+    :param x0: array
+    :param bounds: list of tuples
+    :param param_names: list of str
+    :param objective_names: list of str
     :return:
     """
-    from ipyparallel import Client
     global c
     global all_engines
-    global sub_clients
 
     if cluster_id is not None:
         c = Client(cluster_id=cluster_id)
@@ -191,81 +192,54 @@ def main(spines, mech_filename, cluster_id, group_size):
     if mech_filename is None:
         mech_filename = default_mech_filename
 
+    print 'Running optimization. Total cores: %i with population size %i. %i groups, %i cores each. Will require' \
+          '%i rounds per iteration' % (pop_cores, pop_size, group_size, group_cores,
+                                       math.ceil(group_size/group_cores)*math.ceil(pop_size/math.floor(pop_cores/group_cores)))
     all_engines = c[:]
     all_engines.block = True
+    all_engines.execute('from parallel_optimize_leak import *', block=True)
+    result_init = all_engines.map_sync(init_engine, [spines for id in all_engines.targets],
+                                  [mech_filename for id in all_engines.targets])
+    if generator_type is None:
+        generator_type = default_generator_type
+    if x0 is None:
+        if spines:
+            x0 = default_x0_spines
+        else:
+            x0 = default_x0_no_spines
+    if bounds is None:
+        if spines:
+            bounds = default_bounds_spines
+        else:
+            bounds = default_bounds_no_spines
+    if param_names is None:
+        param_names = default_param_names
+    globals()['param_names'] = param_names
+    if objective_names is None:
+        objective_names = default_objective_names
+    globals()['objective_names'] = objective_names
+    generator_mod = importlib.import_module(generator_type)
+    generator = generator_mod.BGen(x0, param_names, objective_names, pop_size, bounds)
+    if test_function is None:
+        test_function = default_test_function
+    if error_function is None:
+        error_function = default_error_function
+    result_optimize = run_optimization(group_size, group_cores, pop_size, pop_cores, generator, test_function, error_function,
+                                       x0, bounds)
 
-    sub_clients = c[::group_size+1]
-    sub_clients.block = True
-    sub_clients.execute('from parallel_optimize_leak import *', block=True)
-    result = sub_clients.map_sync(init_sub_client, [spines for id in sub_clients.targets],
-                                  [mech_filename for id in sub_clients.targets], [cluster_id for id in sub_clients.targets],
-                                  sub_clients.targets, [group_size for id in sub_clients.targets])
-    if spines:
-        x0['pas'] = [3.80E-08, 8.08E-07, 6.78E+01]  # Err: 2.527E-09
-        xmin['pas'] = [1.0E-18, 1.0E-12, 25.]
-        xmax['pas'] = [1.0E-7, 1.0E-4, 400.]
-    else:
-        x0['pas'] = [1.050E-10, 1.058E-08, 3.886E+01]  # Error: 4.187E-09
-        xmin['pas'] = [1.0E-18, 1.0E-12, 25.]
-        xmax['pas'] = [1.0E-6, 1.0E-4, 400.]
-    #Need to distribute x values to subclients, then evaluate result to determine next sequence
     """
     result = optimize.basinhopping(pas_error, x0['pas'], niter=explore_niter, niter_success=explore_niter,
                                    disp=True, interval=40, minimizer_kwargs=minimizer_kwargs, take_step=take_step)
-    """
 
     # best_x = hist.report_best()
     # hist.export_to_pkl(history_filename)
-
-
     # dv['x'] = hist.report_best()
     # dv['x'] = x0['pas']
     # c[0].apply(parallel_optimize_leak_engine.update_mech_dict)
     sys.stdout.flush()
     # plot_best(x0['pas'])
     # print result
-
-
-@interactive
-def init_sub_client(spines=False, mech_filename=None, cluster_id=None, sub_client_id=0, group_size=1):
     """
-
-    :param mech_filename: str
-    :param cluster_id: str
-    :param sub_client_id: int
-    :param group_size: int
-    :return:
-    """
-    from ipyparallel import Client
-
-    global c
-    global dv
-
-    if cluster_id is not None:
-        c = Client(cluster_id=cluster_id)
-    else:
-        c = Client()
-
-    if mech_filename is None:
-        mech_filename = default_mech_filename
-
-    dv = c[sub_client_id + 1:sub_client_id + 1 + group_size]
-    dv.execute('from parallel_optimize_leak import *', block=True)
-
-    dv.map_sync(init_engine, [spines for int in range(group_size)],
-                                  [mech_filename for int in range(group_size)])
-    global_start_time = time.time()
-    # time.sleep(60)
-    c.load_balanced_view()
-
-    if 'pas' not in xmin.keys():
-        if spines:
-            xmin['pas'] = [1.0E-18, 1.0E-12, 25.]
-            xmax['pas'] = [1.0E-7, 1.0E-4, 400.]
-        else:
-            xmin['pas'] = [1.0E-18, 1.0E-12, 25.]
-            xmax['pas'] = [1.0E-6, 1.0E-4, 400.]
-    return os.getpid(), dv.targets
 
 
 @interactive
@@ -336,7 +310,91 @@ def init_engine(spines=False, mech_filename=None):
         sim.append_rec(cell, node, loc=rec_locs[description], description=description)
 
 @interactive
-def pas_error(x):
+def run_optimization(group_size, group_cores, pop_size, pop_cores, generator, test_function, error_function,
+                                       x0, bounds):
+    global check_bounds
+    check_bounds = CheckBounds(bounds[0], bounds[1])
+    global generation
+    generation = generator.__call__()
+    results = run_generation(group_size, group_cores, pop_size, pop_cores, test_function, generation)
+
+    possibles = globals().copy()
+    possibles.update(locals())
+    method = possibles.get(error_function)
+    if not method:
+        raise NotImplementedError("Method %s not implemented" % error_function)
+    global errors
+    errors = method(results)
+
+
+@interactive
+def run_generation(group_size, group_cores, pop_size, pop_cores, test_function, generation):
+    c.load_balanced_view()
+    start_time = time.time()
+    global results
+    results = []
+    final_results = []
+    possibles = globals().copy()
+    possibles.update(locals())
+    method = possibles.get(test_function)
+    if not method:
+        raise NotImplementedError("Method %s not implemented" % test_function)
+
+    num_operating_groups = math.floor(pop_cores/group_cores)
+    group_indexes = range(0, pop_size)
+    for operating_group_ind in range(0, num_operating_groups):
+        dv = c[(operating_group_ind*group_cores):(operating_group_ind *group_cores+group_cores-1)]
+        group_ind = group_indexes.pop(0)
+        formatted_result = method(dv, generation[group_ind].x, group_ind)
+        results.append(formatted_result)
+    while len(group_indexes) > 0:
+        while not np.any(formatted_result[1].ready() for formatted_result in results):
+            for formatted_result in results:
+                result = formatted_result[1]
+                """
+                last = []
+                time.sleep(1.)
+                clear_output()
+                for i, stdout in enumerate([stdout for stdout in result.stdout if stdout][-len(sec_list):]):
+                    line = stdout.splitlines()[-1]
+                    if line not in last:
+                        print line
+                        last.append(line)
+                if len(last) > len(sec_list):
+                    last = last[-len(sec_list):]
+                sys.stdout.flush()
+                """
+                last_buffer_len = 0
+                time.sleep(1.)
+                clear_output()
+                stdout = result.stdout
+                if stdout:
+                    # lines = stdout.splitlines()
+                    # above fails because stdout is a list of strings, not a string. Instead, try:
+                    lines = []
+                    for line_ind in enumerate(stdout):
+                        split_lines = stdout[line_ind].splitlines()
+                        for line in split_lines:
+                            lines.append(line)
+                    if len(lines) > last_buffer_len:
+                        for line in lines[last_buffer_len:]:
+                            print line
+                        last_buffer_len = len(lines)
+                sys.stdout.flush()
+        for operating_group_ind in np.where(formatted_result[1].ready() for formatted_result in results):
+            old_result = results[operating_group_ind][1].get()
+            old_result_group_index = results[operating_group_ind][0]
+            final_results.append([old_result_group_index, result])
+            dv = c[(operating_group_ind*group_cores):(operating_group_ind*group_cores+group_cores-1)]
+            group_ind = group_indexes.pop(0)
+            new_result = method(dv, generation[group_ind].x, group_ind)
+            results[operating_group_ind] = new_result
+    print('Simulation took %.3f s' % (time.time() - start_time))
+    return final_results
+
+
+@interactive
+def test_pas(dv, x, group_ind):
     """
     Distribute simulations across available engines for optimization of leak conductance density gradient.
     :param x: array (soma.g_pas, dend.g_pas slope, dend.g_pas tau, dend.g_pas xhalf)
@@ -345,68 +403,47 @@ def pas_error(x):
     if not check_bounds.within_bounds(x, 'pas'):
         print 'Aborting: Invalid parameter values.'
         return 1e9
-    start_time = time.time()
-
-    hist.x_values.append(x)
-
     sec_list = ['soma', 'dend', 'distal_dend']
     formatted_x = '[' + ', '.join(['%.3E' % xi for xi in x]) + ']'
-    print 'Process %i using current x: %s: %s' % (os.getpid(), str(xlabels['pas']), formatted_x)
+    print 'Process %i using current x: %s: %s' % (os.getpid(), str(param_names), formatted_x)
     result = dv.map_async(get_Rinp_for_section, sec_list, [x for entry in sec_list])
-    last = []
-    while not result.ready():
-        time.sleep(1.)
-        clear_output()
-        for i, stdout in enumerate([stdout for stdout in result.stdout if stdout][-len(sec_list):]):
-            line = stdout.splitlines()[-1]
-            if line not in last:
-                print line
-                last.append(line)
-        if len(last) > len(sec_list):
-            last = last[-len(sec_list):]
-        sys.stdout.flush()
-    """
-    last_buffer_len = 0
-    while not result.ready():
-        time.sleep(1.)
-        clear_output()
-        stdout = result.stdout
-        if stdout:
-            lines = stdout.splitlines()
-            #fails because stdout is a list of strings, not a string
-            if len(lines) > last_buffer_len:
-                for line in lines[last_buffer_len:]:
-                    print line
-                last_buffer_len = len(lines)
-        sys.stdout.flush()
-    """
-    result = result.get()
+    formatted_result = [group_ind, result]
+    return formatted_result
 
-    Err = 0.
+@interactive
+def pas_error(results):
+    # the target values and acceptable ranges
+    target_val = {}
+    target_range = {}
+    target_val['pas'] = {'soma': 295., 'dend': 375.}
+    target_range['pas'] = {'soma': 0.5, 'dend': 1.}
+    target_val['v_rest'] = {'soma': v_init, 'tuft_offset': 0.}
+    target_range['v_rest'] = {'soma': 0.25, 'tuft_offset': 0.1}
 
-    final_result = {}
-    for dict in result:
-        final_result.update(dict)
-    for section in final_result:
-        if section not in hist.Rinp_values:
-            hist.Rinp_values[section] = []
-    for section in target_val['pas']:
-        Err += ((target_val['pas'][section] - final_result[section]) / target_range['pas'][section]) ** 2.
-        hist.Rinp_values[section].append(final_result[section])
-    section = 'distal_dend'
-    hist.Rinp_values[section].append(final_result[section])
-    # add catch for decreasing terminal end input resistance too much
-    if final_result['distal_dend'] < final_result['dend']:
-        Err += ((final_result['dend'] - final_result['distal_dend']) / target_range['pas']['dend']) ** 2.
-    hist.error_values.append(Err)
+    for result in results:
+        group_index = result[0]
+        Err = {}
+        final_result = {}
+        for dict in result[1]:
+            final_result.update(dict)
+        for section in target_val['pas']:
+            Err[section] = ((target_val['pas'][section] - final_result[section]) / target_range['pas'][section]) ** 2.
+        section = 'distal_dend'
+        # add catch for decreasing terminal end input resistance too much
+        if final_result['distal_dend'] < final_result['dend']:
+            Err += ((final_result['dend'] - final_result['distal_dend']) / target_range['pas']['dend']) ** 2.
+            #fix this!!
 
-    print('Simulation took %.3f s' % (time.time() - start_time))
-    print 'Process %i: %s: %s; soma R_inp: %.1f, dend R_inp: %.1f, distal_dend R_inp: %.1f; Err: %.3E' % (os.getpid(),
-                                                                                str(xlabels['pas']), formatted_x,
-                                                                                final_result['soma'],
-                                                                                final_result['dend'],
-                                                                                final_result['distal_dend'], Err)
-    return Err
+        for section in objective_names:
+            generation[group_index].objectives[section] = Err[section]
+
+        print 'Process %i: %s: %s; soma R_inp: %.1f, dend R_inp: %.1f, distal_dend R_inp: %.1f; Err: %.3E' % (os.getpid(),
+                                                                                    str(xlabels['pas']), formatted_x,
+                                                                                    final_result['soma'],
+                                                                                    final_result['dend'],
+                                                                                    final_result['distal_dend'], Err)
+        errors.append(Err)
+    return errors
 
 
 @interactive
@@ -539,7 +576,7 @@ def export_sim_results():
     with h5py.File(data_dir+rec_filename+'.hdf5', 'w') as f:
         sim.export_to_file(f)
 
-def plot_best(x=None, discard=True):
+def plot_best(dv, x=None, discard=True):
     """
     Run simulations on the engines with the last best set of parameters, have the engines export their results to .hdf5,
     and then read in and plot the results.
