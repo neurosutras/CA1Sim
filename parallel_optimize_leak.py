@@ -267,6 +267,8 @@ def init_engine(spines=False, mech_file_path=None, neurotree_file_path=None, neu
     :param neurotree_file_path: str
     :param neurotree_index: int
     """
+    global param_index
+    param_index = [param_name for i, param_name in enumerate(param_names)]
     if mech_file_path is None:
         mech_file_path = default_mech_file_path
 
@@ -328,15 +330,14 @@ def init_engine(spines=False, mech_file_path=None, neurotree_file_path=None, neu
 
 
 @interactive
-def run_optimization(group_size, group_cores, pop_size, pop_cores, generator, test_function, error_function,
-                                       x0, bounds):
-    global check_bounds
-    check_bounds = CheckBounds(bounds[0], bounds[1])
+def run_optimization(group_size, group_cores, pop_size, pop_cores, generator, x0, bounds):
+    global generator
+    generator = param_gen.__init__(x0, param_names, objective_names, pop_size, bounds)
     global generation
     generation = generator.__call__()
 
     #run generations within a loop, up to max_iterations
-    run_generation(group_size, group_cores, pop_size, pop_cores, test_function, generation)
+    run_generation(group_size, group_cores, pop_size, pop_cores, generation)
 
 
 @interactive
@@ -458,9 +459,14 @@ def process_pas_results(results):
                 else:
                     objectives[pop_id]['distal_dend R_inp'] = 0.
     processed_results = {}
-    sorted_features = collections.OrderedDict(sorted(features.items()))
-    processed_results['features'] = sorted(features)
-    processed_results['objectives'] = sorted(objectives)
+    sorted_features_keys = features.keys()
+    sorted_features_keys.sort()
+    sorted_features = [features[key] for key in sorted_features_keys]
+    sorted_objectives_keys = objectives.keys()
+    sorted_objectives_keys.sort()
+    sorted_objectives = [objectives[key] for key in sorted_objectives_keys]
+    processed_results['features'] = sorted_features
+    processed_results['objectives'] = sorted_objectives
     return processed_results
 
 
@@ -527,13 +533,14 @@ def update_mech_dict(x):
 def update_pas_exp(x):
     """
 
-    x0 = [2.28e-05, 1.58e-06, 58.4]
+    x0 = ['soma.g_pas': 2.28e-05, 'dend.g_pas slope': 1.58e-06, 'dend.g_pas tau': 58.4]
     :param x: array [soma.g_pas, dend.g_pas slope, dend.g_pas tau]
     """
     if spines is False:
         cell.reinit_mechanisms(reset_cable=True)
-    cell.modify_mech_param('soma', 'pas', 'g', x[0])
-    cell.modify_mech_param('apical', 'pas', 'g', origin='soma', slope=x[1], tau=x[2])
+    cell.modify_mech_param('soma', 'pas', 'g', x[param_index['soma.g_pas']])
+    cell.modify_mech_param('apical', 'pas', 'g', origin='soma', slope=x[param_index['dend.g_pas slope']],
+                           tau=x[param_index['dend.g_pas tau']])
     for sec_type in ['axon_hill', 'axon', 'ais', 'apical', 'spine_neck', 'spine_head']:
         cell.reinitialize_subset_mechanisms(sec_type, 'pas')
     if spines is False:
@@ -600,8 +607,7 @@ def get_Rinp_for_section(section, x):
     sim.run(v_init)
     Rinp = get_Rinp(np.array(sim.tvec), np.array(rec['vec']), equilibrate, duration, amp)[2]
     result = {}
-    if section+' R_inp' in objective_names:
-        result[section+' R_inp'] = Rinp
+    result[section+' R_inp'] = Rinp
     print 'Process:', os.getpid(), 'calculated Rinp for %s in %.1f s, Rinp: %.1f' % (section, time.time() - start_time,
                                                                                     Rinp)
     return result
