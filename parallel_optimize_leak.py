@@ -388,7 +388,14 @@ def run_optimization(group_size, pop_size, adaptive_step_interval, max_gens, ada
 
 
 @interactive
-def run_generation(group_size, pop_size):
+def run_generation(group_size, pop_size, generation):
+    """
+
+    :param group_size: int
+    :param pop_size: int
+    :param generation: list of array
+    :return:
+    """
     c.load_balanced_view()
     start_time = time.time()
     global results
@@ -396,10 +403,11 @@ def run_generation(group_size, pop_size):
     final_results = []
     possibles = globals().copy()
     possibles.update(locals())
-    method = possibles.get(test_function)
+    method = possibles.get(get_features)
     if not method:
-        raise NotImplementedError("Method %s not implemented" % test_function)
+        raise NotImplementedError("Method %s not implemented" % get_features)
 
+    pop_cores = len(c)
     num_operating_groups = math.floor(pop_cores/group_cores)
     group_indexes = range(0, pop_size)
     for operating_group_ind in range(0, num_operating_groups):
@@ -450,61 +458,66 @@ def run_generation(group_size, pop_size):
             new_result = method(dv, generation[group_ind].x, group_ind)
             results[operating_group_ind] = new_result
     print('Simulation took %.3f s' % (time.time() - start_time))
-    return final_results
-
+    possibles = globals().copy()
+    possibles.update(locals())
+    method = possibles.get(get_objectives)
+    if not method:
+        raise NotImplementedError("Method %s not implemented" % get_objectives)
+    features, objectives = method(final_results)
+    return features, objectives
 
 @interactive
-def test_pas(dv, x, group_ind):
+def test_pas(dv, x, pop_id, client_range):
     """
     Distribute simulations across available engines for optimization of leak conductance density gradient.
     :param x: array (soma.g_pas, dend.g_pas slope, dend.g_pas tau, dend.g_pas xhalf)
     :return: float
     """
-    if not check_bounds.within_bounds(x, 'pas'):
-        print 'Aborting: Invalid parameter values.'
-        return 1e9
     sec_list = ['soma', 'dend', 'distal_dend']
     formatted_x = '[' + ', '.join(['%.3E' % xi for xi in x]) + ']'
     print 'Process %i using current x: %s: %s' % (os.getpid(), str(param_names), formatted_x)
     result = dv.map_async(get_Rinp_for_section, sec_list, [x for entry in sec_list])
-    formatted_result = [group_ind, result]
+    formatted_result = {'pop_id': pop_id, 'client_range': client_range, 'result': result}
     return formatted_result
 
 @interactive
-def pas_error(results):
+def process_pas_results(results):
+    """
+
+    :param results: dict, with 'pop_id' and 'data' as keys
+    :return:
+    """
     # the target values and acceptable ranges
     target_val = {}
     target_range = {}
-    target_val['pas'] = {'soma': 295., 'dend': 375.}
-    target_range['pas'] = {'soma': 0.5, 'dend': 1.}
-    target_val['v_rest'] = {'soma': v_init, 'tuft_offset': 0.}
-    target_range['v_rest'] = {'soma': 0.25, 'tuft_offset': 0.1}
+    target_val = {'soma R_inp': 295., 'dend R_inp': 375.}
+    target_range['pas'] = {'soma R_inp': 0.5, 'dend R_inp': 1.}
 
+    features = {}
+    objectives = {}
     for result in results:
-        group_index = result[0]
-        Err = {}
-        final_result = {}
-        for dict in result[1]:
-            final_result.update(dict)
-        for section in target_val['pas']:
-            Err[section] = ((target_val['pas'][section] - final_result[section]) / target_range['pas'][section]) ** 2.
-        section = 'distal_dend'
-        # add catch for decreasing terminal end input resistance too much
-        if final_result['distal_dend'] < final_result['dend']:
-            Err += ((final_result['dend'] - final_result['distal_dend']) / target_range['pas']['dend']) ** 2.
-            #fix this!!
-
-        for section in objective_names:
-            generation[group_index].objectives[section] = Err[section]
-
-        print 'Process %i: %s: %s; soma R_inp: %.1f, dend R_inp: %.1f, distal_dend R_inp: %.1f; Err: %.3E' % (os.getpid(),
-                                                                                    str(xlabels['pas']), formatted_x,
-                                                                                    final_result['soma'],
-                                                                                    final_result['dend'],
-                                                                                    final_result['distal_dend'], Err)
-        errors.append(Err)
-    return errors
-
+        pop_id = result['pop_id']
+        for feature_name in feature_names:
+            features[pop_id][feature_name] = result['data'][feature_name]
+        for objective_name in objective_names:
+            if objective_name != 'distal_dend R_inp':
+                objectives[pop_id][objective_name] = ((target_val[objective_name] - result['data'][objective_name]) /
+                                                      target_range[objective_name]) ** 2.
+            else:
+                # add catch for decreasing terminal end input resistance too much
+                if result['data']['distal_dend R_inp'] < result['data']['dend R_inp']:
+                    objectives[pop_id]['distal_dend R_inp'] = ((result['data']['dend R_inp'] -
+                                                result['data']['distal_dend R_inp']) / target_range['dend R_inp']) ** 2.
+                else:
+                    objectives[pop_id]['distal_dend R_inp'] = 0.
+    processed_results = {}
+    sorted_features_keys = features.keys()
+    sorted_features_keys.sort()
+    sorted_features = [features[key] for key in sorted_features_keys]
+    sorted_objectives_keys = objectives.keys()
+    sorted_objectives_keys.sort()
+    sorted_objectives = [objectives[key] for key in sorted_objectives_keys]
+    return sorted_features, sorted_objectives
 
 @interactive
 def offset_vm(description, vm_target=None):
@@ -569,13 +582,14 @@ def update_mech_dict(x):
 def update_pas_exp(x):
     """
 
-    x0 = [2.28e-05, 1.58e-06, 58.4]
+    x0 = ['soma.g_pas': 2.28e-05, 'dend.g_pas slope': 1.58e-06, 'dend.g_pas tau': 58.4]
     :param x: array [soma.g_pas, dend.g_pas slope, dend.g_pas tau]
     """
     if spines is False:
         cell.reinit_mechanisms(reset_cable=True)
-    cell.modify_mech_param('soma', 'pas', 'g', x[0])
-    cell.modify_mech_param('apical', 'pas', 'g', origin='soma', slope=x[1], tau=x[2])
+    cell.modify_mech_param('soma', 'pas', 'g', x[param_index['soma.g_pas']])
+    cell.modify_mech_param('apical', 'pas', 'g', origin='soma', slope=x[param_index['dend.g_pas slope']],
+                           tau=x[param_index['dend.g_pas tau']])
     for sec_type in ['axon_hill', 'axon', 'ais', 'apical', 'spine_neck', 'spine_head']:
         cell.reinitialize_subset_mechanisms(sec_type, 'pas')
     if spines is False:
@@ -641,7 +655,8 @@ def get_Rinp_for_section(section, x):
     sim.modify_stim(0, node=node, loc=loc, amp=amp, dur=stim_dur)
     sim.run(v_init)
     Rinp = get_Rinp(np.array(sim.tvec), np.array(rec['vec']), equilibrate, duration, amp)[2]
-    result = {section: Rinp}
+    result = {}
+    result[section+' R_inp'] = Rinp
     print 'Process:', os.getpid(), 'calculated Rinp for %s in %.1f s, Rinp: %.1f' % (section, time.time() - start_time,
                                                                                     Rinp)
     return result
@@ -654,6 +669,7 @@ def export_sim_results():
     """
     with h5py.File(data_dir+rec_filename+'.hdf5', 'w') as f:
         sim.export_to_file(f)
+
 
 def plot_best(dv, x=None, discard=True):
     """
