@@ -143,6 +143,8 @@ default_bounds_dict = {'soma.g_pas': (1.0E-18, 1.0E-6), 'dend.g_pas slope': (1.0
                   'dend.g_pas tau': (25., 400.)}
 default_feature_names = ['soma R_inp', 'dend R_inp', 'distal_dend R_inp']
 default_objective_names = ['soma R_inp', 'dend R_inp', 'distal_dend R_inp']
+default_target_val = {'soma R_inp': 295., 'dend R_inp': 375.}
+default_target_range = {'soma R_inp': 0.5, 'dend R_inp': 1.}
 # we should load defaults from a file if we're going to be running optimizations with many more parameters
 default_param_file_path = None
 
@@ -212,6 +214,8 @@ def main(cluster_id, spines, mech_file_path, neurotree_file_path, neurotree_inde
     global bounds
     global feature_names
     global objective_names
+    global target_val
+    global target_range
 
     if param_file_path is not None:
         params_dict = read_from_pkl(param_file_path)
@@ -220,12 +224,16 @@ def main(cluster_id, spines, mech_file_path, neurotree_file_path, neurotree_inde
         bounds = [params_dict['bounds'][key] for key in param_names]
         feature_names = params_dict['feature_names']
         objective_names = params_dict['objective_names']
+        target_val = params_dict['target_val']
+        target_range = params_dict['target_range']
     else:
         param_names = default_x0_dict.keys()
         x0 = [default_x0_dict[key] for key in param_names]
         bounds = [default_bounds_dict[key] for key in param_names]
         feature_names = default_feature_names
         objective_names = default_objective_names
+        target_val = default_target_val
+        target_range = default_target_range
 
     globals()['adaptive_step_interval'] = adaptive_step_interval
 
@@ -378,13 +386,15 @@ def run_optimization(group_size, pop_size, adaptive_step_interval, max_gens, ada
     :param disp:
     :return:
     """
-    paramgen = param_gen(x0, param_names, objective_names, pop_size, bounds=bounds, take_step=None, evaluate=None,
+    global local_param_gen
+    local_param_gen = param_gen(x0, param_names, objective_names, pop_size, bounds=bounds, take_step=None, evaluate=None,
                  seed=None, max_gens=max_gens, adaptive_step_interval=adaptive_step_interval,
                          adaptive_step_factor=adaptive_step_factor, ngen_success=ngen_success,
                          survival_rate=survival_rate, disp=disp)
-    for generation in paramgen():
+    for generation in local_param_gen():
         features, objectives = run_generation(group_size, pop_size, generation)
-        paramgen.set_objectives(features, objectives)
+        local_param_gen.set_objectives(features, objectives)
+    # do something after optimization completes
 
 
 @interactive
@@ -396,106 +406,77 @@ def run_generation(group_size, pop_size, generation):
     :param generation: list of array
     :return:
     """
-    c.load_balanced_view()
     start_time = time.time()
-    global results
-    results = []
-    final_results = []
-    possibles = globals().copy()
-    possibles.update(locals())
-    method = possibles.get(get_features)
-    if not method:
-        raise NotImplementedError("Method %s not implemented" % get_features)
+    final_results = {}
 
-    pop_cores = len(c)
-    num_operating_groups = math.floor(pop_cores/group_cores)
-    group_indexes = range(0, pop_size)
-    for operating_group_ind in range(0, num_operating_groups):
-        dv = c[(operating_group_ind*group_cores):(operating_group_ind *group_cores+group_cores-1)]
-        group_ind = group_indexes.pop(0)
-        formatted_result = method(dv, generation[group_ind].x, group_ind)
-        results.append(formatted_result)
-    while len(group_indexes) > 0:
-        while not np.any(formatted_result[1].ready() for formatted_result in results):
-            for formatted_result in results:
-                result = formatted_result[1]
-                """
-                last = []
-                time.sleep(1.)
-                clear_output()
-                for i, stdout in enumerate([stdout for stdout in result.stdout if stdout][-len(sec_list):]):
-                    line = stdout.splitlines()[-1]
-                    if line not in last:
-                        print line
-                        last.append(line)
-                if len(last) > len(sec_list):
-                    last = last[-len(sec_list):]
-                sys.stdout.flush()
-                """
-                last_buffer_len = 0
-                time.sleep(1.)
-                clear_output()
-                stdout = result.stdout
-                if stdout:
-                    # lines = stdout.splitlines()
-                    # above fails because stdout is a list of strings, not a string. Instead, try:
-                    lines = []
-                    for line_ind in enumerate(stdout):
-                        split_lines = stdout[line_ind].splitlines()
-                        for line in split_lines:
-                            lines.append(line)
-                    if len(lines) > last_buffer_len:
-                        for line in lines[last_buffer_len:]:
-                            print line
-                        last_buffer_len = len(lines)
-                sys.stdout.flush()
-        for operating_group_ind in np.where(formatted_result[1].ready() for formatted_result in results):
-            old_result = results[operating_group_ind][1].get()
-            old_result_group_index = results[operating_group_ind][0]
-            final_results.append([old_result_group_index, result])
-            dv = c[(operating_group_ind*group_cores):(operating_group_ind*group_cores+group_cores-1)]
-            group_ind = group_indexes.pop(0)
-            new_result = method(dv, generation[group_ind].x, group_ind)
-            results[operating_group_ind] = new_result
+    num_groups = num_procs / group_size
+    pop_ids = range(pop_size)
+    client_ranges = [range(start, start+group_size) for start in range(0, num_procs, group_size)]
+    results = []
+    while len(pop_ids) > 0 or len(results) > 0:
+        num_groups = min(len(client_ranges), pop_ids)
+        if num_groups > 0:
+            results.extend(map(get_features, [generation.pop(0) for i in range(num_groups)],
+                               [pop_ids.pop(0) for i in range(num_groups)],
+                               [client_ranges.pop(0) for i in range(num_groups)]))
+        if np.any([this_result['async_result'].ready() for this_result in results]):
+            for this_result in results:
+                if this_result['async_result'].ready():
+                    client_ranges.append(this_result['client_range'])
+                    this_feature_dict = {key: value for result_dict in this_result['async_result'].get()
+                                         for key, value in result_dict.iteritems()}
+                    final_results[this_result['pop_id']] = this_feature_dict
+                    results.remove(this_result)
+                else:
+                    """
+                    last_buffer_len = []
+                    while not result.ready():
+                        time.sleep(1.)
+                        clear_output()
+                        for i, stdout in enumerate(result.stdout):
+                            if (i + 1) > len(last_buffer_len):
+                                last_buffer_len.append(0)
+                            if stdout:
+                                lines = stdout.splitlines()
+                                if len(lines) > last_buffer_len[i]:
+                                    for line in lines[last_buffer_len[i]:]:
+                                        print line
+                                    last_buffer_len[i] = len(lines)
+                        sys.stdout.flush()
+                    """
+                    pass
+        else:
+            time.sleep(1.)
+
     print('Simulation took %.3f s' % (time.time() - start_time))
-    possibles = globals().copy()
-    possibles.update(locals())
-    method = possibles.get(get_objectives)
-    if not method:
-        raise NotImplementedError("Method %s not implemented" % get_objectives)
-    features, objectives = method(final_results)
+    features, objectives = get_objectives(final_results)
     return features, objectives
 
+
 @interactive
-def test_pas(dv, x, pop_id, client_range):
+def get_Rinp_features(x, pop_id, client_range):
     """
     Distribute simulations across available engines for optimization of leak conductance density gradient.
     :param x: array (soma.g_pas, dend.g_pas slope, dend.g_pas tau, dend.g_pas xhalf)
     :return: float
     """
     sec_list = ['soma', 'dend', 'distal_dend']
-    formatted_x = '[' + ', '.join(['%.3E' % xi for xi in x]) + ']'
-    print 'Process %i using current x: %s: %s' % (os.getpid(), str(param_names), formatted_x)
-    result = dv.map_async(get_Rinp_for_section, sec_list, [x for entry in sec_list])
-    formatted_result = {'pop_id': pop_id, 'client_range': client_range, 'result': result}
-    return formatted_result
+    dv = c[client_range]
+    result = dv.map_async(get_Rinp_for_section, sec_list, [x] * len(sec_list))
+    return {'pop_id': pop_id, 'client_range': client_range, 'async_result': result}
+
 
 @interactive
-def process_pas_results(results):
+def get_objectives(features):
     """
 
     :param results: dict, with 'pop_id' and 'data' as keys
     :return:
     """
+    # modify to expect features as dict: {pop_id: {dict of features}}
     # the target values and acceptable ranges
-    target_val = {}
-    target_range = {}
-    target_val = {'soma R_inp': 295., 'dend R_inp': 375.}
-    target_range['pas'] = {'soma R_inp': 0.5, 'dend R_inp': 1.}
-
-    features = {}
     objectives = {}
-    for result in results:
+    for pop_id, feature_dict in features.iteritems():
         pop_id = result['pop_id']
         for feature_name in feature_names:
             features[pop_id][feature_name] = result['data'][feature_name]
@@ -518,6 +499,7 @@ def process_pas_results(results):
     sorted_objectives_keys.sort()
     sorted_objectives = [objectives[key] for key in sorted_objectives_keys]
     return sorted_features, sorted_objectives
+
 
 @interactive
 def offset_vm(description, vm_target=None):
