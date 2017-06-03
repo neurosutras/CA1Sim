@@ -154,14 +154,20 @@ default_param_file_path = None
 @click.option("--neurotree-file-path", type=click.Path(exists=True, file_okay=True, dir_okay=False), default=None)
 @click.option("--neurotree-index", type=int, default=0)
 @click.option("--param-file-path", type=click.Path(exists=True, file_okay=True, dir_okay=False), default=None)
-@click.option("--adaptive-interval", type=int, default=1)
+@click.option("--adaptive-step-interval", type=int, default=1)
 @click.option("--group-size", type=int, default=1)
 @click.option("--pop-size", type=int, default=50)
 @click.option("--param-gen", type=str, default=None)
-@click.option("--get_features", type=str, default=None)
-@click.option("--get_objectives", type=str, default=None)
-def main(cluster_id, spines, mech_file_path, neurotree_file_path, neurotree_index, param_file_path, adaptive_interval,
-         group_size, pop_size, param_gen, get_features, get_objectives):
+@click.option("--get-features", type=str, default=None)
+@click.option("--get-objectives", type=str, default=None)
+@click.option("--max-gens", type=int, default=100)
+@click.option("--adaptive-step-factor", type=float, default=0.9)
+@click.option("--ngen_success", type=int, default=None)
+@click.option("--survival_rate", type=float, default=0.25)
+@click.option("--disp", type=bool, default=False)
+def main(cluster_id, spines, mech_file_path, neurotree_file_path, neurotree_index, param_file_path, adaptive_step_interval,
+         group_size, pop_size, param_gen, get_features, get_objectives, max_gens, adaptive_step_factor, ngen_success,
+         survival_rate, disp):
     """
 
     :param cluster_id: str
@@ -170,12 +176,17 @@ def main(cluster_id, spines, mech_file_path, neurotree_file_path, neurotree_inde
     :param neurotree_file_path: str (path)
     :param neurotree_index: int
     :param param_file_path: str (path)
-    :param adaptive_interval: int
+    :param adaptive_step_interval: int
     :param group_size: int
     :param pop_size: int
     :param param_gen: str (name of callable)
     :param get_features: str (name of callable)
     :param get_objectives: str (name of callable)
+    :param max_gens: int
+    :param adaptive_step_factor: float
+    :param ngen_success: int
+    :param survival_rate: float
+    :param disp: bool
     """
     global c
 
@@ -184,6 +195,7 @@ def main(cluster_id, spines, mech_file_path, neurotree_file_path, neurotree_inde
     else:
         c = Client()
 
+    global num_procs
     num_procs = len(c)
 
     if mech_file_path is None:
@@ -215,7 +227,7 @@ def main(cluster_id, spines, mech_file_path, neurotree_file_path, neurotree_inde
         feature_names = default_feature_names
         objective_names = default_objective_names
 
-    globals()['adaptive_interval'] = adaptive_interval
+    globals()['adaptive_step_interval'] = adaptive_step_interval
 
     if param_gen is None:
         param_gen = default_param_gen
@@ -223,7 +235,7 @@ def main(cluster_id, spines, mech_file_path, neurotree_file_path, neurotree_inde
         raise NameError('Multi-Objective Optimization: %s has not been imported, or is not a valid class of parameter '
                         'generator.' % param_gen)
     else:
-        globals()['param_gen'] = param_gen
+        globals()['param_gen'] = globals()[param_gen]
 
     if get_features is None:
         get_features = default_get_features
@@ -255,18 +267,40 @@ def main(cluster_id, spines, mech_file_path, neurotree_file_path, neurotree_inde
 
     c[:].execute('from parallel_optimize_leak import *', block=True)
     c[:].map_sync(init_engine, [spines] * num_procs, [mech_file_path] * num_procs, [neurotree_file_path] * num_procs,
-                  [neurotree_index] * num_procs)
+                  [neurotree_index] * num_procs, [param_file_path] * num_procs, [disp] * num_procs)
+    run_optimization(group_size, pop_size, adaptive_step_interval, max_gens, adaptive_step_factor, ngen_success,
+                     survival_rate, disp)
 
 
 @interactive
-def init_engine(spines=False, mech_file_path=None, neurotree_file_path=None, neurotree_index=0):
+def init_engine(spines=False, mech_file_path=None, neurotree_file_path=None, neurotree_index=0, param_file_path=None,
+                disp=False):
     """
 
     :param spines: bool
     :param mech_file_path: str
     :param neurotree_file_path: str
     :param neurotree_index: int
+    :param param_file_path: str (path)
+    :param disp: bool
     """
+    if param_file_path is None:
+        param_file_path = default_param_file_path
+
+    global x0
+    global param_names
+    global param_indexes
+
+    if param_file_path is not None:
+        params_dict = read_from_pkl(param_file_path)
+        param_names = params_dict['x0'].keys()
+        x0 = [params_dict['x0'][key] for key in param_names]
+    else:
+        param_names = default_x0_dict.keys()
+        x0 = [default_x0_dict[key] for key in param_names]
+
+    param_indexes = {param_name: i for i, param_name in enumerate(param_names)}
+
     if mech_file_path is None:
         mech_file_path = default_mech_file_path
 
@@ -275,6 +309,8 @@ def init_engine(spines=False, mech_file_path=None, neurotree_file_path=None, neu
     if neurotree_file_path is None:
         neurotree_file_path = default_neurotree_file_path
     neurotree_dict = read_from_pkl(neurotree_file_path)[neurotree_index]
+
+    globals()['disp'] = disp
 
     global cell
     cell = DG_GC(neurotree_dict=neurotree_dict, mech_file_path=mech_file_path, full_spines=spines)
@@ -328,25 +364,31 @@ def init_engine(spines=False, mech_file_path=None, neurotree_file_path=None, neu
 
 
 @interactive
-def run_optimization(group_size, group_cores, pop_size, pop_cores, generator, test_function, error_function,
-                                       x0, bounds):
-    global check_bounds
-    check_bounds = CheckBounds(bounds[0], bounds[1])
-    global generation
-    generation = generator.__call__()
-    results = run_generation(group_size, group_cores, pop_size, pop_cores, test_function, generation)
+def run_optimization(group_size, pop_size, adaptive_step_interval, max_gens, adaptive_step_factor, ngen_success,
+                     survival_rate, disp):
+    """
 
-    possibles = globals().copy()
-    possibles.update(locals())
-    method = possibles.get(error_function)
-    if not method:
-        raise NotImplementedError("Method %s not implemented" % error_function)
-    global errors
-    errors = method(results)
+    :param group_size:
+    :param pop_size:
+    :param adaptive_step_interval:
+    :param max_gens:
+    :param adaptive_step_factor:
+    :param ngen_success:
+    :param survival_rate:
+    :param disp:
+    :return:
+    """
+    paramgen = param_gen(x0, param_names, objective_names, pop_size, bounds=bounds, take_step=None, evaluate=None,
+                 seed=None, max_gens=max_gens, adaptive_step_interval=adaptive_step_interval,
+                         adaptive_step_factor=adaptive_step_factor, ngen_success=ngen_success,
+                         survival_rate=survival_rate, disp=disp)
+    for generation in paramgen():
+        features, objectives = run_generation(group_size, pop_size, generation)
+        paramgen.set_objectives(features, objectives)
 
 
 @interactive
-def run_generation(group_size, group_cores, pop_size, pop_cores, test_function, generation):
+def run_generation(group_size, pop_size):
     c.load_balanced_view()
     start_time = time.time()
     global results
