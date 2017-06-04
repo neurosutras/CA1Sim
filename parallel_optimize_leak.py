@@ -34,90 +34,6 @@ except:
     pass
 
 
-class History(object):
-    def __init__(self):
-        """
-
-        """
-        self.xlabels = []
-        self.x_values = []
-        self.error_values = []
-        self.Rinp_values = {}
-
-    def report_best(self):
-        """
-        Report the input parameters and output values with the lowest error.
-        """
-        lowest_Err = min(self.error_values)
-        index = self.error_values.index(lowest_Err)
-        best_x = self.x_values[index]
-        best_Rinp_values = {section: self.Rinp_values[section][index] for section in self.Rinp_values}
-        formatted_x = '[' + ', '.join(['%.3E' % xi for xi in best_x]) + ']'
-        print 'best x: %s' % formatted_x
-        print 'lowest Err: %.3E' % lowest_Err
-        print 'Rinp:', ['%s: %.1f' % (section, Rinp) for (section, Rinp) in best_Rinp_values.iteritems()]
-        return best_x
-
-    def export_to_pkl(self, hist_filename):
-        """
-        Save the history to .pkl
-        :param hist_filename: str
-        """
-        saved_history = {'xlabels': self.xlabels, 'x_values': self.x_values, 'error_values': self.error_values,
-                         'Rinp_values': self.Rinp_values}
-        write_to_pkl(data_dir+hist_filename+'.pkl', saved_history)
-
-    def import_from_pkl(self, hist_filename):
-        """
-        Update a history object with data from a .pkl file
-        :param hist_filename: str
-        """
-        previous_history = read_from_pkl(data_dir+hist_filename +'.pkl')
-        self.xlabels = previous_history['xlabels']
-        self.x_values = previous_history['x_values']
-        self.error_values = previous_history['error_values']
-        self.Rinp_values = previous_history['Rinp_values']
-
-    def plot(self):
-        """
-        Remember to : also plot each value in x against error, and against input resistance
-        """
-        num_x_param = len(self.xlabels)
-        num_plot_rows = math.floor(math.sqrt(num_x_param))
-        print(num_plot_rows)
-        num_plot_cols = math.ceil(num_x_param/num_plot_rows)
-        print(num_plot_cols)
-
-        #plot x-values against error
-        plt.figure(1)
-        for i, x_param in enumerate(self.xlabels):
-            plt.subplot(num_plot_rows, num_plot_cols, i+1)
-            x_param_vals = [x_val[i] for x_val in self.x_values]
-            range_param_vals = max(x_param_vals) - min(x_param_vals)
-            plt.scatter(x_param_vals, self.error_values)
-            plt.xlim((min(x_param_vals)-0.1*range_param_vals, max(x_param_vals)+0.1*range_param_vals))
-            plt.xlabel(x_param)
-            plt.ylabel("Error values")
-        #plt.show()
-        #plt.close()
-
-        plt.figure(2)
-        colors = ['r', 'g', 'b', 'gray', 'darkviolet', 'goldenrod']
-        #plot x-values against input resistance
-        for i, x_param in enumerate(self.xlabels):
-            plt.subplot(num_plot_rows, num_plot_cols, i+1)
-            x_param_vals = [x_val[i] for x_val in self.x_values]
-            range_param_vals = max(x_param_vals) - min(x_param_vals)
-            for j, section in enumerate(self.Rinp_values):
-                plt.scatter([x_param_vals], self.Rinp_values[section], label=section, color = colors[j])
-            plt.xlim((min(x_param_vals) - 0.1 * range_param_vals, max(x_param_vals) + 0.1 * range_param_vals))
-            plt.xlabel(x_param)
-            plt.ylabel("Rinp values")
-            plt.legend(loc='upper right', scatterpoints = 1, frameon=False, framealpha=0.5)
-        plt.show()
-        plt.close()
-
-
 script_filename = 'parallel_optimize_leak.py'
 history_filename = '030517 leak optimization history'
 
@@ -136,7 +52,7 @@ default_mech_file_path = data_dir + '042717 GC optimizing spike stability.pkl'
 default_neurotree_file_path = morph_dir + '121516_DGC_trees.pkl'
 default_param_gen = 'BGen'
 default_get_features = 'get_Rinp_features'
-default_get_objectives = 'get_objectives'
+default_get_objectives = 'get_pas_objectives'
 
 default_x0_dict = {'soma.g_pas': 1.050E-10, 'dend.g_pas slope': 1.058E-08, 'dend.g_pas tau': 3.886E+01}  # Error: 4.187E-09
 default_bounds_dict = {'soma.g_pas': (1.0E-18, 1.0E-6), 'dend.g_pas slope': (1.0E-12, 1.0E-4),
@@ -157,19 +73,19 @@ default_param_file_path = None
 @click.option("--neurotree-index", type=int, default=0)
 @click.option("--param-file-path", type=click.Path(exists=True, file_okay=True, dir_okay=False), default=None)
 @click.option("--adaptive-step-interval", type=int, default=1)
-@click.option("--group-size", type=int, default=1)
-@click.option("--pop-size", type=int, default=50)
+@click.option("--group-size", type=int, default=3)
+@click.option("--pop-size", type=int, default=100)
 @click.option("--param-gen", type=str, default=None)
 @click.option("--get-features", type=str, default=None)
 @click.option("--get-objectives", type=str, default=None)
-@click.option("--max-gens", type=int, default=100)
+@click.option("--max-gens", type=int, default=30)
 @click.option("--adaptive-step-factor", type=float, default=0.9)
-@click.option("--ngen_success", type=int, default=None)
-@click.option("--survival_rate", type=float, default=0.25)
-@click.option("--disp", type=bool, default=False)
-def main(cluster_id, spines, mech_file_path, neurotree_file_path, neurotree_index, param_file_path, adaptive_step_interval,
-         group_size, pop_size, param_gen, get_features, get_objectives, max_gens, adaptive_step_factor, ngen_success,
-         survival_rate, disp):
+@click.option("--ngen-success", type=int, default=None)
+@click.option("--survival-rate", type=float, default=0.2)
+@click.option("--disp", is_flag=True)
+def main(cluster_id, spines, mech_file_path, neurotree_file_path, neurotree_index, param_file_path,
+         adaptive_step_interval, group_size, pop_size, param_gen, get_features, get_objectives, max_gens,
+         adaptive_step_factor, ngen_success, survival_rate, disp):
     """
 
     :param cluster_id: str
@@ -242,29 +158,28 @@ def main(cluster_id, spines, mech_file_path, neurotree_file_path, neurotree_inde
     if param_gen not in globals():
         raise NameError('Multi-Objective Optimization: %s has not been imported, or is not a valid class of parameter '
                         'generator.' % param_gen)
-    else:
-        globals()['param_gen'] = globals()[param_gen]
 
     if get_features is None:
         get_features = default_get_features
     if get_features not in globals() or not callable(globals()[get_features]):
         raise NameError('Multi-Objective Optimization: get_features: %s has not been imported, or is not a callable '
                         'function.' % get_features)
-    globals()['get_features'] = globals()[get_features]
 
     if get_objectives is None:
         get_objectives = default_get_objectives
     if get_objectives not in globals() or not callable(globals()[get_objectives]):
         raise NameError('Multi-Objective Optimization: get_objectives: %s has not been imported, or is not a callable '
                         'function.' % get_objectives)
-    globals()['get_objectives'] = globals()[get_objectives]
+
+    globals()['group_size'] = group_size
+    globals()['pop_size'] = pop_size
 
     if group_size > num_procs:
         group_size = num_procs
         print 'Multi-Objective Optimization: group_size adjusted to not exceed num_processes: %i' % num_procs
     un_utilized = num_procs % group_size
-    iter_per_gen = pop_size / num_procs * group_size
-    if iter_per_gen / group_size * num_procs < pop_size:
+    iter_per_gen = pop_size / (num_procs / group_size)
+    if iter_per_gen * (num_procs / group_size) < pop_size:
         iter_per_gen += 1
 
     print 'Multi-Objective Optimization: %s; Total processes: %i; Population size: %i; Group size: %i; ' \
@@ -273,11 +188,27 @@ def main(cluster_id, spines, mech_file_path, neurotree_file_path, neurotree_inde
     if un_utilized > 0:
         print 'Multi-Objective Optimization: %i processes are unutilized' % un_utilized
 
+    param_gen = globals()[param_gen]
+    globals()['param_gen'] = param_gen
+    get_features = globals()[get_features]
+    globals()['get_features'] = get_features
+    get_objectives = globals()[get_objectives]
+    globals()['get_objectives'] = get_objectives
+
     c[:].execute('from parallel_optimize_leak import *', block=True)
     c[:].map_sync(init_engine, [spines] * num_procs, [mech_file_path] * num_procs, [neurotree_file_path] * num_procs,
                   [neurotree_index] * num_procs, [param_file_path] * num_procs, [disp] * num_procs)
-    run_optimization(group_size, pop_size, adaptive_step_interval, max_gens, adaptive_step_factor, ngen_success,
-                     survival_rate, disp)
+
+    global local_param_gen
+    local_param_gen = param_gen(x0, param_names, feature_names, objective_names, pop_size, bounds=bounds,
+                                max_gens=max_gens, adaptive_step_interval=adaptive_step_interval,
+                                adaptive_step_factor=adaptive_step_factor, ngen_success=ngen_success,
+                                survival_rate=survival_rate, disp=disp)
+
+    for generation in local_param_gen():
+        features, objectives = compute_features(group_size, pop_size, generation)
+        local_param_gen.update_population(features, objectives)
+        # do something after optimization completes
 
 
 @interactive
@@ -372,49 +303,20 @@ def init_engine(spines=False, mech_file_path=None, neurotree_file_path=None, neu
 
 
 @interactive
-def run_optimization(group_size, pop_size, adaptive_step_interval, max_gens, adaptive_step_factor, ngen_success,
-                     survival_rate, disp):
-    """
-
-    :param group_size:
-    :param pop_size:
-    :param adaptive_step_interval:
-    :param max_gens:
-    :param adaptive_step_factor:
-    :param ngen_success:
-    :param survival_rate:
-    :param disp:
-    :return:
-    """
-    global local_param_gen
-    local_param_gen = param_gen(x0, param_names, objective_names, pop_size, bounds=bounds, take_step=None, evaluate=None,
-                 seed=None, max_gens=max_gens, adaptive_step_interval=adaptive_step_interval,
-                         adaptive_step_factor=adaptive_step_factor, ngen_success=ngen_success,
-                         survival_rate=survival_rate, disp=disp)
-    for generation in local_param_gen():
-        features, objectives = run_generation(group_size, pop_size, generation)
-        local_param_gen.set_objectives(features, objectives)
-    # do something after optimization completes
-
-
-@interactive
-def run_generation(group_size, pop_size, generation):
+def compute_features(group_size, pop_size, generation):
     """
 
     :param group_size: int
     :param pop_size: int
     :param generation: list of array
-    :return:
+    :return: tuple of list of dict
     """
-    start_time = time.time()
-    final_results = {}
-
-    num_groups = num_procs / group_size
     pop_ids = range(pop_size)
     client_ranges = [range(start, start+group_size) for start in range(0, num_procs, group_size)]
     results = []
+    final_results = {}
     while len(pop_ids) > 0 or len(results) > 0:
-        num_groups = min(len(client_ranges), pop_ids)
+        num_groups = min(len(client_ranges), len(pop_ids))
         if num_groups > 0:
             results.extend(map(get_features, [generation.pop(0) for i in range(num_groups)],
                                [pop_ids.pop(0) for i in range(num_groups)],
@@ -447,9 +349,8 @@ def run_generation(group_size, pop_size, generation):
                     pass
         else:
             time.sleep(1.)
-
-    print('Simulation took %.3f s' % (time.time() - start_time))
-    features, objectives = get_objectives(final_results)
+    features = [final_results[pop_id] for pop_id in range(pop_size)]
+    objectives = map(get_objectives, features)
     return features, objectives
 
 
@@ -467,38 +368,24 @@ def get_Rinp_features(x, pop_id, client_range):
 
 
 @interactive
-def get_objectives(features):
+def get_pas_objectives(features):
     """
 
-    :param results: dict, with 'pop_id' and 'data' as keys
-    :return:
+    :param features: dict
+    :return: dict
     """
-    # modify to expect features as dict: {pop_id: {dict of features}}
-    # the target values and acceptable ranges
     objectives = {}
-    for pop_id, feature_dict in features.iteritems():
-        pop_id = result['pop_id']
-        for feature_name in feature_names:
-            features[pop_id][feature_name] = result['data'][feature_name]
-        for objective_name in objective_names:
-            if objective_name != 'distal_dend R_inp':
-                objectives[pop_id][objective_name] = ((target_val[objective_name] - result['data'][objective_name]) /
-                                                      target_range[objective_name]) ** 2.
-            else:
-                # add catch for decreasing terminal end input resistance too much
-                if result['data']['distal_dend R_inp'] < result['data']['dend R_inp']:
-                    objectives[pop_id]['distal_dend R_inp'] = ((result['data']['dend R_inp'] -
-                                                result['data']['distal_dend R_inp']) / target_range['dend R_inp']) ** 2.
-                else:
-                    objectives[pop_id]['distal_dend R_inp'] = 0.
-    processed_results = {}
-    sorted_features_keys = features.keys()
-    sorted_features_keys.sort()
-    sorted_features = [features[key] for key in sorted_features_keys]
-    sorted_objectives_keys = objectives.keys()
-    sorted_objectives_keys.sort()
-    sorted_objectives = [objectives[key] for key in sorted_objectives_keys]
-    return sorted_features, sorted_objectives
+    for feature_name in ['soma R_inp', 'dend R_inp']:
+        objective_name = feature_name
+        objectives[objective_name] = ((target_val[objective_name] - features[feature_name]) /
+                                                  target_range[objective_name]) ** 2.
+    this_feature = features['distal_dend R_inp'] - features['dend R_inp']
+    objective_name = 'distal_dend R_inp'
+    if this_feature < 0.:
+        objectives[objective_name] = (this_feature / target_range['dend R_inp']) ** 2.
+    else:
+        objectives[objective_name] = 0.
+    return objectives
 
 
 @interactive
@@ -569,50 +456,13 @@ def update_pas_exp(x):
     """
     if spines is False:
         cell.reinit_mechanisms(reset_cable=True)
-    cell.modify_mech_param('soma', 'pas', 'g', x[param_index['soma.g_pas']])
-    cell.modify_mech_param('apical', 'pas', 'g', origin='soma', slope=x[param_index['dend.g_pas slope']],
-                           tau=x[param_index['dend.g_pas tau']])
+    cell.modify_mech_param('soma', 'pas', 'g', x[param_indexes['soma.g_pas']])
+    cell.modify_mech_param('apical', 'pas', 'g', origin='soma', slope=x[param_indexes['dend.g_pas slope']],
+                           tau=x[param_indexes['dend.g_pas tau']])
     for sec_type in ['axon_hill', 'axon', 'ais', 'apical', 'spine_neck', 'spine_head']:
         cell.reinitialize_subset_mechanisms(sec_type, 'pas')
     if spines is False:
         cell.correct_for_spines()
-
-
-def print_gpas_cm_values():
-    sec_types = ['apical']
-    gpas_values = {s: [] for s in sec_types}
-    cm_values = {s: [] for s in sec_types}
-    for i in [0, 10, 20]:
-        node = cell.get_nodes_of_subtype('apical')[i]
-        for i, segment in enumerate(node.sec):
-            node.sec.push()
-            h.pop_section()
-            gpas_values['apical'].append(node.sec(segment.x).g_pas)
-            cm_values['apical'].append(node.sec(segment.x).cm)
-    print 'g_pas: '
-    pprint.pprint(gpas_values)
-    print 'cm '
-    pprint.pprint(cm_values)
-
-
-@interactive
-def get_objectives(*args):
-    """
-
-    :param args:
-    :return:
-    """
-    pass
-
-
-@interactive
-def get_Rinp_features(*args):
-    """
-
-    :param args:
-    :return:
-    """
-    pass
 
 
 @interactive

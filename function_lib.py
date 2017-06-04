@@ -14,7 +14,6 @@ import random
 import pprint
 import sys
 import os
-# from neuron import h  # must be found in system $PYTHONPATH
 
 
 #---------------------------------------Some global variables and functions------------------------------

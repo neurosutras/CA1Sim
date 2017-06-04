@@ -6,6 +6,7 @@ from matplotlib.pyplot import cm
 import collections
 from scipy._lib._util import check_random_state
 from copy import deepcopy
+import time
 
 
 """
@@ -28,6 +29,7 @@ class Individual(object):
         :param x: array
         """
         self.x = np.array(x)
+        self.features = None
         self.objectives = None
         self.energy = None
         self.rank = None
@@ -40,13 +42,15 @@ class PopulationStorage(object):
     """
     Class used to store populations of parameters and objectives during optimization.
     """
-    def __init__(self, param_names, objective_names):
+    def __init__(self, param_names, feature_names, objective_names):
         """
 
-        :param param_names:
-        :param objective_names:
+        :param param_names: list of str
+        :param feature_names: list of str
+        :param objective_names: list of str
         """
         self.param_names = param_names
+        self.feature_names = feature_names
         self.objective_names = objective_names
         self.history = []  # a list of populations, of length max_gens
         self.survivors = []  # a list of populations (some may be empty), of length max_gens
@@ -150,7 +154,17 @@ class PopulationStorage(object):
                             c=colors[j], alpha=0.1)
                 plt.scatter([indiv.rank for indiv in self.survivors[j]],
                             [getattr(indiv, this_attr)[i] for indiv in self.survivors[j]], c=colors[j], alpha=0.5)
-            plt.title(objective_name)
+            plt.title(this_attr+': '+objective_name)
+        for i, feature_name in enumerate(self.feature_names):
+            this_attr = 'features'
+            plt.figure()
+            for j, population in enumerate(self.history):
+                plt.scatter([indiv.rank for indiv in population],
+                            [getattr(indiv, this_attr)[i] for indiv in population],
+                            c=colors[j], alpha=0.1)
+                plt.scatter([indiv.rank for indiv in self.survivors[j]],
+                            [getattr(indiv, this_attr)[i] for indiv in self.survivors[j]], c=colors[j], alpha=0.5)
+            plt.title(this_attr+': '+feature_name)
         plt.show()
         plt.close()
 
@@ -450,13 +464,14 @@ class BGen(object):
     The class is inspired by scipy.optimize.basinhopping. It provides a generator interface to produce a list of
     parameter arrays for parallel evaluation. Features adaptive pruning and reduction of step_size every iteration.
     """
-    def __init__(self, x0, param_names, objective_names, pop_size, bounds=None, take_step=None, evaluate=None,
-                 seed=None, max_gens=100, adaptive_step_interval=20, adaptive_step_factor=0.9, ngen_success=None,
-                 survival_rate=0.1, disp=False):
+    def __init__(self, x0, param_names, feature_names, objective_names, pop_size, bounds=None, take_step=None,
+                 evaluate=None, seed=None, max_gens=100, adaptive_step_interval=20, adaptive_step_factor=0.9,
+                 ngen_success=None, survival_rate=0.1, disp=False):
         """
 
         :param x0: array
         :param param_names: list of str
+        :param feature_names: list of str
         :param objective_names: list of str
         :param pop_size: int
         :param bounds: list of tuple
@@ -471,7 +486,7 @@ class BGen(object):
         :param disp: bool
         """
         self.x0 = np.array(x0)
-        self.storage = PopulationStorage(param_names, objective_names)
+        self.storage = PopulationStorage(param_names, feature_names, objective_names)
         self.pop_size = pop_size
         if evaluate is None:
             self._evaluate = evaluate_basinhopping
@@ -493,7 +508,7 @@ class BGen(object):
             self.ngen_succcess = self.max_gens
         else:
             self.ngen_succcess = ngen_success
-        self.num_survivors = int(pop_size * survival_rate)
+        self.num_survivors = max(1, int(pop_size * survival_rate))
         self.disp = disp
 
         self.objectives_stored = False
@@ -508,6 +523,8 @@ class BGen(object):
         :yields: list of :class:'Individual'
         """
         self.num_gen = 0
+        self.start_time = time.time()
+        self.local_time = self.start_time
         while self.num_gen < self.max_gens:
             if self.num_gen == 0:
                 self.init_population()
@@ -516,6 +533,9 @@ class BGen(object):
                 if not self.objectives_stored:
                     raise Exception('BGen: Gen %i, objectives have not been stored for all Individuals in '
                                     'population' % self.num_gen)
+                if self.disp:
+                    print 'BGen: Gen %i, computing features took %.2f s' % \
+                          (self.num_gen - 1, time.time() - self.local_time)
                 if self.num_gen % self.adaptive_step_interval == 0:
                     new_step_size = self.take_step.stepsize * self.adaptive_step_factor
                     if self.disp:
@@ -529,10 +549,13 @@ class BGen(object):
             self.objectives_stored = False
             if self.disp:
                 print 'BGen: Gen %i, yielding parameters for population size %i' % (self.num_gen, self.pop_size)
+            self.local_time = time.time()
             self.num_gen += 1
             yield [individual.x for individual in self.population]
         # evaluate the final, potentially incomplete interval of generations
         if self.objectives_stored and not self.evaluated:
+            if self.disp:
+                print 'BGen: Gen %i, computing features took %.2f s' % (self.num_gen-1, time.time()-self.local_time)
             generations = self.num_gen % self.adaptive_step_interval
             if generations == 0:
                 generations = self.adaptive_step_interval
@@ -542,21 +565,30 @@ class BGen(object):
             for individual in self.final_survivors:
                 individual.survivor = True
             self.evaluated = True
+            if self.disp:
+                print 'BGen: %i generations took %.2f s' % (self.max_gens, time.time()-self.start_time)
 
-    def set_objectives(self, objectives):
+    def update_population(self, features, objectives):
         """
         Expects a list of objective arrays to be in the same order as the list of parameter arrays yielded from the
         current generation.
-        :param objectives: list of array
+        :param features: list of dict
+        :param objectives: list of dict
         """
         for i, objective_dict in enumerate(objectives):
             if type(objective_dict) != dict:
-                raise TypeError('BGen.set_objectives: objectives must be a list of dict')
+                raise TypeError('BGen.update_population: objectives must be a list of dict')
             this_objectives = np.array([objective_dict[key] for key in self.storage.objective_names])
             self.population[i].objectives = this_objectives
             self.population[i].energy = np.sum(this_objectives)
+        for i, feature_dict in enumerate(features):
+            if type(feature_dict) != dict:
+                raise TypeError('BGen.update_population: features must be a list of dict')
+            this_features = np.array([feature_dict[key] for key in self.storage.feature_names])
+            self.population[i].features = this_features
         if self.disp:
-            print 'BGen: Gen %i, storing objectives for population size %i' % (self.num_gen, self.pop_size)
+            print 'BGen: Gen %i, storing features and objectives for population size %i' % \
+                  (self.num_gen-1, self.pop_size)
         self.storage.append(self.population, self.survivors)
         self.objectives_stored = True
 
