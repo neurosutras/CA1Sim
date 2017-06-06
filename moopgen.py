@@ -7,7 +7,8 @@ import collections
 from scipy._lib._util import check_random_state
 from copy import deepcopy
 import time
-
+import h5py
+from function_lib import *
 
 """
 Here we have used scipy.optimize.basinhopping and emoo as inspiration in designing a parallel computing-compatible
@@ -167,6 +168,47 @@ class PopulationStorage(object):
             plt.title(this_attr+': '+feature_name)
         plt.show()
         plt.close()
+
+    def export(self, filename):
+        """
+
+        :param filename: str
+        :return:
+        """
+        with h5py.File(data_dir+filename+'.hdf5', "w") as f:
+            f.attrs['param_names'] = self.param_names
+            f.attrs['feature_names'] = self.feature_names
+            f.attrs['objective_names'] = self.objective_names
+            for pop_index, population in enumerate(self.history):
+                f.create_group(str(pop_index))
+                for ind_index, individual in enumerate(population):
+                    f[str(pop_index)].create_group(str(ind_index))
+                    f[str(pop_index)][str(ind_index)].attrs['energy'] = individual.energy
+                    f[str(pop_index)][str(ind_index)].attrs['rank'] = individual.rank
+                    f[str(pop_index)][str(ind_index)].attrs['distance'] = individual.distance
+                    f[str(pop_index)][str(ind_index)].attrs['fitness'] = individual.fitness
+                    f[str(pop_index)][str(ind_index)].attrs['survivor'] = individual.survivor
+                    f[str(pop_index)][str(ind_index)].create_dataset('x', data=individual.x)
+                    f[str(pop_index)][str(ind_index)].create_dataset('features', data=individual.features)
+                    f[str(pop_index)][str(ind_index)].create_dataset('objectives', data=individual.objectives)
+
+    def import(self, filename):
+        """
+
+        :param filename: str
+        :return:
+        """
+        with h5py.File(data_dir+filename+'.hdf5', "r") as f:
+            param_names = f.attrs['param_names']
+            feature_names = f.attrs['feature_names']
+            objective_names = f.attrs['objective_names']
+            storage = PopulationStorage(param_names, feature_names, objective_names)
+            for pop_key, population in f:
+                storage_population = []
+                for individual in population.itervalues():
+                    energy = f[]
+                    # need to finish!
+
 
 
 class BoundedStep(object):
