@@ -1,13 +1,9 @@
 __author__ = 'Grace Ng'
+import click
 from ipyparallel import interactive
 from ipyparallel import Client
-import click
-from IPython.display import clear_output
+# from IPython.display import clear_output
 from specify_cells3 import *
-import time
-import os
-import sys
-import pprint
 from moopgen import *
 
 """
@@ -35,7 +31,6 @@ except:
 
 
 script_filename = 'parallel_optimize_leak.py'
-history_filename = '030517 leak optimization history'
 
 equilibrate = 250.  # time to steady-state
 stim_dur = 500.
@@ -61,31 +56,34 @@ default_feature_names = ['soma R_inp', 'dend R_inp', 'distal_dend R_inp']
 default_objective_names = ['soma R_inp', 'dend R_inp', 'distal_dend R_inp']
 default_target_val = {'soma R_inp': 295., 'dend R_inp': 375.}
 default_target_range = {'soma R_inp': 0.5, 'dend R_inp': 1.}
+default_optimization_title = 'leak'
 # we should load defaults from a file if we're going to be running optimizations with many more parameters
 default_param_file_path = None
 
 
 @click.command()
 @click.option("--cluster-id", type=str, default=None)
-@click.option("--spines", type=bool, default=False)
+@click.option("--spines", is_flag=True)
 @click.option("--mech-file-path", type=click.Path(exists=True, file_okay=True, dir_okay=False), default=None)
 @click.option("--neurotree-file-path", type=click.Path(exists=True, file_okay=True, dir_okay=False), default=None)
 @click.option("--neurotree-index", type=int, default=0)
 @click.option("--param-file-path", type=click.Path(exists=True, file_okay=True, dir_okay=False), default=None)
-@click.option("--adaptive-step-interval", type=int, default=1)
-@click.option("--group-size", type=int, default=3)
-@click.option("--pop-size", type=int, default=100)
 @click.option("--param-gen", type=str, default=None)
 @click.option("--get-features", type=str, default=None)
 @click.option("--get-objectives", type=str, default=None)
-@click.option("--max-gens", type=int, default=30)
+@click.option("--group-size", type=int, default=3)
+@click.option("--pop-size", type=int, default=100)
+@click.option("--seed", type=int, default=None)
+@click.option("--max-iter", type=int, default=30)
+@click.option("--max-gens", type=int, default=None)
+@click.option("--path-length", type=int, default=1)
 @click.option("--adaptive-step-factor", type=float, default=0.9)
-@click.option("--ngen-success", type=int, default=None)
+@click.option("--niter-success", type=int, default=None)
 @click.option("--survival-rate", type=float, default=0.2)
 @click.option("--disp", is_flag=True)
-def main(cluster_id, spines, mech_file_path, neurotree_file_path, neurotree_index, param_file_path,
-         adaptive_step_interval, group_size, pop_size, param_gen, get_features, get_objectives, max_gens,
-         adaptive_step_factor, ngen_success, survival_rate, disp):
+def main(cluster_id, spines, mech_file_path, neurotree_file_path, neurotree_index, param_file_path, param_gen,
+         get_features, get_objectives, group_size, pop_size, seed, max_iter, max_gens, path_length,
+         adaptive_step_factor, niter_success, survival_rate, disp):
     """
 
     :param cluster_id: str
@@ -94,15 +92,17 @@ def main(cluster_id, spines, mech_file_path, neurotree_file_path, neurotree_inde
     :param neurotree_file_path: str (path)
     :param neurotree_index: int
     :param param_file_path: str (path)
-    :param adaptive_step_interval: int
+    :param param_gen: str (must refer to callable in globals())
+    :param get_features: str (must refer to callable in globals())
+    :param get_objectives: str (must refer to callable in globals())
     :param group_size: int
     :param pop_size: int
-    :param param_gen: str (name of callable)
-    :param get_features: str (name of callable)
-    :param get_objectives: str (name of callable)
+    :param seed: int
+    :param max_iter: int
     :param max_gens: int
-    :param adaptive_step_factor: float
-    :param ngen_success: int
+    :param path_length: int
+    :param adaptive_step_factor: float in [0., 1.]
+    :param niter_success: int
     :param survival_rate: float
     :param disp: bool
     """
@@ -132,6 +132,7 @@ def main(cluster_id, spines, mech_file_path, neurotree_file_path, neurotree_inde
     global objective_names
     global target_val
     global target_range
+    global optimization_title
 
     if param_file_path is not None:
         params_dict = read_from_pkl(param_file_path)
@@ -142,6 +143,7 @@ def main(cluster_id, spines, mech_file_path, neurotree_file_path, neurotree_inde
         objective_names = params_dict['objective_names']
         target_val = params_dict['target_val']
         target_range = params_dict['target_range']
+        optimization_title = params_dict['optimization_title']
     else:
         param_names = default_x0_dict.keys()
         x0 = [default_x0_dict[key] for key in param_names]
@@ -150,14 +152,19 @@ def main(cluster_id, spines, mech_file_path, neurotree_file_path, neurotree_inde
         objective_names = default_objective_names
         target_val = default_target_val
         target_range = default_target_range
+        optimization_title = default_optimization_title
 
-    globals()['adaptive_step_interval'] = adaptive_step_interval
+    globals()['path_length'] = path_length
 
     if param_gen is None:
         param_gen = default_param_gen
     if param_gen not in globals():
         raise NameError('Multi-Objective Optimization: %s has not been imported, or is not a valid class of parameter '
                         'generator.' % param_gen)
+
+    global history_filename
+    history_filename = '%s %s %s optimization history' % \
+                       (datetime.datetime.today().strftime('%m%d%Y%H%M'), optimization_title, param_gen)
 
     if get_features is None:
         get_features = default_get_features
@@ -178,13 +185,13 @@ def main(cluster_id, spines, mech_file_path, neurotree_file_path, neurotree_inde
         group_size = num_procs
         print 'Multi-Objective Optimization: group_size adjusted to not exceed num_processes: %i' % num_procs
     un_utilized = num_procs % group_size
-    iter_per_gen = pop_size / (num_procs / group_size)
-    if iter_per_gen * (num_procs / group_size) < pop_size:
-        iter_per_gen += 1
+    blocks = pop_size / (num_procs / group_size)
+    if blocks * (num_procs / group_size) < pop_size:
+        blocks += 1
 
     print 'Multi-Objective Optimization: %s; Total processes: %i; Population size: %i; Group size: %i; ' \
-          'Feature calculator: %s; Objective calculator: %s; Iterations / generation: %i' % \
-          (param_gen, num_procs, pop_size, group_size, get_features, get_objectives, iter_per_gen)
+          'Feature calculator: %s; Objective calculator: %s; Blocks / generation: %i' % \
+          (param_gen, num_procs, pop_size, group_size, get_features, get_objectives, blocks)
     if un_utilized > 0:
         print 'Multi-Objective Optimization: %i processes are unutilized' % un_utilized
 
@@ -200,15 +207,16 @@ def main(cluster_id, spines, mech_file_path, neurotree_file_path, neurotree_inde
                   [neurotree_index] * num_procs, [param_file_path] * num_procs, [disp] * num_procs)
 
     global local_param_gen
-    local_param_gen = param_gen(x0, param_names, feature_names, objective_names, pop_size, bounds=bounds,
-                                max_gens=max_gens, adaptive_step_interval=adaptive_step_interval,
-                                adaptive_step_factor=adaptive_step_factor, ngen_success=ngen_success,
+    local_param_gen = param_gen(x0, param_names, feature_names, objective_names, pop_size, bounds=bounds, seed=seed,
+                                max_iter=max_iter, max_gens=max_gens, path_length=path_length,
+                                adaptive_step_factor=adaptive_step_factor, niter_success=niter_success,
                                 survival_rate=survival_rate, disp=disp)
 
     for generation in local_param_gen():
-        features, objectives = compute_features(group_size, pop_size, generation)
+        features, objectives = compute_features(generation, group_size=group_size, disp=disp)
         local_param_gen.update_population(features, objectives)
-        # do something after optimization completes
+    local_param_gen.storage.save(data_dir+history_filename)
+    local_param_gen.storage.plot()
 
 
 @interactive
@@ -303,14 +311,15 @@ def init_engine(spines=False, mech_file_path=None, neurotree_file_path=None, neu
 
 
 @interactive
-def compute_features(group_size, pop_size, generation):
+def compute_features(generation, group_size=1, disp=False):
     """
 
-    :param group_size: int
-    :param pop_size: int
     :param generation: list of array
+    :param group_size: int
+    :param disp: bool
     :return: tuple of list of dict
     """
+    pop_size = len(generation)
     pop_ids = range(pop_size)
     client_ranges = [range(start, start+group_size) for start in range(0, num_procs, group_size)]
     results = []
@@ -325,28 +334,15 @@ def compute_features(group_size, pop_size, generation):
             for this_result in results:
                 if this_result['async_result'].ready():
                     client_ranges.append(this_result['client_range'])
+                    if disp:
+                        flush_engine_buffer(this_result['async_result'])
                     this_feature_dict = {key: value for result_dict in this_result['async_result'].get()
                                          for key, value in result_dict.iteritems()}
                     final_results[this_result['pop_id']] = this_feature_dict
                     results.remove(this_result)
-                else:
-                    """
-                    last_buffer_len = []
-                    while not result.ready():
-                        time.sleep(1.)
-                        clear_output()
-                        for i, stdout in enumerate(result.stdout):
-                            if (i + 1) > len(last_buffer_len):
-                                last_buffer_len.append(0)
-                            if stdout:
-                                lines = stdout.splitlines()
-                                if len(lines) > last_buffer_len[i]:
-                                    for line in lines[last_buffer_len[i]:]:
-                                        print line
-                                    last_buffer_len[i] = len(lines)
-                        sys.stdout.flush()
-                    """
-                    pass
+                    if disp:
+                        print 'Individual: %i, computing features took %.2f s' % \
+                              (this_result['pop_id'], this_result['async_result'].wall_time)
         else:
             time.sleep(1.)
     features = [final_results[pop_id] for pop_id in range(pop_size)]

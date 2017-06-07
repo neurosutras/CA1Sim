@@ -2501,3 +2501,15 @@ class StateMachine(object):
         clean_axes(axes)
         plt.show()
         plt.close()
+
+
+def flush_engine_buffer(result):
+    """
+    Once an async_result is ready, print the contents of its stdout buffer.
+    :param result: :class:'ASyncResult
+    """
+    for stdout in result.stdout:
+        if stdout:
+            for line in stdout.splitlines():
+                print line
+    sys.stdout.flush()
