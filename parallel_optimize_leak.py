@@ -163,7 +163,7 @@ def main(cluster_id, spines, mech_file_path, neurotree_file_path, neurotree_inde
                         'generator.' % param_gen)
 
     global history_filename
-    history_filename = '%s %s %s optimization history' % \
+    history_filename = '%s %s %s optimization history.hdf5' % \
                        (datetime.datetime.today().strftime('%m%d%Y%H%M'), optimization_title, param_gen)
 
     if get_features is None:
@@ -207,7 +207,7 @@ def main(cluster_id, spines, mech_file_path, neurotree_file_path, neurotree_inde
                   [neurotree_index] * num_procs, [param_file_path] * num_procs, [disp] * num_procs)
 
     global local_param_gen
-    local_param_gen = param_gen(x0, param_names, feature_names, objective_names, pop_size, bounds=bounds, seed=seed,
+    local_param_gen = param_gen(param_names, feature_names, objective_names, pop_size, x0=x0, bounds=bounds, seed=seed,
                                 max_iter=max_iter, max_gens=max_gens, path_length=path_length,
                                 adaptive_step_factor=adaptive_step_factor, niter_success=niter_success,
                                 survival_rate=survival_rate, disp=disp)

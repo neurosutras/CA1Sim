@@ -281,6 +281,8 @@ class BoundedStep(object):
         :param random: int or :class:'np.random.RandomState'
         """
         self.stepsize = stepsize
+        if x0 is None and bounds is None:
+            raise ValueError('BoundedStep: Either starting parameters or bounds are missing.')
         if random is None:
             self.random = np.random
         else:
@@ -291,11 +293,18 @@ class BoundedStep(object):
         else:
             xmin = [bound[0] for bound in bounds]
             xmax = [bound[1] for bound in bounds]
+        if x0 is None:
+            x0 = [None for i in range(len(bounds))]
         if xmin is None:
             xmin = [None for i in range(len(x0))]
         if xmax is None:
             xmax = [None for i in range(len(x0))]
         for i in range(len(x0)):
+            if x0[i] is None:
+                if xmin[i] is None or xmax[i] is None:
+                    raise ValueError('BoundedStep: Either starting parameters or bounds are missing.')
+                else:
+                    x0[i] = 0.5 * (xmin[i] + xmax[i])
             if xmin[i] is None:
                 if x0[i] > 0.:
                     xmin[i] = 0.1 * x0[i]
@@ -311,14 +320,21 @@ class BoundedStep(object):
                 else:
                     xmax[i] = 0.1 * x0[i]
         self.x0 = x0
+        self.xmin = xmin
+        self.xmax = xmax
         self.x_range = np.subtract(xmax, xmin)
         self.order_mag = np.ones_like(x0)
-        if not np.any(np.array(xmin) == 0.):
+        if not np.any(np.array(xmin) == 0.) and not np.any(np.array(xmax) == 0.):
             self.order_mag = np.abs(np.log10(np.abs(np.divide(xmax, xmin))))
         else:
             for i in range(len(x0)):
-                if xmin[i] == 0.:
-                    self.order_mag[i] = int(xmax[i] / 10)
+                if xmin[i] == 0. or xmax[i] == 0.:
+                    if xmin[i] == 0. and xmax[i] != 0.:
+                        self.order_mag[i] = abs(np.log10(abs(xmax[i])))
+                    elif xmax[i] == 0. and xmin[i] != 0.:
+                        self.order_mag[i] = abs(np.log10(abs(xmin[i])))
+                    else:
+                        raise ValueError('BoundedStep: xmin and xmax cannot have the same value.')
                 else:
                     self.order_mag[i] = abs(np.log10(abs(xmax[i] / xmin[i])))
         self.log10_range = np.log10(np.add(1., self.x_range))
@@ -593,17 +609,16 @@ class BGen(object):
     parameter arrays for parallel evaluation. Features fitness-based pruning and adaptive reduction of step_size every
     iteration. Each iteration consists of path_length number of generations without pruning.
     """
-    def __init__(self, x0, param_names, feature_names, objective_names, pop_size, bounds=None, take_step=None,
+    def __init__(self, param_names, feature_names, objective_names, pop_size, x0=None, bounds=None, take_step=None,
                  evaluate=None, seed=None, max_iter=None, max_gens=None, path_length=1, adaptive_step_factor=0.9,
-                 niter_success=None, survival_rate=0.1, disp=False):
+                 niter_success=None, survival_rate=0.1, disp=False, **kwargs):
         """
-
-        :param x0: array
         :param param_names: list of str
         :param feature_names: list of str
         :param objective_names: list of str
         :param pop_size: int
-        :param bounds: list of tuple
+        :param x0: array
+        :param bounds: list of tuple of float
         :param take_step: callable
         :param evaluate: callable
         :param seed: int or :class:'np.random.RandomState'
@@ -614,8 +629,12 @@ class BGen(object):
         :param niter_success: int
         :param survival_rate: float in [0., 1.]
         :param disp: bool
+        :param kwargs: dict of additional options, catches generator-specific options that do not apply
         """
-        self.x0 = np.array(x0)
+        if x0 is None:
+            self.x0 = None
+        else:
+            self.x0 = np.array(x0)
         self.storage = PopulationStorage(param_names=param_names, feature_names=feature_names,
                                          objective_names=objective_names)
         self.pop_size = pop_size
@@ -626,8 +645,11 @@ class BGen(object):
         else:
             raise TypeError("BGen: evaluate must be callable.")
         self.random = check_random_state(seed)
+        self.xmin = np.array([bound[0] for bound in bounds])
+        self.xmax = np.array([bound[1] for bound in bounds])
         if take_step is None:
             self.take_step = BoundedStep(x0, stepsize=0.5, bounds=bounds, random=self.random)
+            self.xmin = B
         elif isinstance(take_step, collections.Callable):
             self.take_step = take_step
         else:
@@ -741,7 +763,12 @@ class BGen(object):
         """
 
         """
-        self.population = [Individual(self.take_step(self.x0)) for i in range(self.pop_size)]
+        pop_size = self.pop_size
+        self.population = []
+        if self.x0 is not None:
+            self.population.append(Individual(self.x0))
+            pop_size -= 1
+        self.population.extend([Individual(new_x) for new_x in self.random.uniform(self.xmin, self.xmax, pop_size)])
 
     def step_survivors(self):
         """
@@ -775,41 +802,81 @@ class BGen(object):
 
 class EGen(object):
     """
-    This class is inspired by emoo (Bahl A, Stemmler MB, Herz AVM, Roth A. (2012). J Neurosci Methods)
+    This class is inspired by emoo (Bahl A, Stemmler MB, Herz AVM, Roth A. (2012). J Neurosci Methods). It provides a
+    generator interface to produce a list of parameter arrays for parallel evaluation.
     """
 
-    def __init__(self, x0, param_names, feature_names, objective_names, pop_size, bounds=None, interval=None, custom=None):
+    def __init__(self, param_names, feature_names, objective_names, pop_size, x0=None, bounds=None, take_step=None,
+                 evaluate=None, seed=None, max_iter=None, max_gens=None, path_length=1, niter_success=None,
+                 survival_rate=0.2, disp=False, **kwargs):
         """
-        self, x0, param_names, feature_names, objective_names, pop_size, bounds=None, take_step=None,
-                 evaluate=None, seed=None, max_iter=None, max_gens=None, path_length=1, adaptive_step_factor=0.9,
-                 niter_success=None, survival_rate=0.1, disp=False):
-
-        :param pop_size: int
         :param param_names: list of str
-        :param param_bounds: list of tuple
+        :param feature_names: list of str
         :param objective_names: list of str
-        :param interval: int : how often to decrease the strength of mutation and crossover
-        :param custom: callable, operates on a population
+        :param pop_size: int
+        :param x0: array
+        :param bounds: list of tuple of float
+        :param take_step: callable
+        :param evaluate: callable
+        :param seed: int or :class:'np.random.RandomState'
+        :param max_iter: int
+        :param max_gens: int
+        :param path_length: int
+        :param niter_success: int
+        :param survival_rate: float in [0., 1.]
+        :param disp: bool
+        :param kwargs: dict of additional options, catches generator-specific options that do not apply
         """
+        if x0 is None:
+            self.x0 = None
+        else:
+            self.x0 = np.array(x0)
+        self.num_params = len(param_names)
+        self.storage = PopulationStorage(param_names=param_names, feature_names=feature_names,
+                                         objective_names=objective_names)
         self.pop_size = pop_size
-        self.param_names = param_names
-        self.param_min = np.array([param_bound[0] for param_bound in param_bounds])
-        self.param_max = np.array([param_bound[1] for param_bound in param_bounds])
-        self.objective_names = objective_names
-        self.custom = custom
-        self.population = []
-        self.config()
+        if evaluate is None:
+            self._evaluate = evaluate_bgen
+        elif isinstance(evaluate, collections.Callable):
+            self._evaluate = evaluate
+        else:
+            raise TypeError("EGen: evaluate must be callable.")
+        self.random = check_random_state(seed)
+        if take_step is None:
+            self.take_step = BoundedStep(x0, stepsize=1., bounds=bounds, random=self.random)
+            self.x0 = np.array(self.take_step.x0)
+        elif isinstance(take_step, collections.Callable):
+            self.take_step = take_step
+        else:
+            raise TypeError("EGen: take_step must be callable.")
+        self.path_length = path_length
+        if max_iter is None:
+            if max_gens is None:
+                self.max_gens = self.path_length * 30
+            else:
+                self.max_gens = max_gens
+        else:
+            if max_gens is None:
+                self.max_gens = self.path_length * max_iter
+            else:
+                self.max_gens = min(max_gens, self.path_length * max_iter)
+        if niter_success is None:
+            self.ngen_success = self.max_gens
+        else:
+            self.ngen_success = min(self.max_gens, self.path_length * niter_success)
+        self.num_survivors = max(1, int(pop_size * survival_rate))
+        self.disp = disp
+        self.objectives_stored = False
         self.evaluated = False
+        self.population = []
+        self.survivors = []
+        self.final_survivors = None
 
-    @property
-    def num_params(self):
-        """
+        self.xmin = np.array([bound[0] for bound in bounds])
+        self.xmax = np.array([bound[1] for bound in bounds])
+        self.config(**kwargs)
 
-        :return: int
-        """
-        return len(self.param_names)
-
-    def config(self, m0=20, c0=20, p_m=0.5, delta_m=0, delta_c=0, mutate_parents=False, verbose=False):
+    def config(self, m0=20, c0=20, p_m=0.5, delta_m=0, delta_c=0, mutate_survivors=False):
         """
 
         :param m0: int : initial strength of mutation
@@ -817,7 +884,7 @@ class EGen(object):
         :param p_m: float : probability of mutation
         :param delta_m: int : decrease mutation strength every interval
         :param delta_c: int : decrease crossover strength every interval
-        :param verbose: bool
+        :param mutate_survivors: bool
         """
         self.m0 = m0
         self.m = self.m0
@@ -826,8 +893,7 @@ class EGen(object):
         self.p_m = p_m
         self.delta_m = delta_m
         self.delta_c = delta_c
-        self.mutate_parents = mutate_parents
-        self.verbose = verbose
+        self.mutate_survivors = mutate_survivors
 
     def get_random_params(self):
         """
