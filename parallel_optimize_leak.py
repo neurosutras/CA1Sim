@@ -43,8 +43,8 @@ v_active = -77.
 i_holding = {'soma': 0., 'dend': 0., 'distal_dend': 0.}
 soma_ek = -77.
 
-default_mech_file_path = os.path.normpath(data_dir + '042717 GC optimizing spike stability.pkl')
-default_neurotree_file_path = os.path.normpath(morph_dir + '121516_DGC_trees.pkl')
+default_mech_file_path = data_dir + '042717 GC optimizing spike stability.pkl'
+default_neurotree_file_path = morph_dir + '121516_DGC_trees.pkl'
 default_param_gen = 'BGen'
 default_get_features = 'get_Rinp_features'
 default_get_objectives = 'get_pas_objectives'
@@ -59,17 +59,17 @@ default_target_range = {'soma R_inp': 0.5, 'dend R_inp': 1.}
 default_optimization_title = 'leak'
 # we should load defaults from a file if we're going to be running optimizations with many more parameters
 # use write_to_file function in function_lib to generate this pkl file
-default_param_file_path = os.path.normpath(data_dir+'leak_default_param_file.pkl')
+default_param_file_path = data_dir+'leak_default_param_file.pkl'
 
 
 #Troubleshoot: Click is not recognizing paths as true
 @click.command()
 @click.option("--cluster-id", type=str, default=None)
 @click.option("--spines", is_flag=True)
-@click.option("--mech-file-path", type=click.Path(exists=True, file_okay=True, dir_okay=False), default=None)
-@click.option("--neurotree-file-path", type=click.Path(exists=True, file_okay=True, dir_okay=False), default=None)
+@click.option("--mech-file-path", type=click.Path(exists=False, file_okay=True, dir_okay=False), default=None)
+@click.option("--neurotree-file-path", type=click.Path(exists=False, file_okay=True, dir_okay=False), default=None)
 @click.option("--neurotree-index", type=int, default=0)
-@click.option("--param-file-path", type=click.Path(exists=True, file_okay=True, dir_okay=False), default=None)
+@click.option("--param-file-path", type=click.Path(exists=False, file_okay=True, dir_okay=False), default=None)
 @click.option("--param-gen", type=str, default=None)
 @click.option("--get-features", type=str, default=None)
 @click.option("--get-objectives", type=str, default=None)
@@ -218,8 +218,8 @@ def main(cluster_id, spines, mech_file_path, neurotree_file_path, neurotree_inde
         features, objectives = compute_features(generation, group_size=group_size, disp=disp)
         local_param_gen.update_population(features, objectives)
         local_param_gen.storage.save_gen(data_dir+history_filename)
-    local_param_gen.storage.plot()
-    plot_best(local_param_gen.storage)
+    # local_param_gen.storage.plot()
+    get_best_voltage_traces(local_param_gen.storage)
 
 
 @interactive
@@ -364,6 +364,7 @@ def get_Rinp_features(x, pop_id, client_range, voltage_traces=False):
     :param x: array (soma.g_pas, dend.g_pas slope, dend.g_pas tau, dend.g_pas xhalf)
     :return: float
     """
+    print client_range
     sec_list = ['soma', 'dend', 'distal_dend']
     dv = c[client_range]
     result = dv.map_async(get_Rinp_for_section, sec_list, [x] * len(sec_list))
@@ -515,7 +516,7 @@ def export_sim_results():
         sim.export_to_file(f)
 
 @interactive
-def plot_best(storage, n=1, discard=True):
+def get_best_voltage_traces(storage, n=1, discard=True):
     """
     Run simulations on the engines with the last best set of parameters, have the engines export their results to .hdf5,
     and then read in and plot the results.
@@ -526,7 +527,10 @@ def plot_best(storage, n=1, discard=True):
         raise Exception('Storage object is empty')
     for ind in best_inds:
         features = compute_features([ind.x], group_size=group_size, voltage_traces=True)
+    # plot_best_voltage_traces(discard)
 
+@interactive
+def plot_best_voltage_traces(discard=True):
     for rec_filename in rec_file_list:
         with h5py.File(data_dir+rec_filename+'.hdf5', 'r') as f:
             for trial in f.itervalues():
