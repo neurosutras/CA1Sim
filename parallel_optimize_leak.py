@@ -35,7 +35,8 @@ script_filename = 'parallel_optimize_leak.py'
 equilibrate = 250.  # time to steady-state
 stim_dur = 500.
 duration = equilibrate + stim_dur
-dt = 0.02
+#dt = 0.02
+dt = 0.002
 amp = 0.3
 th_dvdt = 10.
 v_init = -77.
@@ -60,7 +61,8 @@ default_optimization_title = 'leak'
 # Load defaults from a file containing many parameters. Use write_to_file function in function_lib to generate this pkl file
 # Note: click only recognizes this as a path if the string is copied as is into the command line; cannot type a variable
 # name that stores this string
-default_param_file_path = 'data/leak_default_param_file.pkl'
+# default_param_file_path = 'data/leak_default_param_file.pkl'
+default_param_file_path = None
 
 #Troubleshoot: Click is not recognizing paths as true
 @click.command()
@@ -196,6 +198,7 @@ def main(cluster_id, spines, mech_file_path, neurotree_file_path, neurotree_inde
           (param_gen, num_procs, pop_size, group_size, get_features, get_objectives, blocks)
     if un_utilized > 0:
         print 'Multi-Objective Optimization: %i processes are unutilized' % un_utilized
+    sys.stdout.flush()
 
     param_gen = globals()[param_gen]
     globals()['param_gen'] = param_gen
@@ -207,7 +210,8 @@ def main(cluster_id, spines, mech_file_path, neurotree_file_path, neurotree_inde
     c[:].execute('from parallel_optimize_leak import *', block=True)
     c[:].map_sync(init_engine, [spines] * num_procs, [mech_file_path] * num_procs, [neurotree_file_path] * num_procs,
                   [neurotree_index] * num_procs, [param_file_path] * num_procs, [disp] * num_procs)
-
+    print 'Initiated engines.'
+    sys.stdout.flush()
     global local_param_gen
     local_param_gen = param_gen(x0, param_names, feature_names, objective_names, pop_size, bounds=bounds, seed=seed,
                                 max_iter=max_iter, max_gens=max_gens, path_length=path_length,
@@ -304,7 +308,8 @@ def init_engine(spines=False, mech_file_path=None, neurotree_file_path=None, neu
     rec_filename = 'sim_output'+datetime.datetime.today().strftime('%m%d%Y%H%M')+'_pid'+str(os.getpid())
 
     global sim
-    sim = QuickSim(duration, verbose=False)
+    # sim = QuickSim(duration, verbose=False)
+    sim = QuickSim(duration, cvode=False, dt=dt, verbose=False)
     sim.append_stim(cell, cell.tree.root, loc=0., amp=0., delay=equilibrate, dur=stim_dur)
     sim.append_stim(cell, cell.tree.root, loc=0., amp=0., delay=0., dur=duration)
 

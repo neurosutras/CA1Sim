@@ -77,7 +77,6 @@ default_param_file_path = None
 @click.option("--param-file-path", type=click.Path(exists=True, file_okay=True, dir_okay=False), default=None)
 @click.option("--param-gen", type=str, default=None)
 @click.option("--get-features", type=str, default=None)
-@click.option("--get-objectives", type=str, default=None)
 @click.option("--group-size", type=int, default=3)
 @click.option("--pop-size", type=int, default=100)
 @click.option("--seed", type=int, default=None)
@@ -359,7 +358,8 @@ def get_spiking_features(x, pop_id, client_range):
     :param x: array
     :return: float
     """
-    spike_stability_params = [[0.05, 300.], [0.5, 100.]]
+    rheobase
+    spike_stability_params = [[rheobase+0.05, 300.], [rheobase+0.5, 100.]]
     dv = c[client_range]
     result = dv.map_async(spike_shape_stability, spike_stability_params, [x] * len(spike_stability_params))
     return {'pop_id': pop_id, 'client_range': client_range, 'async_result': result}
