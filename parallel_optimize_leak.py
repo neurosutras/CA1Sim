@@ -57,10 +57,10 @@ default_objective_names = ['soma R_inp', 'dend R_inp', 'distal_dend R_inp']
 default_target_val = {'soma R_inp': 295., 'dend R_inp': 375.}
 default_target_range = {'soma R_inp': 0.5, 'dend R_inp': 1.}
 default_optimization_title = 'leak'
-# we should load defaults from a file if we're going to be running optimizations with many more parameters
-# use write_to_file function in function_lib to generate this pkl file
-# default_param_file_path = data_dir+'leak_default_param_file.pkl'
-default_param_file_path = None
+# Load defaults from a file containing many parameters. Use write_to_file function in function_lib to generate this pkl file
+# Note: click only recognizes this as a path if the string is copied as is into the command line; cannot type a variable
+# name that stores this string
+default_param_file_path = 'data/leak_default_param_file.pkl'
 
 #Troubleshoot: Click is not recognizing paths as true
 @click.command()
@@ -219,7 +219,7 @@ def main(cluster_id, spines, mech_file_path, neurotree_file_path, neurotree_inde
         local_param_gen.update_population(features, objectives)
         local_param_gen.storage.save_gen(data_dir+history_filename)
     # local_param_gen.storage.plot()
-    get_best_voltage_traces(local_param_gen.storage, group_size)
+    # get_best_voltage_traces(local_param_gen.storage, group_size)
 
 
 @interactive
@@ -325,7 +325,6 @@ def compute_features(generation, group_size=1, disp=False, voltage_traces=False)
     pop_size = len(generation)
     pop_ids = range(pop_size)
     client_ranges = [range(start, start+group_size) for start in range(0, num_procs, group_size)]
-    print client_ranges
     results = []
     final_results = {}
     while len(pop_ids) > 0 or len(results) > 0:
@@ -365,7 +364,6 @@ def get_Rinp_features(x, pop_id, client_range, voltage_traces=False):
     :param x: array (soma.g_pas, dend.g_pas slope, dend.g_pas tau, dend.g_pas xhalf)
     :return: float
     """
-    print client_range
     sec_list = ['soma', 'dend', 'distal_dend']
     dv = c[client_range]
     result = dv.map_async(get_Rinp_for_section, sec_list, [x] * len(sec_list))
