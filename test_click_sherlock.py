@@ -3,7 +3,8 @@ import click
 from ipyparallel import interactive
 from ipyparallel import Client
 # from IPython.display import clear_output
-import sys
+from specify_cells3 import *
+from moopgen import *
 
 try:
     import mkl
@@ -100,6 +101,8 @@ def main(cluster_id, spines, mech_file_path, neurotree_file_path, neurotree_inde
 
     global num_procs
     num_procs = len(c)
+    print "cores: %i" %num_procs
+    print c.ids
 
     if mech_file_path is None:
         mech_file_path = default_mech_file_path
@@ -169,15 +172,6 @@ def main(cluster_id, spines, mech_file_path, neurotree_file_path, neurotree_inde
     if un_utilized > 0:
         print 'Multi-Objective Optimization: %i processes are unutilized' % un_utilized
     sys.stdout.flush()
-
-def list_find (f, lst):
-    i = 0
-    for x in lst:
-        if f(x):
-            return i
-        else:
-            i += 1
-    return None
 
 if __name__ == '__main__':
     main(args=sys.argv[(list_find(lambda s: s.find(script_filename) != -1,sys.argv)+1):])
