@@ -219,7 +219,7 @@ def main(cluster_id, spines, mech_file_path, neurotree_file_path, neurotree_inde
         local_param_gen.update_population(features, objectives)
         local_param_gen.storage.save_gen(data_dir+history_filename)
     # local_param_gen.storage.plot()
-    get_best_voltage_traces(local_param_gen.storage)
+    get_best_voltage_traces(local_param_gen.storage, group_size)
 
 
 @interactive
@@ -325,6 +325,7 @@ def compute_features(generation, group_size=1, disp=False, voltage_traces=False)
     pop_size = len(generation)
     pop_ids = range(pop_size)
     client_ranges = [range(start, start+group_size) for start in range(0, num_procs, group_size)]
+    print client_ranges
     results = []
     final_results = {}
     while len(pop_ids) > 0 or len(results) > 0:
@@ -516,7 +517,7 @@ def export_sim_results():
         sim.export_to_file(f)
 
 @interactive
-def get_best_voltage_traces(storage, n=1, discard=True):
+def get_best_voltage_traces(storage, group_size, n=1, discard=True):
     """
     Run simulations on the engines with the last best set of parameters, have the engines export their results to .hdf5,
     and then read in and plot the results.
