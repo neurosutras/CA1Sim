@@ -59,8 +59,8 @@ default_target_range = {'soma R_inp': 0.5, 'dend R_inp': 1.}
 default_optimization_title = 'leak'
 # we should load defaults from a file if we're going to be running optimizations with many more parameters
 # use write_to_file function in function_lib to generate this pkl file
-default_param_file_path = data_dir+'leak_default_param_file.pkl'
-
+# default_param_file_path = data_dir+'leak_default_param_file.pkl'
+default_param_file_path = None
 
 #Troubleshoot: Click is not recognizing paths as true
 @click.command()
