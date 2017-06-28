@@ -171,7 +171,12 @@ def main(cluster_id, spines, mech_file_path, neurotree_file_path, neurotree_inde
           (param_gen, num_procs, pop_size, group_size, get_features, get_objectives, blocks)
     if un_utilized > 0:
         print 'Multi-Objective Optimization: %i processes are unutilized' % un_utilized
+    test()
     sys.stdout.flush()
+
+@interactive
+def test():
+    print 'here'
 
 if __name__ == '__main__':
     main(args=sys.argv[(list_find(lambda s: s.find(script_filename) != -1,sys.argv)+1):])
