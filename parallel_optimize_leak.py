@@ -35,8 +35,8 @@ script_filename = 'parallel_optimize_leak.py'
 equilibrate = 250.  # time to steady-state
 stim_dur = 500.
 duration = equilibrate + stim_dur
-#dt = 0.02
-dt = 0.002
+dt = 0.02
+# dt = 0.002
 amp = 0.3
 th_dvdt = 10.
 v_init = -77.
@@ -58,13 +58,12 @@ default_objective_names = ['soma R_inp', 'dend R_inp', 'distal_dend R_inp']
 default_target_val = {'soma R_inp': 295., 'dend R_inp': 375.}
 default_target_range = {'soma R_inp': 0.5, 'dend R_inp': 1.}
 default_optimization_title = 'leak'
+
 # Load defaults from a file containing many parameters. Use write_to_file function in function_lib to generate this pkl file
 # Note: click only recognizes this as a path if the string is copied as is into the command line; cannot type a variable
 # name that stores this string
-# default_param_file_path = 'data/leak_default_param_file.pkl'
-default_param_file_path = None
+default_param_file_path = None #'data/leak_default_param_file.pkl'
 
-#Troubleshoot: Click is not recognizing paths as true
 @click.command()
 @click.option("--cluster-id", type=str, default=None)
 @click.option("--spines", is_flag=True)
@@ -167,7 +166,7 @@ def main(cluster_id, spines, mech_file_path, neurotree_file_path, neurotree_inde
                         'generator.' % param_gen)
 
     global history_filename
-    history_filename = '%s %s %s optimization history' % \
+    history_filename = '%s %s %s optimization history.hdf5' % \
                        (datetime.datetime.today().strftime('%m%d%Y%H%M'), optimization_title, param_gen)
 
     if get_features is None:
@@ -218,10 +217,10 @@ def main(cluster_id, spines, mech_file_path, neurotree_file_path, neurotree_inde
                                 adaptive_step_factor=adaptive_step_factor, niter_success=niter_success,
                                 survival_rate=survival_rate, disp=disp)
 
-    for generation in local_param_gen():
+    for ind, generation in enumerate(local_param_gen()):
         features, objectives = compute_features(generation, group_size=group_size, disp=disp)
         local_param_gen.update_population(features, objectives)
-        local_param_gen.storage.save_gen(data_dir+history_filename)
+        local_param_gen.storage.save_gen(data_dir+history_filename, ind)
     # local_param_gen.storage.plot()
     # get_best_voltage_traces(local_param_gen.storage, group_size)
 
