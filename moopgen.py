@@ -200,19 +200,18 @@ class PopulationStorage(object):
         else:
             return attr
 
-    def save_gen(self, file_path):
+    def save_gen(self, file_path, pop_index):
         """
         Adds data from the most recent generation to the hdf5 file.
         :param file_path: str
         """
-        with h5py.File(file_path, 'w') as f:
+        with h5py.File(file_path, 'a') as f:
             if 'param_names' not in f.attrs.keys():
                 f.attrs['param_names'] = self.param_names
             if 'feature_names' not in f.attrs.keys():
                 f.attrs['feature_names'] = self.feature_names
             if 'objective_names' not in f.attrs.keys():
                 f.attrs['objective_names'] = self.objective_names
-            pop_index = len(self.history) - 1
             f.create_group(str(pop_index))
             for group_name, population in zip(['population', 'survivors'],
                                               [self.history[pop_index], self.survivors[pop_index]]):
