@@ -11,11 +11,7 @@ Aims for spike initiation at initial segment by increasing nax density and decre
 axon_hill, and axon compartments. Extend linear kap gradient into basals and obliques, aim for 60% spike attenuation
 at bifurcation of trunk and tuft.
 
-Hierarchical optimization:
-I) optimize g_pas for target rinp at soma, trunk bifurcation, and tuft bifurcation [without h].
-II) optimize ghbar_h for target rinp at soma, trunk bifurcation, and tuft bifurcation, while also optimizing for v_rest
-offset between soma and tuft, and EPSP shape changes between proximal and distal synapses measured at the soma.
-III) optimize gbar_nax/nas/sh/sha, gkabar_kap/d, gkdrbar for target na spike threshold, AHP amp, and vm stability
+Optimizes gbar_nax/nas/sh/sha, gkabar_kap/d, gkdrbar for target na spike threshold, AHP amp, and vm stability
 
 Parallel version dynamically submits jobs to available cores.
 
@@ -30,50 +26,57 @@ except:
     pass
 
 
-script_filename = 'parallel_optimize_leak.py'
+script_filename = 'parallel_optimize_spiking.py'
 
 equilibrate = 250.  # time to steady-state
 stim_dur = 500.
 duration = equilibrate + stim_dur
 dt = 0.02
-# dt = 0.002
 amp = 0.3
 th_dvdt = 10.
 v_init = -77.
 v_active = -77.
 i_holding = {'soma': 0., 'dend': 0., 'distal_dend': 0.}
+i_th = {'soma': 0.1}
 soma_ek = -77.
+soma_na_gbar = 0.04
+
+experimental_f_I_slope = 53.  # Hz/ln(pA); rate = slope * ln(current - rheobase)
+# GC experimental f-I data from Kowalski J...Pernia-Andrade AJ, Hippocampus, 2016
 
 default_mech_file_path = data_dir + '042717 GC optimizing spike stability.pkl'
 default_neurotree_file_path = morph_dir + '121516_DGC_trees.pkl'
 default_param_gen = 'BGen'
-default_get_features = 'get_Rinp_features'
-default_get_objectives = 'get_pas_objectives'
+default_get_features = 'get_spiking_features'
+default_get_objectives = 'get_spiking_objectives'
 
-default_x0_dict = {'soma.g_pas': 1.050E-10, 'dend.g_pas slope': 1.058E-08, 'dend.g_pas tau': 3.886E+01}  # Error: 4.187E-09
-default_bounds_dict = {'soma.g_pas': (1.0E-18, 1.0E-6), 'dend.g_pas slope': (1.0E-12, 1.0E-4),
-                  'dend.g_pas tau': (25., 400.)}
-default_feature_names = ['soma R_inp', 'dend R_inp', 'distal_dend R_inp']
-default_objective_names = ['soma R_inp', 'dend R_inp', 'distal_dend R_inp']
-default_target_val = {'soma R_inp': 295., 'dend R_inp': 375.}
-default_target_range = {'soma R_inp': 0.5, 'dend R_inp': 1.}
-default_optimization_title = 'leak'
+default_x0_dict = {'soma.gkabar': 2.108E-02, 'soma.gkdrbar': 4.299E-02, 'soma.sh_nas/x': 1.219E+00,
+                   'axon.gkbar factor': 1.225E+00, 'dend.gkabar factor': 1.285E-01, 'soma.gCa factor': 3.364E-01,
+                   'soma.gCadepK factor': 4.096E+00, 'soma.gkmbar': 4.286E-03} # Err: 4.6192E+05
+default_bounds_dict = {'soma.gkabar': (0.01, 0.05), 'soma.gkdrbar': (0.01, 0.06), 'soma.sh_nas/x': (0.1, 6.),
+                   'axon.gkbar factor': (1., 3.), 'dend.gkabar factor': (0.1, 5.), 'soma.gCa factor': (0.1, 5.),
+                   'soma.gCadepK factor': (0.1, 5.), 'soma.gkmbar': (0.0005, 0.005)}
+default_feature_names = ['v_rest', 'v_th', 'soma_peak', 'ADP', 'AHP', 'stability', 'ais_delay', 'slow_depo', 'dend_amp',
+                         'spike_count', 'spike_rate', 'v_min_late']
+default_objective_names = ['na_ka_stability', 'f_I']
+default_target_val = {'v_rest': v_init, 'v_th': -48., 'soma_peak': 40., 'ADP': 0., 'AHP': 4., 'stability': 0.,
+                      'ais_delay': 0., 'slow_depo': 20., 'dend_amp': 0.3}
+default_target_range = {'v_rest': 0.25, 'v_th': .01, 'soma_peak': 2., 'ADP': 0.01, 'AHP': .005, 'stability': 1.,
+                        'ais_delay': 0.0005, 'slow_depo': 0.5, 'dend_amp': 0.0002}
+default_optimization_title = 'spiking'
+# we should load defaults from a file if we're going to be running optimizations with many more parameters
+default_param_file_path = None
 
-# Load defaults from a file containing many parameters. Use write_to_file function in function_lib to generate this pkl file
-# Note: click only recognizes this as a path if the string is copied as is into the command line; cannot type a variable
-# name that stores this string
-default_param_file_path = None #'data/leak_default_param_file.pkl'
 
 @click.command()
 @click.option("--cluster-id", type=str, default=None)
 @click.option("--spines", is_flag=True)
-@click.option("--mech-file-path", type=click.Path(exists=False, file_okay=True, dir_okay=False), default=None)
-@click.option("--neurotree-file-path", type=click.Path(exists=False, file_okay=True, dir_okay=False), default=None)
+@click.option("--mech-file-path", type=click.Path(exists=True, file_okay=True, dir_okay=False), default=None)
+@click.option("--neurotree-file-path", type=click.Path(exists=True, file_okay=True, dir_okay=False), default=None)
 @click.option("--neurotree-index", type=int, default=0)
-@click.option("--param-file-path", type=click.Path(exists=False, file_okay=True, dir_okay=False), default=None)
+@click.option("--param-file-path", type=click.Path(exists=True, file_okay=True, dir_okay=False), default=None)
 @click.option("--param-gen", type=str, default=None)
 @click.option("--get-features", type=str, default=None)
-@click.option("--get-objectives", type=str, default=None)
 @click.option("--group-size", type=int, default=3)
 @click.option("--pop-size", type=int, default=100)
 @click.option("--seed", type=int, default=None)
@@ -166,7 +169,7 @@ def main(cluster_id, spines, mech_file_path, neurotree_file_path, neurotree_inde
                         'generator.' % param_gen)
 
     global history_filename
-    history_filename = '%s %s %s optimization history.hdf5' % \
+    history_filename = '%s %s %s optimization history' % \
                        (datetime.datetime.today().strftime('%m%d%Y%H%M'), optimization_title, param_gen)
 
     if get_features is None:
@@ -197,7 +200,6 @@ def main(cluster_id, spines, mech_file_path, neurotree_file_path, neurotree_inde
           (param_gen, num_procs, pop_size, group_size, get_features, get_objectives, blocks)
     if un_utilized > 0:
         print 'Multi-Objective Optimization: %i processes are unutilized' % un_utilized
-    sys.stdout.flush()
 
     param_gen = globals()[param_gen]
     globals()['param_gen'] = param_gen
@@ -206,23 +208,21 @@ def main(cluster_id, spines, mech_file_path, neurotree_file_path, neurotree_inde
     get_objectives = globals()[get_objectives]
     globals()['get_objectives'] = get_objectives
 
-    c[:].execute('from parallel_optimize_leak import *', block=True)
+    c[:].execute('from parallel_optimize_spiking import *', block=True)
     c[:].map_sync(init_engine, [spines] * num_procs, [mech_file_path] * num_procs, [neurotree_file_path] * num_procs,
                   [neurotree_index] * num_procs, [param_file_path] * num_procs, [disp] * num_procs)
-    print 'Initiated engines.'
-    sys.stdout.flush()
+
     global local_param_gen
-    local_param_gen = param_gen(param_names, feature_names, objective_names, pop_size, x0=x0, bounds=bounds, seed=seed,
+    local_param_gen = param_gen(x0, param_names, feature_names, objective_names, pop_size, bounds=bounds, seed=seed,
                                 max_iter=max_iter, max_gens=max_gens, path_length=path_length,
                                 adaptive_step_factor=adaptive_step_factor, niter_success=niter_success,
                                 survival_rate=survival_rate, disp=disp)
 
-    for ind, generation in enumerate(local_param_gen()):
+    for generation in local_param_gen():
         features, objectives = compute_features(generation, group_size=group_size, disp=disp)
         local_param_gen.update_population(features, objectives)
-        local_param_gen.storage.save_gen(data_dir+history_filename, ind)
-    # local_param_gen.storage.plot()
-    # get_best_voltage_traces(local_param_gen.storage, group_size)
+    local_param_gen.storage.save(data_dir+history_filename)
+    local_param_gen.storage.plot()
 
 
 @interactive
@@ -288,26 +288,16 @@ def init_engine(spines=False, mech_file_path=None, neurotree_file_path=None, neu
     dend = candidate_branches[index]
     dend_loc = candidate_locs[index]
 
-    # get the most distal terminal branch > 300 um from the soma
-    candidate_branches = []
-    candidate_end_distances = []
-    for branch in (branch for branch in cell.apical if cell.is_terminal(branch)):
-        if cell.get_distance_to_node(cell.tree.root, branch, 0.) >= 300.:
-            candidate_branches.append(branch)
-            candidate_end_distances.append(cell.get_distance_to_node(cell.tree.root, branch, 1.))
-    index = candidate_end_distances.index(max(candidate_end_distances))
-    distal_dend = candidate_branches[index]
-    distal_dend_loc = 1.
+    axon_seg_locs = [seg.x for seg in cell.axon[2].sec]
 
     global rec_locs
-    rec_locs = {'soma': 0., 'dend': dend_loc, 'distal_dend': distal_dend_loc}
+    rec_locs = {'soma': 0., 'dend': dend_loc, 'ais': 1., 'axon': axon_seg_locs[0]}
     global rec_nodes
-    rec_nodes = {'soma': cell.tree.root, 'dend': dend, 'distal_dend': distal_dend}
+    rec_nodes = {'soma': cell.tree.root, 'dend': dend, 'ais': cell.axon[1], 'axon': cell.axon[2]}
     global rec_filename
     rec_filename = 'sim_output'+datetime.datetime.today().strftime('%m%d%Y%H%M')+'_pid'+str(os.getpid())
 
     global sim
-    # sim = QuickSim(duration, verbose=False)
     sim = QuickSim(duration, cvode=False, dt=dt, verbose=False)
     sim.append_stim(cell, cell.tree.root, loc=0., amp=0., delay=equilibrate, dur=stim_dur)
     sim.append_stim(cell, cell.tree.root, loc=0., amp=0., delay=0., dur=duration)
@@ -316,9 +306,13 @@ def init_engine(spines=False, mech_file_path=None, neurotree_file_path=None, neu
         sim.append_rec(cell, node, loc=rec_locs[description], description=description)
     sim.parameters['spines'] = spines
 
+    global spike_output_vec
+    spike_output_vec = h.Vector()
+    cell.spike_detector.record(spike_output_vec)
+
 
 @interactive
-def compute_features(generation, group_size=1, disp=False, voltage_traces=False):
+def compute_features(generation, group_size=1, disp=False):
     """
 
     :param generation: list of array
@@ -336,8 +330,7 @@ def compute_features(generation, group_size=1, disp=False, voltage_traces=False)
         if num_groups > 0:
             results.extend(map(get_features, [generation.pop(0) for i in range(num_groups)],
                                [pop_ids.pop(0) for i in range(num_groups)],
-                               [client_ranges.pop(0) for i in range(num_groups)],
-                               [voltage_traces for i in range(num_groups)]))
+                               [client_ranges.pop(0) for i in range(num_groups)]))
         if np.any([this_result['async_result'].ready() for this_result in results]):
             for this_result in results:
                 if this_result['async_result'].ready():
@@ -354,27 +347,21 @@ def compute_features(generation, group_size=1, disp=False, voltage_traces=False)
         else:
             time.sleep(1.)
     features = [final_results[pop_id] for pop_id in range(pop_size)]
-    if voltage_traces is False:
-        objectives = map(get_objectives, features)
-        return features, objectives
-    else:
-        return features
+    objectives = map(get_objectives, features)
+    return features, objectives
 
 
 @interactive
-def get_Rinp_features(x, pop_id, client_range, voltage_traces=False):
+def get_spiking_features(x, pop_id, client_range):
     """
     Distribute simulations across available engines for optimization of leak conductance density gradient.
-    :param x: array (soma.g_pas, dend.g_pas slope, dend.g_pas tau, dend.g_pas xhalf)
+    :param x: array
     :return: float
     """
-    sec_list = ['soma', 'dend', 'distal_dend']
+    rheobase
+    spike_stability_params = [[rheobase+0.05, 300.], [rheobase+0.5, 100.]]
     dv = c[client_range]
-    result = dv.map_async(get_Rinp_for_section, sec_list, [x] * len(sec_list))
-    if voltage_traces is True:
-        global rec_file_list
-        dv.execute('export_sim_results()')
-        rec_file_list = [filename for filename in dv['rec_filename'] if os.path.isfile(data_dir + filename + '.hdf5')]
+    result = dv.map_async(spike_shape_stability, spike_stability_params, [x] * len(spike_stability_params))
     return {'pop_id': pop_id, 'client_range': client_range, 'async_result': result}
 
 
@@ -386,18 +373,127 @@ def get_pas_objectives(features):
     :return: dict
     """
     objectives = {}
-    for feature_name in ['soma R_inp', 'dend R_inp']:
-        objective_name = feature_name
-        objectives[objective_name] = ((target_val[objective_name] - features[feature_name]) /
-                                                  target_range[objective_name]) ** 2.
-    this_feature = features['distal_dend R_inp'] - features['dend R_inp']
-    objective_name = 'distal_dend R_inp'
-    if this_feature < 0.:
-        objectives[objective_name] = (this_feature / target_range['dend R_inp']) ** 2.
-    else:
-        objectives[objective_name] = 0.
+
     return objectives
 
+@interactive
+def spike_shape_stability(input_params, x):
+    start_time = time.time()
+    result = spike_shape_features(x)
+
+
+@interactive
+def spike_shape_features(x):
+    update_na_ka_stability(x)
+    # sim.cvode_state = True
+    soma_vm = offset_vm('soma', v_active)
+    result = {'v_rest': soma_vm}
+    stim_dur = 150.
+    sim.modify_stim(0, node=cell.tree.root, loc=0., dur=stim_dur)
+    duration = equilibrate + stim_dur
+    sim.tstop = duration
+    t = np.arange(0., duration, dt)
+    spike = False
+    d_amp = 0.01
+    amp = max(0., i_th['soma'] - 0.02)
+    while not spike:
+        sim.modify_stim(0, amp=amp)
+        sim.run(v_active)
+        vm = np.interp(t, sim.tvec, sim.get_rec('soma')['vec'])
+        if np.any(vm[:int(equilibrate/dt)] > -30.):
+            print 'Process %i: Aborting - spontaneous firing' % (os.getpid())
+            return None
+            #Will this be problematic?
+
+
+        if np.any(vm[int(equilibrate/dt):int((equilibrate+50.)/dt)] > -30.):
+            spike = True
+        else:
+            amp += d_amp
+            if sim.verbose:
+                print 'increasing amp to %.3f' % amp
+    sim.parameters['amp'] = amp
+    i_th['soma'] = amp
+    spike_times = cell.spike_detector.get_recordvec().to_python()
+    peak, threshold, ADP, AHP = get_spike_shape(vm, spike_times)
+    dend_vm = np.interp(t, sim.tvec, sim.get_rec('dend')['vec'])
+    th_x = np.where(vm[int(equilibrate / dt):] >= threshold)[0][0] + int(equilibrate / dt)
+    if len(spike_times) > 1:
+        end = min(th_x + int(10. / dt), int((spike_times[1] - 5.)/dt))
+    else:
+        end = th_x + int(10. / dt)
+    dend_peak = np.max(dend_vm[th_x:end])
+    dend_pre = np.mean(dend_vm[th_x - int(0.2 / dt):th_x - int(0.1 / dt)])
+    result['dend_amp'] = (dend_peak - dend_pre) / (peak - threshold)
+
+    # calculate AIS delay
+    ais_vm = np.interp(t, sim.tvec, sim.get_rec('ais')['vec'])
+    ais_dvdt = np.gradient(ais_vm, dt)
+    axon_vm = np.interp(t, sim.tvec, sim.get_rec('axon')['vec'])
+    axon_dvdt = np.gradient(axon_vm, dt)
+    left = th_x - int(2. / dt)
+    right = th_x + int(5. / dt)
+    ais_peak = np.max(ais_dvdt[left:right])
+    ais_peak_t = np.where(ais_dvdt[left:right] == ais_peak)[0][0] * dt
+    axon_peak = np.max(axon_dvdt[left:right])
+    axon_peak_t = np.where(axon_dvdt[left:right] == axon_peak)[0][0] * dt
+    if axon_peak_t >= ais_peak_t + dt:
+        result['ais_delay'] = 0.
+    else:
+        result['ais_delay'] = ais_peak_t + dt - axon_peak_t
+
+    print 'Process %i took %.1f s to find spike rheobase at amp: %.3f' % (os.getpid(), time.time() - start_time, amp)
+    result['v_th'] = threshold
+    result['ADP'] = ADP
+    result['AHP'] = AHP
+    result['amp'] = amp
+    result['spike_count'] = len(spike_times)
+    return result
+
+
+@interactive
+def compute_spike_stability_features(input_param, local_x=None, plot=False):
+    """
+
+    :param amp: float
+    :param local_x: array
+    :param plot: bool
+    :return: dict
+    """
+    amp = input_param[0]
+    stim_dur = input_param[1]
+    sim.parameters['amp'] = amp
+    if local_x is None:
+        local_x = x
+    start_time = time.time()
+    update_na_ka_stability(local_x)
+    # sim.cvode_state = True
+    soma_vm = offset_vm('soma', v_active)
+    # sim.cvode_state = False
+    sim.modify_stim(0, node=cell.tree.root, loc=0., dur=stim_dur)
+    duration = equilibrate + stim_dur + 100.
+    sim.tstop = duration
+    t = np.arange(0., duration, dt)
+    stability = 0.
+    result = {}
+    sim.modify_stim(0, amp=amp)
+    sim.run(v_active)
+    if plot:
+        sim.plot()
+    spike_times = np.subtract(cell.spike_detector.get_recordvec().to_python(), equilibrate)
+    rate = len(spike_times) / stim_dur * 1000.
+    result['rate'] = rate
+    result['amp'] = amp
+    vm = np.interp(t, sim.tvec, sim.get_rec('soma')['vec'])
+    v_rest = np.mean(vm[int((equilibrate - 3.) / dt):int((equilibrate - 1.) / dt)])
+    v_before = np.max(vm[int((equilibrate - 50.) / dt):int((equilibrate - 1.) / dt)])
+    v_after = np.max(vm[-int(50. / dt):-1])
+    stability += abs(v_before - v_rest) + abs(v_after - v_rest)
+    v_min_late = np.min(vm[int((equilibrate + stim_dur - 20.) / dt):int((equilibrate + stim_dur - 1.) / dt)])
+    result['stability'] = stability
+    result['v_min_late'] = v_min_late
+    print 'Process %i took %.1f s to test spike stability with amp: %.3f' % (os.getpid(), time.time() - start_time, amp)
+    return result
 
 @interactive
 def offset_vm(description, vm_target=None):
@@ -451,63 +547,94 @@ def offset_vm(description, vm_target=None):
     sim.tstop = duration
     return v_rest
 
+@interactive
+def get_spike_shape(vm, spike_times):
+    """
+
+    :param vm: array
+    :return: tuple of float: (v_peak, th_v, ADP, AHP)
+    """
+    start = int((equilibrate+1.)/dt)
+    vm = vm[start:]
+    dvdt = np.gradient(vm, dt)
+    th_x = np.where(dvdt > th_dvdt)[0]
+    if th_x.any():
+        th_x = th_x[0] - int(1.6/dt)
+    else:
+        th_x = np.where(vm > -30.)[0][0] - int(2./dt)
+    th_v = vm[th_x]
+    v_before = np.mean(vm[th_x-int(0.1/dt):th_x])
+    v_peak = np.max(vm[th_x:th_x+int(5./dt)])
+    x_peak = np.where(vm[th_x:th_x+int(5./dt)] == v_peak)[0][0]
+    if len(spike_times) > 1:
+        end = max(th_x+x_peak, int((spike_times[1] - 5.) / dt) - start)
+    else:
+        end = len(vm)
+    v_AHP = np.min(vm[th_x+x_peak:end])
+    x_AHP = np.where(vm[th_x+x_peak:end] == v_AHP)[0][0]
+    AHP = v_before - v_AHP
+    # if spike waveform includes an ADP before an AHP, return the value of the ADP in order to increase error function
+    rising_x = np.where(dvdt[th_x+x_peak:th_x+x_peak+x_AHP] > 0.)[0]
+    if rising_x.any():
+        v_ADP = np.max(vm[th_x+x_peak+rising_x[0]:th_x+x_peak+x_AHP])
+        ADP = v_ADP - th_v
+    else:
+        ADP = 0.
+    return v_peak, th_v, ADP, AHP
 
 @interactive
 def update_mech_dict(x):
-    update_pas_exp(x)
+    update_na_ka_stability(x)
     cell.export_mech_dict(cell.mech_file_path)
 
 
 @interactive
-def update_pas_exp(x):
+def update_na_ka_stability(x):
     """
 
-    x0 = ['soma.g_pas': 2.28e-05, 'dend.g_pas slope': 1.58e-06, 'dend.g_pas tau': 58.4]
-    :param x: array [soma.g_pas, dend.g_pas slope, dend.g_pas tau]
+    :param x: array [soma.gkabar, soma.gkdrbar, soma.sh_nas/x, axon.gkbar factor, dend.gkabar factor,
+            soma.gCa factor, soma.gCadepK factor, soma.gkmbar]
     """
     if spines is False:
         cell.reinit_mechanisms(reset_cable=True)
-    cell.modify_mech_param('soma', 'pas', 'g', x[param_indexes['soma.g_pas']])
-    cell.modify_mech_param('apical', 'pas', 'g', origin='soma', slope=x[param_indexes['dend.g_pas slope']],
-                           tau=x[param_indexes['dend.g_pas tau']])
-    for sec_type in ['axon_hill', 'axon', 'ais', 'apical', 'spine_neck', 'spine_head']:
-        cell.reinitialize_subset_mechanisms(sec_type, 'pas')
+    cell.modify_mech_param('soma', 'kdr', 'gkdrbar', x[1])
+    cell.modify_mech_param('soma', 'kap', 'gkabar', x[0])
+    slope = (x[4] - 1.) * x[0] / 300.
+    cell.modify_mech_param('soma', 'nas', 'gbar', soma_na_gbar)
+    cell.modify_mech_param('soma', 'nas', 'sh', x[2])
+    for sec_type in ['apical']:
+        cell.reinitialize_subset_mechanisms(sec_type, 'nas')
+        cell.modify_mech_param(sec_type, 'kap', 'gkabar', origin='soma', min_loc=75., value=0.)
+        cell.modify_mech_param(sec_type, 'kap', 'gkabar', origin='soma', max_loc=75., slope=slope, replace=False)
+        cell.modify_mech_param(sec_type, 'kad', 'gkabar', origin='soma', max_loc=75., value=0.)
+        cell.modify_mech_param(sec_type, 'kad', 'gkabar', origin='soma', min_loc=75., max_loc=300., slope=slope,
+                               value=x[0]+slope*75., replace=False)
+        cell.modify_mech_param(sec_type, 'kad', 'gkabar', origin='soma', min_loc=300., value=x[0]+slope*300.,
+                               replace=False)
+        cell.modify_mech_param(sec_type, 'kdr', 'gkdrbar', origin='soma')
+        cell.modify_mech_param(sec_type, 'nas', 'sha', 5.)
+        cell.modify_mech_param(sec_type, 'nas', 'gbar', soma_na_gbar)
+    cell.set_terminal_branch_na_gradient()
+    cell.reinitialize_subset_mechanisms('axon_hill', 'kap')
+    cell.reinitialize_subset_mechanisms('axon_hill', 'kdr')
+    cell.modify_mech_param('ais', 'kdr', 'gkdrbar', origin='soma')
+    cell.modify_mech_param('ais', 'kap', 'gkabar', x[0] * x[3])
+    cell.modify_mech_param('axon', 'kdr', 'gkdrbar', origin='ais')
+    cell.modify_mech_param('axon', 'kap', 'gkabar', origin='ais')
+    cell.modify_mech_param('axon_hill', 'nax', 'sh', x[2])
+    cell.modify_mech_param('axon_hill', 'nax', 'gbar', soma_na_gbar)
+    cell.modify_mech_param('axon', 'nax', 'gbar', soma_na_gbar * 2.)
+    for sec_type in ['ais', 'axon']:
+        cell.modify_mech_param(sec_type, 'nax', 'sh', origin='axon_hill')
+    cell.modify_mech_param('soma', 'Ca', 'gcamult', x[5])
+    cell.modify_mech_param('soma', 'CadepK', 'gcakmult', x[6])
+    cell.modify_mech_param('soma', 'km3', 'gkmbar', x[7])
+    cell.modify_mech_param('ais', 'km3', 'gkmbar', x[7] * 3.)
+    cell.modify_mech_param('axon_hill', 'km3', 'gkmbar', origin='soma')
+    cell.modify_mech_param('axon', 'km3', 'gkmbar', origin='ais')
     if spines is False:
         cell.correct_for_spines()
-
-
-@interactive
-def get_Rinp_for_section(section, x):
-    """
-    Inject a hyperpolarizing step current into the specified section, and return the steady-state input resistance.
-    :param section: str
-    :return: dict: {str: float}
-    """
-    start_time = time.time()
-    sim.tstop = duration
-    sim.parameters['section'] = section
-    sim.parameters['target'] = 'Rinp'
-    sim.parameters['optimization'] = 'pas'
-    if spines:
-        sim_description = 'with_spines'
-    else:
-        sim_description = 'no_spines'
-    sim.parameters['description'] = sim_description
-    amp = -0.05
-    update_pas_exp(x)
-    cell.zero_na()
-    offset_vm(section)
-    loc = rec_locs[section]
-    node = rec_nodes[section]
-    rec = sim.get_rec(section)
-    sim.modify_stim(0, node=node, loc=loc, amp=amp, dur=stim_dur)
-    sim.run(v_init)
-    Rinp = get_Rinp(np.array(sim.tvec), np.array(rec['vec']), equilibrate, duration, amp)[2]
-    result = {}
-    result[section+' R_inp'] = Rinp
-    print 'Process:', os.getpid(), 'calculated Rinp for %s in %.1f s, Rinp: %.1f' % (section, time.time() - start_time,
-                                                                                    Rinp)
-    return result
+    cell.set_terminal_branch_na_gradient()
 
 
 @interactive
@@ -517,43 +644,6 @@ def export_sim_results():
     """
     with h5py.File(data_dir+rec_filename+'.hdf5', 'w') as f:
         sim.export_to_file(f)
-
-@interactive
-def get_best_voltage_traces(storage, group_size, n=1, discard=True):
-    """
-    Run simulations on the engines with the last best set of parameters, have the engines export their results to .hdf5,
-    and then read in and plot the results.
-    :param storage: :class:PopulationStorage
-    """
-    best_inds = storage.get_best(n)
-    if len(best_inds) == 0:
-        raise Exception('Storage object is empty')
-    for ind in best_inds:
-        features = compute_features([ind.x], group_size=group_size, voltage_traces=True)
-    # plot_best_voltage_traces(discard)
-
-@interactive
-def plot_best_voltage_traces(discard=True):
-    for rec_filename in rec_file_list:
-        with h5py.File(data_dir+rec_filename+'.hdf5', 'r') as f:
-            for trial in f.itervalues():
-                target = trial.attrs['target']
-                section = trial.attrs['section']
-                optimization = trial.attrs['optimization']
-                fig, axes = plt.subplots(1)
-                for rec in trial['rec'].itervalues():
-                    axes.plot(trial['time'], rec, label=rec.attrs['description'])
-                axes.legend(loc='best', frameon=False, framealpha=0.5)
-                axes.set_xlabel('Time (ms)')
-                axes.set_ylabel('Vm (mV)')
-                axes.set_title('Optimize %s: %s (%s)' % (optimization, target, section))
-                clean_axes(axes)
-                fig.tight_layout()
-                plt.show()
-                plt.close()
-    if discard:
-        for rec_filename in rec_file_list:
-            os.remove(data_dir + rec_filename + '.hdf5')
 
 
 if __name__ == '__main__':

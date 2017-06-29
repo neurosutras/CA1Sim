@@ -211,6 +211,9 @@ def compute_spike_shape_features(local_x=None, plot=False):
             return None
         if np.any(vm[int(equilibrate/dt):int((equilibrate+50.)/dt)] > -30.):
             spike = True
+        elif amp >= 0.4: #this was implemented in spike_adaptation_engine; is it also applicable here?
+            print 'Process %i: Aborting - rheobase outside target range' % (os.getpid())
+            return None
         else:
             amp += d_amp
             if sim.verbose:

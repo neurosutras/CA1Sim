@@ -200,7 +200,46 @@ class PopulationStorage(object):
         else:
             return attr
 
-    def save(self, file_path):
+    def save_gen(self, file_path, pop_index):
+        """
+        Adds data from the most recent generation to the hdf5 file.
+        :param file_path: str
+        """
+        with h5py.File(file_path, 'a') as f:
+            if 'param_names' not in f.attrs.keys():
+                f.attrs['param_names'] = self.param_names
+            if 'feature_names' not in f.attrs.keys():
+                f.attrs['feature_names'] = self.feature_names
+            if 'objective_names' not in f.attrs.keys():
+                f.attrs['objective_names'] = self.objective_names
+            f.create_group(str(pop_index))
+            for group_name, population in zip(['population', 'survivors'],
+                                              [self.history[pop_index], self.survivors[pop_index]]):
+                f[str(pop_index)].create_group(group_name)
+                for ind_index, individual in enumerate(population):
+                    f[str(pop_index)][group_name].create_group(str(ind_index))
+                    f[str(pop_index)][group_name][str(ind_index)].attrs['energy'] = self.None2nan(individual.energy)
+                    f[str(pop_index)][group_name][str(ind_index)].attrs['rank'] = self.None2nan(individual.rank)
+                    f[str(pop_index)][group_name][str(ind_index)].attrs['distance'] = \
+                        self.None2nan(individual.distance)
+                    f[str(pop_index)][group_name][str(ind_index)].attrs['fitness'] = \
+                        self.None2nan(individual.fitness)
+                    f[str(pop_index)][group_name][str(ind_index)].attrs['survivor'] = \
+                        self.None2nan(individual.survivor)
+                    f[str(pop_index)][group_name][str(ind_index)].create_dataset('x', data=individual.x,
+                                                                                 compression='gzip',
+                                                                                 compression_opts=9)
+                    f[str(pop_index)][group_name][str(ind_index)].create_dataset('features',
+                                                                                 data=individual.features,
+                                                                                 compression='gzip',
+                                                                                 compression_opts=9)
+                    f[str(pop_index)][group_name][str(ind_index)].create_dataset('objectives',
+                                                                                 data=individual.objectives,
+                                                                                 compression='gzip',
+                                                                                 compression_opts=9)
+        print 'PopulationStorage: saved generation %i to file: %s' % (pop_index, file_path)
+
+    def save_all(self, file_path):
         """
 
         :param file_path: str
