@@ -19,6 +19,6 @@ pop_size="$3"
 max_gens="$4"
 ipcontroller --ip='*' --quiet --cluster-id=$cluster_id &
 sleep 60
-mpirun -np 511 ipengine --quiet --cluster-id=$cluster_id &
+mpirun -np 510 ipengine --quiet --cluster-id=$cluster_id &
 sleep 60
 python parallel_optimize_leak.py --cluster-id=$cluster_id --group-size=$group_sz --pop-size=$pop_size --max-gens=$max_gens --disp
