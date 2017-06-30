@@ -5,6 +5,7 @@ from ipyparallel import Client
 # from IPython.display import clear_output
 from specify_cells3 import *
 from moopgen import *
+from plot_results import *
 
 """
 Aims for spike initiation at initial segment by increasing nax density and decreasing activation V1/2 relative to soma,
@@ -41,13 +42,11 @@ i_th = {'soma': 0.1}
 soma_ek = -77.
 soma_na_gbar = 0.04
 
-experimental_f_I_slope = 53.  # Hz/ln(pA); rate = slope * ln(current - rheobase)
-# GC experimental f-I data from Kowalski J...Pernia-Andrade AJ, Hippocampus, 2016
-
 default_mech_file_path = data_dir + '042717 GC optimizing spike stability.pkl'
 default_neurotree_file_path = morph_dir + '121516_DGC_trees.pkl'
 default_param_gen = 'BGen'
-default_get_features = 'get_spiking_features'
+default_get_features = ('get_stability_features', 'get_adaptation_features')
+default_organize_features = ('organize_stability_features', 'organize_adaptation_features')
 default_get_objectives = 'get_spiking_objectives'
 
 default_x0_dict = {'soma.gkabar': 2.108E-02, 'soma.gkdrbar': 4.299E-02, 'soma.sh_nas/x': 1.219E+00,
@@ -57,8 +56,9 @@ default_bounds_dict = {'soma.gkabar': (0.01, 0.05), 'soma.gkdrbar': (0.01, 0.06)
                    'axon.gkbar factor': (1., 3.), 'dend.gkabar factor': (0.1, 5.), 'soma.gCa factor': (0.1, 5.),
                    'soma.gCadepK factor': (0.1, 5.), 'soma.gkmbar': (0.0005, 0.005)}
 default_feature_names = ['v_rest', 'v_th', 'soma_peak', 'ADP', 'AHP', 'stability', 'ais_delay', 'slow_depo', 'dend_amp',
-                         'spike_count', 'spike_rate', 'v_min_late']
-default_objective_names = ['na_ka_stability', 'f_I']
+                         'spike_count', 'v_min_late', 'rate', 'adi', 'exp_adi', 'f_I']
+default_objective_names = ['f_I stability', 'v_th', 'ADP', 'AHP', 'stability', 'slow_depo', 'dend_amp', 'ais_delay',
+                           'f_I adaptation', 'adi']
 default_target_val = {'v_rest': v_init, 'v_th': -48., 'soma_peak': 40., 'ADP': 0., 'AHP': 4., 'stability': 0.,
                       'ais_delay': 0., 'slow_depo': 20., 'dend_amp': 0.3}
 default_target_range = {'v_rest': 0.25, 'v_th': .01, 'soma_peak': 2., 'ADP': 0.01, 'AHP': .005, 'stability': 1.,
@@ -76,8 +76,10 @@ default_param_file_path = None
 @click.option("--neurotree-index", type=int, default=0)
 @click.option("--param-file-path", type=click.Path(exists=True, file_okay=True, dir_okay=False), default=None)
 @click.option("--param-gen", type=str, default=None)
-@click.option("--get-features", type=str, default=None)
-@click.option("--group-size", type=int, default=3)
+@click.option("--get-features", nargs=2, type=str, default=())
+@click.option("--organize-features", nargs=2, type=str, default=())
+@click.option("--get-objectives", type=str, default=None)
+@click.option("--group-size", type=int, default=2)
 @click.option("--pop-size", type=int, default=100)
 @click.option("--seed", type=int, default=None)
 @click.option("--max-iter", type=int, default=30)
@@ -88,7 +90,7 @@ default_param_file_path = None
 @click.option("--survival-rate", type=float, default=0.2)
 @click.option("--disp", is_flag=True)
 def main(cluster_id, spines, mech_file_path, neurotree_file_path, neurotree_index, param_file_path, param_gen,
-         get_features, get_objectives, group_size, pop_size, seed, max_iter, max_gens, path_length,
+         get_features, organize_features, get_objectives, group_size, pop_size, seed, max_iter, max_gens, path_length,
          adaptive_step_factor, niter_success, survival_rate, disp):
     """
 
@@ -99,7 +101,8 @@ def main(cluster_id, spines, mech_file_path, neurotree_file_path, neurotree_inde
     :param neurotree_index: int
     :param param_file_path: str (path)
     :param param_gen: str (must refer to callable in globals())
-    :param get_features: str (must refer to callable in globals())
+    :param get_features: tuple of two str (must refer to callable in globals())
+    :param organize_features: tuple of two str (must refer to callable in globals())
     :param get_objectives: str (must refer to callable in globals())
     :param group_size: int
     :param pop_size: int
@@ -172,12 +175,22 @@ def main(cluster_id, spines, mech_file_path, neurotree_file_path, neurotree_inde
     history_filename = '%s %s %s optimization history' % \
                        (datetime.datetime.today().strftime('%m%d%Y%H%M'), optimization_title, param_gen)
 
-    if get_features is None:
+    if not get_features:
         get_features = default_get_features
-    if get_features not in globals() or not callable(globals()[get_features]):
+    if get_features[0] not in globals() or not callable(globals()[get_features[0]]):
         raise NameError('Multi-Objective Optimization: get_features: %s has not been imported, or is not a callable '
-                        'function.' % get_features)
-
+                        'function.' % get_features[0])
+    if get_features[1] not in globals() or not callable(globals()[get_features[1]]):
+        raise NameError('Multi-Objective Optimization: get_features: %s has not been imported, or is not a callable '
+                        'function.' % get_features[1])
+    if not organize_features:
+        organize_features = default_organize_features
+    if organize_features[0] not in globals() or not callable(globals()[organize_features[0]]):
+        raise NameError('Multi-Objective Optimization: organize_features: %s has not been imported, or is not a callable '
+                        'function.' % organize_features[0])
+    if organize_features[1] not in globals() or not callable(globals()[organize_features[1]]):
+        raise NameError('Multi-Objective Optimization: organize_features: %s has not been imported, or is not a callable '
+                        'function.' % organize_features[1])
     if get_objectives is None:
         get_objectives = default_get_objectives
     if get_objectives not in globals() or not callable(globals()[get_objectives]):
@@ -196,15 +209,18 @@ def main(cluster_id, spines, mech_file_path, neurotree_file_path, neurotree_inde
         blocks += 1
 
     print 'Multi-Objective Optimization: %s; Total processes: %i; Population size: %i; Group size: %i; ' \
-          'Feature calculator: %s; Objective calculator: %s; Blocks / generation: %i' % \
-          (param_gen, num_procs, pop_size, group_size, get_features, get_objectives, blocks)
+          'Feature calculator: %s; Organize features: %s; Objective calculator: %s; Blocks / generation: %i' % \
+          (param_gen, num_procs, pop_size, group_size, get_features, organize_features, get_objectives, blocks)
     if un_utilized > 0:
         print 'Multi-Objective Optimization: %i processes are unutilized' % un_utilized
+    sys.stdout.flush()
 
     param_gen = globals()[param_gen]
     globals()['param_gen'] = param_gen
-    get_features = globals()[get_features]
+    get_features = (globals()[get_features[0]], globals()[get_features[1]])
     globals()['get_features'] = get_features
+    organize_features = (globals()[organize_features[0]], globals()[organize_features[1]])
+    globals()['organize_features'] = organize_features
     get_objectives = globals()[get_objectives]
     globals()['get_objectives'] = get_objectives
 
@@ -312,7 +328,7 @@ def init_engine(spines=False, mech_file_path=None, neurotree_file_path=None, neu
 
 
 @interactive
-def compute_features(generation, group_size=1, disp=False):
+def compute_features(generation, group_size=1, disp=False, voltage_traces=False):
     """
 
     :param generation: list of array
@@ -321,69 +337,217 @@ def compute_features(generation, group_size=1, disp=False):
     :return: tuple of list of dict
     """
     pop_size = len(generation)
-    pop_ids = range(pop_size)
-    client_ranges = [range(start, start+group_size) for start in range(0, num_procs, group_size)]
+    usable_procs = num_procs - (num_procs % group_size)
+    client_ranges = [range(start, start+group_size) for start in range(0, usable_procs, group_size)]
+    extra_args = [{} for i in range(pop_size)] #later replaced by updated_extra_args to store rheobase values for
+                                                #the second round of getting features
+    updated_extra_args = {}
     results = []
     final_results = {}
-    while len(pop_ids) > 0 or len(results) > 0:
-        num_groups = min(len(client_ranges), len(pop_ids))
-        if num_groups > 0:
-            results.extend(map(get_features, [generation.pop(0) for i in range(num_groups)],
-                               [pop_ids.pop(0) for i in range(num_groups)],
-                               [client_ranges.pop(0) for i in range(num_groups)]))
-        if np.any([this_result['async_result'].ready() for this_result in results]):
-            for this_result in results:
-                if this_result['async_result'].ready():
-                    client_ranges.append(this_result['client_range'])
-                    if disp:
-                        flush_engine_buffer(this_result['async_result'])
-                    this_feature_dict = {key: value for result_dict in this_result['async_result'].get()
-                                         for key, value in result_dict.iteritems()}
-                    final_results[this_result['pop_id']] = this_feature_dict
-                    results.remove(this_result)
-                    if disp:
-                        print 'Individual: %i, computing features took %.2f s' % \
-                              (this_result['pop_id'], this_result['async_result'].wall_time)
-        else:
-            time.sleep(1.)
+    for ind in range(len(get_features)):
+        feature_function = get_features[ind]
+        generation_list = generation
+        pop_ids = range(pop_size)
+        while len(pop_ids) > 0 or len(results) > 0:
+            num_groups = min(len(client_ranges), len(pop_ids))
+            if num_groups > 0:
+                results.extend(map(feature_function, [generation_list.pop(0) for i in range(num_groups)],
+                                   [pop_ids.pop(0) for i in range(num_groups)],
+                                   [client_ranges.pop(0) for i in range(num_groups)],
+                                   [extra_args.pop(0) for i in range(num_groups)],
+                                   [voltage_traces for i in range(num_groups)]))
+            if np.any([this_result['async_result'].ready() for this_result in results]) or \
+                    np.any([this_result['async_result'] is None for this_result in results]):
+                for this_result in results:
+                    if this_result['async_result'] is None:
+                        client_ranges.append(this_result['client_range'])
+                        for feature in feature_names:
+                            final_results[this_result['pop_id']][feature] = None
+                        updated_extra_args[this_result['pop_id']] = {}
+                        results.remove(this_result)
+                        if disp:
+                            print 'Individual: %i, aborting - cell is spontaneously firing' % \
+                                  (this_result['pop_id'])
+                    elif this_result['async_result'].ready():
+                        client_ranges.append(this_result['client_range'])
+                        if disp:
+                            flush_engine_buffer(this_result['async_result'])
+                        organize_function = organize_features[ind]
+                        final_results[this_result['pop_id']] = organize_function(this_result['async_result'].get(),
+                                                                        this_result['extra_args'])
+                        final_results[this_result['pop_id']].update(this_result['final_results'])
+                        updated_extra_args[this_result['pop_id']] = this_result['extra_args']
+                        results.remove(this_result)
+                        if disp:
+                            print 'Individual: %i, computing features took %.2f s' % \
+                                  (this_result['pop_id'], this_result['async_result'].wall_time)
+                    sys.stdout.flush()
+            else:
+                time.sleep(1.)
+        extra_args = [updated_extra_args[pop_id] for pop_id in range(pop_size)]
     features = [final_results[pop_id] for pop_id in range(pop_size)]
-    objectives = map(get_objectives, features)
-    return features, objectives
-
+    if voltage_traces is False:
+        objectives = map(get_objectives, features)
+        return features, objectives
+    else:
+        return features
 
 @interactive
-def get_spiking_features(x, pop_id, client_range):
+def get_stability_features(x, pop_id, client_range, extra_args, voltage_traces=False):
     """
-    Distribute simulations across available engines for optimization of leak conductance density gradient.
+    Distribute simulations across available engines for testing spike stability.
     :param x: array
-    :return: float
+    :param pop_id: int
+    :param client_range: list of ints
+    :param extra_args: dict
+    :return: dict
     """
-    rheobase
-    spike_stability_params = [[rheobase+0.05, 300.], [rheobase+0.5, 100.]]
-    dv = c[client_range]
-    result = dv.map_async(spike_shape_stability, spike_stability_params, [x] * len(spike_stability_params))
-    return {'pop_id': pop_id, 'client_range': client_range, 'async_result': result}
-
+    results = c[client_range[0]].apply(spike_shape_features, x)
+    if results is None:
+        print 'Process %i: Aborting - Cell is spontaneously firing.'
+        return {'final_results': {}, 'pop_id': pop_id, 'client_range': client_range, 'async_result': None}
+    else:
+        final_results = results.get()
+        rheobase = final_results['amp']
+        spike_stability_params = [[rheobase+0.05, 300.], [rheobase+0.5, 100.]]
+        dv = c[client_range]
+        result = dv.map_async(spike_stability_features, spike_stability_params, [x] * len(spike_stability_params))
+        return {'final_results': final_results, 'pop_id': pop_id, 'client_range': client_range, 'async_result': result,
+                'extra_args': {'rheobase': rheobase, 'v_th': final_results['v_th']}}
 
 @interactive
-def get_pas_objectives(features):
+def organize_stability_features(async_result, extra_args):
+    """
+
+    :param async_result: list of dict (each of two dictionaries contains keys for stability, v_min_late, rate, and amp
+    for a particular stimulation)
+    :return:
+    """
+    final_results = {}
+    temp_dict = {}
+    temp_dict['amp'] = []
+    temp_dict['rate'] = []
+    for i, this_dict in enumerate(async_result):
+        temp_dict['amp'].append(this_dict['amp'])
+        temp_dict['rate'].append(this_dict['rate'])
+        if 'stability' not in final_results:
+            final_results['stability'] = this_dict['stability']
+        else:
+            final_results['stability'] += this_dict['stability']
+        if 'slow_depo' not in final_results:
+            final_results['slow_depo'] = this_dict['v_min_late'] - extra_args['v_th']
+        else:
+            final_results['slow_depo'] += this_dict['v_min_late'] - extra_args['v_th']
+    indexes = range(len(temp_dict['rate']))
+    indexes.sort(key=temp_dict['amp'].__getitem__)
+    temp_dict['amp'] = map(temp_dict['amp'].__getitem__, indexes)
+    temp_dict['rate'] = map(temp_dict['rate'].__getitem__, indexes)
+    final_results['rate'] = temp_dict['rate'][0]
+    final_results['f_I amp'] = temp_dict['amp'][0] #This is used later to calculate the target firing rate for this
+                                                  #value of current
+    return final_results
+
+@interactive
+def get_adaptation_features(x, pop_id, client_range, extra_args, voltage_traces=False):
+    """
+    :param x: array
+    :param pop_id: int
+    :param client_range: list of ints
+    :param extra_args: dict
+    :return: dict
+    """
+    if not extra_args: #cell was spontaneously firing, so no rheobase was found
+        return {'final_results': {}, 'pop_id': pop_id, 'client_range': client_range, 'async_result': None}
+    dv = c[client_range]
+    rheobase = extra_args['rheobase']
+
+    # Calculate firing rates for a range of I_inj amplitudes using a stim duration of 500 ms
+    result = dv.map_async(sim_f_I, [rheobase + i_inj_increment * (i + 1) for i in range(num_increments)])
+    if voltage_traces is True:
+        global rec_file_list
+        dv.execute('export_sim_results()')
+        rec_file_list = [filename for filename in dv['rec_filename'] if os.path.isfile(data_dir + filename + '.hdf5')]
+    return {'final_results': {}, 'pop_id': pop_id, 'client_range': client_range, 'async_result': result,
+            'extra_args': {'rheobase': rheobase}}
+
+@interactive
+def organize_adaptation_features(async_result, extra_args):
+    """
+
+    :param async_result: list of dict (each of two dictionaries contains keys for stability, v_min_late, rate, and amp
+    for a particular stimulation)
+    :return:
+    """
+    final_results = {}
+    amps = []
+    final_results['adi'] = []
+    final_results['f_I'] = []
+    for i, trial in enumerate(async_result):
+        amps.append(trial['amp'])
+        spike_times = trial['spike_times']
+        if len(spike_times) < 3:
+            adi = None
+            exp_adi = None
+        elif len(spike_times) > len(experimental_spike_times):
+            adi = get_adaptation_index(spike_times[:len(experimental_spike_times)])
+            exp_adi = experimental_adaptation_indexes[len(experimental_spike_times) - 3]
+        else:
+            adi = get_adaptation_index(spike_times)
+            exp_adi = experimental_adaptation_indexes[len(spike_times) - 3]
+        final_results['adi'].append(adi)
+        final_results['exp_adi'].append(exp_adi)
+        this_rate = len(spike_times) / stim_dur * 1000.
+        final_results['f_I'].append(this_rate)
+    indexes = range(len(final_results['f_I']))
+    indexes.sort(key=amps.__getitem__)
+    final_results['adi'] = map(final_results['adi'].__getitem__, indexes)
+    final_results['exp_adi'] = map(final_results['exp_adi'].__getitem__, indexes)
+    final_results['f_I'] = map(final_results['f_I'].__getitem__, indexes)
+    return final_results
+
+@interactive
+def get_spiking_objectives(features):
     """
 
     :param features: dict
     :return: dict
     """
     objectives = {}
+    if not features: #Cell was firing spontaenously so no rheobase value
+        for objective in objective_names:
+            objectives[objective] = 1e9
+    else:
+        for objective in objective_names:
+            objectives[objective] = 0.
+        rheobase = features['amp']
+        target_f_I_stability = experimental_f_I_slope * np.log(features['f_I amp'] / rheobase)
+        objectives['f_I stability'] = ((features['rate'] - target_f_I_stability) / (0.001 * target_f_I_stability)) ** 2. \
+                                      + ((features['spike_count'] - 1.) / 0.002) ** 2.
+        for target in ['v_th', 'ADP', 'AHP', 'stability', 'slow_depo', 'dend_amp', 'ais_delay']:
+            # don't penalize AHP or slow_depo less than target
+            if not ((target == 'AHP' and features[target] < target_val[target]) or
+                        (target == 'slow_depo' and features[target] < target_val[target])):
+                objectives[target] = ((target_val[target] - features[target]) / target_range[target]) ** 2.
+        for i, this_adi in enumerate(features['adi']):
+            if this_adi is not None and features['exp_adi'] is not None:
+                objectives['adi'] += ((this_adi - features['exp_adi'][i]) / (0.01 * features['exp_adi'])) ** 2.
+        target_f_I_adaptation = [experimental_f_I_slope * np.log((rheobase + i_inj_increment * (i + 1)) / rheobase)
+                      for i in range(num_increments)]
+        for i, this_rate in enumerate(features['f_I']):
+            objectives['f_I adaptation'] += ((this_rate - target_f_I_adaptation[i]) / (0.01 *
+                                                                                       target_f_I_adaptation[i])) ** 2.
 
     return objectives
 
 @interactive
-def spike_shape_stability(input_params, x):
+def spike_shape_features(x, plot=False):
+    """
+    :param local_x: array [soma.gkabar, soma.gkdrbar, axon.gkabar_kap factor, axon.gbar_nax factor, soma.sh_nas/x,
+                    axon.gkbar factor, dend.gkabar factor]
+    :param plot: bool
+    :return: float
+    """
     start_time = time.time()
-    result = spike_shape_features(x)
-
-
-@interactive
-def spike_shape_features(x):
     update_na_ka_stability(x)
     # sim.cvode_state = True
     soma_vm = offset_vm('soma', v_active)
@@ -403,11 +567,11 @@ def spike_shape_features(x):
         if np.any(vm[:int(equilibrate/dt)] > -30.):
             print 'Process %i: Aborting - spontaneous firing' % (os.getpid())
             return None
-            #Will this be problematic?
-
-
         if np.any(vm[int(equilibrate/dt):int((equilibrate+50.)/dt)] > -30.):
             spike = True
+        elif amp >= 0.4: #this was implemented in spike_adaptation_engine; is it also applicable here?
+            print 'Process %i: Aborting - rheobase outside target range' % (os.getpid())
+            return None
         else:
             amp += d_amp
             if sim.verbose:
@@ -443,16 +607,18 @@ def spike_shape_features(x):
         result['ais_delay'] = ais_peak_t + dt - axon_peak_t
 
     print 'Process %i took %.1f s to find spike rheobase at amp: %.3f' % (os.getpid(), time.time() - start_time, amp)
+    if plot:
+        sim.plot()
     result['v_th'] = threshold
     result['ADP'] = ADP
     result['AHP'] = AHP
     result['amp'] = amp
     result['spike_count'] = len(spike_times)
+
     return result
 
-
 @interactive
-def compute_spike_stability_features(input_param, local_x=None, plot=False):
+def spike_stability_features(input_param, x, plot=False):
     """
 
     :param amp: float
@@ -463,10 +629,8 @@ def compute_spike_stability_features(input_param, local_x=None, plot=False):
     amp = input_param[0]
     stim_dur = input_param[1]
     sim.parameters['amp'] = amp
-    if local_x is None:
-        local_x = x
     start_time = time.time()
-    update_na_ka_stability(local_x)
+    update_na_ka_stability(x)
     # sim.cvode_state = True
     soma_vm = offset_vm('soma', v_active)
     # sim.cvode_state = False
@@ -547,6 +711,54 @@ def offset_vm(description, vm_target=None):
     sim.tstop = duration
     return v_rest
 
+
+@interactive
+def sim_f_I(amp, x, plot=False):
+    """
+
+    :param amp: float
+    :param local_x: array
+    :param plot: bool
+    :return: dict
+    """
+    update_spike_adaptation(x)
+    # sim.cvode_state = True
+    soma_vm = offset_vm('soma', v_active)
+    # print 'Process %i: Getting here - after offset_vm' % os.getpid()
+    # sim.cvode_state = False
+    sim.parameters['amp'] = amp
+    start_time = time.time()
+    sim.modify_stim(0, dur=stim_dur, amp=amp)
+    duration = equilibrate + stim_dur
+    sim.tstop = duration
+    sim.run(v_active)
+    if plot:
+        sim.plot()
+    spike_times = np.subtract(cell.spike_detector.get_recordvec().to_python(), equilibrate)
+    result = {}
+    result['spike_times'] = spike_times
+    result['amp'] = amp
+    print 'Process %i took %i s to run simulation with I_inj amp: %.3f' % (os.getpid(), time.time() - start_time, amp)
+    return result
+
+@interactive
+def get_adaptation_index(spike_times):
+    """
+    A large value indicates large degree of spike adaptation (large increases in interspike intervals during a train)
+    :param spike_times: list of float
+    :return: float
+    """
+    import numpy as np
+    if len(spike_times) < 3:
+        return None
+    isi = []
+    adi = []
+    for i in range(len(spike_times) - 1):
+        isi.append(spike_times[i + 1] - spike_times[i])
+    for i in range(len(isi) - 1):
+        adi.append((isi[i + 1] - isi[i]) / (isi[i + 1] + isi[i]))
+    return np.mean(adi)
+
 @interactive
 def get_spike_shape(vm, spike_times):
     """
@@ -583,10 +795,9 @@ def get_spike_shape(vm, spike_times):
     return v_peak, th_v, ADP, AHP
 
 @interactive
-def update_mech_dict(x):
-    update_na_ka_stability(x)
+def update_mech_dict(x, update_function):
+    update_function(x)
     cell.export_mech_dict(cell.mech_file_path)
-
 
 @interactive
 def update_na_ka_stability(x):
@@ -636,6 +847,18 @@ def update_na_ka_stability(x):
         cell.correct_for_spines()
     cell.set_terminal_branch_na_gradient()
 
+@interactive
+def update_spike_adaptation(x):
+    """
+
+    :param x: array [soma.gCa factor, soma.gCadepK factor, soma.gkmbar]
+    """
+
+    cell.modify_mech_param('soma', 'Ca', 'gcamult', x[0])
+    cell.modify_mech_param('soma', 'CadepK', 'gcakmult', x[1])
+    cell.modify_mech_param('soma', 'km3', 'gkmbar', x[2])
+    for sec_type in ['axon_hill', 'ais', 'axon']:
+        cell.reinitialize_subset_mechanisms(sec_type, 'km3')
 
 @interactive
 def export_sim_results():
@@ -645,6 +868,52 @@ def export_sim_results():
     with h5py.File(data_dir+rec_filename+'.hdf5', 'w') as f:
         sim.export_to_file(f)
 
+@interactive
+def get_best_voltage_traces(storage, group_size, n=1, discard=True):
+    """
+    Run simulations on the engines with the last best set of parameters, have the engines export their results to .hdf5,
+    and then read in and plot the results.
+    :param storage: :class:PopulationStorage
+    """
+    best_inds = storage.get_best(n)
+    if len(best_inds) == 0:
+        raise Exception('Storage object is empty')
+    for ind in best_inds:
+        features = compute_features([ind.x], group_size=group_size, voltage_traces=True)
+    plot_best_voltage_traces(discard)
+
+@interactive
+def plot_best_voltage_traces(discard=True):
+    for rec_filename in rec_file_list:
+        with h5py.File(data_dir+rec_filename+'.hdf5', 'r') as f:
+            for trial in f.itervalues():
+                amplitude = trial.attrs['amp']
+                fig, axes = plt.subplots(1)
+                for rec in trial['rec'].itervalues():
+                    axes.plot(trial['time'], rec, label=rec.attrs['description'])
+                axes.legend(loc='best', frameon=False, framealpha=0.5)
+                axes.set_xlabel('Time (ms)')
+                axes.set_ylabel('Vm (mV)')
+                axes.set_title('Optimize f_I and spike adaptation: I_inj amplitude %.2f' % amplitude)
+                clean_axes(axes)
+                fig.tight_layout()
+                plt.show()
+                plt.close()
+    if discard:
+        for rec_filename in rec_file_list:
+            os.remove(data_dir + rec_filename + '.hdf5')
 
 if __name__ == '__main__':
     main(args=sys.argv[(list_find(lambda s: s.find(script_filename) != -1,sys.argv)+1):])
+
+# GC experimental spike adaptation data from Brenner...Aldrich, Nat. Neurosci., 2005
+experimental_spike_times = [0., 8.57331572, 21.79656539, 39.24702774, 60.92470277, 83.34214003, 109.5640687,
+                            137.1598415, 165.7067371, 199.8546896, 236.2219287, 274.3857332, 314.2404227, 355.2575958,
+                            395.8520476, 436.7635403]
+experimental_adaptation_indexes = []
+for i in range(3, len(experimental_spike_times)+1):
+    experimental_adaptation_indexes.append(get_adaptation_index(experimental_spike_times[:i]))
+experimental_f_I_slope = 53.  # Hz/ln(pA); rate = slope * ln(current - rheobase)
+# GC experimental f-I data from Kowalski J...Pernia-Andrade AJ, Hippocampus, 2016
+i_inj_increment = 0.05
+num_increments = 8
