@@ -328,7 +328,8 @@ def compute_features(generation, group_size=1, disp=False, voltage_traces=False)
     """
     pop_size = len(generation)
     pop_ids = range(pop_size)
-    client_ranges = [range(start, start+group_size) for start in range(0, num_procs, group_size)]
+    usable_procs = num_procs - (num_procs % group_size)
+    client_ranges = [range(start, start+group_size) for start in range(0, usable_procs, group_size)]
     results = []
     final_results = {}
     while len(pop_ids) > 0 or len(results) > 0:
