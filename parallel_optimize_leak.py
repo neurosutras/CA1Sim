@@ -64,13 +64,14 @@ default_optimization_title = 'leak'
 # name that stores this string
 default_param_file_path = None #'data/leak_default_param_file.pkl'
 
+
 @click.command()
 @click.option("--cluster-id", type=str, default=None)
 @click.option("--spines", is_flag=True)
-@click.option("--mech-file-path", type=click.Path(exists=False, file_okay=True, dir_okay=False), default=None)
-@click.option("--neurotree-file-path", type=click.Path(exists=False, file_okay=True, dir_okay=False), default=None)
+@click.option("--mech-file-path", type=click.Path(exists=True, file_okay=True, dir_okay=False), default=None)
+@click.option("--neurotree-file-path", type=click.Path(exists=True, file_okay=True, dir_okay=False), default=None)
 @click.option("--neurotree-index", type=int, default=0)
-@click.option("--param-file-path", type=click.Path(exists=False, file_okay=True, dir_okay=False), default=None)
+@click.option("--param-file-path", type=click.Path(exists=True, file_okay=True, dir_okay=False), default=None)
 @click.option("--param-gen", type=str, default=None)
 @click.option("--get-features", type=str, default=None)
 @click.option("--get-objectives", type=str, default=None)
@@ -218,9 +219,11 @@ def main(cluster_id, spines, mech_file_path, neurotree_file_path, neurotree_inde
                                 survival_rate=survival_rate, disp=disp)
 
     for ind, generation in enumerate(local_param_gen()):
+        if (ind > 0) and (ind % path_length == 0):
+            local_param_gen.storage.save_gen(data_dir + history_filename, ind-1, path_length)
         features, objectives = compute_features(generation, group_size=group_size, disp=disp)
         local_param_gen.update_population(features, objectives)
-        local_param_gen.storage.save_gen(data_dir+history_filename, ind)
+    local_param_gen.storage.save_gen(data_dir + history_filename, ind, path_length)
     # local_param_gen.storage.plot()
     # get_best_voltage_traces(local_param_gen.storage, group_size)
 
@@ -318,7 +321,7 @@ def init_engine(spines=False, mech_file_path=None, neurotree_file_path=None, neu
 
 
 @interactive
-def compute_features(generation, group_size=1, disp=False, voltage_traces=False):
+def compute_features(generation, group_size=1, disp=False, export=False):
     """
 
     :param generation: list of array
@@ -332,13 +335,14 @@ def compute_features(generation, group_size=1, disp=False, voltage_traces=False)
     client_ranges = [range(start, start+group_size) for start in range(0, usable_procs, group_size)]
     results = []
     final_results = {}
+    rec_file_list = []
     while len(pop_ids) > 0 or len(results) > 0:
         num_groups = min(len(client_ranges), len(pop_ids))
         if num_groups > 0:
             results.extend(map(get_features, [generation.pop(0) for i in range(num_groups)],
                                [pop_ids.pop(0) for i in range(num_groups)],
                                [client_ranges.pop(0) for i in range(num_groups)],
-                               [voltage_traces for i in range(num_groups)]))
+                               [export for i in range(num_groups)]))
         if np.any([this_result['async_result'].ready() for this_result in results]):
             for this_result in results:
                 if this_result['async_result'].ready():
@@ -352,18 +356,20 @@ def compute_features(generation, group_size=1, disp=False, voltage_traces=False)
                     if disp:
                         print 'Individual: %i, computing features took %.2f s' % \
                               (this_result['pop_id'], this_result['async_result'].wall_time)
+                    if export is True:
+                        rec_file_list.extend(this_result['rec_file_list'])
         else:
             time.sleep(1.)
-    features = [final_results[pop_id] for pop_id in range(pop_size)]
-    if voltage_traces is False:
+    if export is True:
+        return rec_file_list
+    else:
+        features = [final_results[pop_id] for pop_id in range(pop_size)]
         objectives = map(get_objectives, features)
         return features, objectives
-    else:
-        return features
 
 
 @interactive
-def get_Rinp_features(x, pop_id, client_range, voltage_traces=False):
+def get_Rinp_features(x, pop_id, client_range, export=False):
     """
     Distribute simulations across available engines for optimization of leak conductance density gradient.
     :param x: array (soma.g_pas, dend.g_pas slope, dend.g_pas tau, dend.g_pas xhalf)
@@ -372,11 +378,14 @@ def get_Rinp_features(x, pop_id, client_range, voltage_traces=False):
     sec_list = ['soma', 'dend', 'distal_dend']
     dv = c[client_range]
     result = dv.map_async(get_Rinp_for_section, sec_list, [x] * len(sec_list))
-    if voltage_traces is True:
-        global rec_file_list
+    if export is True:
+        while not result.ready():
+            time.sleep(1.)
         dv.execute('export_sim_results()')
         rec_file_list = [filename for filename in dv['rec_filename'] if os.path.isfile(data_dir + filename + '.hdf5')]
-    return {'pop_id': pop_id, 'client_range': client_range, 'async_result': result}
+    else:
+        rec_file_list = None
+    return {'pop_id': pop_id, 'client_range': client_range, 'async_result': result, 'rec_file_list': rec_file_list}
 
 
 @interactive
@@ -489,11 +498,6 @@ def get_Rinp_for_section(section, x):
     sim.parameters['section'] = section
     sim.parameters['target'] = 'Rinp'
     sim.parameters['optimization'] = 'pas'
-    if spines:
-        sim_description = 'with_spines'
-    else:
-        sim_description = 'no_spines'
-    sim.parameters['description'] = sim_description
     amp = -0.05
     update_pas_exp(x)
     cell.zero_na()
@@ -520,41 +524,58 @@ def export_sim_results():
         sim.export_to_file(f)
 
 @interactive
-def get_best_voltage_traces(storage, group_size, n=1, discard=True):
+def get_best_voltage_traces(storage, group_size, n=1, combined_rec_filename=None, discard=True):
     """
     Run simulations on the engines with the last best set of parameters, have the engines export their results to .hdf5,
     and then read in and plot the results.
     :param storage: :class:PopulationStorage
     """
     best_inds = storage.get_best(n)
+    if combined_rec_filename is None:
+        combined_rec_filename = 'combined_sim_output'+datetime.datetime.today().strftime('%m%d%Y%H%M')+'_pid'+str(os.getpid())
+    rec_file_list = []
     if len(best_inds) == 0:
         raise Exception('Storage object is empty')
     for ind in best_inds:
-        features = compute_features([ind.x], group_size=group_size, voltage_traces=True)
-    # plot_best_voltage_traces(discard)
-
-@interactive
-def plot_best_voltage_traces(discard=True):
-    for rec_filename in rec_file_list:
+        rec_file_list.extend(compute_features([ind.x], group_size=group_size, export=True))
+    w = h5py.File(data_dir + combined_rec_filename + '.hdf5', 'w')
+    ind = 0
+    for rec_filename in enumerate(rec_file_list):
         with h5py.File(data_dir+rec_filename+'.hdf5', 'r') as f:
             for trial in f.itervalues():
-                target = trial.attrs['target']
-                section = trial.attrs['section']
-                optimization = trial.attrs['optimization']
-                fig, axes = plt.subplots(1)
-                for rec in trial['rec'].itervalues():
-                    axes.plot(trial['time'], rec, label=rec.attrs['description'])
-                axes.legend(loc='best', frameon=False, framealpha=0.5)
-                axes.set_xlabel('Time (ms)')
-                axes.set_ylabel('Vm (mV)')
-                axes.set_title('Optimize %s: %s (%s)' % (optimization, target, section))
-                clean_axes(axes)
-                fig.tight_layout()
-                plt.show()
-                plt.close()
+                w.create_group(str(ind))
+                ind += 1
+                w[str(ind)].attrs['target'] = trial.attrs['target']
+                w[str(ind)].attrs['section'] = trial.attrs['section']
+                w[str(ind)].attrs['optimization'] = trial.attrs['optimization']
+                w[str(ind)].create_group('rec')
+                for i, rec in enumerate(trial['rec'].itervalues()):
+                    w['rec'].create_dataset(str(i), data=rec)
+    w.close()
     if discard:
         for rec_filename in rec_file_list:
             os.remove(data_dir + rec_filename + '.hdf5')
+    return combined_rec_filename
+
+@interactive
+def plot_best_voltage_traces(combined_rec_filename):
+    with h5py.File(data_dir+rec_filename+'.hdf5', 'r') as f:
+        for trial in f.itervalues():
+            target = trial.attrs['target']
+            section = trial.attrs['section']
+            optimization = trial.attrs['optimization']
+            fig, axes = plt.subplots(1)
+            for rec in trial['rec'].itervalues():
+                axes.plot(trial['time'], rec, label=rec.attrs['description'])
+            axes.legend(loc='best', frameon=False, framealpha=0.5)
+            axes.set_xlabel('Time (ms)')
+            axes.set_ylabel('Vm (mV)')
+            axes.set_title('Optimize %s: %s (%s)' % (optimization, target, section))
+            clean_axes(axes)
+            fig.tight_layout()
+            plt.show()
+            plt.close()
+
 
 
 if __name__ == '__main__':
