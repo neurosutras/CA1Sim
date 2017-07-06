@@ -81,12 +81,12 @@ gauss_sigma = input_field_width / 3. / np.sqrt(2.)  # contains 99.7% gaussian ar
 @click.option("--morph-filename", type=click.Path(file_okay=True, dir_okay=False), default=None)
 @click.option("--num-exc-syns", type=int, default=1600)
 @click.option("--num-inh-syns", type=int, default=600)
-@click.option("--induction-seed", type=int, default=0)
+@click.option("--synapses-seed", type=int, default=0)
 @click.option("--trial-seed", type=int, default=0)
 @click.option("--field-loc", type=float, default=None)
 @click.option("--induction-loc", type=float, default=None)
 @click.option("--run-sim", is_flag=True)
-def main(mech_filename, morph_filename, num_exc_syns, num_inh_syns, induction_seed, trial_seed, field_loc,
+def main(mech_filename, morph_filename, num_exc_syns, num_inh_syns, synapses_seed, trial_seed, field_loc,
          induction_loc, run_sim):
     """
 
@@ -94,7 +94,7 @@ def main(mech_filename, morph_filename, num_exc_syns, num_inh_syns, induction_se
     :param morph_filename: str
     :param num_exc_syns: int
     :param num_inh_syns: int
-    :param induction_seed: int
+    :param synapses_seed: int
     :param trial_seed: int
     :param field_loc: float
     :param induction_loc: float
@@ -104,8 +104,6 @@ def main(mech_filename, morph_filename, num_exc_syns, num_inh_syns, induction_se
         mech_filename = default_mech_filename
     if morph_filename is None:
         morph_filename = default_morph_filename
-
-    synapses_seed = induction_seed
 
     if field_loc is None:
         if induction_loc is None:
@@ -188,7 +186,7 @@ def main(mech_filename, morph_filename, num_exc_syns, num_inh_syns, induction_se
     sim.parameters['duration'] = duration
     sim.parameters['stim_dt'] = dt
     sim.parameters['dt'] = sim_dt
-    sim.parameters['induction_seed'] = induction_seed
+    sim.parameters['synapses_seed'] = synapses_seed
     sim.parameters['trial_seed'] = trial_seed
     sim.parameters['run_vel'] = default_run_vel
     if field_loc is not None:
@@ -310,15 +308,14 @@ def main(mech_filename, morph_filename, num_exc_syns, num_inh_syns, induction_se
                 this_weights[:len(after_track)] += after_track
                 weights[group] = np.add(weights[group], this_weights)
 
-    for group in stim_exc_syns:
-        peak_locs[group] = list(peak_locs[group])
-        weights[group] = list(weights[group])
-        indexes = range(len(peak_locs[group]))
-        local_random.shuffle(indexes)
-        peak_locs[group] = map(peak_locs[group].__getitem__, indexes)
-        weights[group] = map(weights[group].__getitem__, indexes)
-        for i, syn in enumerate(stim_exc_syns[group]):
-            syn.netcon('AMPA_KIN').weight[0] = weights[group][i]
+            peak_locs[group] = list(peak_locs[group])
+            weights[group] = list(weights[group])
+            indexes = range(len(peak_locs[group]))
+            local_random.shuffle(indexes)
+            peak_locs[group] = map(peak_locs[group].__getitem__, indexes)
+            weights[group] = map(weights[group].__getitem__, indexes)
+            for i, syn in enumerate(stim_exc_syns[group]):
+                syn.netcon('AMPA_KIN').weight[0] = weights[group][i]
 
     if induction_loc is not None:
         induction_start_index = np.where(x >= track_length * induction_loc)[0][0]
@@ -330,9 +327,10 @@ def main(mech_filename, morph_filename, num_exc_syns, num_inh_syns, induction_se
         run_trial(trial_seed)
     else:
         rate_maps = run_trial(trial_seed, global_phase_offset=0., run_sim=False)
-        plt.plot(stim_t, np.sum([np.array(weights[group]).dot(rate_maps[group]) for group in weights], axis=0))
-        plt.show()
-        plt.close()
+        if num_exc_syns > 0:
+            plt.plot(stim_t, np.sum([np.array(weights[group]).dot(rate_maps[group]) for group in weights], axis=0))
+            plt.show()
+            plt.close()
     if os.path.isfile(data_dir + rec_filename + '-working.hdf5'):
         os.rename(data_dir + rec_filename + '-working.hdf5', data_dir + rec_filename + '.hdf5')
 
