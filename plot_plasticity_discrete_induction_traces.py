@@ -46,6 +46,9 @@ with h5py.File(data_dir+input_filename+'.hdf5', 'r') as f:
             index = rec.attrs['index']
             vm = np.interp(interp_t, t, rec[:])[start:]
             spine_vm[index] = vm
+        elif 'soma' in rec.attrs['description']:
+            vm = np.interp(interp_t, t, rec[:])[start:]
+            soma_vm = np.array(vm)
     for key in (key for key in trial['train'] if trial['train'][key].attrs['index'] in spine_vm.keys()):
         index = trial['train'][key].attrs['index']
         peak_locs[int(index)] = trial['train'][key].attrs['peak_loc']
@@ -165,6 +168,18 @@ def plot_plasticity_signal_discrete(x, this_local_kernel, this_global_kernel, in
     axes2.set_ylim(0., ymax1*1.05)
     # axes.set_title('Induced plasticity signal')
     clean_axes(axes2)
+
+    axes3 = plt.subplot(gs1[1, 0])
+    ymax3 = np.max(soma_vm)  # -30.
+    ymin3 = np.min(soma_vm)
+    ydepth3 = ymax3 - ymin3
+    axes3.plot(track_t / 1000., soma_vm, label='Soma Vm', color='k', linewidth=0.5)
+    axes3.axhline(y=ymax3 + ydepth3 * 0.1, xmin=x_start, xmax=x_end, linewidth=1.5, c='k', clip_on=False)
+    axes3.set_ylabel('Spine voltage (mV)')
+    axes3.set_ylim((ymin3 - ydepth3 * 0.05), ymax3)
+    axes3.set_xlim(0., track_duration / 1000.)
+    clean_axes(axes3)
+
     gs1.tight_layout(fig1)
     plt.show()
     plt.close()

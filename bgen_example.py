@@ -43,7 +43,7 @@ get_features = complex_problem
 get_objectives = get_objectives
 
 
-bgen = BGen(x0, param_names, feature_names, objective_names, 100, bounds=bounds, seed=0, max_iter=30,
+bgen = BGen(param_names, feature_names, objective_names, 100, x0=x0, bounds=bounds, seed=0, max_iter=30,
             adaptive_step_factor=0.9, survival_rate=0.20, disp=True)
 
 for param_list in bgen():

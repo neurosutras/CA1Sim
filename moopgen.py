@@ -252,7 +252,7 @@ class PopulationStorage(object):
             f.attrs['param_names'] = self.param_names
             f.attrs['feature_names'] = self.feature_names
             f.attrs['objective_names'] = self.objective_names
-            for pop_index in range(len(self.history)):
+            for pop_index in xrange(len(self.history)):
                 f.create_group(str(pop_index))
                 for group_name, population in zip(['population', 'survivors'],
                                                   [self.history[pop_index], self.survivors[pop_index]]):
@@ -289,11 +289,11 @@ class PopulationStorage(object):
             self.param_names = f.attrs['param_names']
             self.feature_names = f.attrs['feature_names']
             self.objective_names = f.attrs['objective_names']
-            for pop_index in range(len(f)):
+            for pop_index in xrange(len(f)):
                 population_list, survivors_list = [], []
                 for group_name, population in zip(['population', 'survivors'], [population_list, survivors_list]):
                     group = f[str(pop_index)][group_name]
-                    for ind_index in range(len(group)):
+                    for ind_index in xrange(len(group)):
                         ind_data = group[str(ind_index)]
                         individual = Individual(ind_data['x'][:])
                         individual.features = ind_data['features'][:]
@@ -312,33 +312,41 @@ class PopulationStorage(object):
 class BoundedStep(object):
     """
     Step-taking method for use with BGen. Steps each parameter within specified bounds. Explores the range in log10
-    space when the range is greater than 2 orders of magnitude. If bounds are not provided for some parameters, the
-    default is 0.1 and 10. * x0.
+    space when the range is >= 2 orders of magnitude. Uses the log-modulus transformation (John & Draper, 1980) as an
+    approximation that tolerates ranges that span zero. If bounds are not provided for some parameters, the default is
+    (0.1 * x0, 10. * x0).
     """
-    def __init__(self, x0, bounds=None, stepsize=0.5, random=None):
+    def __init__(self, x0, bounds=None, stepsize=0.5, wrap=False, random=None):
         """
 
         :param x0: array
         :param bounds: list of tuple
-        :param stepsize: float
+        :param stepsize: float in [0., 1.]
+        :param wrap: bool  # whether or not to wrap around bounds
         :param random: int or :class:'np.random.RandomState'
         """
+        self.wrap = wrap
         self.stepsize = stepsize
+        if x0 is None and bounds is None:
+            raise ValueError('BoundedStep: Either starting parameters or bounds are missing.')
         if random is None:
             self.random = np.random
         else:
             self.random = random
         if bounds is None:
-            xmin = None
-            xmax = None
+            xmin = [None for xi in x0]
+            xmax = [None for xi in x0]
         else:
             xmin = [bound[0] for bound in bounds]
             xmax = [bound[1] for bound in bounds]
-        if xmin is None:
-            xmin = [None for i in range(len(x0))]
-        if xmax is None:
-            xmax = [None for i in range(len(x0))]
-        for i in range(len(x0)):
+        if x0 is None:
+            x0 = [None for i in xrange(len(bounds))]
+        for i in xrange(len(x0)):
+            if x0[i] is None:
+                if xmin[i] is None or xmax[i] is None:
+                    raise ValueError('BoundedStep: Either starting parameters or bounds are missing.')
+                else:
+                    x0[i] = 0.5 * (xmin[i] + xmax[i])
             if xmin[i] is None:
                 if x0[i] > 0.:
                     xmin[i] = 0.1 * x0[i]
@@ -353,59 +361,100 @@ class BoundedStep(object):
                     xmax[i] = 1.
                 else:
                     xmax[i] = 0.1 * x0[i]
-        self.x0 = x0
-        self.x_range = np.subtract(xmax, xmin)
-        self.order_mag = np.ones_like(x0)
-        if not np.any(np.array(xmin) == 0.):
-            self.order_mag = np.abs(np.log10(np.abs(np.divide(xmax, xmin))))
-        else:
-            for i in range(len(x0)):
-                if xmin[i] == 0.:
-                    self.order_mag[i] = int(xmax[i] / 10)
-                else:
-                    self.order_mag[i] = abs(np.log10(abs(xmax[i] / xmin[i])))
-        self.log10_range = np.log10(np.add(1., self.x_range))
-        self.x_offset = np.subtract(1., xmin)
+        self.x0 = np.array(x0)
+        self.xmin = np.array(xmin)
+        self.xmax = np.array(xmax)
+        self.x_range = np.subtract(self.xmax, self.xmin)
+        self.order_mag = np.ones_like(self.x0)
+        if np.any(self.xmin == self.xmax):
+            raise ValueError('BoundedStep: xmin and xmax cannot have the same value.')
+        for i in xrange(len(self.x0)):
+            if self.xmin[i] == 0. and self.xmax[i] != 0.:
+                self.order_mag[i] = abs(np.log10(abs(self.xmax[i])))
+            elif self.xmax[i] == 0. and self.xmin[i] != 0.:
+                self.order_mag[i] = abs(np.log10(abs(self.xmin[i])))
+            else:
+                self.order_mag[i] = abs(np.log10(abs(self.xmax[i] / self.xmin[i])))
+        self.logmod = lambda x: np.sign(x) * np.log10(np.add(np.abs(x), 1.))
+        self.logmod_inv = lambda x: np.sign(x) * ((10. ** np.abs(x)) - 1.)
+        self.logmod_xmin = self.logmod(self.xmin)
+        self.logmod_xmax = self.logmod(self.xmax)
+        self.logmod_range = np.subtract(self.logmod_xmax, self.logmod_xmin)
 
-    def __call__(self, current_x):
+    def __call__(self, current_x, stepsize=None, wrap=None):
         """
-
+        Take a step within bounds. If stepsize or wrap is specified for an individual call, it overrides the default.
         :param current_x: array
+        :param stepsize: float in [0., 1.]
+        :param wrap: bool
         :return: array
         """
-        x = np.add(current_x, self.x_offset)
-        x = np.maximum(x, 1.)
-        x = np.minimum(x, np.add(1., self.x_range))
-        for i in range(len(x)):
+        if stepsize is None:
+            stepsize = self.stepsize
+        if wrap is None:
+            wrap = self.wrap
+        x = np.array(current_x)
+        for i in xrange(len(x)):
             if self.order_mag[i] >= 2.:
-                x[i] = self.log10_step(i, x[i])
+                x[i] = self.log10_step(x[i], i, stepsize, wrap)
             else:
-                x[i] = self.linear_step(i, x[i])
-        new_x = np.subtract(x, self.x_offset)
-        return new_x
+                x[i] = self.linear_step(x[i], i, stepsize, wrap)
+        return x
 
-    def linear_step(self, i, xi):
+    def linear_step(self, xi, i, stepsize=None, wrap=None):
         """
-
-        :param i: int
+        Steps the specified parameter within the bounds according to the current stepsize.
         :param xi: float
+        :param i: int
+        :param stepsize: float in [0., 1.]
+        :param wrap: bool
         :return: float
         """
-        step = self.stepsize * self.x_range[i] / 2.
-        new_xi = self.random.uniform(max(1., xi-step), min(xi+step, 1.+self.x_range[i]))
+        if stepsize is None:
+            stepsize = self.stepsize
+        if wrap is None:
+            wrap = self.wrap
+        step = stepsize * self.x_range[i] / 2.
+        if wrap:
+            delta = self.random.uniform(-step, step)
+            new_xi = xi + delta
+            if self.xmin[i] > new_xi:
+                new_xi = self.xmax[i] - (self.xmin[i] - new_xi)
+            elif self.xmax[i] < new_xi:
+                new_xi = self.xmin[i] + (new_xi - self.xmax[i])
+        else:
+            xi_min = max(self.xmin[i], xi - step)
+            xi_max = min(self.xmax[i], xi + step)
+            new_xi = self.random.uniform(xi_min, xi_max)
         return new_xi
 
-    def log10_step(self, i, xi):
+    def log10_step(self, xi, i, stepsize=None, wrap=None):
         """
-
-        :param i: int
+        Steps the specified parameter within the bounds according to the current stepsize.
         :param xi: float
+        :param i: int
+        :param stepsize: float in [0., 1.]
+        :param wrap: bool
         :return: float
         """
-        step = self.stepsize * self.log10_range[i] / 2.
-        xi = np.log10(xi)
-        new_xi = self.random.uniform(max(0., xi-step), min(xi+step, self.log10_range[i]))
-        new_xi = np.power(10., new_xi)
+        if stepsize is None:
+            stepsize = self.stepsize
+        if wrap is None:
+            wrap = self.wrap
+        step = stepsize * self.logmod_range[i] / 2.
+        logmod_xi = self.logmod(xi)
+        if wrap:
+            delta = np.random.uniform(-step, step)
+            new_logmod_xi = logmod_xi + delta
+            if self.logmod_xmin[i] > new_logmod_xi:
+                new_logmod_xi = self.logmod_xmax[i] - (self.logmod_xmin[i] - new_logmod_xi)
+            elif self.logmod_xmax[i] < new_logmod_xi:
+                new_logmod_xi = self.logmod_xmin[i] + (new_logmod_xi - self.logmod_xmax[i])
+        else:
+            logmod_xi_min = max(self.logmod_xmin[i], logmod_xi - step)
+            logmod_xi_max = min(self.logmod_xmax[i], logmod_xi + step)
+            new_logmod_xi = self.random.uniform(logmod_xi_min, logmod_xi_max)
+        new_xi = self.logmod_inv(new_logmod_xi)
         return new_xi
 
 
@@ -422,7 +471,7 @@ def sort_by_crowding_distance(population):
     num_objectives = max(num_objectives)
     for individual in population:
         individual.distance = 0
-    for m in range(num_objectives):
+    for m in xrange(num_objectives):
         indexes = range(pop_size)
         objective_vals = [individual.objectives[m] for individual in population]
         indexes.sort(key=objective_vals.__getitem__)
@@ -436,7 +485,7 @@ def sort_by_crowding_distance(population):
         objective_max = population[-1].objectives[m]
 
         if objective_min != objective_max:
-            for i in range(1, pop_size - 1):
+            for i in xrange(1, pop_size - 1):
                 population[i].distance += (population[i + 1].objectives[m] - population[i - 1].objectives[m]) / \
                                      (objective_max - objective_min)
     indexes = range(pop_size)
@@ -477,7 +526,7 @@ def sort_by_relative_energy(population):
     num_objectives = max(num_objectives)
     for individual in population:
         individual.energy = 0
-    for m in range(num_objectives):
+    for m in xrange(num_objectives):
         objective_vals = [individual.objectives[m] for individual in population]
         objective_min = min(objective_vals)
         objective_max = max(objective_vals)
@@ -506,7 +555,7 @@ def assign_rank_by_fitness_and_energy(population):
                         'population')
     max_fitness = max(fitness_vals)
     new_population = []
-    for fitness in range(max_fitness + 1):
+    for fitness in xrange(max_fitness + 1):
         new_front = [individual for individual in population if individual.fitness == fitness]
         new_sorted_front = sort_by_relative_energy(new_front)
         new_population.extend(new_sorted_front)
@@ -531,7 +580,7 @@ def assign_rank_by_fitness_and_crowding_distance(population):
     max_fitness = max(fitness_vals)
     if max_fitness > 0:
         new_population = []
-        for fitness in range(max_fitness + 1):
+        for fitness in xrange(max_fitness + 1):
             new_front = [individual for individual in population if individual.fitness == fitness]
             new_sorted_front = sort_by_crowding_distance(new_front)
             new_population.extend(new_sorted_front)
@@ -570,11 +619,11 @@ def assign_fitness_by_dominance(population, disp=False):
         S = dict()
         n = dict()
 
-        for p in range(len(population)):
+        for p in xrange(len(population)):
             S[p] = []  # list of Individuals that p dominates
             n[p] = 0  # number of Individuals that dominate p
 
-            for q in range(len(population)):
+            for q in xrange(len(population)):
                 if dominates(population[p], population[q]):
                     S[p].append(q)
                 elif dominates(population[q], population[p]):
@@ -636,17 +685,16 @@ class BGen(object):
     parameter arrays for parallel evaluation. Features fitness-based pruning and adaptive reduction of step_size every
     iteration. Each iteration consists of path_length number of generations without pruning.
     """
-    def __init__(self, x0, param_names, feature_names, objective_names, pop_size, bounds=None, take_step=None,
+    def __init__(self, param_names, feature_names, objective_names, pop_size, x0=None, bounds=None, take_step=None,
                  evaluate=None, seed=None, max_iter=None, max_gens=None, path_length=1, adaptive_step_factor=0.9,
-                 niter_success=None, survival_rate=0.1, disp=False):
+                 niter_success=None, survival_rate=0.1, disp=False, **kwargs):
         """
-
-        :param x0: array
         :param param_names: list of str
         :param feature_names: list of str
         :param objective_names: list of str
         :param pop_size: int
-        :param bounds: list of tuple
+        :param x0: array
+        :param bounds: list of tuple of float
         :param take_step: callable
         :param evaluate: callable
         :param seed: int or :class:'np.random.RandomState'
@@ -657,8 +705,12 @@ class BGen(object):
         :param niter_success: int
         :param survival_rate: float in [0., 1.]
         :param disp: bool
+        :param kwargs: dict of additional options, catches generator-specific options that do not apply
         """
-        self.x0 = np.array(x0)
+        if x0 is None:
+            self.x0 = None
+        else:
+            self.x0 = np.array(x0)
         self.storage = PopulationStorage(param_names=param_names, feature_names=feature_names,
                                          objective_names=objective_names)
         self.pop_size = pop_size
@@ -669,9 +721,14 @@ class BGen(object):
         else:
             raise TypeError("BGen: evaluate must be callable.")
         self.random = check_random_state(seed)
+        self.xmin = np.array([bound[0] for bound in bounds])
+        self.xmax = np.array([bound[1] for bound in bounds])
         if take_step is None:
-            self.take_step = BoundedStep(x0, stepsize=0.5, bounds=bounds, random=self.random)
-        elif isinstance(take_step, collections.Callable):
+            self.take_step = BoundedStep(self.x0, stepsize=0.5, bounds=bounds, wrap=False, random=self.random)
+            self.xmin = np.array(self.take_step.xmin)
+            self.xmax = np.array(self.take_step.xmax)
+            self.x0 = np.array(self.take_step.x0)
+        elif isinstance(take_step, collections.Callable):  # must accept the above named keyword arguments
             self.take_step = take_step
         else:
             raise TypeError("BGen: take_step must be callable.")
@@ -701,7 +758,7 @@ class BGen(object):
 
     def __call__(self):
         """
-        A generator that yields a list of size pop_size of parameter arrays.
+        A generator that yields a list of parameter arrays with size pop_size.
         :yields: list of :class:'Individual'
         """
         self.num_gen = 0
@@ -784,7 +841,15 @@ class BGen(object):
         """
 
         """
-        self.population = [Individual(self.take_step(self.x0)) for i in range(self.pop_size)]
+        pop_size = self.pop_size
+        if self.x0 is not None:
+            self.population = []
+            self.population.append(Individual(self.x0))
+            pop_size -= 1
+            self.population.extend([Individual(self.take_step(self.x0, stepsize=1., wrap=True))
+                                    for i in xrange(pop_size)])
+        else:
+            self.population = [Individual(x) for x in self.random.uniform(self.xmin, self.xmax, pop_size)]
 
     def step_survivors(self):
         """
@@ -797,7 +862,7 @@ class BGen(object):
         for individual in self.survivors:
             individual.survivor = True
         new_population = []
-        for i in range(self.pop_size):
+        for i in xrange(self.pop_size):
             individual = Individual(self.take_step(self.survivors[i % self.num_survivors].x))
             new_population.append(individual)
         self.population = new_population
@@ -818,41 +883,82 @@ class BGen(object):
 
 class EGen(object):
     """
-    This class is inspired by emoo (Bahl A, Stemmler MB, Herz AVM, Roth A. (2012). J Neurosci Methods)
+    This class is inspired by emoo (Bahl A, Stemmler MB, Herz AVM, Roth A. (2012). J Neurosci Methods). It provides a
+    generator interface to produce a list of parameter arrays for parallel evaluation.
     """
 
-    def __init__(self, x0, param_names, feature_names, objective_names, pop_size, bounds=None, interval=None, custom=None):
+    def __init__(self, param_names, feature_names, objective_names, pop_size, x0=None, bounds=None, take_step=None,
+                 evaluate=None, seed=None, max_iter=None, max_gens=None, path_length=1, niter_success=None,
+                 survival_rate=0.2, disp=False, **kwargs):
         """
-        self, x0, param_names, feature_names, objective_names, pop_size, bounds=None, take_step=None,
-                 evaluate=None, seed=None, max_iter=None, max_gens=None, path_length=1, adaptive_step_factor=0.9,
-                 niter_success=None, survival_rate=0.1, disp=False):
-
-        :param pop_size: int
         :param param_names: list of str
-        :param param_bounds: list of tuple
+        :param feature_names: list of str
         :param objective_names: list of str
-        :param interval: int : how often to decrease the strength of mutation and crossover
-        :param custom: callable, operates on a population
+        :param pop_size: int
+        :param x0: array
+        :param bounds: list of tuple of float
+        :param take_step: callable
+        :param evaluate: callable
+        :param seed: int or :class:'np.random.RandomState'
+        :param max_iter: int
+        :param max_gens: int
+        :param path_length: int
+        :param niter_success: int
+        :param survival_rate: float in [0., 1.]
+        :param disp: bool
+        :param kwargs: dict of additional options, catches generator-specific options that do not apply
         """
+        if x0 is None:
+            self.x0 = None
+        else:
+            self.x0 = np.array(x0)
+        self.num_params = len(param_names)
+        self.storage = PopulationStorage(param_names=param_names, feature_names=feature_names,
+                                         objective_names=objective_names)
         self.pop_size = pop_size
-        self.param_names = param_names
-        self.param_min = np.array([param_bound[0] for param_bound in param_bounds])
-        self.param_max = np.array([param_bound[1] for param_bound in param_bounds])
-        self.objective_names = objective_names
-        self.custom = custom
-        self.population = []
-        self.config()
+        if evaluate is None:
+            self._evaluate = evaluate_bgen
+        elif isinstance(evaluate, collections.Callable):
+            self._evaluate = evaluate
+        else:
+            raise TypeError("EGen: evaluate must be callable.")
+        self.random = check_random_state(seed)
+        self.xmin = np.array([bound[0] for bound in bounds])
+        self.xmax = np.array([bound[1] for bound in bounds])
+        if take_step is None:
+            self.take_step = BoundedStep(self.x0, stepsize=1., bounds=bounds, wrap=True, random=self.random)
+            self.xmin = np.array(self.take_step.xmin)
+            self.xmax = np.array(self.take_step.xmax)
+            self.x0 = np.array(self.take_step.x0)
+        elif isinstance(take_step, collections.Callable):
+            self.take_step = take_step
+        else:
+            raise TypeError("EGen: take_step must be callable.")
+        self.path_length = path_length
+        if max_iter is None:
+            if max_gens is None:
+                self.max_gens = self.path_length * 30
+            else:
+                self.max_gens = max_gens
+        else:
+            if max_gens is None:
+                self.max_gens = self.path_length * max_iter
+            else:
+                self.max_gens = min(max_gens, self.path_length * max_iter)
+        if niter_success is None:
+            self.ngen_success = self.max_gens
+        else:
+            self.ngen_success = min(self.max_gens, self.path_length * niter_success)
+        self.num_survivors = max(1, int(pop_size * survival_rate))
+        self.disp = disp
+        self.objectives_stored = False
         self.evaluated = False
+        self.population = []
+        self.survivors = []
+        self.final_survivors = None
+        self.config(**kwargs)
 
-    @property
-    def num_params(self):
-        """
-
-        :return: int
-        """
-        return len(self.param_names)
-
-    def config(self, m0=20, c0=20, p_m=0.5, delta_m=0, delta_c=0, mutate_parents=False, verbose=False):
+    def config(self, m0=20, c0=20, p_m=0.5, delta_m=0, delta_c=0, mutate_survivors=False):
         """
 
         :param m0: int : initial strength of mutation
@@ -860,7 +966,7 @@ class EGen(object):
         :param p_m: float : probability of mutation
         :param delta_m: int : decrease mutation strength every interval
         :param delta_c: int : decrease crossover strength every interval
-        :param verbose: bool
+        :param mutate_survivors: bool
         """
         self.m0 = m0
         self.m = self.m0
@@ -869,8 +975,7 @@ class EGen(object):
         self.p_m = p_m
         self.delta_m = delta_m
         self.delta_c = delta_c
-        self.mutate_parents = mutate_parents
-        self.verbose = verbose
+        self.mutate_survivors = mutate_survivors
 
     def get_random_params(self):
         """
@@ -884,7 +989,7 @@ class EGen(object):
 
         """
         self.population = []
-        for i in range(self.pop_size):
+        for i in xrange(self.pop_size):
             params = self.random_params()
             individual = Individual(params)
             self.population.append(individual)
@@ -952,7 +1057,7 @@ class EGen(object):
 
         mating_pool = []
 
-        for k in range(1):
+        for k in xrange(2):
             population_permutation = self.population[np.random.permutation(len(self.population))]
 
             for i in np.arange(0, len(self.population) - 1, 2):
@@ -975,7 +1080,7 @@ class EGen(object):
             parent2 = self.population[j]
             child1_params = np.empty(self.num_params)
             child2_params = np.empty(self.num_params)
-            for i in range(self.num_params):
+            for i in xrange(self.num_params):
                 u_i = np.random.random()
                 if u_i <= 0.5:
                     beta_q_i = pow(2. * u_i, 1. / (self.c + 1))
@@ -993,11 +1098,11 @@ class EGen(object):
         """
         polynomial mutation (Deb, 2001)
         """
-        for k in range(len(self.population)):
+        for k in xrange(len(self.population)):
             individual = self.population[k]
             if self.mutate_parents or individual.fitness is None:
                 individual.fitness = None
-                for i in range(self.num_params):
+                for i in xrange(self.num_params):
                     # each gene only mutates with a certain probability
                     if np.random.random() < self.p_m:
                         r_i = np.random.random()
