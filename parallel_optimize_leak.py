@@ -51,6 +51,7 @@ default_get_features = 'get_Rinp_features'
 default_get_objectives = 'get_pas_objectives'
 
 default_x0_dict = {'soma.g_pas': 1.050E-10, 'dend.g_pas slope': 1.058E-08, 'dend.g_pas tau': 3.886E+01}  # Error: 4.187E-09
+default_param_names = ['soma.g_pas', 'dend.g_pas slope', 'dend.g_pas tau']
 default_bounds_dict = {'soma.g_pas': (1.0E-18, 1.0E-6), 'dend.g_pas slope': (1.0E-12, 1.0E-4),
                   'dend.g_pas tau': (25., 400.)}
 default_feature_names = ['soma R_inp', 'dend R_inp', 'distal_dend R_inp']
@@ -84,10 +85,14 @@ default_param_file_path = None #'data/leak_default_param_file.pkl'
 @click.option("--adaptive-step-factor", type=float, default=0.9)
 @click.option("--niter-success", type=int, default=None)
 @click.option("--survival-rate", type=float, default=0.2)
+@click.option("--optimize", is_flag=True)
+@click.option("--storage-file-path", type=click.Path(exists=True, file_okay=True, dir_okay=False), default=None)
+@click.option("--export", type=int, default=None)
+@click.option("--export-file-name", type=str, default=None)
 @click.option("--disp", is_flag=True)
 def main(cluster_id, spines, mech_file_path, neurotree_file_path, neurotree_index, param_file_path, param_gen,
          get_features, get_objectives, group_size, pop_size, seed, max_iter, max_gens, path_length,
-         adaptive_step_factor, niter_success, survival_rate, disp):
+         adaptive_step_factor, niter_success, survival_rate, optimize, storage_file_path, export, export_file_name, disp):
     """
 
     :param cluster_id: str
@@ -108,6 +113,10 @@ def main(cluster_id, spines, mech_file_path, neurotree_file_path, neurotree_inde
     :param adaptive_step_factor: float in [0., 1.]
     :param niter_success: int
     :param survival_rate: float
+    :param optimize: bool
+    :param storage_file_path: str (path)
+    :param export: int
+    :param export_file_name str
     :param disp: bool
     """
     global c
@@ -126,9 +135,6 @@ def main(cluster_id, spines, mech_file_path, neurotree_file_path, neurotree_inde
     if neurotree_file_path is None:
         neurotree_file_path = default_neurotree_file_path
 
-    if param_file_path is None:
-        param_file_path = default_param_file_path
-
     global x0
     global param_names
     global bounds
@@ -140,8 +146,8 @@ def main(cluster_id, spines, mech_file_path, neurotree_file_path, neurotree_inde
 
     if param_file_path is not None:
         params_dict = read_from_pkl(param_file_path)
-        param_names = params_dict['x0'].keys()
-        x0 = [params_dict['x0'][key] for key in param_names]
+        param_names = params_dict['param_names']
+        x0 = make_param_list(params_dict['x0'], param_names)
         bounds = [params_dict['bounds'][key] for key in param_names]
         feature_names = params_dict['feature_names']
         objective_names = params_dict['objective_names']
@@ -149,8 +155,8 @@ def main(cluster_id, spines, mech_file_path, neurotree_file_path, neurotree_inde
         target_range = params_dict['target_range']
         optimization_title = params_dict['optimization_title']
     else:
-        param_names = default_x0_dict.keys()
-        x0 = [default_x0_dict[key] for key in param_names]
+        param_names = default_param_names
+        x0 = make_param_list(default_x0_dict, param_names)
         bounds = [default_bounds_dict[key] for key in param_names]
         feature_names = default_feature_names
         objective_names = default_objective_names
@@ -212,20 +218,39 @@ def main(cluster_id, spines, mech_file_path, neurotree_file_path, neurotree_inde
                   [neurotree_index] * num_procs, [param_file_path] * num_procs, [disp] * num_procs)
     print 'Initiated engines.'
     sys.stdout.flush()
+
     global local_param_gen
-    local_param_gen = param_gen(x0, param_names, feature_names, objective_names, pop_size, bounds=bounds, seed=seed,
-                                max_iter=max_iter, max_gens=max_gens, path_length=path_length,
-                                adaptive_step_factor=adaptive_step_factor, niter_success=niter_success,
-                                survival_rate=survival_rate, disp=disp)
+    if optimize:
+        local_param_gen = param_gen(x0, param_names, feature_names, objective_names, pop_size, bounds=bounds, seed=seed,
+                                    max_iter=max_iter, max_gens=max_gens, path_length=path_length,
+                                    adaptive_step_factor=adaptive_step_factor, niter_success=niter_success,
+                                    survival_rate=survival_rate, disp=disp)
+        run_optimization(group_size, path_length, disp)
+        storage = local_param_gen.storage
+    elif storage_file_path is not None:
+        storage = PopulationStorage(file_path=storage_file_path)
+    if export is not None:
+        try:
+            storage
+        except NameError:
+            print 'Storage object has not been defined.'
+        best_inds = storage.get_best(export, generations='last')
+        best_x_val = [make_param_dict(ind.x, param_names) for ind in best_inds]
+        for x_val in best_x_val:
+            get_voltage_traces(x_val, group_size, combined_rec_filename=export_file_name)
+
+
+@interactive
+def run_optimization(group_size, path_length, disp):
+
 
     for ind, generation in enumerate(local_param_gen()):
         if (ind > 0) and (ind % path_length == 0):
-            local_param_gen.storage.save_gen(data_dir + history_filename, ind-1, path_length)
+            local_param_gen.storage.save_gen(data_dir + history_filename, ind - 1, path_length)
         features, objectives = compute_features(generation, group_size=group_size, disp=disp)
         local_param_gen.update_population(features, objectives)
     local_param_gen.storage.save_gen(data_dir + history_filename, ind, path_length)
     # local_param_gen.storage.plot()
-    # get_best_voltage_traces(local_param_gen.storage, group_size)
 
 
 @interactive
@@ -240,20 +265,17 @@ def init_engine(spines=False, mech_file_path=None, neurotree_file_path=None, neu
     :param param_file_path: str (path)
     :param disp: bool
     """
-    if param_file_path is None:
-        param_file_path = default_param_file_path
-
     global x0
     global param_names
     global param_indexes
 
     if param_file_path is not None:
         params_dict = read_from_pkl(param_file_path)
-        param_names = params_dict['x0'].keys()
-        x0 = [params_dict['x0'][key] for key in param_names]
+        param_names = params_dict['param_names']
+        x0 = make_param_list(params_dict['x0'], param_names)
     else:
-        param_names = default_x0_dict.keys()
-        x0 = [default_x0_dict[key] for key in param_names]
+        param_names = default_param_names
+        x0 = make_param_list(default_x0_dict, param_names)
 
     param_indexes = {param_name: i for i, param_name in enumerate(param_names)}
 
@@ -324,7 +346,7 @@ def init_engine(spines=False, mech_file_path=None, neurotree_file_path=None, neu
 def compute_features(generation, group_size=1, disp=False, export=False):
     """
 
-    :param generation: list of array
+    :param generation: list of arr
     :param group_size: int
     :param disp: bool
     :return: tuple of list of dict
@@ -375,8 +397,10 @@ def get_Rinp_features(x, pop_id, client_range, export=False):
     :param x: array (soma.g_pas, dend.g_pas slope, dend.g_pas tau, dend.g_pas xhalf)
     :return: float
     """
+    #Reset cell here?
     sec_list = ['soma', 'dend', 'distal_dend']
     dv = c[client_range]
+
     result = dv.map_async(get_Rinp_for_section, sec_list, [x] * len(sec_list))
     if export is True:
         while not result.ready():
@@ -461,6 +485,26 @@ def offset_vm(description, vm_target=None):
     sim.tstop = duration
     return v_rest
 
+@interactive
+def make_param_dict(x, param_names):
+    """
+
+    :param x:
+    :param param_names:
+    :return:
+    """
+    return {param_name: x[ind] for ind, param_name in enumerate(param_names)}
+
+
+@interactive
+def make_param_list(x_dict, param_names):
+    """
+
+    :param x_dict:
+    :param param_names:
+    :return:
+    """
+    return [x_dict[param_name] for param_name in param_names]
 
 @interactive
 def update_mech_dict(x):
@@ -524,42 +568,29 @@ def export_sim_results():
         sim.export_to_file(f)
 
 @interactive
-def get_best_voltage_traces(storage, group_size, n=1, combined_rec_filename=None, discard=True):
+def get_voltage_traces(x_val, group_size, combined_rec_filename=None, discard=True):
     """
-    Run simulations on the engines with the last best set of parameters, have the engines export their results to .hdf5,
+    Run simulations on the engines with the given parameter values, have the engines export their results to .hdf5,
     and then read in and plot the results.
-    :param storage: :class:PopulationStorage
+
+    :param x_val: dict
+    :param group_size: int
     """
-    best_inds = storage.get_best(n)
+    x_list = make_param_list(x_val, param_names)
     if combined_rec_filename is None:
         combined_rec_filename = 'combined_sim_output'+datetime.datetime.today().strftime('%m%d%Y%H%M')+'_pid'+str(os.getpid())
     rec_file_list = []
-    if len(best_inds) == 0:
-        raise Exception('Storage object is empty')
-    for ind in best_inds:
-        rec_file_list.extend(compute_features([ind.x], group_size=group_size, export=True))
-    w = h5py.File(data_dir + combined_rec_filename + '.hdf5', 'w')
-    ind = 0
-    for rec_filename in enumerate(rec_file_list):
-        with h5py.File(data_dir+rec_filename+'.hdf5', 'r') as f:
-            for trial in f.itervalues():
-                w.create_group(str(ind))
-                ind += 1
-                w[str(ind)].attrs['target'] = trial.attrs['target']
-                w[str(ind)].attrs['section'] = trial.attrs['section']
-                w[str(ind)].attrs['optimization'] = trial.attrs['optimization']
-                w[str(ind)].create_group('rec')
-                for i, rec in enumerate(trial['rec'].itervalues()):
-                    w['rec'].create_dataset(str(i), data=rec)
-    w.close()
+    rec_file_list.extend(compute_features([x_list], group_size=group_size, export=True))
+    combined_rec_filename = combine_output_files(rec_file_list)
     if discard:
         for rec_filename in rec_file_list:
             os.remove(data_dir + rec_filename + '.hdf5')
+    # plot_best_voltage_traces(combined_rec_filename)
     return combined_rec_filename
 
 @interactive
 def plot_best_voltage_traces(combined_rec_filename):
-    with h5py.File(data_dir+rec_filename+'.hdf5', 'r') as f:
+    with h5py.File(data_dir+combined_rec_filename+'.hdf5', 'r') as f:
         for trial in f.itervalues():
             target = trial.attrs['target']
             section = trial.attrs['section']
@@ -573,9 +604,8 @@ def plot_best_voltage_traces(combined_rec_filename):
             axes.set_title('Optimize %s: %s (%s)' % (optimization, target, section))
             clean_axes(axes)
             fig.tight_layout()
-            plt.show()
-            plt.close()
-
+        plt.show()
+        plt.close()
 
 
 if __name__ == '__main__':
