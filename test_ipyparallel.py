@@ -1,8 +1,8 @@
 __author__ = 'milsteina'
 from function_lib import *
 from ipyparallel import Client
+from ipyparallel import interactive
 import click
-from mpi4py import MPI
 
 """
 Tests that complete range of engines, potentially across multiple nodes on a cluster, are accessible.
@@ -18,30 +18,24 @@ script_filename = 'test_ipyparallel.py'
 def main(cluster_id):
     """
 
-    :param start: int
     :param cluster_id: str
     """
     c = Client(cluster_id=cluster_id)
-
-    print c.ids
-
     dv = c[:]
-    result = dv.map_sync(get_engine_ids, range(len(c)))
+    print 'Controller sees %i engines' % len(dv.targets)
+    dv.execute('from test_ipyparallel import *', block=True)
+    result = dv.map_sync(get_engine_ids, dv.targets)
     print result
 
 
-def get_engine_ids(index):
+@interactive
+def get_engine_ids(target_id):
     """
 
     :return:
     """
-    comm = MPI.COMM_WORLD
-    rank = comm.rank
-    size = comm.size
-
     pid = os.getpid()
-
-    return {'index': index, 'rank': rank, 'size': size, 'pid': pid}
+    return {'target_id': target_id, 'pid': pid}
 
 
 if __name__ == '__main__':
