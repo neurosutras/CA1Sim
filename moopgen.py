@@ -40,7 +40,7 @@ class PopulationStorage(object):
     """
     Class used to store populations of parameters and objectives during optimization.
     """
-    def __init__(self, param_names=None, feature_names=None, objective_names=None, file_path=None):
+    def __init__(self, param_names=None, feature_names=None, objective_names=None, path_length=1, file_path=None):
         """
 
         :param param_names: list of str
@@ -62,6 +62,7 @@ class PopulationStorage(object):
             self.objective_names = objective_names
         self.history = []  # a list of populations, of length max_gens
         self.survivors = []  # a list of populations (some may be empty), of length max_gens
+        self.path_length = path_length
         if file_path is not None:
             self.load(file_path)
 
@@ -76,57 +77,74 @@ class PopulationStorage(object):
         self.survivors.append(deepcopy(survivors))
         self.history.append(deepcopy(population))
 
-    def get_best(self, n=1, generations=None, evaluate=None, modify=False):
+    def get_best(self, n=1, iterations=None, offset=None, evaluate=None, modify=False):
         """
-        If 'last' generation is specified, and rankings have not already been stored, compute new rankings.
-        If generations is specified as an integer q, compute new rankings for the last q generations, including the set
-        of survivors produced closest to, but before the qth generation.
-        If 'all' generations is specified, collapse across all generations, exclude copies of Individuals that survived
-        across generations, and compute new global rankings.
+        If offset is specified as 'last', and rankings have not already been stored, compute new rankings.
+        If iterations is specified as an integer q, compute new rankings for the last q iterations, including the set
+        of survivors produced closest to, but before the qth iteration.
+        If 'all' iterations is specified, collapse across all iterations, exclude copies of Individuals that survived
+        across iterations, and compute new global rankings.
         Return the n best.
         If modify is True, allow changes to the rankings of Individuals stored in history, otherwise operate on and
         discard copies.
-        :param n: int
-        :param generations: str or int
+
+        :param iterations: str or int
+        :param offset: str or int
         :param evaluate: callable
         :param modify: bool
         :return: list of :class:'Individual'
         """
-        if generations is None:
-            generations = 'all'
-            print 'PopulationStorage: Defaulting to get_best across all generations.'
-        elif generations not in ['all', 'last'] and type(generations) != int:
-            generations = 'all'
-            print 'PopulationStorage: Defaulting to get_best across all generations.'
+        if iterations is 'all':
+            print 'PopulationStorage: Defaulting to get_best across all iterations.'
+        elif (iterations != 'all' and type(iterations) != int):
+            iterations = 'all'
+            print 'PopulationStorage: Defaulting to get_best across all iterations.'
+        elif type(iterations) == int:
+            if iterations < 1:
+                iterations = 1
+            if type(offset) == int:
+                if offset < self.path_length:
+                    offset = self.path_length
+                if iterations >= (offset / self.path_length):
+                    iterations = 'all'
+                    print 'PopulationStorage: Defaulting to get_best across all iterations.'
+            else:
+                offset = 'last'
+                if iterations >= (len(self.history) / self.path_length):
+                    iterations = 'all'
+                    print 'PopulationStorage: Defaulting to get_best across all iterations.'
+
         if evaluate is None:
             evaluate = evaluate_bgen
         elif not isinstance(evaluate, collections.Callable):
             raise TypeError("PopulationStorage: evaluate must be callable.")
-        if generations == 'last':
-            recent_survivors = self.survivors[-1]  # may be empty
-            group = [individual for individual in self.history[-1] + recent_survivors if individual.rank is not None]
-            if len(group) < len(self.history[-1] + recent_survivors):
-                if modify:
-                    group = [individual for individual in self.history[-1] + recent_survivors]
-                else:
-                    group = [deepcopy(individual) for individual in self.history[-1] + recent_survivors]
-                evaluate(group)
-        elif generations == 'all':
+        if iterations == 'all':
             if modify:
                 group = [individual for population in self.history for individual in population]
             else:
                 group = [deepcopy(individual) for population in self.history for individual in population]
             evaluate(group)
-        else:
-            generations = min(len(self.history), generations)
+        elif offset == 'last':
+            extra_gens = len(self.history) % self.path_length
+            gens = extra_gens + iterations * self.path_length
             if modify:
-                group = [individual for population in self.history[-generations:] for individual in population]
-                group.extend([individual for individual in self.survivors[-generations]])
+                group = [individual for population in self.history[-gens:] for individual in population]
+                group.extend([individual for individual in self.survivors[-gens]])
             else:
-                group = [deepcopy(individual) for population in self.history[-generations:] for individual in population]
-                group.extend([deepcopy(individual) for individual in self.survivors[-generations]])
+                group = [deepcopy(individual) for population in self.history[-gens:] for individual in population]
+                group.extend([deepcopy(individual) for individual in self.survivors[-gens]])
             evaluate(group)
-        print generations
+        else:
+            extra_gens = len(offset) % self.path_length
+            gens = extra_gens + iterations * self.path_length
+            if modify:
+                group = [individual for population in self.history[offset-gens:offset] for individual in population]
+                group.extend([individual for individual in self.survivors[offset-gens]])
+            else:
+                group = [deepcopy(individual) for population in self.history[offset-gens:offset] for individual in population]
+                group.extend([deepcopy(individual) for individual in self.survivors[offset-gens]])
+            evaluate(group)
+
         indexes = range(len(group))
         rank = [individual.rank for individual in group]
         indexes.sort(key=rank.__getitem__)
@@ -215,6 +233,8 @@ class PopulationStorage(object):
                 f.attrs['feature_names'] = self.feature_names
             if 'objective_names' not in f.attrs.keys():
                 f.attrs['objective_names'] = self.objective_names
+            if 'path_length' not in f.attrs.keys():
+                f.attrs['path_length'] = self.path_length
             for ind in [pop_index - x for x in range(n)]:
                 f.create_group(str(ind))
                 for group_name, population in zip(['population', 'survivors'],
@@ -230,17 +250,15 @@ class PopulationStorage(object):
                             self.None2nan(individual.fitness)
                         f[str(ind)][group_name][str(ind_index)].attrs['survivor'] = \
                             self.None2nan(individual.survivor)
-                        f[str(ind)][group_name][str(ind_index)].create_dataset('x', data=individual.x,
-                                                                                     compression='gzip',
-                                                                                     compression_opts=9)
+                        f[str(ind)][group_name][str(ind_index)].create_dataset('x',
+                                                                               data=[self.None2nan(val) for val in individual.x],
+                                                                               compression='gzip', compression_opts=9)
                         f[str(ind)][group_name][str(ind_index)].create_dataset('features',
-                                                                                     data=individual.features,
-                                                                                     compression='gzip',
-                                                                                     compression_opts=9)
+                                                                               data=[self.None2nan(val) for val in individual.features],
+                                                                               compression='gzip', compression_opts=9)
                         f[str(ind)][group_name][str(ind_index)].create_dataset('objectives',
-                                                                                     data=individual.objectives,
-                                                                                     compression='gzip',
-                                                                                     compression_opts=9)
+                                                                                data=[self.None2nan(val) for val in individual.objectives],
+                                                                               compression='gzip', compression_opts=9)
         print 'PopulationStorage: saved %i generations (up to generation %i) to file: %s' % (n, pop_index, file_path)
 
     def save_all(self, file_path):
@@ -252,6 +270,7 @@ class PopulationStorage(object):
             f.attrs['param_names'] = self.param_names
             f.attrs['feature_names'] = self.feature_names
             f.attrs['objective_names'] = self.objective_names
+            f.attrs['path_length'] = self.path_length
             for pop_index in xrange(len(self.history)):
                 f.create_group(str(pop_index))
                 for group_name, population in zip(['population', 'survivors'],
@@ -267,17 +286,15 @@ class PopulationStorage(object):
                             self.None2nan(individual.fitness)
                         f[str(pop_index)][group_name][str(ind_index)].attrs['survivor'] = \
                             self.None2nan(individual.survivor)
-                        f[str(pop_index)][group_name][str(ind_index)].create_dataset('x', data=individual.x,
-                                                                                     compression='gzip',
-                                                                                     compression_opts=9)
+                        f[str(pop_index)][group_name][str(ind_index)].create_dataset('x',
+                                                                               data=[self.None2nan(val) for val in individual.x],
+                                                                               compression='gzip', compression_opts=9)
                         f[str(pop_index)][group_name][str(ind_index)].create_dataset('features',
-                                                                                     data=individual.features,
-                                                                                     compression='gzip',
-                                                                                     compression_opts=9)
+                                                                               data=[self.None2nan(val) for val in individual.features],
+                                                                               compression='gzip', compression_opts=9)
                         f[str(pop_index)][group_name][str(ind_index)].create_dataset('objectives',
-                                                                                     data=individual.objectives,
-                                                                                     compression='gzip',
-                                                                                     compression_opts=9)
+                                                                                data=[self.None2nan(val) for val in individual.objectives],
+                                                                               compression='gzip', compression_opts=9)
         print 'PopulationStorage: saved %i generations to file: %s' % (len(self.history), file_path)
 
     def load(self, file_path):
@@ -289,6 +306,7 @@ class PopulationStorage(object):
             self.param_names = f.attrs['param_names']
             self.feature_names = f.attrs['feature_names']
             self.objective_names = f.attrs['objective_names']
+            self.path_length = f.attrs['path_length']
             for pop_index in xrange(len(f)):
                 population_list, survivors_list = [], []
                 for group_name, population in zip(['population', 'survivors'], [population_list, survivors_list]):
@@ -712,7 +730,7 @@ class BGen(object):
         else:
             self.x0 = np.array(x0)
         self.storage = PopulationStorage(param_names=param_names, feature_names=feature_names,
-                                         objective_names=objective_names)
+                                         objective_names=objective_names, path_length=path_length)
         self.pop_size = pop_size
         if evaluate is None:
             self._evaluate = evaluate_bgen
@@ -795,11 +813,8 @@ class BGen(object):
         if self.objectives_stored and not self.evaluated:
             if self.disp:
                 print 'BGen: Gen %i, computing features took %.2f s' % (self.num_gen-1, time.time()-self.local_time)
-            generations = self.num_gen % self.path_length
-            if generations == 0:
-                generations = self.path_length
-            self.final_survivors = self.storage.get_best(self.num_survivors,
-                                  generations=generations, evaluate=self._evaluate,
+            self.final_survivors = self.storage.get_best(n=self.num_survivors,
+                                  iterations=1, evaluate=self._evaluate,
                                   modify=True)
             for individual in self.final_survivors:
                 individual.survivor = True
@@ -856,8 +871,8 @@ class BGen(object):
         Consider the highest ranked Individuals of the previous interval of generations to be the survivors. Seed the
         next generation with steps taken from the surviving set of parameters.
         """
-        self.survivors = self.storage.get_best(self.num_survivors,
-                                               generations=self.path_length, evaluate=self._evaluate,
+        self.survivors = self.storage.get_best(n=self.num_survivors,
+                                               iterations=1, evaluate=self._evaluate,
                                                modify=True)
         for individual in self.survivors:
             individual.survivor = True
@@ -914,7 +929,7 @@ class EGen(object):
             self.x0 = np.array(x0)
         self.num_params = len(param_names)
         self.storage = PopulationStorage(param_names=param_names, feature_names=feature_names,
-                                         objective_names=objective_names)
+                                         objective_names=objective_names, path_length=path_length)
         self.pop_size = pop_size
         if evaluate is None:
             self._evaluate = evaluate_bgen
