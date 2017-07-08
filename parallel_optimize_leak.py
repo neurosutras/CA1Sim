@@ -221,7 +221,7 @@ def main(cluster_id, spines, mech_file_path, neurotree_file_path, neurotree_inde
 
     global local_param_gen
     if optimize:
-        local_param_gen = param_gen(x0, param_names, feature_names, objective_names, pop_size, bounds=bounds, seed=seed,
+        local_param_gen = param_gen(param_names, feature_names, objective_names, pop_size, x0=x0, bounds=bounds, seed=seed,
                                     max_iter=max_iter, max_gens=max_gens, path_length=path_length,
                                     adaptive_step_factor=adaptive_step_factor, niter_success=niter_success,
                                     survival_rate=survival_rate, disp=disp)
@@ -234,7 +234,7 @@ def main(cluster_id, spines, mech_file_path, neurotree_file_path, neurotree_inde
             storage
         except NameError:
             print 'Storage object has not been defined.'
-        best_inds = storage.get_best(export, generations='last')
+        best_inds = storage.get_best(n=export, iterations=1)
         best_x_val = [make_param_dict(ind.x, param_names) for ind in best_inds]
         for x_val in best_x_val:
             get_voltage_traces(x_val, group_size, combined_rec_filename=export_file_name)
@@ -543,6 +543,7 @@ def get_Rinp_for_section(section, x):
     sim.parameters['target'] = 'Rinp'
     sim.parameters['optimization'] = 'pas'
     amp = -0.05
+    cell.reinit_mechanisms(reset_cable=True, from_file=True)
     update_pas_exp(x)
     cell.zero_na()
     offset_vm(section)
