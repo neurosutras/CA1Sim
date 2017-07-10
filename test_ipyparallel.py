@@ -15,12 +15,13 @@ script_filename = 'test_ipyparallel.py'
 
 @click.command()
 @click.option("--cluster-id", type=str, required=True)
-def main(cluster_id):
+@click.option("--profile", type=str, default='default')
+def main(cluster_id, profile):
     """
 
     :param cluster_id: str
     """
-    c = Client(cluster_id=cluster_id)
+    c = Client(cluster_id=cluster_id, profile=profile)
     dv = c[:]
     print 'Controller sees %i engines' % len(dv.targets)
     dv.execute('from test_ipyparallel import *', block=True)
