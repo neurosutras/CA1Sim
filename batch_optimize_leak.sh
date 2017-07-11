@@ -1,24 +1,24 @@
 #!/bin/bash
 #
 #SBATCH -J optimize_leak
-#SBATCH -o optimize_leak_062717.%j.o
-#SBATCH -n 302
-#SBATCH -t 36:00:00
-#SBATCH --mem-per-cpu=4G
-#SBATCH --mail-user=graceyng@stanford.edu
-##SBATCH --mail-user=aaronmil@stanford.edu
+#SBATCH -o optimize_leak_071017.%j.o
+#SBATCH -e optimize_leak_071017.%j.e
+#SBATCH -N 3 -n 72
+#SBATCH -t 00:30:00
+##SBATCH --mail-user=graceyng@stanford.edu
+#SBATCH --mail-user=aaronmil@stanford.edu
 #SBATCH --mail-type=END
 #SBATCH --mail-type=BEGIN
 #
+
 set -x
 
 cd $HOME/CA1Sim
-cluster_id="$1"
-group_sz="$2"
-pop_size="$3"
-max_iter="$4"
-ipcontroller --ip='*' --quiet --cluster-id=$cluster_id &
+cluster_id="test_comet"
+ibrun -n 1 ipcontroller --ip='*' --cluster-id=$cluster_id &
+sleep 1
 sleep 60
-mpirun -np 300 ipengine --quiet --cluster-id=$cluster_id &
-sleep 60
-python parallel_optimize_leak.py --cluster-id=$cluster_id --group-size=$group_sz --pop-size=$pop_size --max-iter=$max_iter --disp
+ibrun -n 70 ipengine --cluster-id=$cluster_id &
+sleep 1
+sleep 120
+ibrun -n 1 python parallel_optimize_leak.py --cluster-id=$cluster_id --group-size=3 --pop-size=23 --max-iter=2 --optimize --disp
