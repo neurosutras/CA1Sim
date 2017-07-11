@@ -266,6 +266,17 @@ def read_from_pkl(fname):
     else:
         raise Exception('File: {} does not exist.'.format(fname))
 
+def write_to_yaml(fname, dict):
+    """
+
+    :param fname: str
+    :param dict: dict
+    :return:
+    """
+    import yaml
+
+    
+
 
 class CheckBounds(object):
     """
