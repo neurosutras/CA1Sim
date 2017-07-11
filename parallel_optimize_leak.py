@@ -68,6 +68,7 @@ default_param_file_path = None #'data/leak_default_param_file.pkl'
 
 @click.command()
 @click.option("--cluster-id", type=str, default=None)
+@click.option("--profile", type=str, default='default')
 @click.option("--spines", is_flag=True)
 @click.option("--mech-file-path", type=click.Path(exists=True, file_okay=True, dir_okay=False), default=None)
 @click.option("--neurotree-file-path", type=click.Path(exists=True, file_okay=True, dir_okay=False), default=None)
@@ -90,12 +91,13 @@ default_param_file_path = None #'data/leak_default_param_file.pkl'
 @click.option("--export", type=int, default=None)
 @click.option("--export-file-name", type=str, default=None)
 @click.option("--disp", is_flag=True)
-def main(cluster_id, spines, mech_file_path, neurotree_file_path, neurotree_index, param_file_path, param_gen,
+def main(cluster_id, profile, spines, mech_file_path, neurotree_file_path, neurotree_index, param_file_path, param_gen,
          get_features, get_objectives, group_size, pop_size, seed, max_iter, max_gens, path_length,
          adaptive_step_factor, niter_success, survival_rate, optimize, storage_file_path, export, export_file_name, disp):
     """
 
     :param cluster_id: str
+    :param profile: str
     :param spines: bool
     :param mech_file_path: str (path)
     :param neurotree_file_path: str (path)
@@ -122,9 +124,9 @@ def main(cluster_id, spines, mech_file_path, neurotree_file_path, neurotree_inde
     global c
 
     if cluster_id is not None:
-        c = Client(cluster_id=cluster_id)
+        c = Client(cluster_id=cluster_id, profile=profile)
     else:
-        c = Client()
+        c = Client(profile=profile)
 
     global num_procs
     num_procs = len(c)
@@ -242,8 +244,12 @@ def main(cluster_id, spines, mech_file_path, neurotree_file_path, neurotree_inde
 
 @interactive
 def run_optimization(group_size, path_length, disp):
+    """
 
-
+    :param group_size:
+    :param path_length:
+    :param disp:
+    """
     for ind, generation in enumerate(local_param_gen()):
         if (ind > 0) and (ind % path_length == 0):
             local_param_gen.storage.save_gen(data_dir + history_filename, ind - 1, path_length)
