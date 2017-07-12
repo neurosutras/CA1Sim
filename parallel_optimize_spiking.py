@@ -72,6 +72,7 @@ default_target_val = {'v_rest': v_init, 'v_th': -48., 'ADP': 0., 'AHP': 4., 'spo
 default_target_range = {'v_rest': 0.25, 'v_th': .01, 'ADP': 0.01, 'AHP': .005, 'spont_firing': 1, 'rebound_firing': 1,
                       'vm_stability': 1., 'ais_delay': 0.0005, 'slow_depo': 0.5, 'dend_amp': 0.0002, 'soma_peak': 2.}
 default_optimization_title = 'spiking'
+default_group_sizes = (1, 10)
 
 # param_file_path = 'data/optimize_spiking_defaults.yaml'
 
@@ -87,7 +88,7 @@ default_optimization_title = 'spiking'
 @click.option("--get-features", nargs=2, type=str, default=())
 @click.option("--process-features", nargs=2, type=str, default=())
 @click.option("--get-objectives", type=str, default=None)
-@click.option("--group-sizes", nargs=2, type=int, default=(1, 10))
+@click.option("--group-sizes", nargs=2, type=int, default=())
 @click.option("--pop-size", type=int, default=100)
 @click.option("--seed", type=int, default=None)
 @click.option("--max-iter", type=int, default=30)
@@ -166,6 +167,7 @@ def main(cluster_id, spines, mech_file_path, neurotree_file_path, neurotree_inde
         given_get_features = params_dict['get_features']
         given_process_features = params_dict['process_features']
         given_get_objectives = params_dict['get_objectives']
+        given_group_sizes = params_dict['group_sizes']
     else:
         param_names = default_param_names
         x0 = np.array(make_param_arr(default_x0_dict, param_names))
@@ -181,6 +183,7 @@ def main(cluster_id, spines, mech_file_path, neurotree_file_path, neurotree_inde
         given_get_features = default_get_features
         given_process_features = default_process_features
         given_get_objectives = default_get_objectives
+        given_group_sizes = default_group_sizes
 
     globals()['path_length'] = path_length
     if mech_file_path is None:
@@ -195,6 +198,8 @@ def main(cluster_id, spines, mech_file_path, neurotree_file_path, neurotree_inde
         process_features = given_process_features
     if get_objectives is None:
         get_objectives = given_get_objectives
+    if not group_sizes:
+        group_sizes = given_group_sizes
     if param_gen not in globals():
         raise NameError('Multi-Objective Optimization: %s has not been imported, or is not a valid class of parameter '
                         'generator.' % param_gen)
