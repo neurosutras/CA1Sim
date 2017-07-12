@@ -73,7 +73,7 @@ default_target_range = {'v_rest': 0.25, 'v_th': .01, 'ADP': 0.01, 'AHP': .005, '
                       'vm_stability': 1., 'ais_delay': 0.0005, 'slow_depo': 0.5, 'dend_amp': 0.0002, 'soma_peak': 2.}
 default_optimization_title = 'spiking'
 
-default_param_file_path = None
+# param_file_path = 'data/optimize_spiking_defaults.yaml'
 
 
 @click.command()
@@ -141,12 +141,6 @@ def main(cluster_id, spines, mech_file_path, neurotree_file_path, neurotree_inde
     global num_procs
     num_procs = len(c)
 
-    if mech_file_path is None:
-        mech_file_path = default_mech_file_path
-
-    if neurotree_file_path is None:
-        neurotree_file_path = default_neurotree_file_path
-
     global x0
     global param_names
     global bounds
@@ -157,7 +151,7 @@ def main(cluster_id, spines, mech_file_path, neurotree_file_path, neurotree_inde
     global optimization_title
 
     if param_file_path is not None:
-        params_dict = read_from_pkl(param_file_path)
+        params_dict = read_from_yaml(param_file_path)
         param_names = params_dict['param_names']
         x0 = np.array(make_param_arr(params_dict['x0'], param_names))
         bounds = [params_dict['bounds'][key] for key in param_names]
@@ -166,6 +160,12 @@ def main(cluster_id, spines, mech_file_path, neurotree_file_path, neurotree_inde
         target_val = params_dict['target_val']
         target_range = params_dict['target_range']
         optimization_title = params_dict['optimization_title']
+        given_param_gen = params_dict['param_gen']
+        given_mech_file_path = params_dict['mech_file_path']
+        given_neurotree_file_path = params_dict['neurotree_file_path']
+        given_get_features = params_dict['get_features']
+        given_process_features = params_dict['process_features']
+        given_get_objectives = params_dict['get_objectives']
     else:
         param_names = default_param_names
         x0 = np.array(make_param_arr(default_x0_dict, param_names))
@@ -175,11 +175,26 @@ def main(cluster_id, spines, mech_file_path, neurotree_file_path, neurotree_inde
         target_val = default_target_val
         target_range = default_target_range
         optimization_title = default_optimization_title
+        given_param_gen = default_param_gen
+        given_mech_file_path = default_mech_file_path
+        given_neurotree_file_path = default_neurotree_file_path
+        given_get_features = default_get_features
+        given_process_features = default_process_features
+        given_get_objectives = default_get_objectives
 
     globals()['path_length'] = path_length
-
+    if mech_file_path is None:
+        mech_file_path = given_mech_file_path
+    if neurotree_file_path is None:
+        neurotree_file_path = given_neurotree_file_path
     if param_gen is None:
-        param_gen = default_param_gen
+        param_gen = given_param_gen
+    if not get_features:
+        get_features = given_get_features
+    if not process_features:
+        process_features = given_process_features
+    if get_objectives is None:
+        get_objectives = given_get_objectives
     if param_gen not in globals():
         raise NameError('Multi-Objective Optimization: %s has not been imported, or is not a valid class of parameter '
                         'generator.' % param_gen)
@@ -188,24 +203,18 @@ def main(cluster_id, spines, mech_file_path, neurotree_file_path, neurotree_inde
     history_filename = '%s %s %s optimization history.hdf5' % \
                        (datetime.datetime.today().strftime('%m%d%Y%H%M'), optimization_title, param_gen)
 
-    if not get_features:
-        get_features = default_get_features
     if get_features[0] not in globals() or not callable(globals()[get_features[0]]):
         raise NameError('Multi-Objective Optimization: get_features: %s has not been imported, or is not a callable '
                         'function.' % get_features[0])
     if get_features[1] not in globals() or not callable(globals()[get_features[1]]):
         raise NameError('Multi-Objective Optimization: get_features: %s has not been imported, or is not a callable '
                         'function.' % get_features[1])
-    if not process_features:
-        process_features = default_process_features
     if process_features[0] not in globals() or not callable(globals()[process_features[0]]):
         raise NameError('Multi-Objective Optimization: process_features: %s has not been imported, or is not a callable '
                         'function.' % process_features[0])
     if process_features[1] not in globals() or not callable(globals()[process_features[1]]):
         raise NameError('Multi-Objective Optimization: process_features: %s has not been imported, or is not a callable '
                         'function.' % process_features[1])
-    if get_objectives is None:
-        get_objectives = default_get_objectives
     if get_objectives not in globals() or not callable(globals()[get_objectives]):
         raise NameError('Multi-Objective Optimization: get_objectives: %s has not been imported, or is not a callable '
                         'function.' % get_objectives)
@@ -224,10 +233,11 @@ def main(cluster_id, spines, mech_file_path, neurotree_file_path, neurotree_inde
             blocks[ind] += 1
 
     globals()['group_sizes'] = new_group_sizes
+    group_sizes = new_group_sizes
 
     print 'Multi-Objective Optimization: %s; Total processes: %i; Population size: %i; Group sizes: %s; ' \
           'Feature calculator: %s; Process features: %s; Objective calculator: %s; Blocks / generation: %s' % \
-          (param_gen, num_procs, pop_size, (','.join(str(x) for x in new_group_sizes)), get_features, process_features,
+          (param_gen, num_procs, pop_size, (','.join(str(x) for x in group_sizes)), get_features, process_features,
            get_objectives, (','.join(str(x) for x in blocks)))
     if un_utilized > 0:
         print 'Multi-Objective Optimization: %s processes are unutilized' % (','.join(str(x) for x in un_utilized))
@@ -248,20 +258,25 @@ def main(cluster_id, spines, mech_file_path, neurotree_file_path, neurotree_inde
 
     global local_param_gen
 
-    if optimize:
-        local_param_gen = param_gen(param_names, feature_names, objective_names, pop_size, x0=x0, bounds=bounds, seed=seed,
-                                    max_iter=max_iter, max_gens=max_gens, path_length=path_length,
-                                    adaptive_step_factor=adaptive_step_factor, niter_success=niter_success,
-                                    survival_rate=survival_rate, disp=disp)
-        run_optimization(new_group_sizes, path_length, disp)
-        storage = local_param_gen.storage
-    elif storage_file_path is not None:
+    if storage_file_path is not None:
         storage = PopulationStorage(file_path=storage_file_path)
+    else:
+        storage = None
+    if optimize:
+        if storage is None:
+            local_param_gen = param_gen(param_names, feature_names, objective_names, pop_size, x0=x0, bounds=bounds, seed=seed,
+                                        max_iter=max_iter, max_gens=max_gens, path_length=path_length,
+                                        adaptive_step_factor=adaptive_step_factor, niter_success=niter_success,
+                                        survival_rate=survival_rate, disp=disp)
+        else:
+            local_param_gen = param_gen(param_names, feature_names, objective_names, pop_size, x0=x0, bounds=bounds, seed=seed,
+                                        max_iter=max_iter, max_gens=max_gens, adaptive_step_factor=adaptive_step_factor, niter_success=niter_success,
+                                        survival_rate=survival_rate, disp=disp, storage=storage)
+        run_optimization(group_sizes, path_length, disp)
+        storage = local_param_gen.storage
     if export is not None:
-        try:
-            storage
-        except NameError:
-            print 'Storage object has not been defined.'
+        if storage is None:
+            raise TypeError('Storage object has not been defined.')
         best_inds = storage.get_best(n=export, iterations=1)
         best_x_val = [make_param_dict(ind.x, param_names) for ind in best_inds]
         for x_val in best_x_val:
@@ -326,22 +341,23 @@ def init_engine(spines=False, mech_file_path=None, neurotree_file_path=None, neu
     global param_indexes
 
     if param_file_path is not None:
-        params_dict = read_from_pkl(param_file_path)
+        params_dict = read_from_yaml(param_file_path)
         param_names = params_dict['param_names']
         x0 = np.array(make_param_arr(params_dict['x0'], param_names))
+        if mech_file_path is None:
+            mech_file_path = params_dict['mech_file_path']
+        if neurotree_file_path is None:
+            neurotree_file_path = params_dict['neurotree_file_path']
     else:
         param_names = default_param_names
         x0 = np.array(make_param_arr(default_x0_dict, param_names))
+        if mech_file_path is None:
+            mech_file_path = default_mech_file_path
+        if neurotree_file_path is None:
+            neurotree_file_path = default_neurotree_file_path
 
     param_indexes = {param_name: i for i, param_name in enumerate(param_names)}
-
-    if mech_file_path is None:
-        mech_file_path = default_mech_file_path
-
     globals()['spines'] = spines
-
-    if neurotree_file_path is None:
-        neurotree_file_path = default_neurotree_file_path
     neurotree_dict = read_from_pkl(neurotree_file_path)[neurotree_index]
 
     globals()['disp'] = disp
@@ -408,8 +424,9 @@ def compute_features(generation, group_sizes=(1, 10), disp=False, export=False):
     final_features = {pop_id: {} for pop_id in pop_ids}
     for ind in range(len(get_features)):
         next_generation = {}
-        usable_procs = num_procs - (num_procs % group_sizes[ind])
-        client_ranges = [range(start, start + group_sizes[ind]) for start in range(0, usable_procs, group_sizes[ind])]
+        this_group_size = min(len(c), group_sizes[ind])
+        usable_procs = num_procs - (num_procs % this_group_size)
+        client_ranges = [range(start, start + this_group_size) for start in range(0, usable_procs, this_group_size)]
         feature_function = get_features[ind]
         indivs = [{'pop_id': pop_id, 'x': curr_generation[pop_id],
                    'features': final_features[pop_id]} for pop_id in curr_generation.keys()]
@@ -439,16 +456,15 @@ def compute_features(generation, group_sizes=(1, 10), disp=False, export=False):
             else:
                 time.sleep(1.)
         curr_generation = next_generation
+        sys.stdout.flush()
     features = [final_features[pop_id] for pop_id in pop_ids]
     objectives = []
-    if export is False:
-        for i, this_features in enumerate(features):
-            new_features, new_objectives = get_objectives(this_features)
-            features[i] = new_features
-            objectives.append(new_objectives)
+    for i, this_features in enumerate(features):
+        new_features, new_objectives = get_objectives(this_features)
+        features[i] = new_features
+        objectives.append(new_objectives)
+    if not export:
         return features, objectives
-    else:
-        return features
 
 @interactive
 def get_stability_features(indiv, client_range, export=False):
@@ -461,11 +477,7 @@ def get_stability_features(indiv, client_range, export=False):
     """
     x = indiv['x']
     dv = c[client_range]
-    result = dv.map_async(spike_shape_features, [x])
-    if export is True:
-        global rec_file_list
-        dv.execute('export_sim_results()')
-        rec_file_list = [filename for filename in dv['rec_filename'] if os.path.isfile(data_dir + filename + '.hdf5')]
+    result = dv.map_async(spike_shape_features, [x], [export])
     return {'pop_id': indiv['pop_id'], 'client_range': client_range, 'async_result': result}
 
 @interactive
@@ -489,13 +501,10 @@ def get_fI_features(indiv, client_range, export=False):
     dv = c[client_range]
     x = indiv['x']
     rheobase = indiv['features']['rheobase']
+    sys.stdout.flush()
     # Calculate firing rates for a range of I_inj amplitudes using a stim duration of 500 ms
     result = dv.map_async(sim_f_I, [rheobase + i_inj_increment * (i + 1) for i in range(num_increments)],
-                          [x] * num_increments, [False] * (num_increments-1) + [True])
-    if export is True:
-        global rec_file_list
-        dv.execute('export_sim_results()')
-        rec_file_list = [filename for filename in dv['rec_filename'] if os.path.isfile(data_dir + filename + '.hdf5')]
+                          [x] * num_increments, [False] * (num_increments-1) + [True], [export] * num_increments)
     return {'pop_id': indiv['pop_id'], 'client_range': client_range, 'async_result': result}
 
 @interactive
@@ -589,7 +598,7 @@ def get_spiking_objectives(features):
     return features, objectives
 
 @interactive
-def spike_shape_features(x, plot=False):
+def spike_shape_features(x, export=False, plot=False):
     """
     :param local_x: array [soma.gkabar, soma.gkdrbar, axon.gkabar_kap factor, axon.gbar_nax factor, soma.sh_nas/x,
                     axon.gkbar factor, dend.gkabar factor]
@@ -665,11 +674,13 @@ def spike_shape_features(x, plot=False):
     print 'Process %i took %.1f s to find spike rheobase at amp: %.3f' % (os.getpid(), time.time() - start_time, amp)
     if plot:
         sim.plot()
+    if export:
+        export_sim_results()
     return result
 
 
 @interactive
-def sim_f_I(amp, x, extend_dur=False, plot=False):
+def sim_f_I(amp, x, extend_dur=False, export=False, plot=False):
     """
 
     :param amp: float
@@ -690,6 +701,8 @@ def sim_f_I(amp, x, extend_dur=False, plot=False):
     else:
         duration = equilibrate + stim_dur
     sim.tstop = duration
+    print 'starting sim at %.1f A' %amp
+    sys.stdout.flush()
     sim.run(v_active)
     if plot:
         sim.plot()
@@ -710,6 +723,9 @@ def sim_f_I(amp, x, extend_dur=False, plot=False):
         result['vm_stability'] = vm_stability
         result['rebound_firing'] = len(np.where(spike_times > stim_dur))
     print 'Process %i took %.1f s to run simulation with I_inj amp: %.3f' % (os.getpid(), time.time() - start_time, amp)
+    sys.stdout.flush()
+    if export:
+        export_sim_results()
     return result
 
 @interactive
@@ -882,7 +898,7 @@ def export_sim_results():
     """
     Export the most recent time and recorded waveforms from the QuickSim object.
     """
-    with h5py.File(data_dir+rec_filename+'.hdf5', 'w') as f:
+    with h5py.File(data_dir+rec_filename+'.hdf5', 'a') as f:
         sim.export_to_file(f)
 
 @interactive
@@ -897,8 +913,8 @@ def get_voltage_traces(x_val, group_sizes, combined_rec_filename=None, discard=T
     x_arr = make_param_arr(x_val, param_names)
     if combined_rec_filename is None:
         combined_rec_filename = 'combined_sim_output'+datetime.datetime.today().strftime('%m%d%Y%H%M')+'_pid'+str(os.getpid())
-    rec_file_list = []
-    rec_file_list.extend(compute_features([x_arr], group_sizes=group_sizes, disp=disp, export=True))
+    compute_features([x_arr], group_sizes=group_sizes, disp=disp, export=True)
+    rec_file_list = [filename for filename in c[:]['rec_filename'] if os.path.isfile(data_dir + filename + '.hdf5')]
     combined_rec_filename = combine_output_files(rec_file_list)
     if discard:
         for rec_filename in rec_file_list:

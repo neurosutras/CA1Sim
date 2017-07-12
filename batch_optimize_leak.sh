@@ -21,4 +21,4 @@ sleep 60
 ibrun -n 70 ipengine --cluster-id=$cluster_id &
 sleep 1
 sleep 120
-ibrun -n 1 python parallel_optimize_leak.py --cluster-id=$cluster_id --group-size=3 --pop-size=23 --max-iter=2 --optimize --disp
+ibrun -n 1 python parallel_optimize_leak.py --cluster-id=$cluster_id --group-size=3 --pop-size=23 --max-iter=2 --path-length 2 --optimize --disp

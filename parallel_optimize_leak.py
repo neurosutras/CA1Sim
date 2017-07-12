@@ -63,7 +63,7 @@ default_optimization_title = 'leak'
 # Load defaults from a file containing many parameters. Use write_to_file function in function_lib to generate this pkl file
 # Note: click only recognizes this as a path if the string is copied as is into the command line; cannot type a variable
 # name that stores this string
-default_param_file_path = None #'data/leak_default_param_file.pkl'
+default_param_file_path = None
 
 
 @click.command()
