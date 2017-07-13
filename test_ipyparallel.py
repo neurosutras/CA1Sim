@@ -42,7 +42,6 @@ def get_engine_ids(target_id):
     """
     pid = os.getpid()
     return {'target_id': target_id, 'pid': pid, 'rank': rank}
-    # return {'target_id': target_id, 'pid': pid}
 
 
 if __name__ == '__main__':

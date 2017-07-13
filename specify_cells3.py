@@ -522,7 +522,7 @@ class HocCell(object):
             node.init_nseg()
             node.reinit_diam()
 
-    def reinit_mechanisms(self, reset_cable=0):
+    def reinit_mechanisms(self, reset_cable=0, from_file=False):
         """
         Once a mechanism dictionary has been loaded, and a morphology has been specified, this method traverses through
         the tree of SHocNode nodes following order of inheritance and properly sets membrane mechanism parameters,
@@ -531,6 +531,8 @@ class HocCell(object):
         again. However, they can be manually reinitialized with the reset_cable flag.
         :param reset_cable: boolean
         """
+        if from_file:
+            self.mech_dict = self.load_mech_dict(self.mech_file_path)
         for sec_type in sec_types:
             if sec_type in self.mech_dict:
                 nodes = self.get_nodes_of_subtype(sec_type)
