@@ -270,7 +270,7 @@ def run_optimization(group_size, path_length, disp):
             param_gen.storage.save_gen(storage_file_path, ind - 1, path_length)
         features, objectives = compute_features(generation, group_size=group_size, disp=disp)
         param_gen.update_population(features, objectives)
-    param_gen.storage.save_gen(storage_file_path, ind, path_length)
+    param_gen.storage.save(storage_file_path, ind, path_length)
 
 
 @interactive

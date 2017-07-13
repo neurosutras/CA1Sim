@@ -5,8 +5,8 @@
 #SBATCH -e optimize_spiking_071217.%j.e
 #SBATCH -N 3 -n 72
 #SBATCH -t 00:30:00
-##SBATCH --mail-user=graceyng@stanford.edu
-#SBATCH --mail-user=aaronmil@stanford.edu
+#SBATCH --mail-user=graceyng@stanford.edu
+##SBATCH --mail-user=aaronmil@stanford.edu
 #SBATCH --mail-type=END
 #SBATCH --mail-type=BEGIN
 #
