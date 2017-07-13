@@ -93,10 +93,11 @@ default_param_file_path = None
 @click.option("--export", is_flag=True)
 @click.option("--export-file-path", type=str, default=None)
 @click.option("--disp", is_flag=True)
+@click.option("--sleep", is_flag=True)
 def main(cluster_id, profile, spines, mech_file_path, neurotree_file_path, neurotree_index, param_file_path, param_gen,
          get_features, get_objectives, group_size, pop_size, wrap_bounds, seed, max_iter, path_length,
          initial_step_size, adaptive_step_factor, survival_rate, analyze, hot_start, storage_file_path, export,
-         export_file_path, disp):
+         export_file_path, disp, sleep):
     """
 
     :param cluster_id: str
@@ -124,9 +125,12 @@ def main(cluster_id, profile, spines, mech_file_path, neurotree_file_path, neuro
     :param export: bool
     :param export_file_path: str (path)
     :param disp: bool
+    :param sleep: bool
     """
     global c
 
+    if sleep:
+        time.sleep(300)
     if cluster_id is not None:
         c = Client(cluster_id=cluster_id, profile=profile)
     else:
@@ -227,6 +231,8 @@ def main(cluster_id, profile, spines, mech_file_path, neurotree_file_path, neuro
     globals()['get_objectives'] = get_objectives
 
     c[:].execute('from parallel_optimize_leak import *', block=True)
+    if sleep:
+        time.sleep(120)
     c[:].map_sync(init_engine, [spines] * num_procs, [mech_file_path] * num_procs, [neurotree_file_path] * num_procs,
                   [neurotree_index] * num_procs, [param_file_path] * num_procs, [disp] * num_procs)
     print 'Initiated engines.'
