@@ -5,6 +5,7 @@ from ipyparallel import Client
 # from IPython.display import clear_output
 from specify_cells3 import *
 from moopgen import *
+from mpi4py import MPI
 
 """
 Aims for spike initiation at initial segment by increasing nax density and decreasing activation V1/2 relative to soma,
@@ -31,6 +32,8 @@ except:
 
 
 script_filename = 'parallel_optimize_leak.py'
+comm = MPI.COMM_WORLD
+rank = comm.rank
 
 equilibrate = 250.  # time to steady-state
 stim_dur = 500.
@@ -86,7 +89,7 @@ default_param_file_path = None
 @click.option("--survival-rate", type=float, default=0.2)
 @click.option("--analyze", is_flag=True)
 @click.option("--hot-start", is_flag=True)
-@click.option("--storage-file-path", type=click.Path(exists=True, file_okay=True, dir_okay=False), default=None)
+@click.option("--storage-file-path", type=str, default=None)
 @click.option("--export", is_flag=True)
 @click.option("--export-file-path", type=str, default=None)
 @click.option("--disp", is_flag=True)
