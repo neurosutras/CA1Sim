@@ -1,5 +1,5 @@
 #!/bin/bash
-#PBS -l nodes=3:ppn=16:xe
+#PBS -l nodes=4:ppn=16:xe
 #PBS -q debug
 #PBS -l walltime=00:30:00
 #PBS -A bafv
@@ -22,11 +22,14 @@ export PATH=$PI_HOME/bin/nrn/x86_64/bin:$PATH
 cd $HOME/CA1Sim
 
 cluster_id="test_ipyparallel"
-profile="mpi"
+#profile="bw"
+profile='mpi'
 
 set -x
 
-ipcluster start --cluster-id=$cluster_id --profile=$profile &
-sleep 120
-aprun -n 1 python test_ipyparallel.py --cluster-id=$cluster_id
-ipcluster stop --cluster-id=$cluster_id --profile=$profile &
+# max number of engines = (nodes - 1) * ppn - 1
+ipcluster start -n 47 --ip='*' --cluster-id=$cluster_id --profile=$profile &
+sleep 1
+sleep 1
+aprun -n 1 python test_ipyparallel.py --cluster-id=$cluster_id --profile=$profile
+ipcluster stop --cluster-id=$cluster_id --profile=$profile
