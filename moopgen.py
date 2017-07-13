@@ -725,9 +725,9 @@ class BGen(object):
             else:
                 self.storage = PopulationStorage(file_path=hot_start)
                 self.path_length = self.storage.path_length
-                initial_step_size = self.storage.step_size[-1]
-                if initial_step_size is None:
-                    initial_step_size = 0.5
+                current_step_size = self.storage.step_size[-1]
+                if current_step_size is not None:
+                    initial_step_size = current_step_size
                 self.num_gen = len(self.storage.history)
                 self.population = self.storage.history[-1]
                 self.survivors = self.storage.survivors[-1]
@@ -747,12 +747,14 @@ class BGen(object):
             self.take_step = BoundedStep(self.x0, stepsize=initial_step_size, bounds=bounds, wrap=wrap_bounds,
                                          random=self.random)
             self.x0 = np.array(self.take_step.x0)
+            self.xmin = np.array(self.take_step.xmin)
+            self.xmax = np.array(self.take_step.xmax)
         elif isinstance(take_step, collections.Callable):  # must accept the above named keyword arguments
             self.take_step = take_step
+            self.xmin = np.array(self.take_step.xmin)
+            self.xmax = np.array(self.take_step.xmax)
         else:
             raise TypeError("BGen: take_step must be callable.")
-        self.xmin = np.array(self.take_step.xmin)
-        self.xmax = np.array(self.take_step.xmax)
         if max_iter is None:
             self.max_gens = self.path_length * 30
         else:
@@ -777,13 +779,8 @@ class BGen(object):
             else:
                 if not self.objectives_stored:
                     raise Exception('BGen: Gen %i, objectives have not been stored for all Individuals in '
-                                    'population' % self.num_gen-1)
+                                    'population' % (self.num_gen - 1))
                 if self.num_gen % self.path_length == 0:
-                    new_step_size = self.take_step.stepsize * self.adaptive_step_factor
-                    if self.disp:
-                        print 'BGen: Gen %i, previous step_size: %.3f, new step_size: %.3f' % \
-                              (self.num_gen, self.take_step.stepsize, new_step_size)
-                    self.take_step.stepsize = new_step_size
                     self.step_survivors()
                 else:
                     self.step_population()
@@ -795,9 +792,6 @@ class BGen(object):
             yield [individual.x for individual in self.population]
         # evaluate the final, potentially incomplete interval of generations
         if self.objectives_stored and not self.evaluated:
-            if self.disp:
-                print 'BGen: Gen %i, computing features took %.2f s' % (self.num_gen-1, time.time()-self.local_time)
-            self.local_time = time.time()
             self.final_survivors = self.storage.get_best(n=self.num_survivors,
                                   iterations=1, evaluate=self._evaluate,
                                   modify=True)
@@ -873,6 +867,11 @@ class BGen(object):
             print 'BGen: Gen %i, evaluating iteration took %.2f s' % (self.num_gen - 1,
                                                                       time.time() - self.local_time)
         self.local_time = time.time()
+        new_step_size = self.take_step.stepsize * self.adaptive_step_factor
+        if self.disp:
+            print 'BGen: Gen %i, previous step_size: %.3f, new step_size: %.3f' % \
+                  (self.num_gen, self.take_step.stepsize, new_step_size)
+        self.take_step.stepsize = new_step_size
         for individual in self.survivors:
             individual.survivor = True
         new_population = []

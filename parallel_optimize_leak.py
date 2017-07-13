@@ -58,7 +58,7 @@ default_feature_names = ['soma R_inp', 'dend R_inp', 'distal_dend R_inp']
 default_objective_names = ['soma R_inp', 'dend R_inp', 'distal_dend R_inp']
 default_target_val = {'soma R_inp': 295., 'dend R_inp': 375.}
 default_target_range = {'soma R_inp': 0.5, 'dend R_inp': 1.}
-default_optimization_title = 'optimize_leak'
+default_optimization_title = 'leak'
 
 # Option to load defaults from a YAML file
 default_param_file_path = None
@@ -174,15 +174,19 @@ def main(cluster_id, profile, spines, mech_file_path, neurotree_file_path, neuro
     if param_gen not in globals():
         raise NameError('Multi-Objective Optimization: %s has not been imported, or is not a valid class of parameter '
                         'generator.' % param_gen)
+    global param_gen_func
+    param_gen_func = globals()[param_gen]
+    global param_gen_func_name
+    param_gen_func_name = param_gen
 
-    if storage_file_path is not None:
-        globals()['storage_file_path'] = storage_file_path
-    else:
-        globals()['storage_file_path'] = 'data/%s_%s_%s_optimization_history.hdf5' % \
+    if storage_file_path is None:
+        storage_file_path = 'data/%s_%s_%s_optimization_history.hdf5' % \
                        (datetime.datetime.today().strftime('%m%d%Y%H%M'), optimization_title, param_gen)
+    globals()['storage_file_path'] = storage_file_path
     if export_file_path is None:
-        export_file_path = 'data/%s_%s_%s_exported_traces.hdf5' % \
+        export_file_path = 'data/%s_%s_%s_optimization_exported_traces.hdf5' % \
                            (datetime.datetime.today().strftime('%m%d%Y%H%M'), optimization_title, param_gen)
+    globals()['export_file_path'] = export_file_path
 
     if get_features is None:
         get_features = default_get_features
@@ -207,15 +211,13 @@ def main(cluster_id, profile, spines, mech_file_path, neurotree_file_path, neuro
     if blocks * (num_procs / group_size) < pop_size:
         blocks += 1
 
-    print 'Multi-Objective Optimization: %s; Total processes: %i; Population size: %i; Group size: %i; ' \
-          'Feature calculator: %s; Objective calculator: %s; Blocks / generation: %i' % \
-          (param_gen, num_procs, pop_size, group_size, get_features, get_objectives, blocks)
+    print 'Multi-Objective Optimization: %s; Generator: %s; Total processes: %i; Population size: %i; Group size: %i;' \
+          ' Feature calculator: %s; Objective calculator: %s; Blocks / generation: %i' % \
+          (optimization_title, param_gen_func_name, num_procs, pop_size, group_size, get_features, get_objectives, blocks)
     if un_utilized > 0:
         print 'Multi-Objective Optimization: %i processes are unutilized' % un_utilized
     sys.stdout.flush()
 
-    param_gen_func = globals()[param_gen]
-    globals()['param_gen_func'] = param_gen_func
     get_features = globals()[get_features]
     globals()['get_features'] = get_features
     get_objectives = globals()[get_objectives]
@@ -231,30 +233,32 @@ def main(cluster_id, profile, spines, mech_file_path, neurotree_file_path, neuro
     global x
     if not analyze:
         if hot_start:
-            globals()['param_gen'] = param_gen_func(pop_size, x0=param_dict_to_array(x0), bounds=bounds,
-                                                    wrap_bounds=wrap_bounds, seed=seed,
-                                                    max_iter=max_iter, adaptive_step_factor=adaptive_step_factor,
+            globals()['param_gen'] = param_gen_func(pop_size, x0=param_dict_to_array(x0, param_names), bounds=bounds,
+                                                    wrap_bounds=wrap_bounds, seed=seed, max_iter=max_iter,
+                                                    adaptive_step_factor=adaptive_step_factor,
                                                     survival_rate=survival_rate, disp=disp, hot_start=storage_file_path)
         else:
             globals()['param_gen'] = param_gen_func(param_names, feature_names, objective_names, pop_size,
-                                                    x0=param_dict_to_array(x0),
-                                                    bounds=bounds, wrap_bounds=wrap_bounds, seed=seed,
-                                                    max_iter=max_iter, path_length=path_length,
-                                                    initial_step_size=initial_step_size,
+                                                    x0=param_dict_to_array(x0, param_names), bounds=bounds,
+                                                    wrap_bounds=wrap_bounds, seed=seed, max_iter=max_iter,
+                                                    path_length=path_length, initial_step_size=initial_step_size,
                                                     adaptive_step_factor=adaptive_step_factor,
                                                     survival_rate=survival_rate, disp=disp)
+        this_param_gen = globals()['param_gen']
         run_optimization(group_size, path_length, disp)
-        storage = param_gen.storage
-        x = param_array_to_dict(storage.get_best(1, 'last'))
+        storage = this_param_gen.storage
+        best_individual = storage.get_best(1, 'last')[0]
+        x = param_array_to_dict(best_individual.x, param_names)
     elif os.path.isfile(storage_file_path):
         storage = PopulationStorage(file_path=storage_file_path)
         print 'Analysis mode: history loaded from path: %s' % storage_file_path
-        x = param_array_to_dict(storage.get_best(1, 'last'))
+        best_individual = storage.get_best(1, 'last')[0]
+        x = param_array_to_dict(best_individual.x, param_names)
     else:
         print 'Analysis mode: history not loaded'
         x = x0
     if export:
-        export_traces(x, group_size, export_file_path=export_file_path)
+        export_traces(x, group_size, export_file_path=export_file_path, disp=disp)
 
 
 @interactive
@@ -267,10 +271,10 @@ def run_optimization(group_size, path_length, disp):
     """
     for ind, generation in enumerate(param_gen()):
         if (ind > 0) and (ind % path_length == 0):
-            param_gen.storage.save_gen(storage_file_path, ind - 1, path_length)
+            param_gen.storage.save(storage_file_path, n=path_length)
         features, objectives = compute_features(generation, group_size=group_size, disp=disp)
         param_gen.update_population(features, objectives)
-    param_gen.storage.save_gen(storage_file_path, ind, path_length)
+    param_gen.storage.save(storage_file_path, n=path_length)
 
 
 @interactive
@@ -376,8 +380,7 @@ def compute_features(generation, group_size=1, disp=False, export=False):
     usable_procs = num_procs - (num_procs % group_size)
     client_ranges = [range(start, start+group_size) for start in range(0, usable_procs, group_size)]
     results = []
-    final_results = {}
-    rec_file_list = []
+    population_features_dict = {}
     while len(pop_ids) > 0 or len(results) > 0:
         num_groups = min(len(client_ranges), len(pop_ids))
         if num_groups > 0:
@@ -391,21 +394,25 @@ def compute_features(generation, group_size=1, disp=False, export=False):
                     client_ranges.append(this_result['client_range'])
                     if disp:
                         flush_engine_buffer(this_result['async_result'])
-                    this_feature_dict = {key: value for result_dict in this_result['async_result'].get()
-                                         for key, value in result_dict.iteritems()}
-                    final_results[this_result['pop_id']] = this_feature_dict
+                    if 'filter_features' in this_result:
+                        filter_features_func = this_result['filter_features']
+                        if not callable(filter_features_func):
+                            raise NameError('Multi-Objective Optimization: filter_features function %s not callable' %
+                                            filter_features_func)
+                        this_feature_dict = filter_features_func(this_result['async_result'].get())
+                    else:
+                        this_feature_dict = {key: value for result_dict in this_result['async_result'].get()
+                                             for key, value in result_dict.iteritems()}
+                    population_features_dict[this_result['pop_id']] = this_feature_dict
                     results.remove(this_result)
                     if disp:
                         print 'Individual: %i, computing features took %.2f s' % \
                               (this_result['pop_id'], this_result['async_result'].wall_time)
-                    if export is True:
-                        rec_file_list.extend(this_result['rec_file_list'])
         else:
             time.sleep(1.)
-    if not export:
-        features = [final_results[pop_id] for pop_id in range(pop_size)]
-        objectives = map(get_objectives, features)
-        return features, objectives
+    features = [population_features_dict[pop_id] for pop_id in range(pop_size)]
+    objectives = map(get_objectives, features)
+    return features, objectives
 
 
 @interactive
@@ -415,19 +422,10 @@ def get_Rinp_features(x, pop_id, client_range, export=False):
     :param x: array (soma.g_pas, dend.g_pas slope, dend.g_pas tau, dend.g_pas xhalf)
     :return: float
     """
-    #Reset cell here?
     sec_list = ['soma', 'dend', 'distal_dend']
     dv = c[client_range]
-
-    result = dv.map_async(get_Rinp_for_section, sec_list, [x] * len(sec_list))
-    if export is True:
-        while not result.ready():
-            time.sleep(1.)
-        dv.execute('export_sim_results()')
-        rec_file_list = [filename for filename in dv['rec_filename'] if os.path.isfile(data_dir + filename + '.hdf5')]
-    else:
-        rec_file_list = None
-    return {'pop_id': pop_id, 'client_range': client_range, 'async_result': result, 'rec_file_list': rec_file_list}
+    result = dv.map_async(get_Rinp_for_section, sec_list, [x] * len(sec_list), [export] * len(sec_list))
+    return {'pop_id': pop_id, 'client_range': client_range, 'async_result': result}
 
 
 @interactive
@@ -551,10 +549,12 @@ def update_pas_exp(x):
 
 
 @interactive
-def get_Rinp_for_section(section, x):
+def get_Rinp_for_section(section, x, export=False):
     """
     Inject a hyperpolarizing step current into the specified section, and return the steady-state input resistance.
     :param section: str
+    :param x: array
+    :param export: bool
     :return: dict: {str: float}
     """
     start_time = time.time()
@@ -575,6 +575,8 @@ def get_Rinp_for_section(section, x):
     Rinp = get_Rinp(np.array(sim.tvec), np.array(rec['vec']), equilibrate, duration, amp)[2]
     result = {}
     result[section+' R_inp'] = Rinp
+    if export:
+        export_sim_results()
     print 'Process:', os.getpid(), 'calculated Rinp for %s in %.1f s, Rinp: %.1f' % (section, time.time() - start_time,
                                                                                     Rinp)
     return result
@@ -590,7 +592,7 @@ def export_sim_results():
 
 
 @interactive
-def export_traces(x, group_size, export_file_path=None, discard=True):
+def export_traces(x, group_size, export_file_path=None, disp=False, discard=True):
     """
     Run simulations on the engines with the given parameter values, have the engines export their results to .hdf5,
     and then read in and plot the results.
@@ -601,18 +603,21 @@ def export_traces(x, group_size, export_file_path=None, discard=True):
     :param discard: bool
     """
     x_array = param_dict_to_array(x, param_names)
-    compute_features([x_array], group_size=group_size, export=True)
+    global exported_features
+    global exported_objectives
+    exported_features, exported_objectives = compute_features([x_array], group_size=group_size, disp=disp, export=True)
     rec_file_path_list = [data_dir + filename + '.hdf5' for filename in c[:]['rec_filename']
                      if os.path.isfile(data_dir + filename + '.hdf5')]
     combine_hdf5_file_paths(rec_file_path_list, export_file_path)
     if discard:
         for rec_file_path in rec_file_path_list:
             os.remove(rec_file_path)
+    print 'Multi-Objective Optimization: Exported traces to %s' % export_file_path
 
 
 @interactive
-def plot_best_voltage_traces(combined_rec_filename):
-    with h5py.File(data_dir+combined_rec_filename+'.hdf5', 'r') as f:
+def plot_best_voltage_traces(export_file_path):
+    with h5py.File(export_file_path, 'r') as f:
         for trial in f.itervalues():
             target = trial.attrs['target']
             section = trial.attrs['section']
