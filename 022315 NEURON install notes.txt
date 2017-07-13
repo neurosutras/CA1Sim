@@ -128,7 +128,8 @@ edit the file IPYTHONDIR/profile_mpi/ipengine_config.py
 c.MPI.use = 'mpi4py'
 
 9) set the default backend for matplotlib to 'Agg' in the matplotlibrc file so that importing pyplot doesn't cause errors in a system without display capability
-
+Original config file should be in site-packages/matplotlib/mpl-data/matplotlibrc
+Copy it to $HOME/.config/matplotlib/matplotlibrc, then change the backend to 'Agg'
 
 
 10) To run my simulations, make sure to execute nrnivmodl in the directory that contains the .mod and .py files.
