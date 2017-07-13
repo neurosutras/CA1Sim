@@ -3,6 +3,7 @@ from function_lib import *
 from ipyparallel import Client
 from ipyparallel import interactive
 import click
+from mpi4py import MPI
 
 """
 Tests that complete range of engines, potentially across multiple nodes on a cluster, are accessible.
@@ -11,6 +12,8 @@ ipcluster start -n num_cores
 """
 
 script_filename = 'test_ipyparallel.py'
+comm = MPI.COMM_WORLD
+rank = comm.rank
 
 
 @click.command()
@@ -36,7 +39,7 @@ def get_engine_ids(target_id):
     :return:
     """
     pid = os.getpid()
-    return {'target_id': target_id, 'pid': pid}
+    return {'target_id': target_id, 'pid': pid, 'rank': rank}
 
 
 if __name__ == '__main__':

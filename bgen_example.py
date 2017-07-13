@@ -42,13 +42,29 @@ objective_names = ['f1', 'f2', 'g', 'h']
 get_features = complex_problem
 get_objectives = get_objectives
 
+path_length = 2
+wrap_bounds = False
+max_iter = 30
+# max_iter = 40
+hot_start = None
+# hot_start = 'data/071220172044_bgen_example_storage.hdf5'
 
-bgen = BGen(param_names, feature_names, objective_names, 100, x0=x0, bounds=bounds, seed=0, max_iter=30,
-            adaptive_step_factor=0.9, survival_rate=0.20, disp=True)
 
-for param_list in bgen():
+storage_file_path = 'data/%s_bgen_example_storage.hdf5' % (datetime.datetime.today().strftime('%m%d%Y%H%M'))
+
+bgen = BGen(param_names, feature_names, objective_names, 100, x0=x0, bounds=bounds, wrap_bounds=wrap_bounds, seed=0,
+            max_iter=max_iter, path_length=path_length, adaptive_step_factor=0.9, survival_rate=0.20, disp=True,
+            hot_start=hot_start)
+
+offset = bgen.num_gen
+for i, param_list in enumerate(bgen()):
+    if i + offset > 0 and (i + offset) % path_length == 0:
+        bgen.storage.save(storage_file_path, n=path_length)
     features = map(get_features, param_list)
     objectives = map(get_objectives, features)
     bgen.update_population(features, objectives)
-
+bgen.storage.save(storage_file_path, n=path_length)
 bgen.storage.plot()
+
+# storage = PopulationStorage(file_path=storage_file_path)
+# storage.plot()
