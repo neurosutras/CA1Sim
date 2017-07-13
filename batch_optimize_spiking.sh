@@ -21,4 +21,4 @@ sleep 60
 ibrun -n 70 ipengine --cluster-id=$cluster_id &
 sleep 1
 sleep 120
-ibrun -n 1 python parallel_optimize_spiking.py --cluster-id=$cluster_id --group-sizes 1 10 --pop-size=7 --max-iter=2 --path-length 2 --optimize --disp
+ibrun -n 1 python parallel_optimize_spiking.py --cluster-id=$cluster_id -gs 1 -gs 10 --pop-size=7 --max-iter=2 --path-length 2 --disp

@@ -49,6 +49,7 @@ default_param_gen = 'BGen'
 default_get_features = ('get_stability_features', 'get_fI_features')
 default_process_features = ('process_stability_features', 'process_fI_features')
 default_get_objectives = 'get_spiking_objectives'
+default_group_sizes = (1, 10)
 
 default_x0_dict = {'soma.gbar_nas': 0.03, 'dend.gbar_nas': 0.03, 'axon.gbar_nax': 0.06, 'ais.gbar_nax': 1.681E-01,
                    'soma.gkabar': 2.108E-02, 'dend.gkabar': 2.709E-03, 'soma.gkdrbar': 4.299E-02,
@@ -72,7 +73,6 @@ default_target_val = {'v_rest': v_init, 'v_th': -48., 'ADP': 0., 'AHP': 4., 'spo
 default_target_range = {'v_rest': 0.25, 'v_th': .01, 'ADP': 0.01, 'AHP': .005, 'spont_firing': 1, 'rebound_firing': 1,
                       'vm_stability': 1., 'ais_delay': 0.0005, 'slow_depo': 0.5, 'dend_amp': 0.0002, 'soma_peak': 2.}
 default_optimization_title = 'spiking'
-default_group_sizes = (1, 10)
 
 # param_file_path = 'data/optimize_spiking_defaults.yaml'
 
@@ -85,10 +85,10 @@ default_group_sizes = (1, 10)
 @click.option("--neurotree-index", type=int, default=0)
 @click.option("--param-file-path", type=click.Path(exists=True, file_okay=True, dir_okay=False), default=None)
 @click.option("--param-gen", type=str, default=None)
-@click.option("--get-features", nargs=2, type=str, default=())
-@click.option("--process-features", nargs=2, type=str, default=())
+@click.option("--get-features", "-gf", multiple=True, type=str, default=None)
+@click.option("--process-features", "-ps", multiple=True, type=str, default=None)
 @click.option("--get-objectives", type=str, default=None)
-@click.option("--group-sizes", nargs=2, type=int, default=())
+@click.option("--group-sizes", "-gs", multiple=True, type=int, default=None)
 @click.option("--pop-size", type=int, default=100)
 @click.option("--seed", type=int, default=None)
 @click.option("--max-iter", type=int, default=30)
@@ -97,14 +97,14 @@ default_group_sizes = (1, 10)
 @click.option("--adaptive-step-factor", type=float, default=0.9)
 @click.option("--niter-success", type=int, default=None)
 @click.option("--survival-rate", type=float, default=0.2)
-@click.option("--optimize", is_flag=True)
+@click.option("--analyze", is_flag=True)
 @click.option("--storage-file-path", type=click.Path(exists=True, file_okay=True, dir_okay=False), default=None)
 @click.option("--export", type=int, default=None)
 @click.option("--export-file-name", type=str, default=None)
 @click.option("--disp", is_flag=True)
 def main(cluster_id, spines, mech_file_path, neurotree_file_path, neurotree_index, param_file_path, param_gen,
          get_features, process_features, get_objectives, group_sizes, pop_size, seed, max_iter, max_gens, path_length,
-         adaptive_step_factor, niter_success, survival_rate, optimize, storage_file_path, export, export_file_name, disp):
+         adaptive_step_factor, niter_success, survival_rate, analyze, storage_file_path, export, export_file_name, disp):
     """
 
     :param cluster_id: str
@@ -114,10 +114,10 @@ def main(cluster_id, spines, mech_file_path, neurotree_file_path, neurotree_inde
     :param neurotree_index: int
     :param param_file_path: str (path)
     :param param_gen: str (must refer to callable in globals())
-    :param get_features: tuple of two str (must refer to callable in globals())
-    :param process_features: tuple of two str (must refer to callable in globals())
+    :param get_features: list of str (must refer to callable in globals())
+    :param process_features: list of str (must refer to callable in globals())
     :param get_objectives: str (must refer to callable in globals())
-    :param group_sizes: tuple of int
+    :param group_sizes: list of int
     :param pop_size: int
     :param seed: int
     :param max_iter: int
@@ -126,7 +126,7 @@ def main(cluster_id, spines, mech_file_path, neurotree_file_path, neurotree_inde
     :param adaptive_step_factor: float in [0., 1.]
     :param niter_success: int
     :param survival_rate: float
-    :param optimize: bool
+    :param analyze: bool
     :param storage_file_path: str (path)
     :param export: int
     :param export_file_name str
@@ -208,18 +208,18 @@ def main(cluster_id, spines, mech_file_path, neurotree_file_path, neurotree_inde
     history_filename = '%s %s %s optimization history.hdf5' % \
                        (datetime.datetime.today().strftime('%m%d%Y%H%M'), optimization_title, param_gen)
 
-    if get_features[0] not in globals() or not callable(globals()[get_features[0]]):
-        raise NameError('Multi-Objective Optimization: get_features: %s has not been imported, or is not a callable '
-                        'function.' % get_features[0])
-    if get_features[1] not in globals() or not callable(globals()[get_features[1]]):
-        raise NameError('Multi-Objective Optimization: get_features: %s has not been imported, or is not a callable '
-                        'function.' % get_features[1])
-    if process_features[0] not in globals() or not callable(globals()[process_features[0]]):
-        raise NameError('Multi-Objective Optimization: process_features: %s has not been imported, or is not a callable '
-                        'function.' % process_features[0])
-    if process_features[1] not in globals() or not callable(globals()[process_features[1]]):
-        raise NameError('Multi-Objective Optimization: process_features: %s has not been imported, or is not a callable '
-                        'function.' % process_features[1])
+    if len(get_features) != len(process_features):
+        raise NameError('Number of arguments in get_features does not match number of arguments in process_features.')
+    if len(get_features) != len(group_sizes):
+        raise NameError('Number of arguments in get_features does not match number of arguments in group_sizes.')
+
+    for i in range(len(get_features)):
+        if get_features[i] not in globals() or not callable(globals()[get_features[i]]):
+            raise NameError('Multi-Objective Optimization: get_features: %s has not been imported, or is not a callable '
+                            'function.' % get_features[i])
+        if process_features[i] not in globals() or not callable(globals()[process_features[i]]):
+            raise NameError('Multi-Objective Optimization: process_features: %s has not been imported, or is not a callable '
+                            'function.' % process_features[i])
     if get_objectives not in globals() or not callable(globals()[get_objectives]):
         raise NameError('Multi-Objective Optimization: get_objectives: %s has not been imported, or is not a callable '
                         'function.' % get_objectives)
@@ -267,7 +267,7 @@ def main(cluster_id, spines, mech_file_path, neurotree_file_path, neurotree_inde
         storage = PopulationStorage(file_path=storage_file_path)
     else:
         storage = None
-    if optimize:
+    if not analyze:
         if storage is None:
             local_param_gen = param_gen(param_names, feature_names, objective_names, pop_size, x0=x0, bounds=bounds, seed=seed,
                                         max_iter=max_iter, max_gens=max_gens, path_length=path_length,
