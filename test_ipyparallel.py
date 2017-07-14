@@ -24,15 +24,26 @@ def main(cluster_id, profile, sleep):
     """
 
     :param cluster_id: str
+    :param profile: str
+    :param sleep: bool
     """
     if sleep:
+        print '%s: Waiting for controller' % datetime.datetime.today().strftime('%m%d%Y%H%M')
+        sys.stdout.flush()
         time.sleep(300)
+        print '%s: Building controller' % datetime.datetime.today().strftime('%m%d%Y%H%M')
+        sys.stdout.flush()
     c = Client(cluster_id=cluster_id, profile=profile)
     dv = c[:]
-    print 'Controller sees %i engines' % len(dv.targets)
+    print '%s: Controller sees %i engines' % (datetime.datetime.today().strftime('%m%d%Y%H%M'), len(dv.targets))
+    sys.stdout.flush()
     dv.execute('from test_ipyparallel import *', block=True)
     if sleep:
+        print '%s: Waiting for engines to import python module' % datetime.datetime.today().strftime('%m%d%Y%H%M')
+        sys.stdout.flush()
         time.sleep(120)
+        print '%s: Engines ready' % datetime.datetime.today().strftime('%m%d%Y%H%M')
+        sys.stdout.flush()
     result = dv.map_sync(get_engine_ids, dv.targets)
     print result
 
