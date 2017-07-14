@@ -93,10 +93,11 @@ default_param_file_path = None
 @click.option("--export", is_flag=True)
 @click.option("--export-file-path", type=str, default=None)
 @click.option("--disp", is_flag=True)
+@click.option("--sleep", is_flag=True)
 def main(cluster_id, profile, spines, mech_file_path, neurotree_file_path, neurotree_index, param_file_path, param_gen,
          get_features, get_objectives, group_size, pop_size, wrap_bounds, seed, max_iter, path_length,
          initial_step_size, adaptive_step_factor, survival_rate, analyze, hot_start, storage_file_path, export,
-         export_file_path, disp):
+         export_file_path, disp, sleep):
     """
 
     :param cluster_id: str
@@ -124,9 +125,12 @@ def main(cluster_id, profile, spines, mech_file_path, neurotree_file_path, neuro
     :param export: bool
     :param export_file_path: str (path)
     :param disp: bool
+    :param sleep: bool
     """
     global c
 
+    if sleep:
+        time.sleep(300)
     if cluster_id is not None:
         c = Client(cluster_id=cluster_id, profile=profile)
     else:
@@ -227,6 +231,8 @@ def main(cluster_id, profile, spines, mech_file_path, neurotree_file_path, neuro
     globals()['get_objectives'] = get_objectives
 
     c[:].execute('from parallel_optimize_leak import *', block=True)
+    if sleep:
+        time.sleep(120)
     c[:].map_sync(init_engine, [spines] * num_procs, [mech_file_path] * num_procs, [neurotree_file_path] * num_procs,
                   [neurotree_index] * num_procs, [param_file_path] * num_procs, [disp] * num_procs)
     print 'Initiated engines.'
@@ -252,14 +258,23 @@ def main(cluster_id, profile, spines, mech_file_path, neurotree_file_path, neuro
         storage = this_param_gen.storage
         best_individual = storage.get_best(1, 'last')[0]
         x = param_array_to_dict(best_individual.x, param_names)
+        if disp:
+            print 'Multi-Objective Optimization: Best params:'
+            print x
     elif os.path.isfile(storage_file_path):
         storage = PopulationStorage(file_path=storage_file_path)
-        print 'Analysis mode: history loaded from path: %s' % storage_file_path
+        print 'Multi-Objective Optimization: Analysis mode: History loaded from path: %s' % storage_file_path
         best_individual = storage.get_best(1, 'last')[0]
         x = param_array_to_dict(best_individual.x, param_names)
+        if disp:
+            print 'Multi-Objective Optimization: Best params:'
+            print x
     else:
-        print 'Analysis mode: history not loaded'
+        print 'Multi-Objective Optimization: Analysis mode: History not loaded'
         x = x0
+        if disp:
+            print 'Multi-Objective Optimization: Loaded params:'
+            print x
     if export:
         export_traces(x, group_size, export_file_path=export_file_path, disp=disp)
 
@@ -292,17 +307,14 @@ def init_engine(spines=False, mech_file_path=None, neurotree_file_path=None, neu
     :param param_file_path: str (path)
     :param disp: bool
     """
-    global x0
     global param_names
     global param_indexes
 
     if param_file_path is not None:
         params_dict = read_from_pkl(param_file_path)
         param_names = params_dict['param_names']
-        x0 = params_dict['x0']
     else:
         param_names = default_param_names
-        x0 = default_x0_dict
 
     param_indexes = {param_name: i for i, param_name in enumerate(param_names)}
 
