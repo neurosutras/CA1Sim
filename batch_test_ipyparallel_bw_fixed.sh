@@ -1,5 +1,5 @@
 #!/bin/bash
-#PBS -l nodes=4:ppn=16:xe
+#PBS -l nodes=39:ppn=16:xe
 #PBS -q debug
 #PBS -l walltime=00:30:00
 #PBS -A bafv
@@ -28,8 +28,8 @@ profile='mpi'
 set -x
 
 # max number of engines = (nodes - 1) * ppn - 1
-ipcluster start -n 47 --ip='*' --cluster-id=$cluster_id --profile=$profile &
+ipcluster start -n 600 --daemon --ip='*' --cluster-id=$cluster_id --profile=$profile &
 sleep 1
 sleep 1
-aprun -n 1 python test_ipyparallel.py --cluster-id=$cluster_id --profile=$profile
+aprun -n 1 python test_ipyparallel.py --cluster-id=$cluster_id --profile=$profile --sleep
 ipcluster stop --cluster-id=$cluster_id --profile=$profile

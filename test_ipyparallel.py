@@ -19,17 +19,20 @@ rank = comm.rank
 @click.command()
 @click.option("--cluster-id", type=str, required=True)
 @click.option("--profile", type=str, default='default')
-def main(cluster_id, profile):
+@click.option("--sleep", is_flag=True)
+def main(cluster_id, profile, sleep):
     """
 
     :param cluster_id: str
     """
-    time.sleep(300)
+    if sleep:
+        time.sleep(300)
     c = Client(cluster_id=cluster_id, profile=profile)
     dv = c[:]
     print 'Controller sees %i engines' % len(dv.targets)
     dv.execute('from test_ipyparallel import *', block=True)
-    time.sleep(120)
+    if sleep:
+        time.sleep(120)
     result = dv.map_sync(get_engine_ids, dv.targets)
     print result
 
