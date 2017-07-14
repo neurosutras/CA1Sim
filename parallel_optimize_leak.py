@@ -258,14 +258,23 @@ def main(cluster_id, profile, spines, mech_file_path, neurotree_file_path, neuro
         storage = this_param_gen.storage
         best_individual = storage.get_best(1, 'last')[0]
         x = param_array_to_dict(best_individual.x, param_names)
+        if disp:
+            print 'Multi-Objective Optimization: Best params:'
+            print x
     elif os.path.isfile(storage_file_path):
         storage = PopulationStorage(file_path=storage_file_path)
-        print 'Analysis mode: history loaded from path: %s' % storage_file_path
+        print 'Multi-Objective Optimization: Analysis mode: History loaded from path: %s' % storage_file_path
         best_individual = storage.get_best(1, 'last')[0]
         x = param_array_to_dict(best_individual.x, param_names)
+        if disp:
+            print 'Multi-Objective Optimization: Best params:'
+            print x
     else:
-        print 'Analysis mode: history not loaded'
+        print 'Multi-Objective Optimization: Analysis mode: History not loaded'
         x = x0
+        if disp:
+            print 'Multi-Objective Optimization: Loaded params:'
+            print x
     if export:
         export_traces(x, group_size, export_file_path=export_file_path, disp=disp)
 
@@ -298,17 +307,14 @@ def init_engine(spines=False, mech_file_path=None, neurotree_file_path=None, neu
     :param param_file_path: str (path)
     :param disp: bool
     """
-    global x0
     global param_names
     global param_indexes
 
     if param_file_path is not None:
         params_dict = read_from_pkl(param_file_path)
         param_names = params_dict['param_names']
-        x0 = params_dict['x0']
     else:
         param_names = default_param_names
-        x0 = default_x0_dict
 
     param_indexes = {param_name: i for i, param_name in enumerate(param_names)}
 
