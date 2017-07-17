@@ -3,9 +3,9 @@
 #PBS -q debug
 #PBS -l walltime=00:30:00
 #PBS -A bafv
-#PBS -N test_ipyparallel_bw
-#PBS -e test_ipyparallel_bw.$PBS_JOBID.err
-#PBS -o test_ipyparallel_bw.$PBS_JOBID.out
+#PBS -N parallel_optimize_leak_bw_071317
+#PBS -e parallel_optimize_leak_bw_071317.$PBS_JOBID.err
+#PBS -o parallel_optimize_leak_bw_071317.$PBS_JOBID.out
 #PBS -m bea
 #PBS -M aaronmil@stanford.edu
 #PBS -W umask=0027
@@ -21,15 +21,15 @@ export PYTHONPATH=$PI_HOME/bin/nrn/lib/python:$PI_HOME/site-packages:$PYTHONPATH
 export PATH=$PI_HOME/bin/nrn/x86_64/bin:$PATH
 cd $HOME/CA1Sim
 
-cluster_id="test_ipyparallel"
+cluster_id="leak"
 #profile="bw"
 profile='mpi'
 
 set -x
 
 # max number of engines = (nodes - 1) * ppn - 1
-ipcluster start -n 600 --daemon --ip='*' --cluster-id=$cluster_id --profile=$profile &
+ipcluster start -n 607 --daemon --ip='*' --cluster-id=$cluster_id --profile=$profile &
 sleep 1
 sleep 1
-aprun -n 1 python test_ipyparallel.py --cluster-id=$cluster_id --profile=$profile --sleep
+aprun -n 1 python parallel_optimize_leak.py --cluster-id=$cluster_id --profile=$profile --group-size=3 --pop-size=200 --path-length=2 --max-iter=2 --disp --sleep
 ipcluster stop --cluster-id=$cluster_id --profile=$profile
