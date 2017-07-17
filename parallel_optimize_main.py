@@ -48,7 +48,7 @@ script_filename = 'parallel_optimize_main.py'
 @click.option("--sleep", is_flag=True)
 @click.option("--analyze", is_flag=True)
 @click.option("--hot-start", is_flag=True)
-@click.option("--storage-file-path", type=str)
+@click.option("--storage-file-path", type=str, default=None)
 @click.option("--export", is_flag=True)
 @click.option("--export-file-path", type=str, default=None)
 @click.option("--disp", is_flag=True)
@@ -178,11 +178,10 @@ def main(cluster_id, profile, spines, mech_file_path, neurotree_file_path, neuro
 
     setup_module_functions(get_features, features_modules, objectives_modules, group_sizes)
     c[:].execute('from parallel_optimize_main import *', block=True)
-    c[:].map_sync(setup_module_functions, [get_features] * num_procs, [features_modules] * num_procs,
-                  [objectives_modules] * num_procs, [group_sizes] * num_procs)
     if sleep:
         time.sleep(120.)
-
+    c[:].map_sync(setup_module_functions, [get_features] * num_procs, [features_modules] * num_procs,
+                  [objectives_modules] * num_procs, [group_sizes] * num_procs)
     print 'Multi-Objective Optimization %s: Generator: %s; Total processes: %i; Population size: %i; Group sizes: %s; ' \
           'Feature calculator: %s; Objective calculator: %s; Blocks / generation: %s' % \
           (optimization_title, param_gen_func_name, num_procs, pop_size, (','.join(str(x) for x in group_sizes)),
@@ -210,14 +209,23 @@ def main(cluster_id, profile, spines, mech_file_path, neurotree_file_path, neuro
         storage = this_param_gen.storage
         best_ind = storage.get_best(1, 'last')[0]
         x = param_array_to_dict(best_ind.x, param_names)
+        if disp:
+            print 'Multi-Objective Optimization: Best params:'
+            print x
     elif os.path.isfile(storage_file_path):
         storage = PopulationStorage(file_path=storage_file_path)
         print 'Analysis mode: history loaded from path: %s' % storage_file_path
         best_ind = storage.get_best(1, 'last')[0]
         x = param_array_to_dict(best_ind.x, param_names)
+        if disp:
+            print 'Multi-Objective Optimization: Best params:'
+            print x
     else:
         print 'Analysis mode: history not loaded'
         x = x0
+        if disp:
+            print 'Multi-Objective Optimization: Loaded params:'
+            print x
     sys.stdout.flush()
     if export:
         export_traces(x, group_sizes, export_file_path=export_file_path, disp=disp)

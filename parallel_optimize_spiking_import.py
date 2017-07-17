@@ -29,6 +29,7 @@ i_holding = {'soma': 0., 'dend': 0., 'distal_dend': 0.}
 i_th = {'soma': 0.1}
 soma_ek = -77.
 soma_na_gbar = 0.04
+rec_filename = 'sim_output' + datetime.datetime.today().strftime('%m%d%Y%H%M') + '_pid' + str(os.getpid())
 
 @interactive
 def get_adaptation_index(spike_times):
@@ -117,8 +118,6 @@ def setup_cell():
     rec_locs = {'soma': 0., 'dend': dend_loc, 'ais': 1., 'axon': axon_seg_locs[0]}
     global rec_nodes
     rec_nodes = {'soma': cell.tree.root, 'dend': dend, 'ais': cell.axon[1], 'axon': cell.axon[2]}
-    global rec_filename
-    rec_filename = 'sim_output'+datetime.datetime.today().strftime('%m%d%Y%H%M')+'_pid'+str(os.getpid())
 
     equilibrate = module.equilibrate
     stim_dur = module.stim_dur
@@ -584,5 +583,5 @@ def export_sim_results():
     """
     Export the most recent time and recorded waveforms from the QuickSim object.
     """
-    with h5py.File(data_dir+rec_filename+'.hdf5', 'a') as f:
+    with h5py.File(data_dir+module.rec_filename+'.hdf5', 'a') as f:
         sim.export_to_file(f)
