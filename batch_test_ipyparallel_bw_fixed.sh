@@ -28,7 +28,7 @@ profile='mpi'
 set -x
 
 # max number of engines = (nodes - 1) * ppn - 1
-ipcluster start -n 600 --daemon --ip='*' --cluster-id=$cluster_id --profile=$profile &
+ipcluster start -n 600 --ip='*' --cluster-id=$cluster_id --profile=$profile &
 sleep 1
 sleep 1
 aprun -n 1 python test_ipyparallel.py --cluster-id=$cluster_id --profile=$profile --sleep

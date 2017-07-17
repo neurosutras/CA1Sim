@@ -465,9 +465,12 @@ def compute_features(generation, group_sizes=(1, 10), disp=False, export=False):
     features = [final_features[pop_id] for pop_id in pop_ids]
     objectives = []
     for i, this_features in enumerate(features):
-        new_features, new_objectives = get_objectives(this_features)
-        features[i] = new_features
-        objectives.append(new_objectives)
+        this_objectives = {}
+        for this_get_objective_func in get_objectives:
+            new_features, new_objectives = get_objectives(this_features)
+            features[i].update(new_features)
+            this_objectives.update(new_objectives)
+        objectives.append(this_objectives)
     if not export:
         return features, objectives
 

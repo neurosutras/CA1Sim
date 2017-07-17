@@ -135,6 +135,8 @@ def main(cluster_id, profile, spines, mech_file_path, neurotree_file_path, neuro
         c = Client(cluster_id=cluster_id, profile=profile)
     else:
         c = Client(profile=profile)
+    while len(c) == 0:
+        time.sleep(1)
 
     global num_procs
     num_procs = len(c)
@@ -257,7 +259,7 @@ def main(cluster_id, profile, spines, mech_file_path, neurotree_file_path, neuro
         run_optimization(group_size, path_length, disp)
         storage = this_param_gen.storage
         best_individual = storage.get_best(1, 'last')[0]
-        x = param_array_to_dict(best_individual.x, param_names)
+        x = param_array_to_dict(best_individual.x, storage.param_names)
         if disp:
             print 'Multi-Objective Optimization: Best params:'
             print x
@@ -265,7 +267,7 @@ def main(cluster_id, profile, spines, mech_file_path, neurotree_file_path, neuro
         storage = PopulationStorage(file_path=storage_file_path)
         print 'Multi-Objective Optimization: Analysis mode: History loaded from path: %s' % storage_file_path
         best_individual = storage.get_best(1, 'last')[0]
-        x = param_array_to_dict(best_individual.x, param_names)
+        x = param_array_to_dict(best_individual.x, storage.param_names)
         if disp:
             print 'Multi-Objective Optimization: Best params:'
             print x
