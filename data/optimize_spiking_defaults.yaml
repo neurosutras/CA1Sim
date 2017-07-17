@@ -57,10 +57,12 @@ feature_names:
 - adi
 - f_I_slope
 - f_I_residuals
+features_modules: !!python/tuple
+- parallel_optimize_spiking_import
+- parallel_optimize_spiking_import
 get_features: !!python/tuple
 - get_stability_features
 - get_fI_features
-get_objectives: get_spiking_objectives
 group_sizes: !!python/tuple
 - 1
 - 10
@@ -80,6 +82,8 @@ objective_names:
 - soma_peak
 - adi
 - f_I_slope
+objectives_modules: !!python/tuple
+- parallel_optimize_spiking_import
 optimization_title: spiking
 param_gen: BGen
 param_names:
@@ -97,9 +101,6 @@ param_names:
 - soma.gCadepK factor
 - soma.gkmbar
 - ais.gkmbar
-process_features: !!python/tuple
-- process_stability_features
-- process_fI_features
 target_range:
   ADP: 0.01
   AHP: 0.005

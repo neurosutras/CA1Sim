@@ -6,7 +6,7 @@ from ipyparallel import Client
 from specify_cells3 import *
 from moopgen import *
 from plot_results import *
-from parallel_optimize_spiking_import import *
+import importlib
 
 """
 Dynamically submits jobs to available cores.
@@ -30,10 +30,12 @@ script_filename = 'parallel_optimize_main.py'
 @click.option("--mech-file-path", type=click.Path(exists=True, file_okay=True, dir_okay=False), default=None)
 @click.option("--neurotree-file-path", type=click.Path(exists=True, file_okay=True, dir_okay=False), default=None)
 @click.option("--neurotree-index", type=int, default=0)
-@click.option("--param-file-path", type=click.Path(exists=True, file_okay=True, dir_okay=False), default=None)
+@click.option("--param-file-path", type=click.Path(exists=True, file_okay=True, dir_okay=False),
+              default='data/optimize_spiking_defaults.yaml')
 @click.option("--param-gen", type=str, default=None)
 @click.option("--get-features", "-gf", multiple=True, type=str, default=None)
-@click.option("--get-objectives", type=str, default=None)
+@click.option("--features-modules", "-fm", multiple=True, type=str, default=None)
+@click.option("--objectives-modules", "-om", multiple=True, type=str, default=None)
 @click.option("--group-sizes", "-gs", multiple=True, type=int, default=None)
 @click.option("--pop-size", type=int, default=100)
 @click.option("--wrap-bounds", is_flag=True)
@@ -43,16 +45,17 @@ script_filename = 'parallel_optimize_main.py'
 @click.option("--initial-step-size", type=float, default=0.5)
 @click.option("--adaptive-step-factor", type=float, default=0.9)
 @click.option("--survival-rate", type=float, default=0.2)
+@click.option("--sleep", is_flag=True)
 @click.option("--analyze", is_flag=True)
 @click.option("--hot-start", is_flag=True)
-@click.option("--storage-file-path", type=click.Path(exists=True, file_okay=True, dir_okay=False), default=None)
+@click.option("--storage-file-path", type=str)
 @click.option("--export", is_flag=True)
 @click.option("--export-file-path", type=str, default=None)
 @click.option("--disp", is_flag=True)
-def main(cluster_id, profile, spines, mech_file_path, neurotree_file_path, neurotree_index, param_file_path, param_gen,
-         get_features, get_objectives, group_sizes, pop_size, wrap_bounds, seed, max_iter, path_length,
-         initial_step_size, adaptive_step_factor, survival_rate, analyze, hot_start, storage_file_path, export,
-         export_file_path, disp):
+def main(cluster_id, profile, spines, mech_file_path, neurotree_file_path, neurotree_index, param_file_path,
+         param_gen, get_features, features_modules, objectives_modules, group_sizes, pop_size, wrap_bounds, seed,
+         max_iter, path_length, initial_step_size, adaptive_step_factor, survival_rate, sleep, analyze, hot_start,
+         storage_file_path, export, export_file_path, disp):
     """
 
     :param cluster_id: str
@@ -64,7 +67,8 @@ def main(cluster_id, profile, spines, mech_file_path, neurotree_file_path, neuro
     :param param_file_path: str (path)
     :param param_gen: str (must refer to callable in globals())
     :param get_features: tuple of str (must refer to callable in globals())
-    :param get_objectives: str (must refer to callable in globals())
+    :param features_modules: tuple of str
+    :param objectives_modules: tuple of str
     :param group_sizes: tuple of int
     :param pop_size: int
     :param wrap_bounds: bool
@@ -74,15 +78,17 @@ def main(cluster_id, profile, spines, mech_file_path, neurotree_file_path, neuro
     :param initial_step_size: float in [0., 1.]
     :param adaptive_step_factor: float in [0., 1.]
     :param survival_rate: float
+    :param sleep: bool
     :param analyze: bool
     :param hot_start: bool
-    :param storage_file_path: str (path)
+    :param storage_file_path: str
     :param export: bool
     :param export_file_path: str
     :param disp: bool
     """
     global c
-
+    if sleep:
+        time.sleep(300.)
     if cluster_id is not None:
         c = Client(cluster_id=cluster_id, profile=profile)
     else:
@@ -98,8 +104,9 @@ def main(cluster_id, profile, spines, mech_file_path, neurotree_file_path, neuro
     global objective_names
     global target_val
     global target_range
-    global optimization_title
-
+    globals()['path_length'] = path_length
+    globals()['spines'] = spines
+    global neurotree_dict
     if param_file_path is not None:
         params_dict = read_from_yaml(param_file_path)
         param_names = params_dict['param_names']
@@ -110,61 +117,47 @@ def main(cluster_id, profile, spines, mech_file_path, neurotree_file_path, neuro
         target_val = params_dict['target_val']
         target_range = params_dict['target_range']
         optimization_title = params_dict['optimization_title']
+
         given_param_gen = params_dict['param_gen']
         given_mech_file_path = params_dict['mech_file_path']
         given_neurotree_file_path = params_dict['neurotree_file_path']
         given_get_features = params_dict['get_features']
-        given_process_features = params_dict['process_features']
-        given_get_objectives = params_dict['get_objectives']
+        given_features_modules = params_dict['features_modules']
+        given_objectives_modules = params_dict['objectives_modules']
         given_group_sizes = params_dict['group_sizes']
-    else:
-        param_names = default_param_names
-        x0 = np.array(make_param_arr(default_x0_dict, param_names))
-        bounds = [default_bounds_dict[key] for key in param_names]
-        feature_names = default_feature_names
-        objective_names = default_objective_names
-        target_val = default_target_val
-        target_range = default_target_range
-        optimization_title = default_optimization_title
-        given_param_gen = default_param_gen
-        given_mech_file_path = default_mech_file_path
-        given_neurotree_file_path = default_neurotree_file_path
-        given_get_features = default_get_features
-        given_process_features = default_process_features
-        given_get_objectives = default_get_objectives
-        given_group_sizes = default_group_sizes
 
-    globals()['path_length'] = path_length
     if mech_file_path is None:
         mech_file_path = given_mech_file_path
+    globals()['mech_file_path'] = mech_file_path
     if neurotree_file_path is None:
         neurotree_file_path = given_neurotree_file_path
+    neurotree_dict = read_from_pkl(neurotree_file_path)[neurotree_index]
     if param_gen is None:
         param_gen = given_param_gen
     if not get_features:
         get_features = given_get_features
-    if get_objectives is None:
-        get_objectives = given_get_objectives
+    if not features_modules:
+        features_modules = given_features_modules
+    if not objectives_modules:
+        objectives_modules = given_objectives_modules
     if not group_sizes:
         group_sizes = given_group_sizes
+    if storage_file_path is None:
+        storage_file_path = 'data/%s_%s_%s_optimization_history.hdf5' % \
+                       (datetime.datetime.today().strftime('%m%d%Y%H%M'), optimization_title, param_gen)
+    globals()['storage_file_path'] = storage_file_path
+    if export_file_path is None:
+        export_file_path = 'data/%s_%s_%s_optimization_exported_traces.hdf5' % \
+                           (datetime.datetime.today().strftime('%m%d%Y%H%M'), optimization_title, param_gen)
+    globals()['export_file_path'] = export_file_path
+
     if param_gen not in globals():
         raise NameError('Multi-Objective Optimization: %s has not been imported, or is not a valid class of parameter '
                         'generator.' % param_gen)
-
-    global history_filename
-    history_filename = '%s %s %s optimization history.hdf5' % \
-                       (datetime.datetime.today().strftime('%m%d%Y%H%M'), optimization_title, param_gen)
-
-    if len(get_features) != len(group_sizes):
-        raise NameError('Number of arguments in get_features does not match number of arguments in group_sizes.')
-
-    for i in range(len(get_features)):
-        if get_features[i] not in globals() or not callable(globals()[get_features[i]]):
-            raise NameError('Multi-Objective Optimization: get_features: %s has not been imported, or is not a callable '
-                            'function.' % get_features[i])
-    if get_objectives not in globals() or not callable(globals()[get_objectives]):
-        raise NameError('Multi-Objective Optimization: get_objectives: %s has not been imported, or is not a callable '
-                        'function.' % get_objectives)
+    param_gen_func = globals()[param_gen]
+    globals()['param_gen_func'] = param_gen_func #The global variable 'param_gen_func' points to the actual function
+    global param_gen_func_name
+    param_gen_func_name = param_gen #The global 'param_gen_func_name' points to the string with the name of the param_gen
 
     globals()['pop_size'] = pop_size
     new_group_sizes = [group_sizes[i] for i in range(len(group_sizes))]
@@ -175,60 +168,92 @@ def main(cluster_id, profile, spines, mech_file_path, neurotree_file_path, neuro
             new_group_sizes[ind] = num_procs
             print 'Multi-Objective Optimization: group_sizes index %i adjusted to not exceed num_processes: %i' % (ind, num_procs)
         un_utilized[ind] = num_procs % new_group_sizes[ind]
+        if un_utilized[ind] > 0:
+            print 'Multi-Objective Optimization: index %i has %i unutilized processes' % (ind, un_utilized[ind])
         blocks[ind] = pop_size / (num_procs / new_group_sizes[ind])
         if blocks[ind] * (num_procs / new_group_sizes[ind]) < pop_size:
             blocks[ind] += 1
-
     globals()['group_sizes'] = new_group_sizes
     group_sizes = new_group_sizes
 
-    print 'Multi-Objective Optimization: %s; Total processes: %i; Population size: %i; Group sizes: %s; ' \
+    setup_module_functions(get_features, features_modules, objectives_modules, group_sizes)
+    c[:].execute('from parallel_optimize_main import *', block=True)
+    c[:].map_sync(setup_module_functions, [get_features] * num_procs, [features_modules] * num_procs,
+                  [objectives_modules] * num_procs, [group_sizes] * num_procs)
+    if sleep:
+        time.sleep(120.)
+
+    print 'Multi-Objective Optimization %s: Generator: %s; Total processes: %i; Population size: %i; Group sizes: %s; ' \
           'Feature calculator: %s; Objective calculator: %s; Blocks / generation: %s' % \
-          (param_gen, num_procs, pop_size, (','.join(str(x) for x in group_sizes)), get_features,
-           get_objectives, (','.join(str(x) for x in blocks)))
-    if un_utilized > 0:
-        print 'Multi-Objective Optimization: %s processes are unutilized' % (','.join(str(x) for x in un_utilized))
+          (optimization_title, param_gen_func_name, num_procs, pop_size, (','.join(str(x) for x in group_sizes)),
+           (','.join(func for func in get_features_names)), (','.join(obj for obj in objectives_modules)),
+           (','.join(str(x) for x in blocks)))
     sys.stdout.flush()
-
-    param_gen_func = globals()[param_gen] #param_gen points to the string with the name of the param_gen
-    globals()['param_gen_func'] = param_gen_func #param_gen_func points to the actual function
-    get_features_func = (globals()[get_features[0]], globals()[get_features[1]])
-    globals()['get_features_func'] = get_features_func
-    get_objectives_func = globals()[get_objectives]
-    globals()['get_objectives_func'] = get_objectives_func
-
-    c[:].execute('from parallel_optimize_spiking import *', block=True)
-    c[:].map_sync(init_engine, [spines] * num_procs, [mech_file_path] * num_procs, [neurotree_file_path] * num_procs,
-                  [neurotree_index] * num_procs, [param_file_path] * num_procs, [disp] * num_procs)
 
     global storage
     global x
     if not analyze:
         if hot_start:
-            globals()['param_gen'] = param_gen_func(pop_size, x0=param_dict_to_array(x0), bounds=bounds,
-                                                    wrap_bounds=wrap_bounds, seed=seed,
-                                                    max_iter=max_iter, adaptive_step_factor=adaptive_step_factor,
+            globals()['param_gen'] = param_gen_func(pop_size, x0=param_dict_to_array(x0, param_names), bounds=bounds,
+                                                    wrap_bounds=wrap_bounds, seed=seed, max_iter=max_iter,
+                                                    adaptive_step_factor=adaptive_step_factor,
                                                     survival_rate=survival_rate, disp=disp, hot_start=storage_file_path)
         else:
             globals()['param_gen'] = param_gen_func(param_names, feature_names, objective_names, pop_size,
-                                                    x0=param_dict_to_array(x0),
-                                                    bounds=bounds, wrap_bounds=wrap_bounds, seed=seed,
-                                                    max_iter=max_iter, path_length=path_length,
-                                                    initial_step_size=initial_step_size,
+                                                    x0=param_dict_to_array(x0, param_names), bounds=bounds,
+                                                    wrap_bounds=wrap_bounds, seed=seed, max_iter=max_iter,
+                                                    path_length=path_length, initial_step_size=initial_step_size,
                                                     adaptive_step_factor=adaptive_step_factor,
                                                     survival_rate=survival_rate, disp=disp)
+        this_param_gen = globals()['param_gen']
         run_optimization(group_sizes, path_length, disp)
-        storage = param_gen.storage
-        x = param_array_to_dict(storage.get_best(1, 'last'))
+        storage = this_param_gen.storage
+        best_ind = storage.get_best(1, 'last')[0]
+        x = param_array_to_dict(best_ind.x, param_names)
     elif os.path.isfile(storage_file_path):
         storage = PopulationStorage(file_path=storage_file_path)
         print 'Analysis mode: history loaded from path: %s' % storage_file_path
-        x = param_array_to_dict(storage.get_best(1, 'last'))
+        best_ind = storage.get_best(1, 'last')[0]
+        x = param_array_to_dict(best_ind.x, param_names)
     else:
         print 'Analysis mode: history not loaded'
         x = x0
+    sys.stdout.flush()
     if export:
         export_traces(x, group_sizes, export_file_path=export_file_path, disp=disp)
+
+@interactive
+def setup_module_functions(get_features, features_modules, objectives_modules, group_sizes):
+    global feat_module_refs
+    feat_module_refs = []
+    for module in features_modules:
+        m = importlib.import_module(module)
+        feat_module_refs.append(m)
+    if len(get_features) != len(group_sizes):
+        raise NameError('Number of arguments in get_features does not match number of arguments in group_sizes.')
+    if len(get_features) != len(feat_module_refs):
+        raise NameError('Number of arguments in get_features does not match number of imported modules.')
+    get_features_func = [getattr(feat_module_refs[i], get_features[i]) for i in range(len(get_features))]
+    global get_features_names
+    get_features_names = [get_features[i] for i in range(len(get_features))]
+    for i in range(len(get_features_func)):
+        if not callable(get_features_func[i]):
+            raise NameError('Multi-Objective Optimization: get_features: %s for module %s is not a callable function.'
+                            % (get_features_names[i], features_modules[i]))
+    global obj_module_refs
+    obj_module_refs = []
+    for module in objectives_modules:
+        m = importlib.import_module(module)
+        obj_module_refs.append(m)
+    get_objectives_func = [getattr(obj_module_refs[i], 'get_objectives') for i in range(len(obj_module_refs))]
+    for i in range(len(get_objectives_func)):
+        if not callable(get_objectives_func[i]):
+            raise NameError('Multi-Objective Optimization: get_objectives for module %s is not a callable function.'
+                            % objectives_modules[i])
+    globals()['get_features_func'] = get_features_func
+    globals()['get_objectives_func'] = get_objectives_func
+    global prev_job_type
+    prev_job_type = None
 
 @interactive
 def run_optimization(group_sizes, path_length, disp):
@@ -241,75 +266,10 @@ def run_optimization(group_sizes, path_length, disp):
     """
     for ind, generation in enumerate(param_gen()):
         if (ind > 0) and (ind % path_length == 0):
-            param_gen.storage.save(data_dir + history_filename, n=path_length)
+            param_gen.storage.save(storage_file_path, n=path_length)
         features, objectives = compute_features(generation, group_sizes=group_sizes, disp=disp)
-        sys.stdout.flush()
         param_gen.update_population(features, objectives)
-    param_gen.storage.save(data_dir + history_filename, n=path_length)
-
-
-@interactive
-def get_adaptation_index(spike_times):
-    """
-    A large value indicates large degree of spike adaptation (large increases in interspike intervals during a train)
-    :param spike_times: list of float
-    :return: float
-    """
-    import numpy as np
-    if len(spike_times) < 3:
-        return None
-    isi = []
-    adi = []
-    for i in range(len(spike_times) - 1):
-        isi.append(spike_times[i + 1] - spike_times[i])
-    for i in range(len(isi) - 1):
-        adi.append((isi[i + 1] - isi[i]) / (isi[i + 1] + isi[i]))
-    return np.mean(adi)
-
-@interactive
-def init_engine(spines=False, mech_file_path=None, neurotree_file_path=None, neurotree_index=0, param_file_path=None,
-                disp=False):
-    """
-
-    :param spines: bool
-    :param mech_file_path: str
-    :param neurotree_file_path: str
-    :param neurotree_index: int
-    :param param_file_path: str (path)
-    :param disp: bool
-    """
-    global param_names
-    global param_indexes
-
-    if param_file_path is not None:
-        params_dict = read_from_yaml(param_file_path)
-        param_names = params_dict['param_names']
-        if mech_file_path is None:
-            mech_file_path = params_dict['mech_file_path']
-        if neurotree_file_path is None:
-            neurotree_file_path = params_dict['neurotree_file_path']
-    else:
-        param_names = default_param_names
-        if mech_file_path is None:
-            mech_file_path = default_mech_file_path
-        if neurotree_file_path is None:
-            neurotree_file_path = default_neurotree_file_path
-
-    param_indexes = {param_name: i for i, param_name in enumerate(param_names)}
-    neurotree_dict = read_from_pkl(neurotree_file_path)[neurotree_index]
-    globals()['neurotree_dict'] = neurotree_dict
-    globals()['mech_file_path'] = mech_file_path
-    globals()['spines'] = spines
-    globals()['disp'] = disp
-    global cell
-    global rec_locs
-    global rec_nodes
-    global rec_filename
-    rec_filename = 'sim_output'+datetime.datetime.today().strftime('%m%d%Y%H%M')+'_pid'+str(os.getpid())
-    global spike_output_vec
-    global sim
-    global prev_sim
-    prev_sim = None
+    param_gen.storage.save(storage_file_path, n=path_length)
 
 @interactive
 def compute_features(generation, group_sizes=(1, 10), disp=False, export=False):
@@ -336,8 +296,11 @@ def compute_features(generation, group_sizes=(1, 10), disp=False, export=False):
         while len(indivs) > 0 or len(results) > 0:
             num_groups = min(len(client_ranges), len(indivs))
             if num_groups > 0:
-                results.extend(map(feature_function, [indivs.pop(0) for i in range(num_groups)],
-                                   [client_ranges.pop(0) for i in range(num_groups)], [export] * num_groups))
+                results.extend(map(feature_function, [indivs.pop(0) for i in range(num_groups)], [c] * num_groups,
+                                   [client_ranges.pop(0) for i in range(num_groups)], [param_names] * num_groups,
+                                   [mech_file_path] * num_groups, [neurotree_dict] * num_groups, [spines] * num_groups,
+                                   [ind] * num_groups,
+                                   [feat_module_refs[ind] for i in range(num_groups)], [export] * num_groups))
             if np.any([this_result['async_result'].ready() for this_result in results]):
                 for this_result in results:
                     if this_result['async_result'].ready():
@@ -349,33 +312,38 @@ def compute_features(generation, group_sizes=(1, 10), disp=False, export=False):
                             final_features[this_result['pop_id']] = None
                         else:
                             next_generation[this_result['pop_id']] = generation[this_result['pop_id']]
-                            process_features_func = this_result['process_features']
-                            new_features = process_features_func(get_result, final_features[this_result['pop_id']])
+                            if 'filter_features' in this_result.keys():
+                                filter_features_func = this_result['filter_features']
+                                if not callable(filter_features_func):
+                                    raise NameError(
+                                        'Multi-Objective Optimization: filter_features function %s not callable' %
+                                        filter_features_func)
+                                new_features = filter_features_func(get_result, feat_module_refs[ind],
+                                                                    final_features[this_result['pop_id']])
+                            else:
+                                new_features = {key: value for result_dict in get_result for key, value in
+                                                result_dict.iteritems()}
                             final_features[this_result['pop_id']].update(new_features)
                             if disp:
-                                print 'Individual: %i, computing %s took %.2f s' % \
-                                      (this_result['pop_id'], get_features_func[ind], this_result['async_result'].wall_time)
+                                print 'Individual: %i, computing %s took %.2f s' % (this_result['pop_id'],
+                                                                                    get_features_names[ind],
+                                                                                    this_result['async_result'].wall_time)
                         results.remove(this_result)
                     sys.stdout.flush()
             else:
                 time.sleep(1.)
         curr_generation = next_generation
-        sys.stdout.flush()
     features = [final_features[pop_id] for pop_id in pop_ids]
     objectives = []
     for i, this_features in enumerate(features):
-        new_features, new_objectives = get_objectives_func(this_features)
-        features[i] = new_features
-        objectives.append(new_objectives)
-    if not export:
-        return features, objectives
-
-
-@interactive
-def update_mech_dict(x, update_function):
-    update_function(x)
-    cell.export_mech_dict(cell.mech_file_path)
-
+        this_objectives = {}
+        for j, objective_function in enumerate(get_objectives_func):
+            new_features, new_objectives = objective_function(obj_module_refs[j], this_features, objective_names,
+                                                              target_val, target_range)
+            features[i] = new_features
+            this_objectives.update(new_objectives)
+        objectives.append(this_objectives)
+    return features, objectives
 
 @interactive
 def param_array_to_dict(x, param_names):
@@ -399,37 +367,33 @@ def param_dict_to_array(x_dict, param_names):
     return np.array([x_dict[param_name] for param_name in param_names])
 
 @interactive
-def export_sim_results():
-    """
-    Export the most recent time and recorded waveforms from the QuickSim object.
-    """
-    with h5py.File(data_dir+rec_filename+'.hdf5', 'a') as f:
-        sim.export_to_file(f)
-
-@interactive
-def export_traces(x_val, group_sizes, export_file_path=None, discard=True, disp=False):
+def export_traces(x, group_sizes, export_file_path=None, discard=True, disp=False):
     """
     Run simulations on the engines with the given parameter values, have the engines export their results to .hdf5,
     and then read in and plot the results.
 
-    :param x_val: dict
+    :param x: dict
     :param group_sizes: tuple of int
     :param export_file_path: str
     :param discard: bool
     :param disp: bool
     """
-    x_arr = param_dict_to_array(x_val, param_names)
-    compute_features([x_arr], group_sizes=group_sizes, disp=disp, export=True)
+    x_arr = param_dict_to_array(x, param_names)
+    global exported_features
+    global exported_objectives
+    exported_features, exported_objectives = compute_features([x_arr], group_sizes=group_sizes, disp=disp, export=True)
     rec_file_path_list = [data_dir + filename + '.hdf5' for filename in c[:]['rec_filename']
-                     if os.path.isfile(data_dir + filename + '.hdf5')]
+                          if os.path.isfile(data_dir + filename + '.hdf5')]
     combine_hdf5_file_paths(rec_file_path_list, export_file_path)
     if discard:
         for rec_file_path in rec_file_path_list:
             os.remove(rec_file_path)
+    print 'Multi-Objective Optimization: Exported traces to %s' % export_file_path
+    sys.stdout.flush()
 
 @interactive
-def plot_traces(combined_rec_filename):
-    with h5py.File(data_dir+combined_rec_filename+'.hdf5', 'r') as f:
+def plot_traces(export_file_path):
+    with h5py.File(export_file_path, 'r') as f:
         for trial in f.itervalues():
             amplitude = trial.attrs['amp']
             fig, axes = plt.subplots(1)

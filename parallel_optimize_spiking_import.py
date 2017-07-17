@@ -13,13 +13,9 @@ at bifurcation of trunk and tuft.
 
 Optimizes gbar_nax/nas/sh/sha, gkabar_kap/d, gkdrbar for target na spike threshold, AHP amp, and vm stability
 
-Parallel version dynamically submits jobs to available cores.
-
-Assumes a controller is already running in another process with:
-ipcluster start -n num_cores
+Import this script into parallel_optimize_main. Then, set up ipcluster and run parallel_optimize_main.py
 """
-
-script_filename = 'parallel_optimize_spiking.py'
+# param_file_path = 'data/optimize_spiking_defaults.yaml'
 
 equilibrate = 250.  # time to steady-state
 stim_dur = 500.
@@ -33,40 +29,6 @@ i_holding = {'soma': 0., 'dend': 0., 'distal_dend': 0.}
 i_th = {'soma': 0.1}
 soma_ek = -77.
 soma_na_gbar = 0.04
-
-default_mech_file_path = data_dir + '042717 GC optimizing spike stability.pkl'
-default_neurotree_file_path = morph_dir + '121516_DGC_trees.pkl'
-default_param_gen = 'BGen'
-default_get_features = ('get_stability_features', 'get_fI_features')
-default_process_features = ('process_stability_features', 'process_fI_features')
-default_get_objectives = 'get_spiking_objectives'
-default_group_sizes = (1, 10)
-
-default_x0_dict = {'soma.gbar_nas': 0.03, 'dend.gbar_nas': 0.03, 'axon.gbar_nax': 0.06, 'ais.gbar_nax': 1.681E-01,
-                   'soma.gkabar': 2.108E-02, 'dend.gkabar': 2.709E-03, 'soma.gkdrbar': 4.299E-02,
-                   'axon.gkbar': 5.266E-02, 'soma.sh_nas/x': 1.219E+00, 'ais.sha_nas': -2.659E+00,
-                   'soma.gCa factor': 3.364E-01, 'soma.gCadepK factor': 4.096E+00, 'soma.gkmbar': 4.286E-03,
-                   'ais.gkmbar': 1.286E-02}
-default_param_names = ['soma.gbar_nas', 'dend.gbar_nas', 'axon.gbar_nax', 'ais.gbar_nax', 'soma.gkabar', 'dend.gkabar',
-                       'soma.gkdrbar', 'axon.gkbar', 'soma.sh_nas/x', 'ais.sha_nas', 'soma.gCa factor',
-                       'soma.gCadepK factor', 'soma.gkmbar', 'ais.gkmbar']
-default_bounds_dict = {'soma.gbar_nas': (0.01, 0.05), 'dend.gbar_nas': (0.01, 0.05), 'axon.gbar_nax': (0.02, 0.1),
-                       'ais.gbar_nax': (0.02, 0.5), 'soma.gkabar': (0.01, 0.05), 'dend.gkabar': (0.001, 0.25),
-                       'soma.gkdrbar': (0.01, 0.06), 'axon.gkbar': (0.01, 0.18), 'soma.sh_nas/x': (0.1, 6.),
-                       'ais.sha_nas': (-5., -1.), 'soma.gCa factor': (0.1, 5.), 'soma.gCadepK factor': (0.1, 5.),
-                       'soma.gkmbar': (0.0005, 0.005), 'ais.gkmbar': (0.0005, 0.015)}
-default_feature_names = ['v_rest', 'v_th', 'ADP', 'AHP', 'spont_firing', 'rebound_firing', 'vm_stability', 'ais_delay',
-                         'slow_depo', 'dend_amp', 'rheobase', 'soma_peak', 'adi', 'f_I_slope', 'f_I_residuals']
-default_objective_names = ['v_rest', 'v_th', 'ADP', 'AHP', 'spont_firing', 'rebound_firing', 'vm_stability', 'ais_delay',
-                           'slow_depo', 'dend_amp', 'soma_peak', 'adi', 'f_I_slope']
-default_target_val = {'v_rest': v_init, 'v_th': -48., 'ADP': 0., 'AHP': 4., 'spont_firing': 0, 'rebound_firing': 0,
-                      'vm_stability': 0., 'ais_delay': 0., 'slow_depo': 20., 'dend_amp': 0.3, 'soma_peak': 40.}
-default_target_range = {'v_rest': 0.25, 'v_th': .01, 'ADP': 0.01, 'AHP': .005, 'spont_firing': 1, 'rebound_firing': 1,
-                      'vm_stability': 1., 'ais_delay': 0.0005, 'slow_depo': 0.5, 'dend_amp': 0.0002, 'soma_peak': 2.}
-default_optimization_title = 'spiking'
-
-# param_file_path = 'data/optimize_spiking_defaults.yaml'
-
 
 @interactive
 def get_adaptation_index(spike_times):
@@ -88,19 +50,103 @@ def get_adaptation_index(spike_times):
 
 # GC experimental spike adaptation data from Brenner...Aldrich, Nat. Neurosci., 2005
 experimental_spike_times = [0., 8.57331572, 21.79656539, 39.24702774, 60.92470277, 83.34214003, 109.5640687,
-                            137.1598415, 165.7067371, 199.8546896, 236.2219287, 274.3857332, 314.2404227, 355.2575958,
+                            137.1598415, 165.7067371, 199.8546896, 236.2219287, 274.3857332, 314.2404227,
+                            355.2575958,
                             395.8520476, 436.7635403]
 experimental_adaptation_indexes = []
-for i in range(3, len(experimental_spike_times)+1):
+for i in range(3, len(experimental_spike_times) + 1):
     experimental_adaptation_indexes.append(get_adaptation_index(experimental_spike_times[:i]))
 experimental_f_I_slope = 53.  # Hz/ln(pA); rate = slope * ln(current - rheobase)
 # GC experimental f-I data from Kowalski J...Pernia-Andrade AJ, Hippocampus, 2016
 i_inj_increment = 0.05
 num_increments = 10
 
+@interactive
+def init_engine(engine_param_names, engine_mech_file_path, engine_neurotree_dict, engine_spines, ind):
+    """
+
+    :param engine_param_names: list
+    :param engine_mech_file_path: str (path)
+    :param engine_neurotree_dict: dict
+    :param engine_spines: bool
+    :return:
+    """
+    global module
+    module = feat_module_refs[ind]
+    global prev_job_type
+    if prev_job_type != 'spiking':
+        global param_names
+        param_names = engine_param_names
+        global mech_file_path
+        mech_file_path = engine_mech_file_path
+        global neurotree_dict
+        neurotree_dict = engine_neurotree_dict
+        global spines
+        spines = engine_spines
+        global param_indexes
+        param_indexes = {param_name: i for i, param_name in enumerate(param_names)}
 
 @interactive
-def get_stability_features(indiv, c, client_range, export=False):
+def setup_cell():
+    """
+
+    """
+    global cell
+    cell = DG_GC(neurotree_dict=neurotree_dict, mech_file_path=mech_file_path, full_spines=spines)
+
+    # get the thickest apical dendrite ~200 um from the soma
+    candidate_branches = []
+    candidate_diams = []
+    candidate_locs = []
+    for branch in cell.apical:
+        if ((cell.get_distance_to_node(cell.tree.root, branch, 0.) >= 200.) &
+                (cell.get_distance_to_node(cell.tree.root, branch, 1.) > 300.) & (not cell.is_terminal(branch))):
+            candidate_branches.append(branch)
+            for seg in branch.sec:
+                loc = seg.x
+                if cell.get_distance_to_node(cell.tree.root, branch, loc) > 250.:
+                    candidate_diams.append(branch.sec(loc).diam)
+                    candidate_locs.append(loc)
+                    break
+    index = candidate_diams.index(max(candidate_diams))
+    dend = candidate_branches[index]
+    dend_loc = candidate_locs[index]
+    axon_seg_locs = [seg.x for seg in cell.axon[2].sec]
+
+    global rec_locs
+    rec_locs = {'soma': 0., 'dend': dend_loc, 'ais': 1., 'axon': axon_seg_locs[0]}
+    global rec_nodes
+    rec_nodes = {'soma': cell.tree.root, 'dend': dend, 'ais': cell.axon[1], 'axon': cell.axon[2]}
+    global rec_filename
+    rec_filename = 'sim_output'+datetime.datetime.today().strftime('%m%d%Y%H%M')+'_pid'+str(os.getpid())
+
+    equilibrate = module.equilibrate
+    stim_dur = module.stim_dur
+    duration = module.duration
+    dt = module.dt
+
+    global sim
+    sim = QuickSim(duration, cvode=False, dt=dt, verbose=False)
+    sim.append_stim(cell, cell.tree.root, loc=0., amp=0., delay=equilibrate, dur=stim_dur)
+    sim.append_stim(cell, cell.tree.root, loc=0., amp=0., delay=0., dur=duration)
+    for description, node in rec_nodes.iteritems():
+        sim.append_rec(cell, node, loc=rec_locs[description], description=description)
+    sim.parameters['spines'] = spines
+
+    global spike_output_vec
+    spike_output_vec = h.Vector()
+    cell.spike_detector.record(spike_output_vec)
+
+
+@interactive
+def update_mech_dict(x, update_function, mech_file_path):
+    update_function(x)
+    cell.export_mech_dict(mech_file_path)
+
+
+@interactive
+def get_stability_features(indiv, c, client_range, param_names, mech_file_path, neurotree_dict, spines, ind,
+                           feat_module_ref, export=False):
     """
     Distribute simulations across available engines for testing spike stability.
     :param indiv: dict {'pop_id': pop_id, 'x': x arr, 'features': features dict}
@@ -108,22 +154,17 @@ def get_stability_features(indiv, c, client_range, export=False):
     :param export: False (for exporting voltage traces)
     :return: dict
     """
-    x = indiv['x']
     dv = c[client_range]
-    result = dv.map_async(spike_shape_features, [x], [export])
+    dv.map_sync(feat_module_ref.init_engine, [param_names] * len(client_range), [mech_file_path] * len(client_range),
+                [neurotree_dict] * len(client_range), [spines] * len(client_range),
+                [ind] * len(client_range))
+    x = indiv['x']
+    result = dv.map_async(feat_module_ref.spike_shape_features, [x], [export])
     return {'pop_id': indiv['pop_id'], 'client_range': client_range, 'async_result': result}
 
 @interactive
-def process_stability_features(get_result, old_features):
-    """
-
-    :param get_result: list with one dict
-    :return: dict
-    """
-    return get_result[0]
-
-@interactive
-def get_fI_features(indiv, c, client_range, export=False):
+def get_fI_features(indiv, c, client_range, param_names, mech_file_path, neurotree_dict, spines, ind,
+                    feat_module_ref, export=False):
     """
     Distribute simulations across available engines for testing f-I features.
     :param indiv: dict {'pop_id': pop_id, 'x': x arr, 'features': features dict}
@@ -132,17 +173,20 @@ def get_fI_features(indiv, c, client_range, export=False):
     :return: dict
     """
     dv = c[client_range]
+    dv.map_sync(feat_module_ref.init_engine, [param_names] * len(client_range), [mech_file_path] * len(client_range),
+                [neurotree_dict] * len(client_range), [spines] * len(client_range), [ind] * len(client_range))
     x = indiv['x']
     rheobase = indiv['features']['rheobase']
-    sys.stdout.flush()
     # Calculate firing rates for a range of I_inj amplitudes using a stim duration of 500 ms
-    result = dv.map_async(sim_f_I, [rheobase + i_inj_increment * (i + 1) for i in range(num_increments)],
-                          [x] * num_increments, [False] * (num_increments-1) + [True], [export] * num_increments)
+    num_incr = feat_module_ref.num_increments
+    i_inj_increment = feat_module_ref.i_inj_increment
+    result = dv.map_async(feat_module_ref.sim_f_I_features, [rheobase + i_inj_increment * (i + 1) for i in range(num_incr)],
+                          [x] * num_incr, [False] * (num_incr-1) + [True], [export] * num_incr)
     return {'pop_id': indiv['pop_id'], 'client_range': client_range, 'async_result': result,
-            'process_features': process_fI_features}
+            'filter_features': feat_module_ref.filter_fI_features}
 
 @interactive
-def process_fI_features(get_result, old_features):
+def filter_fI_features(get_result, module, old_features):
     """
 
     :param get_result: list of dict (each dict has the results from a particular simulation)
@@ -169,14 +213,17 @@ def process_fI_features(get_result, old_features):
             new_features['slow_depo'] += this_dict['v_min_late'] - old_features['v_th']
 
         spike_times = this_dict['spike_times']
+        experimental_spike_times = module.experimental_spike_times
+        experimental_adaptation_indexes = module.experimental_adaptation_indexes
+        stim_dur = module.stim_dur
         if len(spike_times) < 3:
             adi = None
             exp_adi = None
         elif len(spike_times) > len(experimental_spike_times):
-            adi = get_adaptation_index(spike_times[:len(experimental_spike_times)])
+            adi = module.get_adaptation_index(spike_times[:len(experimental_spike_times)])
             exp_adi = experimental_adaptation_indexes[len(experimental_spike_times) - 3]
         else:
-            adi = get_adaptation_index(spike_times)
+            adi = module.get_adaptation_index(spike_times)
             exp_adi = experimental_adaptation_indexes[len(spike_times) - 3]
         new_features['adi'].append(adi)
         new_features['exp_adi'].append(exp_adi)
@@ -191,7 +238,7 @@ def process_fI_features(get_result, old_features):
     return new_features
 
 @interactive
-def get_spiking_objectives(features, objective_names, target_val, target_range):
+def get_objectives(module, features, objective_names, target_val, target_range):
     """
 
     :param features: dict
@@ -219,7 +266,9 @@ def get_spiking_objectives(features, objective_names, target_val, target_range):
             if adi is not None:
                 all_adi.append(adi)
         features['adi'] = np.mean(all_adi)
-        target_f_I = [experimental_f_I_slope * np.log((rheobase + i_inj_increment * (i + 1)) / rheobase)
+        num_increments = module.num_increments
+        i_inj_increment = module.i_inj_increment
+        target_f_I = [module.experimental_f_I_slope * np.log((rheobase + i_inj_increment * (i + 1)) / rheobase)
                       for i in range(num_increments)]
         f_I_residuals = [(features['f_I'][i] - target_f_I[i]) for i in range(num_increments)]
         features['f_I_residuals'] = np.mean(f_I_residuals)
@@ -240,10 +289,20 @@ def spike_shape_features(x, export=False, plot=False):
     :return: float
     """
     start_time = time.time()
-    cell.reinit_mechanisms(reset_cable=True, from_file=True)
-    update_na_ka_stability(x)
+    global prev_job_type
+    if prev_job_type == 'spiking':
+        cell.reinit_mechanisms(reset_cable=True, from_file=True)
+    else:
+        module.setup_cell()
+    module.update_na_ka_stability(x)
     # sim.cvode_state = True
-    soma_vm = offset_vm('soma', v_active)
+
+    v_active = module.v_active
+    equilibrate = module.equilibrate
+    dt = module.dt
+    i_th = module.i_th
+
+    soma_vm = module.offset_vm('soma', v_active)
     result = {'v_rest': soma_vm}
     stim_dur = 150.
     sim.modify_stim(0, node=cell.tree.root, loc=0., dur=stim_dur)
@@ -273,7 +332,7 @@ def spike_shape_features(x, export=False, plot=False):
     sim.parameters['description'] = 'spike shape'
     i_th['soma'] = amp
     spike_times = cell.spike_detector.get_recordvec().to_python()
-    peak, threshold, ADP, AHP = get_spike_shape(vm, spike_times)
+    peak, threshold, ADP, AHP = module.get_spike_shape(vm, spike_times)
     result['v_th'] = threshold
     result['ADP'] = ADP
     result['AHP'] = AHP
@@ -309,12 +368,13 @@ def spike_shape_features(x, export=False, plot=False):
     if plot:
         sim.plot()
     if export:
-        export_sim_results()
+        module.export_sim_results()
+    prev_job_type = 'spiking'
     return result
 
 
 @interactive
-def sim_f_I(amp, x, extend_dur=False, export=False, plot=False):
+def sim_f_I_features(amp, x, extend_dur=False, export=False, plot=False):
     """
 
     :param amp: float
@@ -322,13 +382,23 @@ def sim_f_I(amp, x, extend_dur=False, export=False, plot=False):
     :param plot: bool
     :return: dict
     """
-    cell.reinit_mechanisms(reset_cable=True, from_file=True)
-    update_na_ka_stability(x)
+    global prev_job_type
+    if prev_job_type == 'spiking':
+        cell.reinit_mechanisms(reset_cable=True, from_file=True)
+    else:
+        module.setup_cell()
+    module.update_na_ka_stability(x)
     # sim.cvode_state = True
-    soma_vm = offset_vm('soma', v_active)
+    soma_vm = module.offset_vm('soma', module.v_active)
     sim.parameters['amp'] = amp
     sim.parameters['description'] = 'f_I'
     start_time = time.time()
+
+    stim_dur = module.stim_dur
+    equilibrate = module.equilibrate
+    v_active = module.v_active
+    dt = module.dt
+
     sim.modify_stim(0, node=cell.tree.root, loc=0., dur=stim_dur, amp=amp)
     if extend_dur:
         duration = equilibrate + stim_dur + 100. #extend duration of simulation to find rebound
@@ -359,7 +429,8 @@ def sim_f_I(amp, x, extend_dur=False, export=False, plot=False):
     print 'Process %i took %.1f s to run simulation with I_inj amp: %.3f' % (os.getpid(), time.time() - start_time, amp)
     sys.stdout.flush()
     if export:
-        export_sim_results()
+        module.export_sim_results()
+    prev_job_type = 'spiking'
     return result
 
 @interactive
@@ -370,7 +441,7 @@ def offset_vm(description, vm_target=None):
     :param vm_target: float
     """
     if vm_target is None:
-        vm_target = v_init
+        vm_target = module.v_init
     sim.modify_stim(0, amp=0.)
     node = rec_nodes[description]
     loc = rec_locs[description]
@@ -378,6 +449,12 @@ def offset_vm(description, vm_target=None):
     sim.modify_stim(1, node=node, loc=loc, amp=0.)
     rec = rec_dict['vec']
     offset = True
+
+    equilibrate = module.equilibrate
+    dt = module.dt
+    i_holding = module.i_holding
+    duration = module.duration
+
     sim.tstop = equilibrate
     t = np.arange(0., equilibrate, dt)
     sim.modify_stim(1, amp=i_holding[description])
@@ -421,6 +498,10 @@ def get_spike_shape(vm, spike_times):
     :param vm: array
     :return: tuple of float: (v_peak, th_v, ADP, AHP)
     """
+    equilibrate = module.equilibrate
+    dt = module.dt
+    th_dvdt = module.th_dvdt
+
     start = int((equilibrate+1.)/dt)
     vm = vm[start:]
     dvdt = np.gradient(vm, dt)
@@ -457,8 +538,6 @@ def update_na_ka_stability(x):
                        'soma.gkdrbar', 'axon.gkbar', 'soma.sh_nas/x', 'ais.sha_nas', 'soma.gCa factor',
                        'soma.gCadepK factor', 'soma.gkmbar', 'ais.gkmbar']
     """
-    if spines is False:
-        cell.reinit_mechanisms(reset_cable=True)
     cell.modify_mech_param('soma', 'nas', 'gbar', x[param_indexes['soma.gbar_nas']])
     cell.modify_mech_param('soma', 'kdr', 'gkdrbar', x[param_indexes['soma.gkdrbar']])
     cell.modify_mech_param('soma', 'kap', 'gkabar', x[param_indexes['soma.gkabar']])
@@ -484,7 +563,7 @@ def update_na_ka_stability(x):
     cell.modify_mech_param('axon', 'kdr', 'gkdrbar', origin='ais')
     cell.modify_mech_param('axon', 'kap', 'gkabar', origin='ais')
     cell.modify_mech_param('axon_hill', 'nax', 'sh', x[param_indexes['soma.sh_nas/x']])
-    cell.modify_mech_param('axon_hill', 'nax', 'gbar', soma_na_gbar)
+    cell.modify_mech_param('axon_hill', 'nax', 'gbar', module.soma_na_gbar)
     cell.modify_mech_param('axon', 'nax', 'gbar', x[param_indexes['axon.gbar_nax']])
     for sec_type in ['ais', 'axon']:
         cell.modify_mech_param(sec_type, 'nax', 'sh', origin='axon_hill')
@@ -507,24 +586,3 @@ def export_sim_results():
     """
     with h5py.File(data_dir+rec_filename+'.hdf5', 'a') as f:
         sim.export_to_file(f)
-
-@interactive
-def make_param_dict(x, param_names):
-    """
-
-    :param x:
-    :param param_names:
-    :return:
-    """
-    return {param_name: x[ind] for ind, param_name in enumerate(param_names)}
-
-
-@interactive
-def make_param_arr(x_dict, param_names):
-    """
-
-    :param x_dict:
-    :param param_names:
-    :return:
-    """
-    return [x_dict[param_name] for param_name in param_names]
