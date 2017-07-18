@@ -2558,3 +2558,16 @@ def flush_engine_buffer(result):
             for line in stdout.splitlines():
                 print line
     sys.stdout.flush()
+
+
+class Context(object):
+    """
+    A container replacement for global variables to be shared and modified by any function in a module.
+    """
+    def load(self, namespace_dict):
+        """
+        Converts items in a dictionary (such as globals() or locals()) into context object internals.
+        :param namespace_dict: dict
+        """
+        for key, value in namespace_dict.iteritems():
+            setattr(self, key, value)
