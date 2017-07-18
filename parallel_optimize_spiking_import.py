@@ -29,7 +29,6 @@ i_holding = {'soma': 0., 'dend': 0., 'distal_dend': 0.}
 i_th = {'soma': 0.1}
 soma_ek = -77.
 soma_na_gbar = 0.04
-rec_filename = 'sim_output' + datetime.datetime.today().strftime('%m%d%Y%H%M') + '_pid' + str(os.getpid())
 
 @interactive
 def get_adaptation_index(spike_times):
@@ -583,5 +582,5 @@ def export_sim_results():
     """
     Export the most recent time and recorded waveforms from the QuickSim object.
     """
-    with h5py.File(data_dir+module.rec_filename+'.hdf5', 'a') as f:
+    with h5py.File(data_dir+rec_filename+'.hdf5', 'a') as f:
         sim.export_to_file(f)
