@@ -232,6 +232,8 @@ def main(cluster_id, profile, spines, mech_file_path, neurotree_file_path, neuro
 
 @interactive
 def setup_module_functions(get_features, features_modules, objectives_modules, group_sizes):
+    global rec_filename
+    rec_filename = 'sim_output' + datetime.datetime.today().strftime('%m%d%Y%H%M') + '_pid' + str(os.getpid())
     global feat_module_refs
     feat_module_refs = []
     for module in features_modules:

@@ -28,7 +28,6 @@ v_init = -77.
 v_active = -77.
 i_holding = {'soma': 0., 'dend': 0., 'distal_dend': 0.}
 soma_ek = -77.
-rec_filename = 'sim_output' + datetime.datetime.today().strftime('%m%d%Y%H%M') + '_pid' + str(os.getpid())
 
 @interactive
 def init_engine(engine_param_names, engine_mech_file_path, engine_neurotree_dict, engine_spines, ind):
@@ -282,5 +281,5 @@ def export_sim_results():
     """
     Export the most recent time and recorded waveforms from the QuickSim object.
     """
-    with h5py.File(data_dir+module.rec_filename+'.hdf5', 'a') as f:
+    with h5py.File(data_dir+rec_filename+'.hdf5', 'a') as f:
         sim.export_to_file(f)
