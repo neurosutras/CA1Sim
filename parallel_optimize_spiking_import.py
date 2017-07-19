@@ -1,6 +1,4 @@
 __author__ = 'Grace Ng'
-from ipyparallel import interactive
-from ipyparallel import Client
 from specify_cells3 import *
 from plot_results import *
 
@@ -24,6 +22,8 @@ def config_engine(param_names, mech_file_path, neurotree_dict, spines, rec_filen
     :param mech_file_path: str
     :param neurotree_dict: dict
     :param spines: bool
+    :param rec_filename: str
+    :param output_dir: str
     :return:
     """
     param_indexes = {param_name: i for i, param_name in enumerate(param_names)}
@@ -78,7 +78,6 @@ def init_spiking_engine():
     i_inj_increment = 0.05
     num_increments = 10
     context.update(locals())
-    setup_cell()
 
 def setup_cell():
     """
@@ -145,8 +144,7 @@ def get_stability_features(indiv, c, client_range, export=False):
     result = dv.map_async(compute_stability_features, [x], [export])
     return {'pop_id': indiv['pop_id'], 'client_range': client_range, 'async_result': result}
 
-def get_fI_features(indiv, c, client_range, param_names, mech_file_path, neurotree_dict, spines, ind,
-                    feat_module_ref, export=False):
+def get_fI_features(indiv, c, client_range, export=False):
     """
     Distribute simulations across available engines for testing f-I features.
     :param indiv: dict {'pop_id': pop_id, 'x': x arr, 'features': features dict}
@@ -158,6 +156,7 @@ def get_fI_features(indiv, c, client_range, param_names, mech_file_path, neurotr
     x = indiv['x']
     rheobase = indiv['features']['rheobase']
     # Calculate firing rates for a range of I_inj amplitudes using a stim duration of 500 ms
+    init_spiking_engine() # So that controller core has access to constansts such as num_increments
     num_incr = context.num_increments
     i_inj_increment = context.i_inj_increment
     result = dv.map_async(compute_fI_features, [rheobase + i_inj_increment * (i + 1) for i in range(num_incr)],
@@ -270,6 +269,7 @@ def compute_stability_features(x, export=False, plot=False):
         context.cell.reinit_mechanisms(reset_cable=True, from_file=True)
     else:
         init_spiking_engine()
+        setup_cell()
     update_na_ka_stability(x)
     # sim.cvode_state = True
 
@@ -360,6 +360,7 @@ def compute_fI_features(amp, x, extend_dur=False, export=False, plot=False):
         context.cell.reinit_mechanisms(reset_cable=True, from_file=True)
     else:
         init_spiking_engine()
+        setup_cell()
     update_na_ka_stability(x)
     # sim.cvode_state = True
     soma_vm = offset_vm('soma', context.v_active)

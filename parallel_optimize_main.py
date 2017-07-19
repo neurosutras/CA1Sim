@@ -177,7 +177,7 @@ def init_main_controller(sleep, cluster_id, profile, path_length, spines, param_
         default_group_sizes = params_dict['group_sizes']
     else:
         raise NameError('A param_file_path containing default paramters must be provided.')
-    main_ctxt.load({'x0': x0, 'param_names': param_names, 'bounds': bounds, 'feature_names': feature_names,
+    main_ctxt.update({'x0': x0, 'param_names': param_names, 'bounds': bounds, 'feature_names': feature_names,
                     'objective_names': objective_names, 'target_val': target_val, 'target_range': target_range,
                     'path_length': path_length, 'spines': spines, 'pop_size': pop_size})
 

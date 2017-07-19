@@ -1,9 +1,5 @@
 __author__ = 'Grace Ng'
-from ipyparallel import interactive
-from ipyparallel import Client
-# from IPython.display import clear_output
 from specify_cells3 import *
-from moopgen import *
 from plot_results import *
 
 """
