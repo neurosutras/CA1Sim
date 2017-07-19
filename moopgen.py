@@ -13,6 +13,24 @@ array at a time, these classes contain iterators and evaluation methods to proce
 and to store a complete history for later inspection .
 """
 
+def param_array_to_dict(x, param_names):
+    """
+
+    :param x: arr
+    :param param_names: list
+    :return:
+    """
+    return {param_name: x[ind] for ind, param_name in enumerate(param_names)}
+
+def param_dict_to_array(x_dict, param_names):
+    """
+
+    :param x_dict: dict
+    :param param_names: list
+    :return:
+    """
+    return np.array([x_dict[param_name] for param_name in param_names])
+
 
 class Individual(object):
     """

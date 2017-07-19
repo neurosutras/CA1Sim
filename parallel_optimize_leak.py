@@ -5,7 +5,6 @@ from ipyparallel import Client
 # from IPython.display import clear_output
 from specify_cells3 import *
 from moopgen import *
-from mpi4py import MPI
 
 """
 Aims for spike initiation at initial segment by increasing nax density and decreasing activation V1/2 relative to soma,
@@ -32,8 +31,6 @@ except:
 
 
 script_filename = 'parallel_optimize_leak.py'
-comm = MPI.COMM_WORLD
-rank = comm.rank
 
 equilibrate = 250.  # time to steady-state
 stim_dur = 500.
