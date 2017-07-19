@@ -66,7 +66,7 @@ get_features: !!python/tuple
 group_sizes: !!python/tuple
 - 1
 - 10
-mech_file_path: data/042717 GC optimizing spike stability.pkl
+mech_file_path: data/071817 GC optimizing spiking.pkl
 neurotree_file_path: morphologies/121516_DGC_trees.pkl
 objective_names:
 - v_rest
