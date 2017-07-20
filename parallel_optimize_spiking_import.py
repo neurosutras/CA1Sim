@@ -123,9 +123,8 @@ def setup_cell():
     sim.parameters['spines'] = context.spines
     context.sim = sim
 
-    spike_output_vec = h.Vector()
-    cell.spike_detector.record(spike_output_vec)
-    context.spike_output_vec = spike_output_vec
+    context.spike_output_vec = h.Vector()
+    cell.spike_detector.record(context.spike_output_vec)
 
 def update_mech_dict(x, update_function, mech_file_path):
     update_function(x)
@@ -135,6 +134,7 @@ def get_stability_features(indiv, c, client_range, export=False):
     """
     Distribute simulations across available engines for testing spike stability.
     :param indiv: dict {'pop_id': pop_id, 'x': x arr, 'features': features dict}
+    :param c: Client object
     :param client_range: list of ints
     :param export: False (for exporting voltage traces)
     :return: dict
