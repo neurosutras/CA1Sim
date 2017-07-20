@@ -50,7 +50,7 @@ main_ctxt = Context()
 @click.option("--hot-start", is_flag=True)
 @click.option("--storage-file-path", type=str, default=None)
 @click.option("--export", is_flag=True)
-@click.option("--output-dir", type=str, default='data/')
+@click.option("--output-dir", type=str, default='data')
 @click.option("--export-file-path", type=str, default=None)
 @click.option("--disp", is_flag=True)
 def main(cluster_id, profile, spines, mech_file_path, neurotree_file_path, neurotree_index, param_file_path,
@@ -90,7 +90,7 @@ def main(cluster_id, profile, spines, mech_file_path, neurotree_file_path, neuro
     """
     init_main_controller(sleep, cluster_id, profile, path_length, spines, param_file_path, mech_file_path,
                          neurotree_file_path, neurotree_index, param_gen, get_features, features_modules,
-                         objectives_modules, group_sizes, storage_file_path, export_file_path, pop_size)
+                         objectives_modules, group_sizes, storage_file_path, output_dir, export_file_path, pop_size)
     main_ctxt.c[:].execute('from parallel_optimize_main import *', block=True)
     if sleep:
         time.sleep(120.)
@@ -145,7 +145,29 @@ def main(cluster_id, profile, spines, mech_file_path, neurotree_file_path, neuro
 
 def init_main_controller(sleep, cluster_id, profile, path_length, spines, param_file_path, mech_file_path,
                          neurotree_file_path, neurotree_index, param_gen, get_features, features_modules,
-                         objectives_modules, group_sizes, storage_file_path, export_file_path, pop_size):
+                         objectives_modules, group_sizes, storage_file_path, output_dir, export_file_path, pop_size):
+    """
+
+    :param sleep:
+    :param cluster_id:
+    :param profile:
+    :param path_length:
+    :param spines:
+    :param param_file_path:
+    :param mech_file_path:
+    :param neurotree_file_path:
+    :param neurotree_index:
+    :param param_gen:
+    :param get_features:
+    :param features_modules:
+    :param objectives_modules:
+    :param group_sizes:
+    :param storage_file_path:
+    :param output_dir:
+    :param export_file_path:
+    :param pop_size:
+    :return:
+    """
     if sleep:
         time.sleep(300.)
     if cluster_id is not None:
@@ -182,11 +204,11 @@ def init_main_controller(sleep, cluster_id, profile, path_length, spines, param_
         if not group_sizes:
             group_sizes = params_dict['group_sizes']
         if storage_file_path is None:
-            storage_file_path = 'data/%s_%s_%s_optimization_history.hdf5' % \
-                                (datetime.datetime.today().strftime('%m%d%Y%H%M'), optimization_title, param_gen)
+            storage_file_path = '%s/%s_%s_%s_optimization_history.hdf5' % \
+                                (output_dir, datetime.datetime.today().strftime('%m%d%Y%H%M'), optimization_title, param_gen)
         if export_file_path is None:
-            export_file_path = 'data/%s_%s_%s_optimization_exported_traces.hdf5' % \
-                               (datetime.datetime.today().strftime('%m%d%Y%H%M'), optimization_title, param_gen)
+            export_file_path = '%s/%s_%s_%s_optimization_exported_traces.hdf5' % \
+                               (output_dir, datetime.datetime.today().strftime('%m%d%Y%H%M'), optimization_title, param_gen)
     else:
         raise NameError('A param_file_path containing default paramters must be provided.')
     main_ctxt.update(locals())
@@ -237,9 +259,10 @@ def setup_modules(get_features, features_modules, objectives_modules, group_size
         m = importlib.import_module(module)
         feat_module_dict[module] = m
         if config_engine:
-            global rec_filename
-            rec_filename = 'sim_output' + datetime.datetime.today().strftime('%m%d%Y%H%M') + '_pid' + str(os.getpid())
-            m.config_engine(param_names, mech_file_path, neurotree_dict, spines, rec_filename, output_dir)
+            global rec_filepath
+            rec_filepath = output_dir+'/sim_output' + datetime.datetime.today().strftime('%m%d%Y%H%M') + \
+                           '_pid' + str(os.getpid()) + '.hdf5'
+            m.config_engine(param_names, mech_file_path, neurotree_dict, spines, rec_filepath)
     for module in features_modules:
         feat_module_refs.append(feat_module_dict[module])
     if len(get_features) != len(group_sizes):
@@ -255,7 +278,7 @@ def setup_modules(get_features, features_modules, objectives_modules, group_size
                             % (get_features[i], features_modules[i]))
     obj_module_refs = []
     for module in objectives_modules:
-        m = importlib.import_module(module)
+        m = sys.modules[module]
         obj_module_refs.append(m)
     get_objectives_func = [getattr(obj_module_refs[i], 'get_objectives') for i in range(len(obj_module_refs))]
     main_ctxt.get_objectives_func = get_objectives_func
@@ -362,8 +385,8 @@ def export_traces(x, group_sizes, export_file_path=None, discard=True, disp=Fals
     """
     x_arr = param_dict_to_array(x, main_ctxt.param_names)
     exported_features, exported_objectives = get_all_features([x_arr], group_sizes=group_sizes, disp=disp, export=True)
-    rec_file_path_list = [data_dir + filename + '.hdf5' for filename in main_ctxt.c[:]['rec_filename']
-                          if os.path.isfile(data_dir + filename + '.hdf5')]
+    rec_file_path_list = [filepath for filepath in main_ctxt.c[:]['rec_filepath']
+                          if os.path.isfile(filepath)]
     combine_hdf5_file_paths(rec_file_path_list, export_file_path)
     if discard:
         for rec_file_path in rec_file_path_list:
