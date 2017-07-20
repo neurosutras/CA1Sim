@@ -313,7 +313,7 @@ def compute_stability_features(x, export=False, plot=False):
     result['ADP'] = ADP
     result['AHP'] = AHP
     result['rheobase'] = amp
-    result['spont_firing'] = len(np.where(spike_times < equilibrate))
+    result['spont_firing'] = len(np.where(spike_times < equilibrate)[0])
     dend_vm = np.interp(t, context.sim.tvec, context.sim.get_rec('dend')['vec'])
     th_x = np.where(vm[int(equilibrate / dt):] >= threshold)[0][0] + int(equilibrate / dt)
     if len(spike_times) > 1:
@@ -399,7 +399,7 @@ def compute_fI_features(amp, x, extend_dur=False, export=False, plot=False):
         v_after = np.max(vm[-int(50. / dt):-1])
         vm_stability = abs(v_after - v_rest)
         result['vm_stability'] = vm_stability
-        result['rebound_firing'] = len(np.where(spike_times > stim_dur))
+        result['rebound_firing'] = len(np.where(spike_times > stim_dur)[0])
     print 'Process %i took %.1f s to run simulation with I_inj amp: %.3f' % (os.getpid(), time.time() - start_time, amp)
     sys.stdout.flush()
     if export:
