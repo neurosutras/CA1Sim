@@ -15,14 +15,14 @@ Import this script into parallel_optimize_main. Then, set up ipcluster and run p
 
 context = Context()
 
-def config_engine(param_names, mech_file_path, neurotree_dict, spines, rec_filename, output_dir):
+def config_engine(param_names, mech_file_path, neurotree_dict, spines, rec_filepath):
     """
 
     :param param_names: list of str
     :param mech_file_path: str
     :param neurotree_dict: dict
     :param spines: bool
-    :param rec_filename: str
+    :param rec_filepath: str
     :param output_dir: str
     :return:
     """
@@ -260,5 +260,5 @@ def export_sim_results():
     """
     Export the most recent time and recorded waveforms from the QuickSim object.
     """
-    with h5py.File(context.output_dir+context.rec_filename+'.hdf5', 'a') as f:
+    with h5py.File(context.rec_filepath, 'a') as f:
         context.sim.export_to_file(f)
