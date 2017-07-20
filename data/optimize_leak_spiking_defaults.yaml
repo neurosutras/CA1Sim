@@ -134,6 +134,7 @@ target_range:
   slow_depo: 0.5
   soma_peak: 2.0
   spont_firing: 1
+  th_count: .002
   v_rest: 0.25
   v_th: 0.01
   vm_stability: 1.0
@@ -145,9 +146,10 @@ target_val:
   dend R_inp: 375.
   soma R_inp: 295.
   rebound_firing: 0
-  slow_depo: 20.0
+  slow_depo: 10.0
   soma_peak: 40.0
   spont_firing: 0
+  th_count: 1
   v_rest: -77.0
   v_th: -48.0
   vm_stability: 0.0

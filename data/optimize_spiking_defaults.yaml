@@ -106,10 +106,11 @@ target_range:
   AHP: 0.005
   ais_delay: 0.0005
   dend_amp: 0.0002
-  rebound_firing: 1
+  rebound_firing: .002
   slow_depo: 0.5
   soma_peak: 2.0
-  spont_firing: 1
+  spont_firing: .002
+  th_count: .002
   v_rest: 0.25
   v_th: 0.01
   vm_stability: 1.0
@@ -119,9 +120,10 @@ target_val:
   ais_delay: 0.0
   dend_amp: 0.3
   rebound_firing: 0
-  slow_depo: 20.0
+  slow_depo: 10.0
   soma_peak: 40.0
   spont_firing: 0
+  th_count: 1
   v_rest: -77.0
   v_th: -48.0
   vm_stability: 0.0

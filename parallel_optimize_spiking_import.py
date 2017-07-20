@@ -185,11 +185,8 @@ def filter_fI_features(get_result, old_features):
             new_features['vm_stability'] = this_dict['vm_stability']
         if 'rebound_firing' in this_dict.keys():
             new_features['rebound_firing'] = this_dict['rebound_firing']
-        if 'slow_depo' not in new_features:
+        if 'v_min_late' in this_dict.keys():
             new_features['slow_depo'] = this_dict['v_min_late'] - old_features['v_th']
-        else:
-            new_features['slow_depo'] += this_dict['v_min_late'] - old_features['v_th']
-
         spike_times = this_dict['spike_times']
         experimental_spike_times = context.experimental_spike_times
         experimental_adaptation_indexes = context.experimental_adaptation_indexes
@@ -229,7 +226,7 @@ def get_objectives(features, objective_names, target_val, target_range):
             objectives[objective] = 0.
         rheobase = features['rheobase']
         for target in ['v_rest', 'v_th', 'ADP', 'AHP', 'spont_firing', 'rebound_firing', 'vm_stability', 'ais_delay',
-                       'slow_depo', 'dend_amp', 'soma_peak']:
+                       'slow_depo', 'dend_amp', 'soma_peak', 'th_count']:
             # don't penalize AHP or slow_depo less than target
             if not ((target == 'AHP' and features[target] < target_val[target]) or
                         (target == 'slow_depo' and features[target] < target_val[target])):
@@ -314,6 +311,7 @@ def compute_stability_features(x, export=False, plot=False):
     result['AHP'] = AHP
     result['rheobase'] = amp
     result['spont_firing'] = len(np.where(spike_times < equilibrate)[0])
+    result['th_count'] = len(spike_times)
     dend_vm = np.interp(t, context.sim.tvec, context.sim.get_rec('dend')['vec'])
     th_x = np.where(vm[int(equilibrate / dt):] >= threshold)[0][0] + int(equilibrate / dt)
     if len(spike_times) > 1:
@@ -378,7 +376,7 @@ def compute_fI_features(amp, x, extend_dur=False, export=False, plot=False):
         duration = equilibrate + stim_dur + 100. #extend duration of simulation to find rebound
     else:
         duration = equilibrate + stim_dur
-        context.sim.tstop = duration
+    context.sim.tstop = duration
     print 'starting sim at %.1f A' %amp
     sys.stdout.flush()
     context.sim.run(v_active)
@@ -391,10 +389,10 @@ def compute_fI_features(amp, x, extend_dur=False, export=False, plot=False):
     result['amp'] = amp
     rate = len(spike_times) / stim_dur * 1000.
     result['rate'] = rate
-    vm = np.interp(t, context.sim.tvec, context.sim.get_rec('soma')['vec'])
-    v_min_late = np.min(vm[int((equilibrate + stim_dur - 20.) / dt):int((equilibrate + stim_dur - 1.) / dt)])
-    result['v_min_late'] = v_min_late
     if extend_dur:
+        vm = np.interp(t, context.sim.tvec, context.sim.get_rec('soma')['vec'])
+        v_min_late = np.min(vm[int((equilibrate + stim_dur - 20.) / dt):int((equilibrate + stim_dur - 1.) / dt)])
+        result['v_min_late'] = v_min_late
         v_rest = np.mean(vm[int((equilibrate - 3.) / dt):int((equilibrate - 1.) / dt)])
         v_after = np.max(vm[-int(50. / dt):-1])
         vm_stability = abs(v_after - v_rest)
