@@ -226,7 +226,7 @@ def get_objectives(features, objective_names, target_val, target_range):
             objectives[objective] = 0.
         rheobase = features['rheobase']
         for target in ['v_rest', 'v_th', 'ADP', 'AHP', 'spont_firing', 'rebound_firing', 'vm_stability', 'ais_delay',
-                       'slow_depo', 'dend_amp', 'soma_peak', 'th_count']:
+                       'slow_depo', 'dend_amp', 'soma_peak', 'th_count', 'dend.gbar_nas']:
             # don't penalize AHP or slow_depo less than target
             if not ((target == 'AHP' and features[target] < target_val[target]) or
                         (target == 'slow_depo' and features[target] < target_val[target])):
@@ -261,6 +261,8 @@ def compute_stability_features(x, export=False, plot=False):
     :param plot: bool
     :return: float
     """
+    result = {'dend.gbar_nas': max(0., x[context.param_indexes['dend.gbar_nas']] -
+                                   x[context.param_indexes['soma.gbar_nas']])}
     start_time = time.time()
     if context.prev_job_type == 'spiking':
         context.cell.reinit_mechanisms(reset_cable=True, from_file=True)
@@ -276,7 +278,7 @@ def compute_stability_features(x, export=False, plot=False):
     i_th = context.i_th
 
     soma_vm = offset_vm('soma', v_active)
-    result = {'v_rest': soma_vm}
+    result['v_rest'] = soma_vm
     stim_dur = 150.
     context.sim.modify_stim(0, node=context.cell.tree.root, loc=0., dur=stim_dur)
     duration = equilibrate + stim_dur

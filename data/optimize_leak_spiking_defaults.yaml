@@ -51,6 +51,7 @@ bounds:
   - 0.1
   - 6.0
 feature_names:
+- dend.gbar_nas
 - dend R_inp
 - distal_dend R_inp
 - soma R_inp
@@ -84,6 +85,7 @@ group_sizes: !!python/tuple
 mech_file_path: data/042717 GC optimizing spike stability.pkl
 neurotree_file_path: morphologies/121516_DGC_trees.pkl
 objective_names:
+- dend.gbar_nas
 - dend R_inp
 - distal_dend R_inp
 - soma R_inp
@@ -128,12 +130,13 @@ target_range:
   AHP: 0.005
   ais_delay: 0.0005
   dend_amp: 0.0002
+  dend.gbar_nas: .001
   dend R_inp: 1.
   soma R_inp: 0.5
-  rebound_firing: 1
-  slow_depo: 0.5
+  rebound_firing: .002
+  slow_depo: 0.1
   soma_peak: 2.0
-  spont_firing: 1
+  spont_firing: .002
   th_count: .002
   v_rest: 0.25
   v_th: 0.01
@@ -143,6 +146,7 @@ target_val:
   AHP: 4.0
   ais_delay: 0.0
   dend_amp: 0.3
+  dend.gbar_nas: 0.
   dend R_inp: 375.
   soma R_inp: 295.
   rebound_firing: 0
