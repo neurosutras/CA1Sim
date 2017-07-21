@@ -15,15 +15,14 @@ Import this script into parallel_optimize_main. Then, set up ipcluster and run p
 
 context = Context()
 
-def config_engine(param_names, mech_file_path, neurotree_dict, spines, rec_filename, output_dir):
+def config_engine(param_names, mech_file_path, neurotree_dict, spines, rec_filepath):
     """
 
     :param param_names: list of str
     :param mech_file_path: str
     :param neurotree_dict: dict
     :param spines: bool
-    :param rec_filename: str
-    :param output_dir: str
+    :param rec_filepath: str
     :return:
     """
     param_indexes = {param_name: i for i, param_name in enumerate(param_names)}
@@ -123,9 +122,8 @@ def setup_cell():
     sim.parameters['spines'] = context.spines
     context.sim = sim
 
-    spike_output_vec = h.Vector()
-    cell.spike_detector.record(spike_output_vec)
-    context.spike_output_vec = spike_output_vec
+    context.spike_output_vec = h.Vector()
+    cell.spike_detector.record(context.spike_output_vec)
 
 def update_mech_dict(x, update_function, mech_file_path):
     update_function(x)
@@ -135,6 +133,7 @@ def get_stability_features(indiv, c, client_range, export=False):
     """
     Distribute simulations across available engines for testing spike stability.
     :param indiv: dict {'pop_id': pop_id, 'x': x arr, 'features': features dict}
+    :param c: Client object
     :param client_range: list of ints
     :param export: False (for exporting voltage traces)
     :return: dict
@@ -185,11 +184,8 @@ def filter_fI_features(get_result, old_features):
             new_features['vm_stability'] = this_dict['vm_stability']
         if 'rebound_firing' in this_dict.keys():
             new_features['rebound_firing'] = this_dict['rebound_firing']
-        if 'slow_depo' not in new_features:
+        if 'v_min_late' in this_dict.keys():
             new_features['slow_depo'] = this_dict['v_min_late'] - old_features['v_th']
-        else:
-            new_features['slow_depo'] += this_dict['v_min_late'] - old_features['v_th']
-
         spike_times = this_dict['spike_times']
         experimental_spike_times = context.experimental_spike_times
         experimental_adaptation_indexes = context.experimental_adaptation_indexes
@@ -229,7 +225,7 @@ def get_objectives(features, objective_names, target_val, target_range):
             objectives[objective] = 0.
         rheobase = features['rheobase']
         for target in ['v_rest', 'v_th', 'ADP', 'AHP', 'spont_firing', 'rebound_firing', 'vm_stability', 'ais_delay',
-                       'slow_depo', 'dend_amp', 'soma_peak']:
+                       'slow_depo', 'dend_amp', 'soma_peak', 'th_count', 'dend.gbar_nas']:
             # don't penalize AHP or slow_depo less than target
             if not ((target == 'AHP' and features[target] < target_val[target]) or
                         (target == 'slow_depo' and features[target] < target_val[target])):
@@ -264,6 +260,8 @@ def compute_stability_features(x, export=False, plot=False):
     :param plot: bool
     :return: float
     """
+    result = {'dend.gbar_nas': max(0., x[context.param_indexes['dend.gbar_nas']] -
+                                   x[context.param_indexes['soma.gbar_nas']])}
     start_time = time.time()
     if context.prev_job_type == 'spiking':
         context.cell.reinit_mechanisms(reset_cable=True, from_file=True)
@@ -279,7 +277,7 @@ def compute_stability_features(x, export=False, plot=False):
     i_th = context.i_th
 
     soma_vm = offset_vm('soma', v_active)
-    result = {'v_rest': soma_vm}
+    result['v_rest'] = soma_vm
     stim_dur = 150.
     context.sim.modify_stim(0, node=context.cell.tree.root, loc=0., dur=stim_dur)
     duration = equilibrate + stim_dur
@@ -313,7 +311,8 @@ def compute_stability_features(x, export=False, plot=False):
     result['ADP'] = ADP
     result['AHP'] = AHP
     result['rheobase'] = amp
-    result['spont_firing'] = len(np.where(spike_times < equilibrate))
+    result['spont_firing'] = len(np.where(spike_times < equilibrate)[0])
+    result['th_count'] = len(spike_times)
     dend_vm = np.interp(t, context.sim.tvec, context.sim.get_rec('dend')['vec'])
     th_x = np.where(vm[int(equilibrate / dt):] >= threshold)[0][0] + int(equilibrate / dt)
     if len(spike_times) > 1:
@@ -378,7 +377,7 @@ def compute_fI_features(amp, x, extend_dur=False, export=False, plot=False):
         duration = equilibrate + stim_dur + 100. #extend duration of simulation to find rebound
     else:
         duration = equilibrate + stim_dur
-        context.sim.tstop = duration
+    context.sim.tstop = duration
     print 'starting sim at %.1f A' %amp
     sys.stdout.flush()
     context.sim.run(v_active)
@@ -391,15 +390,15 @@ def compute_fI_features(amp, x, extend_dur=False, export=False, plot=False):
     result['amp'] = amp
     rate = len(spike_times) / stim_dur * 1000.
     result['rate'] = rate
-    vm = np.interp(t, context.sim.tvec, context.sim.get_rec('soma')['vec'])
-    v_min_late = np.min(vm[int((equilibrate + stim_dur - 20.) / dt):int((equilibrate + stim_dur - 1.) / dt)])
-    result['v_min_late'] = v_min_late
     if extend_dur:
+        vm = np.interp(t, context.sim.tvec, context.sim.get_rec('soma')['vec'])
+        v_min_late = np.min(vm[int((equilibrate + stim_dur - 20.) / dt):int((equilibrate + stim_dur - 1.) / dt)])
+        result['v_min_late'] = v_min_late
         v_rest = np.mean(vm[int((equilibrate - 3.) / dt):int((equilibrate - 1.) / dt)])
         v_after = np.max(vm[-int(50. / dt):-1])
         vm_stability = abs(v_after - v_rest)
         result['vm_stability'] = vm_stability
-        result['rebound_firing'] = len(np.where(spike_times > stim_dur))
+        result['rebound_firing'] = len(np.where(spike_times > stim_dur)[0])
     print 'Process %i took %.1f s to run simulation with I_inj amp: %.3f' % (os.getpid(), time.time() - start_time, amp)
     sys.stdout.flush()
     if export:
@@ -554,5 +553,5 @@ def export_sim_results():
     """
     Export the most recent time and recorded waveforms from the QuickSim object.
     """
-    with h5py.File(context.output_dir+context.rec_filename+'.hdf5', 'a') as f:
+    with h5py.File(context.rec_filepath, 'a') as f:
         context.sim.export_to_file(f)

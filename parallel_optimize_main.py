@@ -50,7 +50,7 @@ main_ctxt = Context()
 @click.option("--hot-start", is_flag=True)
 @click.option("--storage-file-path", type=str, default=None)
 @click.option("--export", is_flag=True)
-@click.option("--output-dir", type=str, default='data/')
+@click.option("--output-dir", type=str, default='data')
 @click.option("--export-file-path", type=str, default=None)
 @click.option("--disp", is_flag=True)
 def main(cluster_id, profile, spines, mech_file_path, neurotree_file_path, neurotree_index, param_file_path,
@@ -90,7 +90,7 @@ def main(cluster_id, profile, spines, mech_file_path, neurotree_file_path, neuro
     """
     init_main_controller(sleep, cluster_id, profile, path_length, spines, param_file_path, mech_file_path,
                          neurotree_file_path, neurotree_index, param_gen, get_features, features_modules,
-                         objectives_modules, group_sizes, storage_file_path, export_file_path, pop_size)
+                         objectives_modules, group_sizes, storage_file_path, output_dir, export_file_path, pop_size)
     main_ctxt.c[:].execute('from parallel_optimize_main import *', block=True)
     if sleep:
         time.sleep(120.)
@@ -100,15 +100,16 @@ def main(cluster_id, profile, spines, mech_file_path, neurotree_file_path, neuro
     global storage
     global x
     if not analyze:
+        global this_param_gen
         if hot_start:
-            globals()['param_gen'] = main_ctxt.param_gen_func(pop_size=pop_size, x0=param_dict_to_array(main_ctxt.x0,
+            this_param_gen = main_ctxt.param_gen_func(pop_size=pop_size, x0=param_dict_to_array(main_ctxt.x0,
                                                                                                main_ctxt.param_names),
                                                               bounds=main_ctxt.bounds, wrap_bounds=wrap_bounds,
                                                               seed=seed, max_iter=max_iter,
                                                               adaptive_step_factor=adaptive_step_factor,
                                                               survival_rate=survival_rate, disp=disp, hot_start=storage_file_path)
         else:
-            globals()['param_gen'] = main_ctxt.param_gen_func(param_names=main_ctxt.param_names,
+            this_param_gen = main_ctxt.param_gen_func(param_names=main_ctxt.param_names,
                                                               feature_names=main_ctxt.feature_names,
                                                               objective_names=main_ctxt.objective_names, pop_size=pop_size,
                                                               x0=param_dict_to_array(main_ctxt.x0, main_ctxt.param_names),
@@ -117,7 +118,6 @@ def main(cluster_id, profile, spines, mech_file_path, neurotree_file_path, neuro
                                                               initial_step_size=initial_step_size,
                                                               adaptive_step_factor=adaptive_step_factor,
                                                               survival_rate=survival_rate, disp=disp)
-        this_param_gen = globals()['param_gen']
         run_optimization(disp)
         storage = this_param_gen.storage
         best_ind = storage.get_best(1, 'last')[0]
@@ -143,10 +143,31 @@ def main(cluster_id, profile, spines, mech_file_path, neurotree_file_path, neuro
     if export:
         return export_traces(x, main_ctxt.group_sizes, export_file_path=main_ctxt.export_file_path, disp=disp)
 
-def init_main_controller(sleep, cluster_id, profile, path_length, spines, param_file_path, user_mech_file_path,
-                         neurotree_file_path, neurotree_index, param_gen, user_get_features, user_features_modules,
-                         user_objectives_modules, user_group_sizes, user_storage_file_path, user_export_file_path,
-                         pop_size):
+def init_main_controller(sleep, cluster_id, profile, path_length, spines, param_file_path, mech_file_path,
+                         neurotree_file_path, neurotree_index, param_gen, get_features, features_modules,
+                         objectives_modules, group_sizes, storage_file_path, output_dir, export_file_path, pop_size):
+    """
+
+    :param sleep:
+    :param cluster_id:
+    :param profile:
+    :param path_length:
+    :param spines:
+    :param param_file_path:
+    :param mech_file_path:
+    :param neurotree_file_path:
+    :param neurotree_index:
+    :param param_gen:
+    :param get_features:
+    :param features_modules:
+    :param objectives_modules:
+    :param group_sizes:
+    :param storage_file_path:
+    :param output_dir:
+    :param export_file_path:
+    :param pop_size:
+    :return:
+    """
     if sleep:
         time.sleep(300.)
     if cluster_id is not None:
@@ -168,75 +189,48 @@ def init_main_controller(sleep, cluster_id, profile, path_length, spines, param_
         target_range = params_dict['target_range']
         optimization_title = params_dict['optimization_title']
 
-        default_param_gen = params_dict['param_gen']
-        default_mech_file_path = params_dict['mech_file_path']
-        default_neurotree_file_path = params_dict['neurotree_file_path']
-        default_get_features = params_dict['get_features']
-        default_features_modules = params_dict['features_modules']
-        default_objectives_modules = params_dict['objectives_modules']
-        default_group_sizes = params_dict['group_sizes']
+        if param_gen is None:
+            param_gen = params_dict['param_gen']
+        if mech_file_path is None:
+            mech_file_path = params_dict['mech_file_path']
+        if neurotree_file_path is None:
+            neurotree_file_path = params_dict['neurotree_file_path']
+        if not get_features:
+            get_features = params_dict['get_features']
+        if not features_modules:
+            features_modules = params_dict['features_modules']
+        if not objectives_modules:
+            objectives_modules = params_dict['objectives_modules']
+        if not group_sizes:
+            group_sizes = params_dict['group_sizes']
+        if storage_file_path is None:
+            storage_file_path = '%s/%s_%s_%s_optimization_history.hdf5' % \
+                                (output_dir, datetime.datetime.today().strftime('%m%d%Y%H%M'), optimization_title, param_gen)
+        if export_file_path is None:
+            export_file_path = '%s/%s_%s_%s_optimization_exported_traces.hdf5' % \
+                               (output_dir, datetime.datetime.today().strftime('%m%d%Y%H%M'), optimization_title, param_gen)
     else:
         raise NameError('A param_file_path containing default paramters must be provided.')
+    main_ctxt.update(locals())
     main_ctxt.update({'x0': x0, 'param_names': param_names, 'bounds': bounds, 'feature_names': feature_names,
                     'objective_names': objective_names, 'target_val': target_val, 'target_range': target_range,
                     'path_length': path_length, 'spines': spines, 'pop_size': pop_size})
 
-    if user_mech_file_path is None:
-        mech_file_path = default_mech_file_path
-    else:
-        mech_file_path = user_mech_file_path
-    main_ctxt.mech_file_path = mech_file_path
-    if user_storage_file_path is None:
-        storage_file_path = 'data/%s_%s_%s_optimization_history.hdf5' % \
-                       (datetime.datetime.today().strftime('%m%d%Y%H%M'), optimization_title, param_gen)
-    else:
-        storage_file_path = user_storage_file_path
-    main_ctxt.storage_file_path = storage_file_path
-    if user_export_file_path is None:
-        export_file_path = 'data/%s_%s_%s_optimization_exported_traces.hdf5' % \
-                           (datetime.datetime.today().strftime('%m%d%Y%H%M'), optimization_title, param_gen)
-    else:
-        export_file_path = user_export_file_path
-    main_ctxt.export_file_path = export_file_path
-    if neurotree_file_path is None:
-        neurotree_file_path = default_neurotree_file_path
-    neurotree_dict = read_from_pkl(neurotree_file_path)[neurotree_index]
-    main_ctxt.neurotree_dict = neurotree_dict
-
-    if param_gen is None:
-        param_gen = default_param_gen
     if param_gen not in globals():
         raise NameError('Multi-Objective Optimization: %s has not been imported, or is not a valid class of parameter '
                         'generator.' % param_gen)
     param_gen_func = globals()[param_gen] # The variable 'param_gen_func' points to the actual generator function, while
                                           # param_gen points to the string name of the generator
-    param_gen_func_name = param_gen
     main_ctxt.param_gen_func = param_gen_func
+    param_gen_func_name = param_gen
 
-    if not user_get_features:
-        get_features = default_get_features
-    else:
-        get_features = user_get_features
-    main_ctxt.get_features = get_features
-    if not user_features_modules:
-        features_modules = default_features_modules
-    else:
-        features_modules = user_features_modules
-    main_ctxt.features_modules = features_modules
-    if not user_objectives_modules:
-        objectives_modules = default_objectives_modules
-    else:
-        objectives_modules = user_objectives_modules
-    main_ctxt.objectives_modules = objectives_modules
+    neurotree_dict = read_from_pkl(neurotree_file_path)[neurotree_index]
+    main_ctxt.neurotree_dict = neurotree_dict
 
-    if not user_group_sizes:
-        orig_group_sizes = default_group_sizes
-    else:
-        orig_group_sizes = user_group_sizes
-    new_group_sizes = [orig_group_sizes[i] for i in range(len(orig_group_sizes))]
-    blocks = range(len(orig_group_sizes))
-    un_utilized = range(len(orig_group_sizes))
-    for ind in range(len(orig_group_sizes)):
+    new_group_sizes = [group_sizes[i] for i in range(len(group_sizes))]
+    blocks = range(len(group_sizes))
+    un_utilized = range(len(group_sizes))
+    for ind in range(len(group_sizes)):
         if new_group_sizes[ind] > num_procs:
             new_group_sizes[ind] = num_procs
             print 'Multi-Objective Optimization: group_sizes index %i adjusted to not exceed num_processes: %i' % (ind, num_procs)
@@ -247,7 +241,7 @@ def init_main_controller(sleep, cluster_id, profile, path_length, spines, param_
         if blocks[ind] * (num_procs / new_group_sizes[ind]) < pop_size:
             blocks[ind] += 1
     group_sizes = new_group_sizes
-    main_ctxt.group_sizes = group_sizes
+    main_ctxt.group_sizes = new_group_sizes
 
     print 'Multi-Objective Optimization %s: Generator: %s; Total processes: %i; Population size: %i; Group sizes: %s; ' \
           'Feature calculator: %s; Objective calculator: %s; Blocks / generation: %s' % \
@@ -265,9 +259,10 @@ def setup_modules(get_features, features_modules, objectives_modules, group_size
         m = importlib.import_module(module)
         feat_module_dict[module] = m
         if config_engine:
-            global rec_filename
-            rec_filename = 'sim_output' + datetime.datetime.today().strftime('%m%d%Y%H%M') + '_pid' + str(os.getpid())
-            m.config_engine(param_names, mech_file_path, neurotree_dict, spines, rec_filename, output_dir)
+            global rec_filepath
+            rec_filepath = output_dir+'/sim_output' + datetime.datetime.today().strftime('%m%d%Y%H%M') + \
+                           '_pid' + str(os.getpid()) + '.hdf5'
+            m.config_engine(param_names, mech_file_path, neurotree_dict, spines, rec_filepath)
     for module in features_modules:
         feat_module_refs.append(feat_module_dict[module])
     if len(get_features) != len(group_sizes):
@@ -283,7 +278,7 @@ def setup_modules(get_features, features_modules, objectives_modules, group_size
                             % (get_features[i], features_modules[i]))
     obj_module_refs = []
     for module in objectives_modules:
-        m = importlib.import_module(module)
+        m = sys.modules[module]
         obj_module_refs.append(m)
     get_objectives_func = [getattr(obj_module_refs[i], 'get_objectives') for i in range(len(obj_module_refs))]
     main_ctxt.get_objectives_func = get_objectives_func
@@ -301,12 +296,12 @@ def run_optimization(disp):
     :param disp: bool
     :return:
     """
-    for ind, generation in enumerate(param_gen()):
+    for ind, generation in enumerate(this_param_gen()):
         if (ind > 0) and (ind % main_ctxt.path_length == 0):
-            param_gen.storage.save(main_ctxt.storage_file_path, n=main_ctxt.path_length)
+            this_param_gen.storage.save(main_ctxt.storage_file_path, n=main_ctxt.path_length)
         features, objectives = get_all_features(generation, group_sizes=main_ctxt.group_sizes, disp=disp)
-        param_gen.update_population(features, objectives)
-    param_gen.storage.save(main_ctxt.storage_file_path, n=main_ctxt.path_length)
+        this_param_gen.update_population(features, objectives)
+    this_param_gen.storage.save(main_ctxt.storage_file_path, n=main_ctxt.path_length)
 
 def get_all_features(generation, group_sizes=(1, 10), disp=False, export=False):
     """
@@ -390,8 +385,8 @@ def export_traces(x, group_sizes, export_file_path=None, discard=True, disp=Fals
     """
     x_arr = param_dict_to_array(x, main_ctxt.param_names)
     exported_features, exported_objectives = get_all_features([x_arr], group_sizes=group_sizes, disp=disp, export=True)
-    rec_file_path_list = [data_dir + filename + '.hdf5' for filename in main_ctxt.c[:]['rec_filename']
-                          if os.path.isfile(data_dir + filename + '.hdf5')]
+    rec_file_path_list = [filepath for filepath in main_ctxt.c[:]['rec_filepath']
+                          if os.path.isfile(filepath)]
     combine_hdf5_file_paths(rec_file_path_list, export_file_path)
     if discard:
         for rec_file_path in rec_file_path_list:

@@ -42,6 +42,7 @@ bounds:
   - 0.1
   - 6.0
 feature_names:
+- dend.gbar_nas
 - v_rest
 - v_th
 - ADP
@@ -73,6 +74,7 @@ objective_names:
 - v_th
 - ADP
 - AHP
+- dend.gbar_nas
 - spont_firing
 - rebound_firing
 - vm_stability
@@ -80,6 +82,7 @@ objective_names:
 - slow_depo
 - dend_amp
 - soma_peak
+- th_count
 - adi
 - f_I_slope
 objectives_modules: !!python/tuple
@@ -106,22 +109,26 @@ target_range:
   AHP: 0.005
   ais_delay: 0.0005
   dend_amp: 0.0002
-  rebound_firing: 1
-  slow_depo: 0.5
+  dend.gbar_nas: .001
+  rebound_firing: .002
+  slow_depo: 0.1
   soma_peak: 2.0
-  spont_firing: 1
+  spont_firing: .002
+  th_count: .002
   v_rest: 0.25
   v_th: 0.01
-  vm_stability: 1.0
+  vm_stability: 0.1
 target_val:
   ADP: 0.0
   AHP: 4.0
   ais_delay: 0.0
   dend_amp: 0.3
+  dend.gbar_nas: 0.
   rebound_firing: 0
-  slow_depo: 20.0
+  slow_depo: 10.0
   soma_peak: 40.0
   spont_firing: 0
+  th_count: 1
   v_rest: -77.0
   v_th: -48.0
   vm_stability: 0.0
