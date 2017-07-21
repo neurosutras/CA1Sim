@@ -38,6 +38,10 @@ target_range:
 target_val:
   dend R_inp: 375.
   soma R_inp: 295.
+update_params: !!python/tuple
+- update_pas_exp
+update_modules: !!python/tuple
+- parallel_optimize_leak_import
 x0:
   dend.g_pas slope: 1.058E-08
   dend.g_pas tau: 3.886E+01

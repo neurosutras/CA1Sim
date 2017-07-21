@@ -3,15 +3,12 @@ from specify_cells3 import *
 from plot_results import *
 
 """
-Aims for spike initiation at initial segment by increasing nax density and decreasing activation V1/2 relative to soma,
-axon_hill, and axon compartments. Extend linear kap gradient into basals and obliques, aim for 60% spike attenuation
-at bifurcation of trunk and tuft.
-
-Optimizes gbar_nax/nas/sh/sha, gkabar_kap/d, gkdrbar for target na spike threshold, AHP amp, and vm stability
+Iterates through every spine and activates AMPA_KIN synapses. Allows measurement of EPSP attenuation
+and kinetics.
 
 Import this script into parallel_optimize_main. Then, set up ipcluster and run parallel_optimize_main.py
 """
-# param_file_path = 'data/optimize_spiking_defaults.yaml'
+# param_file_path = 'data/optimize_EPSP_attenuation_defaults.yaml'
 
 context = Context()
 
@@ -29,31 +26,13 @@ def config_engine(param_names, mech_file_path, neurotree_dict, spines, rec_filep
     prev_job_type = 'None'
     context.update(locals())
 
-def get_adaptation_index(spike_times):
-    """
-    A large value indicates large degree of spike adaptation (large increases in interspike intervals during a train)
-    :param spike_times: list of float
-    :return: float
-    """
-    import numpy as np
-    if len(spike_times) < 3:
-        return None
-    isi = []
-    adi = []
-    for i in range(len(spike_times) - 1):
-        isi.append(spike_times[i + 1] - spike_times[i])
-    for i in range(len(isi) - 1):
-        adi.append((isi[i + 1] - isi[i]) / (isi[i + 1] + isi[i]))
-    return np.mean(adi)
-
-def init_spiking_engine():
+def init_EPSP_attenuation_engine():
     """
 
     :return:
     """
     equilibrate = 250.  # time to steady-state
-    stim_dur = 500.
-    duration = equilibrate + stim_dur
+    duration = 450.
     dt = 0.02
     amp = 0.3
     th_dvdt = 10.

@@ -33,6 +33,8 @@ main_ctxt = Context()
 @click.option("--param-file-path", type=click.Path(exists=True, file_okay=True, dir_okay=False),
               default='data/optimize_spiking_defaults.yaml')
 @click.option("--param-gen", type=str, default=None)
+@click.option("--update-params", "-up", multiple=True, type=str, default=None)
+@click.option("--update-modules", "-um", multiple=True, type=str, default=None)
 @click.option("--get-features", "-gf", multiple=True, type=str, default=None)
 @click.option("--features-modules", "-fm", multiple=True, type=str, default=None)
 @click.option("--objectives-modules", "-om", multiple=True, type=str, default=None)
@@ -54,9 +56,9 @@ main_ctxt = Context()
 @click.option("--export-file-path", type=str, default=None)
 @click.option("--disp", is_flag=True)
 def main(cluster_id, profile, spines, mech_file_path, neurotree_file_path, neurotree_index, param_file_path,
-         param_gen, get_features, features_modules, objectives_modules, group_sizes, pop_size, wrap_bounds, seed,
-         max_iter, path_length, initial_step_size, adaptive_step_factor, survival_rate, sleep, analyze, hot_start,
-         storage_file_path, export, output_dir, export_file_path, disp):
+         param_gen, update_params, update_modules, get_features, features_modules, objectives_modules, group_sizes,
+         pop_size, wrap_bounds, seed, max_iter, path_length, initial_step_size, adaptive_step_factor, survival_rate,
+         sleep, analyze, hot_start, storage_file_path, export, output_dir, export_file_path, disp):
     """
 
     :param cluster_id: str
@@ -67,7 +69,9 @@ def main(cluster_id, profile, spines, mech_file_path, neurotree_file_path, neuro
     :param neurotree_index: int
     :param param_file_path: str (path)
     :param param_gen: str (must refer to callable in globals())
-    :param get_features: tuple of str (must refer to callable in globals())
+    :param update_params: tuple of str (must refer to callables in globals())
+    :param update_modules: tuple of str
+    :param get_features: tuple of str (must refer to callables in globals())
     :param features_modules: tuple of str
     :param objectives_modules: tuple of str
     :param group_sizes: tuple of int
@@ -405,7 +409,7 @@ def plot_traces(export_file_path):
             axes.legend(loc='best', frameon=False, framealpha=0.5)
             axes.set_xlabel('Time (ms)')
             axes.set_ylabel('Vm (mV)')
-            axes.set_title('Optimize %s: I_inj amplitude %.2f' % (trial.attrs['description'], amplitude))
+            # axes.set_title('Optimize %s: I_inj amplitude %.2f' % (trial.attrs['description'], amplitude))
             clean_axes(axes)
             fig.tight_layout()
         plt.show()

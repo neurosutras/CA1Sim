@@ -42,7 +42,7 @@ bounds:
   - 0.1
   - 6.0
 feature_names:
-- dend.gbar_nas
+- na_gradient
 - v_rest
 - v_th
 - ADP
@@ -74,7 +74,7 @@ objective_names:
 - v_th
 - ADP
 - AHP
-- dend.gbar_nas
+- na_gradient
 - spont_firing
 - rebound_firing
 - vm_stability
@@ -109,7 +109,7 @@ target_range:
   AHP: 0.005
   ais_delay: 0.0005
   dend_amp: 0.0002
-  dend.gbar_nas: .001
+  na_gradient: .001
   rebound_firing: .002
   slow_depo: 0.1
   soma_peak: 2.0
@@ -123,7 +123,7 @@ target_val:
   AHP: 4.0
   ais_delay: 0.0
   dend_amp: 0.3
-  dend.gbar_nas: 0.
+  na_gradient: 0.
   rebound_firing: 0
   slow_depo: 10.0
   soma_peak: 40.0
@@ -132,6 +132,10 @@ target_val:
   v_rest: -77.0
   v_th: -48.0
   vm_stability: 0.0
+update_params: !!python/tuple
+- update_na_ka_stability
+update_modules: !!python/tuple
+- parallel_optimize_spiking_import
 x0:
   ais.gbar_nax: 0.1681
   ais.gkmbar: 0.01286
