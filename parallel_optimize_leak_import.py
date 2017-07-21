@@ -165,6 +165,7 @@ def compute_Rinp_features(section, x, export=False):
     context.sim.parameters['section'] = section
     context.sim.parameters['target'] = 'Rinp'
     context.sim.parameters['optimization'] = 'pas'
+    context.sim.parameters['description'] = 'Rinp'
     amp = -0.05
     context.sim.parameters['amp'] = amp
     offset_vm(section)
