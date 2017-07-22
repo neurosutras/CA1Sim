@@ -15,27 +15,27 @@ Import this script into parallel_optimize_main. Then, set up ipcluster and run p
 
 context = Context()
 
-def config_engine(param_names, mech_file_path, neurotree_dict, spines, rec_filepath):
+def config_engine(update_params_funcs, param_names, mech_file_path, neurotree_dict, spines, rec_filepath):
     """
 
+    :param update_params_funcs: list of function references
     :param param_names: list of str
     :param mech_file_path: str
     :param neurotree_dict: dict
     :param spines: bool
     :param rec_filepath: str
-    :param output_dir: str
     :return:
     """
     param_indexes = {param_name: i for i, param_name in enumerate(param_names)}
-    prev_job_type = 'None'
     context.update(locals())
+    set_constants()
+    setup_cell()
 
-def init_leak_engine():
+def set_constants():
     equilibrate = 250.  # time to steady-state
     stim_dur = 500.
     duration = equilibrate + stim_dur
     dt = 0.02
-    # dt = 0.002
     amp = 0.3
     th_dvdt = 10.
     v_init = -77.
@@ -148,12 +148,9 @@ def compute_Rinp_features(section, x, export=False):
     :return: dict: {str: float}
     """
     start_time = time.time()
-    if context.prev_job_type == 'leak':
-        context.cell.reinit_mechanisms(reset_cable=True, from_file=True)
-    else:
-        init_leak_engine()
-        setup_cell()
-    update_pas_exp(x)
+    context.cell.reinit_mechanisms(reset_cable=True, from_file=True)
+    for update_func in context.update_params_funcs:
+        update_func(context.cell, x, context.param_indexes)
     context.cell.zero_na()
 
     duration = context.duration
@@ -240,22 +237,21 @@ def offset_vm(description, vm_target=None):
     context.sim.tstop = duration
     return v_rest
 
-def update_pas_exp(x):
+def update_pas_exp(cell, x, param_indexes):
     """
 
     x0 = ['soma.g_pas': 2.28e-05, 'dend.g_pas slope': 1.58e-06, 'dend.g_pas tau': 58.4]
     :param x: array [soma.g_pas, dend.g_pas slope, dend.g_pas tau]
     """
-    param_indexes = context.param_indexes
     if context.spines is False:
-        context.cell.reinit_mechanisms(reset_cable=True)
-    context.cell.modify_mech_param('soma', 'pas', 'g', x[param_indexes['soma.g_pas']])
-    context.cell.modify_mech_param('apical', 'pas', 'g', origin='soma', slope=x[param_indexes['dend.g_pas slope']],
+        cell.reinit_mechanisms(reset_cable=True)
+    cell.modify_mech_param('soma', 'pas', 'g', x[param_indexes['soma.g_pas']])
+    cell.modify_mech_param('apical', 'pas', 'g', origin='soma', slope=x[param_indexes['dend.g_pas slope']],
                            tau=x[param_indexes['dend.g_pas tau']])
     for sec_type in ['axon_hill', 'axon', 'ais', 'apical', 'spine_neck', 'spine_head']:
-        context.cell.reinitialize_subset_mechanisms(sec_type, 'pas')
+        cell.reinitialize_subset_mechanisms(sec_type, 'pas')
     if context.spines is False:
-        context.cell.correct_for_spines()
+        cell.correct_for_spines()
 
 def export_sim_results():
     """

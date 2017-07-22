@@ -15,9 +15,10 @@ Import this script into parallel_optimize_main. Then, set up ipcluster and run p
 
 context = Context()
 
-def config_engine(param_names, mech_file_path, neurotree_dict, spines, rec_filepath):
+def config_engine(update_params_funcs, param_names, mech_file_path, neurotree_dict, spines, rec_filepath):
     """
 
+    :param update_params_funcs: list of function references
     :param param_names: list of str
     :param mech_file_path: str
     :param neurotree_dict: dict
@@ -26,31 +27,11 @@ def config_engine(param_names, mech_file_path, neurotree_dict, spines, rec_filep
     :return:
     """
     param_indexes = {param_name: i for i, param_name in enumerate(param_names)}
-    prev_job_type = 'None'
     context.update(locals())
+    set_constants()
+    setup_cell()
 
-def get_adaptation_index(spike_times):
-    """
-    A large value indicates large degree of spike adaptation (large increases in interspike intervals during a train)
-    :param spike_times: list of float
-    :return: float
-    """
-    import numpy as np
-    if len(spike_times) < 3:
-        return None
-    isi = []
-    adi = []
-    for i in range(len(spike_times) - 1):
-        isi.append(spike_times[i + 1] - spike_times[i])
-    for i in range(len(isi) - 1):
-        adi.append((isi[i + 1] - isi[i]) / (isi[i + 1] + isi[i]))
-    return np.mean(adi)
-
-def init_spiking_engine():
-    """
-
-    :return:
-    """
+def set_constants():
     equilibrate = 250.  # time to steady-state
     stim_dur = 500.
     duration = equilibrate + stim_dur
@@ -77,6 +58,24 @@ def init_spiking_engine():
     i_inj_increment = 0.05
     num_increments = 10
     context.update(locals())
+
+def get_adaptation_index(spike_times):
+    """
+    A large value indicates large degree of spike adaptation (large increases in interspike intervals during a train)
+    :param spike_times: list of float
+    :return: float
+    """
+    import numpy as np
+    if len(spike_times) < 3:
+        return None
+    isi = []
+    adi = []
+    for i in range(len(spike_times) - 1):
+        isi.append(spike_times[i + 1] - spike_times[i])
+    for i in range(len(isi) - 1):
+        adi.append((isi[i + 1] - isi[i]) / (isi[i + 1] + isi[i]))
+    return np.mean(adi)
+
 
 def setup_cell():
     """
@@ -155,7 +154,7 @@ def get_fI_features(indiv, c, client_range, export=False):
     x = indiv['x']
     rheobase = indiv['features']['rheobase']
     # Calculate firing rates for a range of I_inj amplitudes using a stim duration of 500 ms
-    init_spiking_engine() # So that controller core has access to constansts such as num_increments
+    set_constants() # So that controller core has access to constants such as num_increments
     num_incr = context.num_increments
     i_inj_increment = context.i_inj_increment
     result = dv.map_async(compute_fI_features, [rheobase + i_inj_increment * (i + 1) for i in range(num_incr)],
@@ -260,20 +259,17 @@ def compute_stability_features(x, export=False, plot=False):
     :param plot: bool
     :return: float
     """
+    start_time = time.time()
     na_gradient = max(0., x[context.param_indexes['dend.gbar_nas']] - x[context.param_indexes['soma.gbar_nas']]) + \
                   max(0., x[context.param_indexes['soma.gbar_nas']] - x[context.param_indexes['ais.gbar_nax']]) + \
                   max(0., x[context.param_indexes['soma.gbar_nas']] - x[context.param_indexes['axon.gbar_nax']]) + \
                   max(0., x[context.param_indexes['axon.gbar_nax']] - x[context.param_indexes['ais.gbar_nax']])
     result = {'na_gradient': na_gradient}
-    start_time = time.time()
-    if context.prev_job_type == 'spiking':
-        context.cell.reinit_mechanisms(reset_cable=True, from_file=True)
-    else:
-        init_spiking_engine()
-        setup_cell()
-    update_na_ka_stability(x)
-    # sim.cvode_state = True
 
+    context.cell.reinit_mechanisms(reset_cable=True, from_file=True)
+    for update_func in context.update_params_funcs:
+        update_func(context.cell, x, context.param_indexes)
+    # sim.cvode_state = True
     v_active = context.v_active
     equilibrate = context.equilibrate
     dt = context.dt
@@ -358,12 +354,9 @@ def compute_fI_features(amp, x, extend_dur=False, export=False, plot=False):
     :param plot: bool
     :return: dict
     """
-    if context.prev_job_type == 'spiking':
-        context.cell.reinit_mechanisms(reset_cable=True, from_file=True)
-    else:
-        init_spiking_engine()
-        setup_cell()
-    update_na_ka_stability(x)
+    context.cell.reinit_mechanisms(reset_cable=True, from_file=True)
+    for update_func in context.update_params_funcs:
+        update_func(context.cell, x, context.param_indexes)
     # sim.cvode_state = True
     soma_vm = offset_vm('soma', context.v_active)
     context.sim.parameters['amp'] = amp
@@ -503,54 +496,53 @@ def get_spike_shape(vm, spike_times):
         ADP = 0.
     return v_peak, th_v, ADP, AHP
 
-def update_na_ka_stability(x):
+def update_na_ka_stability(cell, x, param_indexes):
     """
 
     :param x: array ['soma.gbar_nas', 'dend.gbar_nas', 'axon.gbar_nax', 'ais.gbar_nax', 'soma.gkabar', 'dend.gkabar',
                        'soma.gkdrbar', 'axon.gkbar', 'soma.sh_nas/x', 'ais.sha_nas', 'soma.gCa factor',
                        'soma.gCadepK factor', 'soma.gkmbar', 'ais.gkmbar']
     """
-    param_indexes = context.param_indexes
-    context.cell.modify_mech_param('soma', 'nas', 'gbar', x[param_indexes['soma.gbar_nas']])
-    context.cell.modify_mech_param('soma', 'kdr', 'gkdrbar', x[param_indexes['soma.gkdrbar']])
-    context.cell.modify_mech_param('soma', 'kap', 'gkabar', x[param_indexes['soma.gkabar']])
+    cell.modify_mech_param('soma', 'nas', 'gbar', x[param_indexes['soma.gbar_nas']])
+    cell.modify_mech_param('soma', 'kdr', 'gkdrbar', x[param_indexes['soma.gkdrbar']])
+    cell.modify_mech_param('soma', 'kap', 'gkabar', x[param_indexes['soma.gkabar']])
     slope = (x[param_indexes['dend.gkabar']] - x[param_indexes['soma.gkabar']]) / 300.
-    context.cell.modify_mech_param('soma', 'nas', 'sh', x[param_indexes['soma.sh_nas/x']])
+    cell.modify_mech_param('soma', 'nas', 'sh', x[param_indexes['soma.sh_nas/x']])
     for sec_type in ['apical']:
-        context.cell.reinitialize_subset_mechanisms(sec_type, 'nas')
-        context.cell.modify_mech_param(sec_type, 'kap', 'gkabar', origin='soma', min_loc=75., value=0.)
-        context.cell.modify_mech_param(sec_type, 'kap', 'gkabar', origin='soma', max_loc=75., slope=slope, replace=False)
-        context.cell.modify_mech_param(sec_type, 'kad', 'gkabar', origin='soma', max_loc=75., value=0.)
-        context.cell.modify_mech_param(sec_type, 'kad', 'gkabar', origin='soma', min_loc=75., max_loc=300., slope=slope,
+        cell.reinitialize_subset_mechanisms(sec_type, 'nas')
+        cell.modify_mech_param(sec_type, 'kap', 'gkabar', origin='soma', min_loc=75., value=0.)
+        cell.modify_mech_param(sec_type, 'kap', 'gkabar', origin='soma', max_loc=75., slope=slope, replace=False)
+        cell.modify_mech_param(sec_type, 'kad', 'gkabar', origin='soma', max_loc=75., value=0.)
+        cell.modify_mech_param(sec_type, 'kad', 'gkabar', origin='soma', min_loc=75., max_loc=300., slope=slope,
                                value=x[param_indexes['soma.gkabar']]+slope*75., replace=False)
-        context.cell.modify_mech_param(sec_type, 'kad', 'gkabar', origin='soma', min_loc=300.,
+        cell.modify_mech_param(sec_type, 'kad', 'gkabar', origin='soma', min_loc=300.,
                                value=x[param_indexes['soma.gkabar']]+slope*300., replace=False)
-        context.cell.modify_mech_param(sec_type, 'kdr', 'gkdrbar', origin='soma')
-        context.cell.modify_mech_param(sec_type, 'nas', 'sha', 5.)
-        context.cell.modify_mech_param(sec_type, 'nas', 'gbar', x[param_indexes['dend.gbar_nas']])
-    context.cell.set_terminal_branch_na_gradient()
-    context.cell.reinitialize_subset_mechanisms('axon_hill', 'kap')
-    context.cell.reinitialize_subset_mechanisms('axon_hill', 'kdr')
-    context.cell.modify_mech_param('ais', 'kdr', 'gkdrbar', origin='soma')
-    context.cell.modify_mech_param('ais', 'kap', 'gkabar', x[param_indexes['axon.gkbar']])
-    context.cell.modify_mech_param('axon', 'kdr', 'gkdrbar', origin='ais')
-    context.cell.modify_mech_param('axon', 'kap', 'gkabar', origin='ais')
-    context.cell.modify_mech_param('axon_hill', 'nax', 'sh', x[param_indexes['soma.sh_nas/x']])
-    context.cell.modify_mech_param('axon_hill', 'nax', 'gbar', context.soma_na_gbar)
-    context.cell.modify_mech_param('axon', 'nax', 'gbar', x[param_indexes['axon.gbar_nax']])
+        cell.modify_mech_param(sec_type, 'kdr', 'gkdrbar', origin='soma')
+        cell.modify_mech_param(sec_type, 'nas', 'sha', 5.)
+        cell.modify_mech_param(sec_type, 'nas', 'gbar', x[param_indexes['dend.gbar_nas']])
+    cell.set_terminal_branch_na_gradient()
+    cell.reinitialize_subset_mechanisms('axon_hill', 'kap')
+    cell.reinitialize_subset_mechanisms('axon_hill', 'kdr')
+    cell.modify_mech_param('ais', 'kdr', 'gkdrbar', origin='soma')
+    cell.modify_mech_param('ais', 'kap', 'gkabar', x[param_indexes['axon.gkbar']])
+    cell.modify_mech_param('axon', 'kdr', 'gkdrbar', origin='ais')
+    cell.modify_mech_param('axon', 'kap', 'gkabar', origin='ais')
+    cell.modify_mech_param('axon_hill', 'nax', 'sh', x[param_indexes['soma.sh_nas/x']])
+    cell.modify_mech_param('axon_hill', 'nax', 'gbar', context.soma_na_gbar)
+    cell.modify_mech_param('axon', 'nax', 'gbar', x[param_indexes['axon.gbar_nax']])
     for sec_type in ['ais', 'axon']:
-        context.cell.modify_mech_param(sec_type, 'nax', 'sh', origin='axon_hill')
-    context.cell.modify_mech_param('soma', 'Ca', 'gcamult', x[param_indexes['soma.gCa factor']])
-    context.cell.modify_mech_param('soma', 'CadepK', 'gcakmult', x[param_indexes['soma.gCadepK factor']])
-    context.cell.modify_mech_param('soma', 'km3', 'gkmbar', x[param_indexes['soma.gkmbar']])
-    context.cell.modify_mech_param('ais', 'km3', 'gkmbar', x[param_indexes['ais.gkmbar']])
-    context.cell.modify_mech_param('axon_hill', 'km3', 'gkmbar', origin='soma')
-    context.cell.modify_mech_param('axon', 'km3', 'gkmbar', origin='ais')
-    context.cell.modify_mech_param('ais', 'nax', 'sha', x[param_indexes['ais.sha_nas']])
-    context.cell.modify_mech_param('ais', 'nax', 'gbar', x[param_indexes['ais.gbar_nax']])
+        cell.modify_mech_param(sec_type, 'nax', 'sh', origin='axon_hill')
+    cell.modify_mech_param('soma', 'Ca', 'gcamult', x[param_indexes['soma.gCa factor']])
+    cell.modify_mech_param('soma', 'CadepK', 'gcakmult', x[param_indexes['soma.gCadepK factor']])
+    cell.modify_mech_param('soma', 'km3', 'gkmbar', x[param_indexes['soma.gkmbar']])
+    cell.modify_mech_param('ais', 'km3', 'gkmbar', x[param_indexes['ais.gkmbar']])
+    cell.modify_mech_param('axon_hill', 'km3', 'gkmbar', origin='soma')
+    cell.modify_mech_param('axon', 'km3', 'gkmbar', origin='ais')
+    cell.modify_mech_param('ais', 'nax', 'sha', x[param_indexes['ais.sha_nas']])
+    cell.modify_mech_param('ais', 'nax', 'gbar', x[param_indexes['ais.gbar_nax']])
     if context.spines is False:
-        context.cell.correct_for_spines()
-    context.cell.set_terminal_branch_na_gradient()
+        cell.correct_for_spines()
+    cell.set_terminal_branch_na_gradient()
 
 def export_sim_results():
     """

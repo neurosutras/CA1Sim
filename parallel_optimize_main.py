@@ -92,15 +92,15 @@ def main(cluster_id, profile, spines, mech_file_path, neurotree_file_path, neuro
     :param export_file_path: str
     :param disp: bool
     """
-    init_main_controller(sleep, cluster_id, profile, path_length, spines, param_file_path, mech_file_path,
-                         neurotree_file_path, neurotree_index, param_gen, get_features, features_modules,
-                         objectives_modules, group_sizes, storage_file_path, output_dir, export_file_path, pop_size)
-    main_ctxt.c[:].execute('from parallel_optimize_main import *', block=True)
-    if sleep:
-        time.sleep(120.)
-    main_ctxt.c[:].apply_sync(setup_modules, main_ctxt.get_features, main_ctxt.features_modules,
-                              main_ctxt.objectives_modules, main_ctxt.group_sizes, True, main_ctxt.param_names,
-                              main_ctxt.mech_file_path, main_ctxt.neurotree_dict, spines, output_dir)
+    process_params(sleep, cluster_id, profile, path_length, spines, param_file_path, mech_file_path,
+                   neurotree_file_path, neurotree_index, param_gen, update_params, update_modules, get_features,
+                   features_modules, objectives_modules, group_sizes, storage_file_path, output_dir, export_file_path,
+                   pop_size)
+    init_controller(main_ctxt.update_params, main_ctxt.update_modules, main_ctxt.get_features,
+                    main_ctxt.features_modules, main_ctxt.group_sizes, main_ctxt.objectives_modules)
+    if not analyze or export:
+        setup_client_interface(sleep, cluster_id, profile, main_ctxt.group_sizes, pop_size, main_ctxt.get_features,
+                               main_ctxt.objectives_modules, main_ctxt.param_gen, spines, output_dir)
     global storage
     global x
     if not analyze:
@@ -147,9 +147,10 @@ def main(cluster_id, profile, spines, mech_file_path, neurotree_file_path, neuro
     if export:
         return export_traces(x, main_ctxt.group_sizes, export_file_path=main_ctxt.export_file_path, disp=disp)
 
-def init_main_controller(sleep, cluster_id, profile, path_length, spines, param_file_path, mech_file_path,
-                         neurotree_file_path, neurotree_index, param_gen, get_features, features_modules,
-                         objectives_modules, group_sizes, storage_file_path, output_dir, export_file_path, pop_size):
+def process_params(sleep, cluster_id, profile, path_length, spines, param_file_path, mech_file_path,
+                   neurotree_file_path, neurotree_index, param_gen, update_params, update_modules, get_features,
+                   features_modules, objectives_modules, group_sizes, storage_file_path, output_dir, export_file_path,
+                   pop_size):
     """
 
     :param sleep:
@@ -172,16 +173,6 @@ def init_main_controller(sleep, cluster_id, profile, path_length, spines, param_
     :param pop_size:
     :return:
     """
-    if sleep:
-        time.sleep(300.)
-    if cluster_id is not None:
-        c = Client(cluster_id=cluster_id, profile=profile)
-    else:
-        c = Client(profile=profile)
-    num_procs = len(c)
-    main_ctxt.c = c
-    main_ctxt.num_procs = num_procs
-
     if param_file_path is not None:
         params_dict = read_from_yaml(param_file_path)
         param_names = params_dict['param_names']
@@ -214,22 +205,84 @@ def init_main_controller(sleep, cluster_id, profile, path_length, spines, param_
             export_file_path = '%s/%s_%s_%s_optimization_exported_traces.hdf5' % \
                                (output_dir, datetime.datetime.today().strftime('%m%d%Y%H%M'), optimization_title, param_gen)
     else:
-        raise NameError('A param_file_path containing default paramters must be provided.')
+        raise Exception('A param_file_path containing default paramters must be provided.')
     main_ctxt.update(locals())
     main_ctxt.update({'x0': x0, 'param_names': param_names, 'bounds': bounds, 'feature_names': feature_names,
                     'objective_names': objective_names, 'target_val': target_val, 'target_range': target_range,
-                    'path_length': path_length, 'spines': spines, 'pop_size': pop_size})
+                    'optimization_title': optimization_title, 'path_length': path_length, 'spines': spines,
+                      'pop_size': pop_size})
 
     if param_gen not in globals():
-        raise NameError('Multi-Objective Optimization: %s has not been imported, or is not a valid class of parameter '
+        raise Exception('Multi-Objective Optimization: %s has not been imported, or is not a valid class of parameter '
                         'generator.' % param_gen)
     param_gen_func = globals()[param_gen] # The variable 'param_gen_func' points to the actual generator function, while
                                           # param_gen points to the string name of the generator
     main_ctxt.param_gen_func = param_gen_func
-    param_gen_func_name = param_gen
 
     neurotree_dict = read_from_pkl(neurotree_file_path)[neurotree_index]
     main_ctxt.neurotree_dict = neurotree_dict
+    sys.stdout.flush()
+
+def init_controller(update_params, update_modules, get_features, features_modules, group_sizes, objectives_modules):
+    """
+
+    :param update_params: tuple of str
+    :param update_modules: tuple of str
+    :param get_features: tuple of str
+    :param features_modules: tuple of str
+    :param group_sizes: tuple of int
+    :param objectives_modules: tuple of str
+    :return:
+    """
+    if len(update_params) != len(update_modules):
+        raise Exception('Number of arguments in update_params does not match number of imported modules.')
+    if len(get_features) != len(features_modules):
+        raise Exception('Number of arguments in get_features does not match number of imported modules.')
+    if len(get_features) != len(group_sizes):
+        raise Exception('Number of arguments in get_features does not match number of arguments in group_sizes.')
+    module_set = set(update_modules)
+    module_set.update(features_modules, objectives_modules)
+    main_ctxt.module_set = module_set
+    for module_name in module_set:
+        importlib.import_module(module_name)
+    update_params_funcs = []
+    for i, module_name in enumerate(update_modules):
+        module = sys.modules[module_name]
+        func = getattr(module, update_params[i])
+        if not callable (func):
+            raise Exception('Multi-Objective Optimization: update_params: %s for module %s is not a callable function.'
+                            % (update_params[i], module))
+        update_params_funcs.append(func)
+    main_ctxt.update_params_funcs = update_params_funcs
+    get_features_funcs = []
+    for i, module_name in enumerate(features_modules):
+        module = sys.modules[module_name]
+        func = getattr(module, get_features[i])
+        if not callable (func):
+            raise Exception('Multi-Objective Optimization: get_features: %s for module %s is not a callable function.'
+                            % (get_features[i], module))
+        get_features_funcs.append(func)
+    main_ctxt.get_features_funcs = get_features_funcs
+    get_objectives_funcs = []
+    for module_name in objectives_modules:
+        module = sys.modules[module_name]
+        func = getattr(module, 'get_objectives')
+        if not callable (func):
+            raise Exception('Multi-Objective Optimization: get_objectives for module %s is not a callable function.'
+                            % (module))
+        get_objectives_funcs.append(func)
+    main_ctxt.get_objectives_funcs = get_objectives_funcs
+    sys.stdout.flush()
+
+def setup_client_interface(sleep, cluster_id, profile, group_sizes, pop_size, get_features, objectives_modules,
+                           param_gen, spines, output_dir):
+    if cluster_id is not None:
+        c = Client(cluster_id=cluster_id, profile=profile)
+    else:
+        c = Client(profile=profile)
+    num_procs = len(c)
+    main_ctxt.c = c
+    main_ctxt.num_procs = num_procs
 
     new_group_sizes = [group_sizes[i] for i in range(len(group_sizes))]
     blocks = range(len(group_sizes))
@@ -237,7 +290,8 @@ def init_main_controller(sleep, cluster_id, profile, path_length, spines, param_
     for ind in range(len(group_sizes)):
         if new_group_sizes[ind] > num_procs:
             new_group_sizes[ind] = num_procs
-            print 'Multi-Objective Optimization: group_sizes index %i adjusted to not exceed num_processes: %i' % (ind, num_procs)
+            print 'Multi-Objective Optimization: group_sizes index %i adjusted to not exceed num_processes: %i' % (
+                ind, num_procs)
         un_utilized[ind] = num_procs % new_group_sizes[ind]
         if un_utilized[ind] > 0:
             print 'Multi-Objective Optimization: index %i has %i unutilized processes' % (ind, un_utilized[ind])
@@ -246,50 +300,38 @@ def init_main_controller(sleep, cluster_id, profile, path_length, spines, param_
             blocks[ind] += 1
     group_sizes = new_group_sizes
     main_ctxt.group_sizes = new_group_sizes
-
     print 'Multi-Objective Optimization %s: Generator: %s; Total processes: %i; Population size: %i; Group sizes: %s; ' \
           'Feature calculator: %s; Objective calculator: %s; Blocks / generation: %s' % \
-          (optimization_title, param_gen_func_name, num_procs, pop_size, (','.join(str(x) for x in group_sizes)),
+          (main_ctxt.optimization_title, param_gen, num_procs, pop_size, (','.join(str(x) for x in group_sizes)),
            (','.join(func for func in get_features)), (','.join(obj for obj in objectives_modules)),
            (','.join(str(x) for x in blocks)))
-    sys.stdout.flush()
-    setup_modules(get_features, features_modules, objectives_modules, group_sizes)
 
-def setup_modules(get_features, features_modules, objectives_modules, group_sizes, config_engine=False,
-                  param_names=None, mech_file_path=None, neurotree_dict=None, spines=None, output_dir=None):
-    feat_module_refs = []
-    feat_module_dict = {}
-    for module in set(features_modules):
-        m = importlib.import_module(module)
-        feat_module_dict[module] = m
-        if config_engine:
+    main_ctxt.c[:].execute('from parallel_optimize_main import *', block=True)
+    if sleep:
+        time.sleep(120.)
+    main_ctxt.c[:].apply_sync(init_engine, main_ctxt.module_set, main_ctxt.update_params_funcs, main_ctxt.param_names,
+                              main_ctxt.mech_file_path, main_ctxt.neurotree_dict, spines, output_dir)
+
+def init_engine(module_set, update_params_funcs, param_names, mech_file_path, neurotree_dict, spines, output_dir):
+    """
+
+    :param param_names: list of str
+    :param mech_file_path: str
+    :param neurotree_dict: dict
+    :param spines: bool
+    :param output_dir: str
+    :return:
+    """
+    for module_name in module_set:
+        m = importlib.import_module(module_name)
+        config_func = getattr(m, 'config_engine')
+        if not callable(config_func):
+            raise Exception('config_engine: %s.config engine is not callable' % (module_name))
+        else:
             global rec_filepath
-            rec_filepath = output_dir+'/sim_output' + datetime.datetime.today().strftime('%m%d%Y%H%M') + \
+            rec_filepath = output_dir + '/sim_output' + datetime.datetime.today().strftime('%m%d%Y%H%M') + \
                            '_pid' + str(os.getpid()) + '.hdf5'
-            m.config_engine(param_names, mech_file_path, neurotree_dict, spines, rec_filepath)
-    for module in features_modules:
-        feat_module_refs.append(feat_module_dict[module])
-    if len(get_features) != len(group_sizes):
-        raise NameError('Number of arguments in get_features does not match number of arguments in group_sizes.')
-    if len(get_features) != len(feat_module_refs):
-        raise NameError('Number of arguments in get_features does not match number of imported modules.')
-
-    get_features_func = [getattr(feat_module_refs[i], get_features[i]) for i in range(len(get_features))]
-    main_ctxt.get_features_func = get_features_func
-    for i in range(len(get_features_func)):
-        if not callable(get_features_func[i]):
-            raise NameError('Multi-Objective Optimization: get_features: %s for module %s is not a callable function.'
-                            % (get_features[i], features_modules[i]))
-    obj_module_refs = []
-    for module in objectives_modules:
-        m = sys.modules[module]
-        obj_module_refs.append(m)
-    get_objectives_func = [getattr(obj_module_refs[i], 'get_objectives') for i in range(len(obj_module_refs))]
-    main_ctxt.get_objectives_func = get_objectives_func
-    for i in range(len(get_objectives_func)):
-        if not callable(get_objectives_func[i]):
-            raise NameError('Multi-Objective Optimization: get_objectives for module %s is not a callable function.'
-                            % objectives_modules[i])
+            config_func(update_params_funcs, param_names, mech_file_path, neurotree_dict, spines, rec_filepath)
     sys.stdout.flush()
 
 def run_optimization(disp):
@@ -320,12 +362,12 @@ def get_all_features(generation, group_sizes=(1, 10), disp=False, export=False):
     results = []
     curr_generation = {pop_id: generation[pop_id] for pop_id in pop_ids}
     final_features = {pop_id: {} for pop_id in pop_ids}
-    for ind in range(len(main_ctxt.get_features_func)):
+    for ind in range(len(main_ctxt.get_features_funcs)):
         next_generation = {}
         this_group_size = min(len(main_ctxt.c), group_sizes[ind])
         usable_procs = main_ctxt.num_procs - (main_ctxt.num_procs % this_group_size)
         client_ranges = [range(start, start + this_group_size) for start in range(0, usable_procs, this_group_size)]
-        feature_function = main_ctxt.get_features_func[ind]
+        feature_function = main_ctxt.get_features_funcs[ind]
         indivs = [{'pop_id': pop_id, 'x': curr_generation[pop_id],
                    'features': final_features[pop_id]} for pop_id in curr_generation.keys()]
         while len(indivs) > 0 or len(results) > 0:
@@ -347,9 +389,8 @@ def get_all_features(generation, group_sizes=(1, 10), disp=False, export=False):
                             if 'filter_features' in this_result.keys():
                                 filter_features_func = this_result['filter_features']
                                 if not callable(filter_features_func):
-                                    raise NameError(
-                                        'Multi-Objective Optimization: filter_features function %s not callable' %
-                                        filter_features_func)
+                                    raise Exception('Multi-Objective Optimization: filter_features function %s is '
+                                                    'not callable' % filter_features_func)
                                 new_features = filter_features_func(get_result, final_features[this_result['pop_id']])
                             else:
                                 new_features = {key: value for result_dict in get_result for key, value in
@@ -368,7 +409,7 @@ def get_all_features(generation, group_sizes=(1, 10), disp=False, export=False):
     objectives = []
     for i, this_features in enumerate(features):
         this_objectives = {}
-        for j, objective_function in enumerate(main_ctxt.get_objectives_func):
+        for j, objective_function in enumerate(main_ctxt.get_objectives_funcs):
             new_features, new_objectives = objective_function(this_features, main_ctxt.objective_names,
                                                               main_ctxt.target_val, main_ctxt.target_range)
             features[i] = new_features
