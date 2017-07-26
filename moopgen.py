@@ -804,7 +804,7 @@ class BGen(object):
                     self.step_population()
             self.objectives_stored = False
             if self.disp:
-                print 'BGen: Gen %i, yielding parameters  for population size %i' % (self.num_gen, self.pop_size)
+                print 'BGen: Gen %i, yielding parameters for population size %i' % (self.num_gen, self.pop_size)
             self.local_time = time.time()
             self.num_gen += 1
             yield [individual.x for individual in self.population]

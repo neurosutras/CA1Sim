@@ -82,8 +82,11 @@ group_sizes: !!python/tuple
 - 3
 - 1
 - 10
-mech_file_path: data/042717 GC optimizing spike stability.pkl
-neurotree_file_path: morphologies/121516_DGC_trees.pkl
+kwargs:
+  mech_file_path: data/071817 GC optimizing spiking.pkl
+  neurotree_file_path: morphologies/121516_DGC_trees.pkl
+  neurotree_index: 0
+  spines: false
 objective_names:
 - na_gradient
 - dend R_inp

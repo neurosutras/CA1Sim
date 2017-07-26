@@ -1,0 +1,66 @@
+bounds:
+  AMPA.tau: !!python/tuple
+  - 0.02
+  - 0.5
+  AMPA.slope: !!python/tuple
+  - 0.0005
+  - 0.015
+  AMPA.g0: !!python/tuple
+  - -5.0
+  - -1.0
+  NMDA.gmax: !!python/tuple
+  - 0.02
+  - 0.1
+  dend.gbar_nas: !!python/tuple
+  - 0.01
+  - 0.05
+  dend.gkabar: !!python/tuple
+  - 0.001
+  - 0.25
+feature_names:
+- soma_EPSP_AP5
+- soma_EPSP_control
+- NMDA_contribution
+features_modules: !!python/tuple
+- parallel_optimize_spiking_import
+- parallel_optimize_spiking_import
+get_features: !!python/tuple
+- get_stability_features
+- get_fI_features
+group_sizes: !!python/tuple
+- 1
+- 10
+kwargs:
+  mech_file_path: data/071817 GC optimizing spiking.pkl
+  neurotree_file_path: morphologies/121516_DGC_trees.pkl
+  neurotree_index: 0
+  spines: false
+objective_names:
+- soma_EPSP_AP5
+- soma_EPSP_control
+objectives_modules: !!python/tuple
+- parallel_optimize_synaptic_import
+optimization_title: synaptic
+param_gen: BGen
+param_names:
+- AMPA.tau
+- AMPA.slope
+- AMPA.g0
+- NMDA.gmax
+- dend.gbar_nas
+- dend.gkabar
+target_range:
+  soma_EPSP_AP5:
+  soma_EPSP_NMDA:
+target_val:
+  soma_EPSP_AP5:
+  soma_EPSP_NMDA:
+update_params: !!python/tuple
+update_modules: !!python/tuple
+x0:
+  AMPA.tau: 0.1681
+  AMPA.slope: 0.01286
+  AMPA.g0: -2.659
+  NMDA.gmax: 0.06
+  dend.gbar_nas: 0.03
+  dend.gkabar: 0.002709

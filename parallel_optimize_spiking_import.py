@@ -9,23 +9,29 @@ at bifurcation of trunk and tuft.
 
 Optimizes gbar_nax/nas/sh/sha, gkabar_kap/d, gkdrbar for target na spike threshold, AHP amp, and vm stability
 
-Import this script into parallel_optimize_main. Then, set up ipcluster and run parallel_optimize_main.py
+Modify a YAML file to include parameters necessary for this script. Then, set up ipcluster and run parallel_optimize_main.py
+Current YAML filepath: data/optimize_spiking_defaults.yaml'
 """
-# param_file_path = 'data/optimize_spiking_defaults.yaml'
 
 context = Context()
 
-def config_engine(update_params_funcs, param_names, mech_file_path, neurotree_dict, spines, rec_filepath):
+def config_controller():
+    set_constants()
+
+def config_engine(update_params_funcs, param_names, rec_filepath, mech_file_path, neurotree_file_path, neurotree_index,
+                  spines):
     """
 
     :param update_params_funcs: list of function references
     :param param_names: list of str
-    :param mech_file_path: str
-    :param neurotree_dict: dict
-    :param spines: bool
     :param rec_filepath: str
+    :param mech_file_path: str
+    :param neurotree_file_path: str
+    :param neurotree_index: int
+    :param spines: bool
     :return:
     """
+    neurotree_dict = read_from_pkl(neurotree_file_path)[neurotree_index]
     param_indexes = {param_name: i for i, param_name in enumerate(param_names)}
     context.update(locals())
     set_constants()
@@ -154,7 +160,6 @@ def get_fI_features(indiv, c, client_range, export=False):
     x = indiv['x']
     rheobase = indiv['features']['rheobase']
     # Calculate firing rates for a range of I_inj amplitudes using a stim duration of 500 ms
-    set_constants() # So that controller core has access to constants such as num_increments
     num_incr = context.num_increments
     i_inj_increment = context.i_inj_increment
     result = dv.map_async(compute_fI_features, [rheobase + i_inj_increment * (i + 1) for i in range(num_incr)],
@@ -268,8 +273,9 @@ def compute_stability_features(x, export=False, plot=False):
 
     context.cell.reinit_mechanisms(reset_cable=True, from_file=True)
     for update_func in context.update_params_funcs:
-        update_func(context.cell, x, context.param_indexes)
+        context.cell = update_func(context.cell, x, context.param_indexes)
     # sim.cvode_state = True
+
     v_active = context.v_active
     equilibrate = context.equilibrate
     dt = context.dt
@@ -355,8 +361,13 @@ def compute_fI_features(amp, x, extend_dur=False, export=False, plot=False):
     :return: dict
     """
     context.cell.reinit_mechanisms(reset_cable=True, from_file=True)
+    print 'Before f_I:'
+    pprint.pprint(context.cell.mech_dict)
     for update_func in context.update_params_funcs:
-        update_func(context.cell, x, context.param_indexes)
+        context.cell = update_func(context.cell, x, context.param_indexes)
+        print 'After: %s' % str(update_func)
+        pprint.pprint(context.cell.mech_dict)
+        sys.stdout.flush()
     # sim.cvode_state = True
     soma_vm = offset_vm('soma', context.v_active)
     context.sim.parameters['amp'] = amp
@@ -543,6 +554,7 @@ def update_na_ka_stability(cell, x, param_indexes):
     if context.spines is False:
         cell.correct_for_spines()
     cell.set_terminal_branch_na_gradient()
+    return cell
 
 def export_sim_results():
     """

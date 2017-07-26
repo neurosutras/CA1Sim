@@ -67,8 +67,11 @@ get_features: !!python/tuple
 group_sizes: !!python/tuple
 - 1
 - 10
-mech_file_path: data/071817 GC optimizing spiking.pkl
-neurotree_file_path: morphologies/121516_DGC_trees.pkl
+kwargs:
+  mech_file_path: data/071817 GC optimizing spiking.pkl
+  neurotree_file_path: morphologies/121516_DGC_trees.pkl
+  neurotree_index: 0
+  spines: false
 objective_names:
 - v_rest
 - v_th
@@ -104,6 +107,7 @@ param_names:
 - soma.gCadepK factor
 - soma.gkmbar
 - ais.gkmbar
+spines: False
 target_range:
   ADP: 0.01
   AHP: 0.005

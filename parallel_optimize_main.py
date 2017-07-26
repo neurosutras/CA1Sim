@@ -26,10 +26,6 @@ main_ctxt = Context()
 @click.command()
 @click.option("--cluster-id", type=str, default=None)
 @click.option("--profile", type=str, default='default')
-@click.option("--spines", is_flag=True)
-@click.option("--mech-file-path", type=click.Path(exists=True, file_okay=True, dir_okay=False), default=None)
-@click.option("--neurotree-file-path", type=click.Path(exists=True, file_okay=True, dir_okay=False), default=None)
-@click.option("--neurotree-index", type=int, default=0)
 @click.option("--param-file-path", type=click.Path(exists=True, file_okay=True, dir_okay=False),
               default='data/optimize_spiking_defaults.yaml')
 @click.option("--param-gen", type=str, default=None)
@@ -55,18 +51,14 @@ main_ctxt = Context()
 @click.option("--output-dir", type=str, default='data')
 @click.option("--export-file-path", type=str, default=None)
 @click.option("--disp", is_flag=True)
-def main(cluster_id, profile, spines, mech_file_path, neurotree_file_path, neurotree_index, param_file_path,
-         param_gen, update_params, update_modules, get_features, features_modules, objectives_modules, group_sizes,
-         pop_size, wrap_bounds, seed, max_iter, path_length, initial_step_size, adaptive_step_factor, survival_rate,
-         sleep, analyze, hot_start, storage_file_path, export, output_dir, export_file_path, disp):
+def main(cluster_id, profile, param_file_path, param_gen, update_params, update_modules, get_features, features_modules,
+         objectives_modules, group_sizes, pop_size, wrap_bounds, seed, max_iter, path_length, initial_step_size,
+         adaptive_step_factor, survival_rate, sleep, analyze, hot_start, storage_file_path, export, output_dir,
+         export_file_path, disp):
     """
 
     :param cluster_id: str
     :param profile: str
-    :param spines: bool
-    :param mech_file_path: str (path)
-    :param neurotree_file_path: str (path)
-    :param neurotree_index: int
     :param param_file_path: str (path)
     :param param_gen: str (must refer to callable in globals())
     :param update_params: tuple of str (must refer to callables in globals())
@@ -92,15 +84,14 @@ def main(cluster_id, profile, spines, mech_file_path, neurotree_file_path, neuro
     :param export_file_path: str
     :param disp: bool
     """
-    process_params(sleep, cluster_id, profile, path_length, spines, param_file_path, mech_file_path,
-                   neurotree_file_path, neurotree_index, param_gen, update_params, update_modules, get_features,
-                   features_modules, objectives_modules, group_sizes, storage_file_path, output_dir, export_file_path,
-                   pop_size)
+    process_params(cluster_id, profile, param_file_path, param_gen, update_params, update_modules, get_features,
+                   features_modules, objectives_modules, group_sizes, pop_size, path_length, sleep, storage_file_path,
+                   output_dir, export_file_path)
     init_controller(main_ctxt.update_params, main_ctxt.update_modules, main_ctxt.get_features,
                     main_ctxt.features_modules, main_ctxt.group_sizes, main_ctxt.objectives_modules)
     if not analyze or export:
-        setup_client_interface(sleep, cluster_id, profile, main_ctxt.group_sizes, pop_size, main_ctxt.get_features,
-                               main_ctxt.objectives_modules, main_ctxt.param_gen, spines, output_dir)
+        setup_client_interface(sleep, cluster_id, profile, main_ctxt.group_sizes, pop_size, main_ctxt.update_params,
+                               main_ctxt.get_features, main_ctxt.objectives_modules, main_ctxt.param_gen, output_dir)
     global storage
     global x
     if not analyze:
@@ -147,30 +138,27 @@ def main(cluster_id, profile, spines, mech_file_path, neurotree_file_path, neuro
     if export:
         return export_traces(x, main_ctxt.group_sizes, export_file_path=main_ctxt.export_file_path, disp=disp)
 
-def process_params(sleep, cluster_id, profile, path_length, spines, param_file_path, mech_file_path,
-                   neurotree_file_path, neurotree_index, param_gen, update_params, update_modules, get_features,
-                   features_modules, objectives_modules, group_sizes, storage_file_path, output_dir, export_file_path,
-                   pop_size):
+def process_params(cluster_id, profile, param_file_path, param_gen, update_params, update_modules, get_features,
+                   features_modules, objectives_modules, group_sizes, pop_size, path_length, sleep, storage_file_path,
+                   output_dir, export_file_path):
     """
 
-    :param sleep:
-    :param cluster_id:
-    :param profile:
-    :param path_length:
-    :param spines:
-    :param param_file_path:
-    :param mech_file_path:
-    :param neurotree_file_path:
-    :param neurotree_index:
-    :param param_gen:
-    :param get_features:
-    :param features_modules:
-    :param objectives_modules:
-    :param group_sizes:
-    :param storage_file_path:
-    :param output_dir:
-    :param export_file_path:
-    :param pop_size:
+    :param cluster_id: str
+    :param profile: str
+    :param param_file_path: str
+    :param param_gen: str
+    :param update_params: tuple of str
+    :param update_modules: tuple of str
+    :param get_features: tuple of str
+    :param features_modules: tuple of str
+    :param objectives_modules: tuple of str
+    :param group_sizes: tuple of int
+    :param pop_size: int
+    :param path_length: int
+    :param sleep: bool
+    :param storage_file_path: str
+    :param output_dir: str
+    :param export_file_path: str
     :return:
     """
     if param_file_path is not None:
@@ -183,13 +171,14 @@ def process_params(sleep, cluster_id, profile, path_length, spines, param_file_p
         target_val = params_dict['target_val']
         target_range = params_dict['target_range']
         optimization_title = params_dict['optimization_title']
+        kwargs = params_dict['kwargs'] #Extra arguments that will later be passed to all of the imported modules
 
         if param_gen is None:
             param_gen = params_dict['param_gen']
-        if mech_file_path is None:
-            mech_file_path = params_dict['mech_file_path']
-        if neurotree_file_path is None:
-            neurotree_file_path = params_dict['neurotree_file_path']
+        if not update_params:
+            update_params = params_dict['update_params']
+        if not update_modules:
+            update_modules = params_dict['update_modules']
         if not get_features:
             get_features = params_dict['get_features']
         if not features_modules:
@@ -207,10 +196,6 @@ def process_params(sleep, cluster_id, profile, path_length, spines, param_file_p
     else:
         raise Exception('A param_file_path containing default paramters must be provided.')
     main_ctxt.update(locals())
-    main_ctxt.update({'x0': x0, 'param_names': param_names, 'bounds': bounds, 'feature_names': feature_names,
-                    'objective_names': objective_names, 'target_val': target_val, 'target_range': target_range,
-                    'optimization_title': optimization_title, 'path_length': path_length, 'spines': spines,
-                      'pop_size': pop_size})
 
     if param_gen not in globals():
         raise Exception('Multi-Objective Optimization: %s has not been imported, or is not a valid class of parameter '
@@ -218,9 +203,6 @@ def process_params(sleep, cluster_id, profile, path_length, spines, param_file_p
     param_gen_func = globals()[param_gen] # The variable 'param_gen_func' points to the actual generator function, while
                                           # param_gen points to the string name of the generator
     main_ctxt.param_gen_func = param_gen_func
-
-    neurotree_dict = read_from_pkl(neurotree_file_path)[neurotree_index]
-    main_ctxt.neurotree_dict = neurotree_dict
     sys.stdout.flush()
 
 def init_controller(update_params, update_modules, get_features, features_modules, group_sizes, objectives_modules):
@@ -244,7 +226,8 @@ def init_controller(update_params, update_modules, get_features, features_module
     module_set.update(features_modules, objectives_modules)
     main_ctxt.module_set = module_set
     for module_name in module_set:
-        importlib.import_module(module_name)
+        m = importlib.import_module(module_name)
+        m.config_controller()
     update_params_funcs = []
     for i, module_name in enumerate(update_modules):
         module = sys.modules[module_name]
@@ -274,8 +257,21 @@ def init_controller(update_params, update_modules, get_features, features_module
     main_ctxt.get_objectives_funcs = get_objectives_funcs
     sys.stdout.flush()
 
-def setup_client_interface(sleep, cluster_id, profile, group_sizes, pop_size, get_features, objectives_modules,
-                           param_gen, spines, output_dir):
+def setup_client_interface(sleep, cluster_id, profile, group_sizes, pop_size, update_params, get_features,
+                           objectives_modules, param_gen, output_dir):
+    """
+
+    :param sleep: bool
+    :param cluster_id: str
+    :param profile: str
+    :param group_sizes: tuple of str
+    :param pop_size: int
+    :param get_features: tuple of str
+    :param objectives_modules: tuple of str
+    :param param_gen: str
+    :param output_dir: str
+    :return:
+    """
     if cluster_id is not None:
         c = Client(cluster_id=cluster_id, profile=profile)
     else:
@@ -301,27 +297,18 @@ def setup_client_interface(sleep, cluster_id, profile, group_sizes, pop_size, ge
     group_sizes = new_group_sizes
     main_ctxt.group_sizes = new_group_sizes
     print 'Multi-Objective Optimization %s: Generator: %s; Total processes: %i; Population size: %i; Group sizes: %s; ' \
-          'Feature calculator: %s; Objective calculator: %s; Blocks / generation: %s' % \
+          'Update functions: %s; Feature calculator: %s; Objective calculator: %s; Blocks / generation: %s' % \
           (main_ctxt.optimization_title, param_gen, num_procs, pop_size, (','.join(str(x) for x in group_sizes)),
-           (','.join(func for func in get_features)), (','.join(obj for obj in objectives_modules)),
+           (','.join(func for func in update_params)), (','.join(func for func in get_features)), (','.join(obj for obj in objectives_modules)),
            (','.join(str(x) for x in blocks)))
 
     main_ctxt.c[:].execute('from parallel_optimize_main import *', block=True)
     if sleep:
         time.sleep(120.)
     main_ctxt.c[:].apply_sync(init_engine, main_ctxt.module_set, main_ctxt.update_params_funcs, main_ctxt.param_names,
-                              main_ctxt.mech_file_path, main_ctxt.neurotree_dict, spines, output_dir)
+                              output_dir, **main_ctxt.kwargs)
 
-def init_engine(module_set, update_params_funcs, param_names, mech_file_path, neurotree_dict, spines, output_dir):
-    """
-
-    :param param_names: list of str
-    :param mech_file_path: str
-    :param neurotree_dict: dict
-    :param spines: bool
-    :param output_dir: str
-    :return:
-    """
+def init_engine(module_set, update_params_funcs, param_names, output_dir, **kwargs):
     for module_name in module_set:
         m = importlib.import_module(module_name)
         config_func = getattr(m, 'config_engine')
@@ -331,7 +318,7 @@ def init_engine(module_set, update_params_funcs, param_names, mech_file_path, ne
             global rec_filepath
             rec_filepath = output_dir + '/sim_output' + datetime.datetime.today().strftime('%m%d%Y%H%M') + \
                            '_pid' + str(os.getpid()) + '.hdf5'
-            config_func(update_params_funcs, param_names, mech_file_path, neurotree_dict, spines, rec_filepath)
+            config_func(update_params_funcs, param_names, rec_filepath, **kwargs)
     sys.stdout.flush()
 
 def run_optimization(disp):

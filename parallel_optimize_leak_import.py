@@ -9,23 +9,32 @@ at bifurcation of trunk and tuft.
 
 Optimize g_pas for target rinp at soma, trunk bifurcation, and tuft bifurcation [without h].
 
-Import this script into parallel_optimize_main. Then, set up ipcluster and run parallel_optimize_main.py
+Modify a YAML file to include parameters necessary for this script. Then, set up ipcluster and run parallel_optimize_main.py
+Current YAML filepath: data/optimize_leak_defaults.yaml
 """
-# param_file_path = 'data/optimize_leak_defaults.yaml'
 
 context = Context()
 
-def config_engine(update_params_funcs, param_names, mech_file_path, neurotree_dict, spines, rec_filepath):
+def config_controller():
+    """
+
+    :return:
+    """
+
+def config_engine(update_params_funcs, param_names, rec_filepath, mech_file_path, neurotree_file_path, neurotree_index,
+                  spines):
     """
 
     :param update_params_funcs: list of function references
     :param param_names: list of str
-    :param mech_file_path: str
-    :param neurotree_dict: dict
-    :param spines: bool
     :param rec_filepath: str
+    :param mech_file_path: str
+    :param neurotree_file_path: str
+    :param neurotree_index: int
+    :param spines: bool
     :return:
     """
+    neurotree_dict = read_from_pkl(neurotree_file_path)[neurotree_index]
     param_indexes = {param_name: i for i, param_name in enumerate(param_names)}
     context.update(locals())
     set_constants()
@@ -149,8 +158,13 @@ def compute_Rinp_features(section, x, export=False):
     """
     start_time = time.time()
     context.cell.reinit_mechanisms(reset_cable=True, from_file=True)
+    print 'Before:'
+    pprint.pprint(context.cell.mech_dict)
     for update_func in context.update_params_funcs:
-        update_func(context.cell, x, context.param_indexes)
+        context.cell = update_func(context.cell, x, context.param_indexes)
+        print 'After: %s' % str(update_func)
+        pprint.pprint(context.cell.mech_dict)
+        sys.stdout.flush()
     context.cell.zero_na()
 
     duration = context.duration
@@ -252,6 +266,7 @@ def update_pas_exp(cell, x, param_indexes):
         cell.reinitialize_subset_mechanisms(sec_type, 'pas')
     if context.spines is False:
         cell.correct_for_spines()
+    return cell
 
 def export_sim_results():
     """
