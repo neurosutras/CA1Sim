@@ -349,7 +349,6 @@ def compute_stability_features(x, export=False, plot=False):
         context.sim.plot()
     if export:
         export_sim_results()
-    context.prev_job_type = 'spiking'
     return result
 
 def compute_fI_features(amp, x, extend_dur=False, export=False, plot=False):
@@ -361,12 +360,8 @@ def compute_fI_features(amp, x, extend_dur=False, export=False, plot=False):
     :return: dict
     """
     context.cell.reinit_mechanisms(reset_cable=True, from_file=True)
-    print 'Before f_I:'
-    pprint.pprint(context.cell.mech_dict)
     for update_func in context.update_params_funcs:
         context.cell = update_func(context.cell, x, context.param_indexes)
-        print 'After: %s' % str(update_func)
-        pprint.pprint(context.cell.mech_dict)
         sys.stdout.flush()
     # sim.cvode_state = True
     soma_vm = offset_vm('soma', context.v_active)
@@ -410,7 +405,6 @@ def compute_fI_features(amp, x, extend_dur=False, export=False, plot=False):
     sys.stdout.flush()
     if export:
         export_sim_results()
-    context.prev_job_type = 'spiking'
     return result
 
 def offset_vm(description, vm_target=None):

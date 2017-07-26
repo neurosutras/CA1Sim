@@ -180,40 +180,7 @@ def get_objectives(features, objective_names, target_val, target_range):
     :param features: dict
     :return: dict
     """
-    if features is None: #No rheobase value found
-        objectives = None
-    else:
-        objectives = {}
-        for objective in objective_names:
-            objectives[objective] = 0.
-        rheobase = features['rheobase']
-        for target in ['v_rest', 'v_th', 'ADP', 'AHP', 'spont_firing', 'rebound_firing', 'vm_stability', 'ais_delay',
-                       'slow_depo', 'dend_amp', 'soma_peak', 'th_count', 'na_gradient']:
-            # don't penalize AHP or slow_depo less than target
-            if not ((target == 'AHP' and features[target] < target_val[target]) or
-                        (target == 'slow_depo' and features[target] < target_val[target])):
-                objectives[target] = ((target_val[target] - features[target]) / target_range[target]) ** 2.
-        for i, this_adi in enumerate(features['adi']):
-            if this_adi is not None and features['exp_adi'] is not None:
-                objectives['adi'] += ((this_adi - features['exp_adi'][i]) / (0.01 * features['exp_adi'][i])) ** 2.
-        features.pop('exp_adi')
-        all_adi = []
-        for adi in features['adi']:
-            if adi is not None:
-                all_adi.append(adi)
-        features['adi'] = np.mean(all_adi)
-        num_increments = context.num_increments
-        i_inj_increment = context.i_inj_increment
-        target_f_I = [context.experimental_f_I_slope * np.log((rheobase + i_inj_increment * (i + 1)) / rheobase)
-                      for i in range(num_increments)]
-        f_I_residuals = [(features['f_I'][i] - target_f_I[i]) for i in range(num_increments)]
-        features['f_I_residuals'] = np.mean(f_I_residuals)
-        for i in range(num_increments):
-            objectives['f_I_slope'] += (f_I_residuals[i] / (0.01 * target_f_I[i])) ** 2.
-        I_inj = [np.log((rheobase + i_inj_increment * (i + 1)) / rheobase) for i in range(num_increments)]
-        slope, intercept, r_value, p_value, std_err = stats.linregress(I_inj, features['f_I'])
-        features['f_I_slope'] = slope
-        features.pop('f_I')
+    objectives = {}
     return features, objectives
 
 def compute_EPSP_amp_features(x, syn_index, syn_type, export=False, plot=False):
@@ -224,12 +191,10 @@ def compute_EPSP_amp_features(x, syn_index, syn_type, export=False, plot=False):
     :return: float
     """
     start_time = time.time()
-    if context.prev_job_type == 'EPSP_amp':
-        context.cell.reinit_mechanisms(reset_cable=True, from_file=True)
-    else:
-        init_synaptic_engine()
-        setup_cell()
-    update_na_ka_stability(x)
+    context.cell.reinit_mechanisms(reset_cable=True, from_file=True)
+    for update_func in context.update_params_funcs:
+        context.cell = update_func(context.cell, x, context.param_indexes)
+
     syn = context.syn_list[syn_index]
     syn.source.play(context.spike_times)
     for i in range(len(x)):

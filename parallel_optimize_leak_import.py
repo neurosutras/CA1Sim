@@ -192,7 +192,6 @@ def compute_Rinp_features(section, x, export=False):
                                                                                     Rinp)
     if export:
         export_sim_results()
-    context.prev_job_type = 'leak'
     return result
 
 def offset_vm(description, vm_target=None):
