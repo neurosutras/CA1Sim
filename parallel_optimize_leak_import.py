@@ -158,13 +158,8 @@ def compute_Rinp_features(section, x, export=False):
     """
     start_time = time.time()
     context.cell.reinit_mechanisms(reset_cable=True, from_file=True)
-    print 'Before:'
-    pprint.pprint(context.cell.mech_dict)
     for update_func in context.update_params_funcs:
         context.cell = update_func(context.cell, x, context.param_indexes)
-        print 'After: %s' % str(update_func)
-        pprint.pprint(context.cell.mech_dict)
-        sys.stdout.flush()
     context.cell.zero_na()
 
     duration = context.duration
@@ -176,7 +171,7 @@ def compute_Rinp_features(section, x, export=False):
     context.sim.parameters['section'] = section
     context.sim.parameters['target'] = 'Rinp'
     context.sim.parameters['optimization'] = 'pas'
-    context.sim.parameters['description'] = 'Rinp'
+    context.sim.parameters['description'] = 'Rinp ' + section
     amp = -0.05
     context.sim.parameters['amp'] = amp
     offset_vm(section)

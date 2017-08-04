@@ -437,7 +437,7 @@ def plot_traces(export_file_path):
             axes.legend(loc='best', frameon=False, framealpha=0.5)
             axes.set_xlabel('Time (ms)')
             axes.set_ylabel('Vm (mV)')
-            # axes.set_title('Optimize %s: I_inj amplitude %.2f' % (trial.attrs['description'], amplitude))
+            axes.set_title('Optimize %s: I_inj amplitude %.2f' % (trial.attrs['description'], amplitude))
             clean_axes(axes)
             fig.tight_layout()
         plt.show()

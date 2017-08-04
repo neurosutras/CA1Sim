@@ -1960,7 +1960,6 @@ def plot_mech_param_distribution(cell, mech_name, param_name, export=None, overw
                 f['distances'][sec_type].create_dataset('values', data=distances[sec_type])
         f.close()
 
-
 def plot_mech_param_from_file(mech_name, param_name, filenames, filename_labels = None,
                               param_label=None, ylabel='Conductance density', yunits='pS/um2', svg_title=None):
     """
