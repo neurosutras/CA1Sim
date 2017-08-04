@@ -318,6 +318,9 @@ def get_objectives(features, objective_names, target_val, target_range):
     :return: dict
     """
     objectives = {}
+    for objective_name in objective_names:
+        objectives[objective_name] = ((target_val[objective_name] - features[objective_name]) /
+                                                  target_range[objective_name]) ** 2.
     return features, objectives
 
 def compute_EPSP_amp_features(x, test_syns, AP5_condition, group_type, export=False, plot=False):
