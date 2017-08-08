@@ -1,6 +1,5 @@
 __author__ = 'Grace Ng'
 import click
-from ipyparallel import interactive
 from ipyparallel import Client
 from moopgen import *
 from plot_results import *
@@ -306,9 +305,9 @@ def setup_client_interface(sleep, cluster_id, profile, group_sizes, pop_size, up
     if sleep:
         time.sleep(120.)
     main_ctxt.c[:].apply_sync(init_engine, main_ctxt.module_set, main_ctxt.update_params_funcs, main_ctxt.param_names,
-                              output_dir, **main_ctxt.kwargs)
+                              main_ctxt.export_file_path, output_dir, **main_ctxt.kwargs)
 
-def init_engine(module_set, update_params_funcs, param_names, output_dir, **kwargs):
+def init_engine(module_set, update_params_funcs, param_names, export_file_path, output_dir, **kwargs):
     for module_name in module_set:
         m = importlib.import_module(module_name)
         config_func = getattr(m, 'config_engine')
@@ -318,7 +317,7 @@ def init_engine(module_set, update_params_funcs, param_names, output_dir, **kwar
             global rec_filepath
             rec_filepath = output_dir + '/sim_output' + datetime.datetime.today().strftime('%m%d%Y%H%M') + \
                            '_pid' + str(os.getpid()) + '.hdf5'
-            config_func(update_params_funcs, param_names, rec_filepath, **kwargs)
+            config_func(update_params_funcs, param_names, rec_filepath, export_file_path, **kwargs)
     sys.stdout.flush()
 
 def run_optimization(disp):
@@ -378,7 +377,8 @@ def get_all_features(generation, group_sizes=(1, 10), disp=False, export=False):
                                 if not callable(filter_features_func):
                                     raise Exception('Multi-Objective Optimization: filter_features function %s is '
                                                     'not callable' % filter_features_func)
-                                new_features = filter_features_func(get_result, final_features[this_result['pop_id']])
+                                new_features = filter_features_func(get_result, final_features[this_result['pop_id']],
+                                                                    export)
                             else:
                                 new_features = {key: value for result_dict in get_result for key, value in
                                                 result_dict.iteritems()}

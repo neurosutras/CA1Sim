@@ -9,8 +9,8 @@ bounds:
   - 0.
   - 0.5
   NMDA.gmax: !!python/tuple
-  - 5e-4
-  - 5e-3
+  - 5.0e-4
+  - 5.0e-3
   NMDA.gamma: !!python/tuple
   - 0.05
   - 0.12
@@ -44,7 +44,7 @@ group_sizes: !!python/tuple
 - 28
 - 10
 kwargs:
-  mech_file_path: data/080117 GC optimizing synaptic.pkl
+  mech_file_path: data/080217 GC optimizing synaptic.pkl
   neurotree_file_path: morphologies/121516_DGC_trees.pkl
   neurotree_index: 0
   spines: false
@@ -72,15 +72,15 @@ param_names:
 - dend.gkabar
 target_range:
   soma_EPSP_AP5: 0.6
-  soma_EPSP_NMDA: 1.0
+  soma_EPSP_control: 1.0
   NMDA_contribution: 0.5
   peak_supralinearity_AP5: 20.
   peak_supralinearity_con: 44.
-  min_supralinearity_AP5: 0.
-  min_supralinearity_con: 0.
+  min_supralinearity_AP5: 0.8
+  min_supralinearity_con: 0.8
 target_val:
   soma_EPSP_AP5: 0.01
-  soma_EPSP_NMDA: 0.01
+  soma_EPSP_control: 0.01
   NMDA_contribution: 0.
   peak_supralinearity_AP5: 1.
   peak_supralinearity_con: 1.

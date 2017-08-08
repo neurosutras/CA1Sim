@@ -95,6 +95,7 @@ param_gen: BGen
 param_names:
 - soma.gbar_nas
 - dend.gbar_nas
+- dend.gbar_slope **
 - axon.gbar_nax
 - ais.gbar_nax
 - soma.gkabar

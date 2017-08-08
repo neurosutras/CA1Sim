@@ -21,13 +21,14 @@ def config_controller():
     :return:
     """
 
-def config_engine(update_params_funcs, param_names, rec_filepath, mech_file_path, neurotree_file_path, neurotree_index,
+def config_engine(update_params_funcs, param_names, rec_filepath, export_file_path, mech_file_path, neurotree_file_path, neurotree_index,
                   spines):
     """
 
     :param update_params_funcs: list of function references
     :param param_names: list of str
     :param rec_filepath: str
+    :param export_file_path: str
     :param mech_file_path: str
     :param neurotree_file_path: str
     :param neurotree_index: int

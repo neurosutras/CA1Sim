@@ -714,65 +714,20 @@ class HocCell(object):
             node.reinit_diam()
         else:
             if 'min_loc' in rules or 'max_loc' in rules or 'slope' in rules:
+                if 'custom' in rules:
+                    method_exists = hasattr(self, rules['custom']['method'])
+                    if method_exists:
+                        method_to_call = getattr(self, rules['custom']['method'])
+                        method_to_call(node, mech_name, param_name, baseline, rules, syn_type, donor)
+                    else:
+                        raise Exception('The custom method is not defined for this cell type.')
                 if donor is None:
                     raise Exception('Cannot follow specifications for mechanism: {} parameter: {} without a provided '
                                     'origin'.format(mech_name, param_name))
                 if mech_name == 'synapse':
                     self._specify_synaptic_parameter(node, param_name, baseline, rules, syn_type, donor)
                 else:
-                    if 'min_loc' in rules:
-                        min_distance = rules['min_loc']
-                    else:
-                        min_distance = None
-                    if 'max_loc' in rules:
-                        max_distance = rules['max_loc']
-                    else:
-                        max_distance = None
-                    min_seg_distance = self.get_distance_to_node(donor, node, 0.5 / node.sec.nseg)
-                    max_seg_distance = self.get_distance_to_node(donor, node, (0.5 + node.sec.nseg - 1) / node.sec.nseg)
-                    # if any part of the section is within the location constraints, insert the mechanism, and specify
-                    # the parameter at the segment level
-                    if (min_distance is None or max_seg_distance >= min_distance) and \
-                            (max_distance is None or min_seg_distance <= max_distance):
-                        if not mech_name == 'ions':
-                            node.sec.insert(mech_name)
-                        if min_distance is None:
-                            min_distance = 0.
-                        for seg in node.sec:
-                            seg_loc = self.get_distance_to_node(donor, node, seg.x)
-                            if seg_loc >= min_distance and (max_distance is None or seg_loc <= max_distance):
-                                if 'slope' in rules:
-                                    seg_loc -= min_distance
-                                    if 'tau' in rules:
-                                        if 'xhalf' in rules:  # sigmoidal gradient
-                                            offset = baseline - rules['slope'] / (1. +
-                                                                                  np.exp(rules['xhalf'] / rules['tau']))
-                                            value = offset + rules['slope'] / (1. +
-                                                                               np.exp(
-                                                                                   (rules['xhalf'] - seg_loc) / rules[
-                                                                                       'tau']))
-                                        else:  # exponential gradient
-                                            offset = baseline - rules['slope']
-                                            value = offset + rules['slope'] * np.exp(seg_loc / rules['tau'])
-                                    else:  # linear gradient
-                                        value = baseline + rules['slope'] * seg_loc
-                                    if 'min' in rules and value < rules['min']:
-                                        value = rules['min']
-                                    # elif value < 0.:
-                                    #    value = 0.
-                                    elif 'max' in rules and value > rules['max']:
-                                        value = rules['max']
-                                else:
-                                    value = baseline
-                            elif 'outside' in rules:  # by default, if only some segments in a section meet the
-                                value = rules['outside']  # location constraints, the parameter inherits the
-                            else:  # mechanism's default value. if another value is desired, it
-                                value = None  # can be specified via an 'outside' key in the mechanism
-                            if not value is None:  # dictionary entry
-                                if mech_name == 'ions':
-                                    setattr(seg, param_name, value)
-                                else:
-                                    setattr(getattr(seg, mech_name), param_name, value)
+                    self._specify_mech_parameter(node, mech_name, param_name, baseline, rules, syn_type, donor)
             elif mech_name == 'ions':
                 setattr(node.sec, param_name, baseline)
             elif mech_name == 'synapse':
@@ -780,6 +735,61 @@ class HocCell(object):
             else:
                 node.sec.insert(mech_name)
                 setattr(node.sec, param_name + "_" + mech_name, baseline)
+
+    def _specify_mech_parameter(self, node, mech_name, param_name, baseline, rules, syn_type, donor=None):
+        if 'min_loc' in rules:
+            min_distance = rules['min_loc']
+        else:
+            min_distance = None
+        if 'max_loc' in rules:
+            max_distance = rules['max_loc']
+        else:
+            max_distance = None
+        min_seg_distance = self.get_distance_to_node(donor, node, 0.5 / node.sec.nseg)
+        max_seg_distance = self.get_distance_to_node(donor, node, (0.5 + node.sec.nseg - 1) / node.sec.nseg)
+        # if any part of the section is within the location constraints, insert the mechanism, and specify
+        # the parameter at the segment level
+        if (min_distance is None or max_seg_distance >= min_distance) and \
+                (max_distance is None or min_seg_distance <= max_distance):
+            if not mech_name == 'ions':
+                node.sec.insert(mech_name)
+            if min_distance is None:
+                min_distance = 0.
+            for seg in node.sec:
+                seg_loc = self.get_distance_to_node(donor, node, seg.x)
+                if seg_loc >= min_distance and (max_distance is None or seg_loc <= max_distance):
+                    if 'slope' in rules:
+                        seg_loc -= min_distance
+                        if 'tau' in rules:
+                            if 'xhalf' in rules:  # sigmoidal gradient
+                                offset = baseline - rules['slope'] / (1. +
+                                                                      np.exp(rules['xhalf'] / rules['tau']))
+                                value = offset + rules['slope'] / (1. +
+                                                                   np.exp(
+                                                                       (rules['xhalf'] - seg_loc) / rules[
+                                                                           'tau']))
+                            else:  # exponential gradient
+                                offset = baseline - rules['slope']
+                                value = offset + rules['slope'] * np.exp(seg_loc / rules['tau'])
+                        else:  # linear gradient
+                            value = baseline + rules['slope'] * seg_loc
+                        if 'min' in rules and value < rules['min']:
+                            value = rules['min']
+                        # elif value < 0.:
+                        #    value = 0.
+                        elif 'max' in rules and value > rules['max']:
+                            value = rules['max']
+                    else:
+                        value = baseline
+                elif 'outside' in rules:  # by default, if only some segments in a section meet the
+                    value = rules['outside']  # location constraints, the parameter inherits the
+                else:  # mechanism's default value. if another value is desired, it
+                    value = None  # can be specified via an 'outside' key in the mechanism
+                if not value is None:  # dictionary entry
+                    if mech_name == 'ions':
+                        setattr(seg, param_name, value)
+                    else:
+                        setattr(getattr(seg, mech_name), param_name, value)
 
     def _specify_synaptic_parameter(self, node, param_name, baseline, rules, syn_type, donor=None):
         """
@@ -793,68 +803,60 @@ class HocCell(object):
         :param syn_type: str
         :param donor: :class:'SHocNode' or None
         """
-        if 'custom' in rules:
-            method_exists = hasattr(self, rules['custom']['method'])
-            if method_exists:
-                method_to_call = getattr(self, rules['custom']['method'])
-                method_to_call(node, param_name, baseline, rules, syn_type, donor)
-            else:
-                raise Exception('The custom method is not defined for this cell type.')
+        syn_list = []
+        syn_list.extend(node.synapses)
+        for spine in node.spines:
+            syn_list.extend(spine.synapses)
+        if 'min_loc' in rules:
+            min_distance = rules['min_loc']
         else:
-            syn_list = []
-            syn_list.extend(node.synapses)
-            for spine in node.spines:
-                syn_list.extend(spine.synapses)
-            if 'min_loc' in rules:
-                min_distance = rules['min_loc']
-            else:
-                min_distance = 0.
-            if 'max_loc' in rules:
-                max_distance = rules['max_loc']
-            else:
-                max_distance = None
-            if 'variance' in rules and rules['variance'] == 'normal':
-                normal = True
-            else:
-                normal = False
-            for syn in syn_list:
-                if syn_type in syn._syn:  # not all synapses contain every synaptic mechanism
-                    target = syn.target(syn_type)
-                    if donor is None:
-                        if normal:
-                            value = self.random.normal(baseline, baseline / 6.)
-                            setattr(target, param_name, value)
-                        else:
-                            setattr(target, param_name, baseline)
+            min_distance = 0.
+        if 'max_loc' in rules:
+            max_distance = rules['max_loc']
+        else:
+            max_distance = None
+        if 'variance' in rules and rules['variance'] == 'normal':
+            normal = True
+        else:
+            normal = False
+        for syn in syn_list:
+            if syn_type in syn._syn:  # not all synapses contain every synaptic mechanism
+                target = syn.target(syn_type)
+                if donor is None:
+                    if normal:
+                        value = self.random.normal(baseline, baseline / 6.)
+                        setattr(target, param_name, value)
                     else:
-                        distance = self.get_distance_to_node(donor, node, syn.loc)
-                        # note: if only some synapses in a section meet the location constraints, the synaptic parameter
-                        # will maintain its default value in all other locations. values for other locations must be
-                        # specified with an additional entry in the mechanism dictionary
-                        if distance >= min_distance and (max_distance is None or distance <= max_distance):
-                            if 'slope' in rules:
-                                distance -= min_distance
-                                if 'tau' in rules:  # exponential gradient
-                                    if 'xhalf' in rules:  # sigmoidal gradient
-                                        offset = baseline - rules['slope'] / (1. + np.exp(rules['xhalf'] / rules['tau']))
-                                        value = offset + rules['slope'] / (1. + np.exp((rules['xhalf'] - distance) /
-                                                                                       rules['tau']))
-                                    else:
-                                        offset = baseline - rules['slope']
-                                        value = offset + rules['slope'] * np.exp(distance / rules['tau'])
-                                else:  # linear gradient
-                                    value = baseline + rules['slope'] * distance
-                                if 'min' in rules and value < rules['min']:
-                                    value = rules['min']
-                                # elif value < 0.:
-                                #    value = 0.
-                                elif 'max' in rules and value > rules['max']:
-                                    value = rules['max']
-                            else:
-                                value = baseline
-                            if normal:
-                                value = self.random.normal(value, value / 6.)
-                            setattr(target, param_name, value)
+                        setattr(target, param_name, baseline)
+                else:
+                    distance = self.get_distance_to_node(donor, node, syn.loc)
+                    # note: if only some synapses in a section meet the location constraints, the synaptic parameter
+                    # will maintain its default value in all other locations. values for other locations must be
+                    # specified with an additional entry in the mechanism dictionary
+                    if distance >= min_distance and (max_distance is None or distance <= max_distance):
+                        if 'slope' in rules:
+                            distance -= min_distance
+                            if 'tau' in rules:  # exponential gradient
+                                if 'xhalf' in rules:  # sigmoidal gradient
+                                    offset = baseline - rules['slope'] / (1. + np.exp(rules['xhalf'] / rules['tau']))
+                                    value = offset + rules['slope'] / (1. + np.exp((rules['xhalf'] - distance) /
+                                                                                   rules['tau']))
+                                else:
+                                    offset = baseline - rules['slope']
+                                    value = offset + rules['slope'] * np.exp(distance / rules['tau'])
+                            else:  # linear gradient
+                                value = baseline + rules['slope'] * distance
+                            if 'min' in rules and value < rules['min']:
+                                value = rules['min']
+                            # elif value < 0.:
+                            #    value = 0.
+                            elif 'max' in rules and value > rules['max']:
+                                value = rules['max']
+                        else:
+                            value = baseline
+                        if normal:
+                            value = self.random.normal(value, value / 6.)
+                        setattr(target, param_name, value)
 
     def set_special_mech_param_linear_gradient(self, mech_name, param_name, sec_type_list, criterion, end_val):
         """
@@ -2735,7 +2737,7 @@ class DG_GC(HocCell):
         self.set_special_mech_param_linear_gradient(na_type, 'gbar', ['apical'],
                                                     self.is_terminal, gmin)
 
-    def custom_inheritance_by_nonterm_branchord(self, node, param_name, baseline, rules, syn_type, donor=None):
+    def custom_inheritance_by_nonterm_branchord(self, node, mech_name, param_name, baseline, rules, syn_type, donor=None):
         """
 
         :param node: :class:'SHocNode'
@@ -2787,3 +2789,11 @@ class DG_GC(HocCell):
                             if normal:
                                 value = self.random.normal(value, value / 6.)
                             setattr(target, param_name, value)
+
+    def custom_gradient_by_branch_ord(self, node, mech_name, param_name, baseline, rules, syn_type, donor=None):
+        branch_order = rules['custom']['branch_order']
+        if self.get_branch_order(node) >= branch_order:
+            self._specify_mech_parameter(node, mech_name, param_name, baseline, rules, syn_type, donor)
+
+    def custom_gradient_by_terminal(self):
+        slope = 1.

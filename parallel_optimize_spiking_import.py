@@ -18,13 +18,14 @@ context = Context()
 def config_controller():
     set_constants()
 
-def config_engine(update_params_funcs, param_names, rec_filepath, mech_file_path, neurotree_file_path, neurotree_index,
+def config_engine(update_params_funcs, param_names, rec_filepath, export_file_path, mech_file_path, neurotree_file_path, neurotree_index,
                   spines):
     """
 
     :param update_params_funcs: list of function references
     :param param_names: list of str
     :param rec_filepath: str
+    :param export_file_path: str
     :param mech_file_path: str
     :param neurotree_file_path: str
     :param neurotree_index: int
@@ -167,23 +168,20 @@ def get_fI_features(indiv, c, client_range, export=False):
     return {'pop_id': indiv['pop_id'], 'client_range': client_range, 'async_result': result,
             'filter_features': filter_fI_features}
 
-def filter_fI_features(get_result, old_features):
+def filter_fI_features(get_result, old_features, export):
     """
 
     :param get_result: list of dict (each dict has the results from a particular simulation)
     :param old_features: dict
     :return: dict
     """
+    amps = []
     new_features = {}
-    temp_dict = {}
-    temp_dict['amp'] = []
-    temp_dict['rate'] = []
     new_features['adi'] = []
     new_features['exp_adi'] = []
     new_features['f_I'] = []
     for i, this_dict in enumerate(get_result):
-        temp_dict['amp'].append(this_dict['amp'])
-        temp_dict['rate'].append(this_dict['rate'])
+        amps.append(this_dict['amp'])
         if 'vm_stability' in this_dict.keys():
             new_features['vm_stability'] = this_dict['vm_stability']
         if 'rebound_firing' in this_dict.keys():
@@ -207,12 +205,26 @@ def filter_fI_features(get_result, old_features):
         new_features['exp_adi'].append(exp_adi)
         this_rate = len(spike_times) / stim_dur * 1000.
         new_features['f_I'].append(this_rate)
-
     adapt_ind = range(len(new_features['f_I']))
-    adapt_ind.sort(key=temp_dict['amp'].__getitem__)
+    adapt_ind.sort(key=amps.__getitem__)
     new_features['adi'] = map(new_features['adi'].__getitem__, adapt_ind)
     new_features['exp_adi'] = map(new_features['exp_adi'].__getitem__, adapt_ind)
     new_features['f_I'] = map(new_features['f_I'].__getitem__, adapt_ind)
+    amps = map(amps.__getitem__, adapt_ind)
+    if export:
+        new_export_file_path = context.export_file_path.replace('.hdf5', '_processed.hdf5')
+        with h5py.File(new_export_file_path, 'a') as f:
+            group = f.create_group(str(i))
+            group.create_dataset('amps', compression='gzip', compression_opts=9, data=amps)
+            group.create_dataset('adi', compression='gzip', compression_opts=9, data=new_features['adi'])
+            group.create_dataset('exp_adi', compression='gzip', compression_opts=9, data=new_features['exp_adi'])
+            group.create_dataset('f_I', compression='gzip', compression_opts=9, data=new_features['f_I'])
+            num_increments = context.num_increments
+            i_inj_increment = context.i_inj_increment
+            rheobase = old_features['rheobase']
+            exp_f_I = [context.experimental_f_I_slope * np.log((rheobase + i_inj_increment * (i + 1)) / rheobase)
+                          for i in range(num_increments)]
+            group.create_dataset('exp_f_I', compression='gzip', compression_opts=9, data=exp_f_I)
     return new_features
 
 def get_objectives(features, objective_names, target_val, target_range):
@@ -390,8 +402,6 @@ def compute_fI_features(amp, x, extend_dur=False, export=False, plot=False):
     result = {}
     result['spike_times'] = spike_times
     result['amp'] = amp
-    rate = len(spike_times) / stim_dur * 1000.
-    result['rate'] = rate
     if extend_dur:
         vm = np.interp(t, context.sim.tvec, context.sim.get_rec('soma')['vec'])
         v_min_late = np.min(vm[int((equilibrate + stim_dur - 20.) / dt):int((equilibrate + stim_dur - 1.) / dt)])
@@ -525,6 +535,15 @@ def update_na_ka_stability(cell, x, param_indexes):
         cell.modify_mech_param(sec_type, 'kdr', 'gkdrbar', origin='soma')
         cell.modify_mech_param(sec_type, 'nas', 'sha', 5.)
         cell.modify_mech_param(sec_type, 'nas', 'gbar', x[param_indexes['dend.gbar_nas']])
+        cell.modify_mech_param(sec_type, 'nas', 'gbar', value=x[param_indexes['dend.gbar_nas']], origin='soma',
+                               slope=x[param_indexes['dend.gbar_nas_slope']], min=x[param_indexes['dend.gbar_nas_min']],
+                               custom={'method': 'custom_gradient_by_branch_ord', 'branch_order':
+                                   x[param_indexes['dend.gbar_nas_bc']]}, replace=False)
+        cell.modify_mech_param(sec_type, 'nas', 'gbar', value=x[param_indexes['dend.gbar_nas']], origin='soma',
+                               min=x[param_indexes['dend.gbar_nas_min']], custom={'method': 'custom_gradient_by_terminal',
+                                                                                  'branch_order':
+                                                                                      x[param_indexes['dend.gbar_nas_bc']]},
+                               replace=False)
     cell.set_terminal_branch_na_gradient()
     cell.reinitialize_subset_mechanisms('axon_hill', 'kap')
     cell.reinitialize_subset_mechanisms('axon_hill', 'kdr')
@@ -548,6 +567,23 @@ def update_na_ka_stability(cell, x, param_indexes):
     if context.spines is False:
         cell.correct_for_spines()
     cell.set_terminal_branch_na_gradient()
+    na_type = (na_type for na_type in ['nas_kin', 'nat_kin', 'nas', 'nax']
+               if na_type in cell.mech_dict['apical']).next()
+    mech_name = na_type
+    param_name = 'gbar'
+    sec_type_list = ['apical']
+    criterion = cell.is_terminal
+    end_val = 0.
+    for sec_type in sec_type_list:
+        for node in cell.get_nodes_of_subtype(sec_type):
+            if criterion(node):
+                start_val = getattr(node.sec(0.), param_name + '_' + mech_name)
+                slope = end_val - start_val
+                for seg in node.sec:
+                    value = start_val + slope * seg.x
+                    setattr(getattr(seg, mech_name), param_name, value)
+
+
     return cell
 
 def export_sim_results():
