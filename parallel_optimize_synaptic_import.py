@@ -13,16 +13,52 @@ Current YAML filepath: data/optimize_synaptic_defaults.yaml
 
 context = Context()
 
-def config_controller():
+def setup_module_from_file(param_file_path='data/optimize_synaptic_defaults.yaml', rec_file_path = None, export_file_path=None):
+    """
+
+    :param param_file_path: str (path to a yaml file)
+    :return:
+    """
+    params_dict = read_from_yaml(param_file_path)
+    param_gen = params_dict['param_gen']
+    param_names = params_dict['param_names']
+    default_params = params_dict['default_params']
+    x0 = params_dict['x0']
+    bounds = [params_dict['bounds'][key] for key in param_names]
+    feature_names = params_dict['feature_names']
+    objective_names = params_dict['objective_names']
+    target_val = params_dict['target_val']
+    target_range = params_dict['target_range']
+    optimization_title = params_dict['optimization_title']
+    kwargs = params_dict['kwargs']  # Extra arguments
+    update_params = params_dict['update_params']
+    update_params_funcs = []
+    for update_params_func_name in update_params:
+        func = globals().get(update_params_func_name)
+        if not callable (func):
+            raise Exception('Multi-Objective Optimization: update_params: %s is not a callable function.'
+                            % (update_params_func_name))
+    if rec_file_path is None:
+        rec_file_path = 'data/sim_output' + datetime.datetime.today().strftime('%m%d%Y%H%M') + \
+                   '_pid' + str(os.getpid()) + '.hdf5'
+    if export_file_path is None:
+        export_file_path = 'data/%s_%s_%s_optimization_exported_traces.hdf5' % \
+                           (datetime.datetime.today().strftime('%m%d%Y%H%M'), optimization_title, param_gen)
+    context.update(locals())
+    config_engine(update_params_funcs, param_names, default_params, rec_file_path, export_file_path, **kwargs)
+
+def config_controller(export_file_path):
+    context.update(locals())
     set_constants()
 
-def config_engine(update_params_funcs, param_names, rec_filepath, export_file_path, mech_file_path, neurotree_file_path,
-                  neurotree_index, spines):
+def config_engine(update_params_funcs, param_names, default_params, rec_file_path, export_file_path, mech_file_path,
+                  neurotree_file_path, neurotree_index, spines):
     """
 
     :param update_params_funcs: list of function references
     :param param_names: list of str
-    :param rec_filepath: str
+    :param default_params: dict
+    :param rec_file_path: str
     :param export_file_path: str
     :param mech_file_path: str
     :param neurotree_file_path: str
@@ -59,10 +95,12 @@ def set_constants():
     compound_stim_offset = 0.3
     dt = 0.02
     v_init = -77. #The optimize_branch_cooperativity_nmda_kin3_engine script says -67.
+    v_active = -77.
     NMDA_type = 'NMDA_KIN5'
     syn_types = ['AMPA_KIN', NMDA_type]
     local_random = random.Random()
     i_holding = {'soma': 0.}
+    i_th = {'soma': 0.1}
     context.update(locals())
 
 def setup_cell():
@@ -298,7 +336,7 @@ def filter_compound_EPSP_features(get_result, old_features, export):
     sim_id_list = {}
     for group_type in context.branch_list:
         expected_compound_traces[group_type], expected_compound_EPSP[group_type] = \
-            compute_expected_compound_features(old_features[group_type + '_unitary'])
+            get_expected_compound_features(old_features[group_type + '_unitary'])
         actual_compound_traces[group_type] = {}
         actual_compound_EPSP[group_type] = {}
         sim_id_list[group_type] = {}
@@ -348,7 +386,6 @@ def filter_compound_EPSP_features(get_result, old_features, export):
                     'peak_supralinearity_con': np.average(peak_supralinearities['con']),
                     'min_supralinearity_AP5': np.average(min_supralinearities['AP5']),
                     'min_supralinearity_con': np.average(min_supralinearities['con'])}
-    pprint.pprint(new_features)
     if export:
         new_export_file_path = context.export_file_path.replace('.hdf5', '_processed.hdf5')
         with h5py.File(new_export_file_path, 'a') as f:
@@ -372,6 +409,20 @@ def filter_compound_EPSP_features(get_result, old_features, export):
                                 sim_group['rec'].create_dataset(loc, compression='gzip', compression_opts=9,
                                                             data=trace_dict[group_type][AP5_condition][sim_id]['rec'][loc])
     return new_features
+
+def get_stability_features(indiv, c, client_range, export=False):
+    """
+    Distribute simulations across available engines for testing spike stability.
+    :param indiv: dict {'pop_id': pop_id, 'x': x arr, 'features': features dict}
+    :param c: Client object
+    :param client_range: list of ints
+    :param export: False (for exporting voltage traces)
+    :return: dict
+    """
+    dv = c[client_range]
+    x = indiv['x']
+    result = dv.map_async(compute_stability_features, [x], [export])
+    return {'pop_id': indiv['pop_id'], 'client_range': client_range, 'async_result': result}
 
 def get_objectives(features, objective_names, target_val, target_range):
     """
@@ -400,7 +451,7 @@ def compute_EPSP_amp_features(x, test_syns, AP5_condition, group_type, export=Fa
     start_time = time.time()
     context.cell.reinit_mechanisms(reset_cable=True, from_file=True)
     for update_func in context.update_params_funcs:
-        context.cell = update_func(context.cell, x, context.param_indexes)
+        context.cell = update_func(context.cell, x, context.param_indexes, context.default_params)
     # sim.cvode_state = True
     soma_vm = offset_vm('soma', context.v_init)
     synapses = [context.syn_list[syn_index] for syn_index in test_syns]
@@ -478,12 +529,11 @@ def compute_branch_cooperativity_features(x, test_syns, AP5_condition, group_typ
     :param plot: bool
     :return:
     """
-    print test_syns
     start_time = time.time()
     test_syns = np.array(test_syns)
     context.cell.reinit_mechanisms(reset_cable=True, from_file=True)
     for update_func in context.update_params_funcs:
-        context.cell = update_func(context.cell, x, context.param_indexes)
+        context.cell = update_func(context.cell, x, context.param_indexes, context.default_params)
     # sim.cvode_state = True
     synapses = [context.syn_list[syn_index] for syn_index in test_syns]
     for i, syn in enumerate(synapses):
@@ -539,7 +589,71 @@ def compute_branch_cooperativity_features(x, test_syns, AP5_condition, group_typ
         export_sim_results()
     return result
 
-def compute_expected_compound_features(unitary_branch_results):
+def compute_stability_features(x, export=False, plot=False):
+    """
+    :param local_x: array [soma.gkabar, soma.gkdrbar, axon.gkabar_kap factor, axon.gbar_nax factor, soma.sh_nas/x,
+                    axon.gkbar factor, dend.gkabar factor]
+    :param plot: bool
+    :return: float
+    """
+    start_time = time.time()
+    context.cell.reinit_mechanisms(reset_cable=True, from_file=True)
+    for update_func in context.update_params_funcs:
+        context.cell = update_func(context.cell, x, context.param_indexes, context.default_params)
+    # sim.cvode_state = True
+
+    v_active = context.v_active
+    equilibrate = context.equilibrate
+    dt = context.dt
+    i_th = context.i_th
+
+    soma_vm = offset_vm('soma', v_active)
+    stim_dur = 150.
+    context.sim.modify_stim(0, node=context.cell.tree.root, loc=0., dur=stim_dur)
+    duration = equilibrate + stim_dur
+    context.sim.tstop = duration
+    t = np.arange(0., duration, dt)
+    spike = False
+    d_amp = 0.01
+    amp = max(0., i_th['soma'] - 0.02)
+    while not spike:
+        context.sim.modify_stim(0, amp=amp)
+        context.sim.run(v_active)
+        vm = np.interp(t, context.sim.tvec, context.sim.get_rec('soma')['vec'])
+        if np.any(vm[:int(equilibrate/dt)] > -30.):
+            print 'Process %i: Aborting - spontaneous firing' % (os.getpid())
+            return None
+        if np.any(vm[int(equilibrate/dt):int((equilibrate+50.)/dt)] > -30.):
+            spike = True
+        elif amp >= 0.4:
+            print 'Process %i: Aborting - rheobase outside target range' % (os.getpid())
+            return None
+        else:
+            amp += d_amp
+            if context.sim.verbose:
+                print 'increasing amp to %.3f' % amp
+    context.sim.parameters['amp'] = amp
+    context.sim.parameters['description'] = 'spike shape'
+    i_th['soma'] = amp
+    spike_times = context.cell.spike_detector.get_recordvec().to_python()
+    peak, threshold, ADP, AHP = get_spike_shape(vm, spike_times)
+    dend_vm = np.interp(t, context.sim.tvec, context.sim.get_rec('dend')['vec'])
+    th_x = np.where(vm[int(equilibrate / dt):] >= threshold)[0][0] + int(equilibrate / dt)
+    if len(spike_times) > 1:
+        end = min(th_x + int(10. / dt), int((spike_times[1] - 5.)/dt))
+    else:
+        end = th_x + int(10. / dt)
+    dend_peak = np.max(dend_vm[th_x:end])
+    dend_pre = np.mean(dend_vm[th_x - int(0.2 / dt):th_x - int(0.1 / dt)])
+    result = {'dend_amp': (dend_peak - dend_pre) / (peak - threshold)}
+    print 'Process %i took %.1f s to find spike rheobase at amp: %.3f' % (os.getpid(), time.time() - start_time, amp)
+    if plot:
+        context.sim.plot()
+    if export:
+        export_sim_results()
+    return result
+
+def get_expected_compound_features(unitary_branch_results):
     """
 
     :param unitary_branch_features: dict {'AP5': {syn_id: {'rec': {loc: trace}}
@@ -627,7 +741,59 @@ def offset_vm(description, vm_target=None):
     context.sim.tstop = duration
     return v_rest
 
-def update_AMPA_NMDA(cell, x, param_indexes):
+def get_spike_shape(vm, spike_times):
+    """
+
+    :param vm: array
+    :return: tuple of float: (v_peak, th_v, ADP, AHP)
+    """
+    equilibrate = context.equilibrate
+    dt = context.dt
+    th_dvdt = context.th_dvdt
+
+    start = int((equilibrate+1.)/dt)
+    vm = vm[start:]
+    dvdt = np.gradient(vm, dt)
+    th_x = np.where(dvdt > th_dvdt)[0]
+    if th_x.any():
+        th_x = th_x[0] - int(1.6/dt)
+    else:
+        th_x = np.where(vm > -30.)[0][0] - int(2./dt)
+    th_v = vm[th_x]
+    v_before = np.mean(vm[th_x-int(0.1/dt):th_x])
+    v_peak = np.max(vm[th_x:th_x+int(5./dt)])
+    x_peak = np.where(vm[th_x:th_x+int(5./dt)] == v_peak)[0][0]
+    if len(spike_times) > 1:
+        end = max(th_x+x_peak, int((spike_times[1] - 5.) / dt) - start)
+    else:
+        end = len(vm)
+    v_AHP = np.min(vm[th_x+x_peak:end])
+    x_AHP = np.where(vm[th_x+x_peak:end] == v_AHP)[0][0]
+    AHP = v_before - v_AHP
+    # if spike waveform includes an ADP before an AHP, return the value of the ADP in order to increase error function
+    rising_x = np.where(dvdt[th_x+x_peak:th_x+x_peak+x_AHP] > 0.)[0]
+    if rising_x.any():
+        v_ADP = np.max(vm[th_x+x_peak+rising_x[0]:th_x+x_peak+x_AHP])
+        ADP = v_ADP - th_v
+    else:
+        ADP = 0.
+    return v_peak, th_v, ADP, AHP
+
+def find_param_value(param_name, x, param_indexes, default_params):
+    """
+
+    :param param_name: str
+    :param x: arr
+    :param param_indexes: dict
+    :param default_params: dict
+    :return:
+    """
+    if param_name in param_indexes:
+        return x[param_indexes[param_name]]
+    else:
+        return default_params[param_name]
+
+def update_AMPA_NMDA(cell, x, param_indexes, default_params):
     """
 
     :param x: array. Default: value=1.711e-03, slope=6.652e-05, tau=7.908e+01
@@ -635,20 +801,69 @@ def update_AMPA_NMDA(cell, x, param_indexes):
     """
     if context.spines is False:
         cell.correct_for_spines()
-    cell.modify_mech_param('apical', 'synapse', 'gmax', value=x[param_indexes['AMPA.g0']], origin='soma', syn_type='AMPA_KIN',
-                                   slope=x[param_indexes['AMPA.slope']], tau=x[param_indexes['AMPA.tau']])
-    cell.modify_mech_param('apical', 'synapse', 'gmax', value=x[param_indexes['AMPA.g0']], syn_type='AMPA_KIN',
-                           custom={'method': 'custom_inheritance_by_nonterm_branchord', 'branch_cutoff': 4}, replace=False)
-    cell.modify_mech_param('apical', 'synapse', 'gmax', value=x[param_indexes['NMDA.gmax']], syn_type=context.NMDA_type)
-    cell.modify_mech_param('apical', 'synapse', 'gamma', value=x[param_indexes['NMDA.gamma']], syn_type=context.NMDA_type)
-    cell.modify_mech_param('apical', 'synapse', 'Kd', value=x[param_indexes['NMDA.Kd']], syn_type=context.NMDA_type)
-    cell.modify_mech_param('apical', 'synapse', 'kin_scale', value=x[param_indexes['NMDA.Kd']], syn_type=context.NMDA_type)
+    cell.modify_mech_param('apical', 'synapse', 'gmax', value=find_param_value('AMPA.g0', x, param_indexes, default_params),
+                           origin='soma', syn_type='AMPA_KIN', slope=find_param_value('AMPA.slope', x, param_indexes,
+                                                                                      default_params),
+                           tau=find_param_value('AMPA.tau', x, param_indexes, default_params))
+    cell.modify_mech_param('apical', 'synapse', 'gmax', value=find_param_value('AMPA.g0', x, param_indexes, default_params),
+                           syn_type='AMPA_KIN', custom={'method': 'custom_inheritance_by_nonterm_branchord',
+                                                        'branch_cutoff': 4}, replace=False)
+    cell.modify_mech_param('apical', 'synapse', 'gmax', value=find_param_value('NMDA.gmax', x, param_indexes, default_params),
+                           syn_type=context.NMDA_type)
+    cell.modify_mech_param('apical', 'synapse', 'gamma', value=find_param_value('NMDA.gamma', x, param_indexes, default_params),
+                           syn_type=context.NMDA_type)
+    cell.modify_mech_param('apical', 'synapse', 'Kd', value=find_param_value('NMDA.Kd', x, param_indexes, default_params),
+                           syn_type=context.NMDA_type)
+    cell.modify_mech_param('apical', 'synapse', 'kin_scale', value=find_param_value('NMDA.kin_scale', x, param_indexes,
+                                                                                    default_params), syn_type=context.NMDA_type)
     cell.init_synaptic_mechanisms()
+    for sec_type in ['apical']:
+        cell.modify_mech_param(sec_type, 'nas', 'gbar', find_param_value('dend.gbar_nas', x, param_indexes, default_params))
+        cell.modify_mech_param(sec_type, 'nas', 'gbar', origin='parent',
+                               slope=find_param_value('dend.gbar_nas slope', x, param_indexes, default_params),
+                               min=find_param_value('dend.gbar_nas min', x, param_indexes, default_params),
+                               custom={'method': 'custom_gradient_by_branch_ord', 'branch_order':
+                                   find_param_value('dend.gbar_nas bo', x, param_indexes, default_params)}, replace=False)
+        cell.modify_mech_param(sec_type, 'nas', 'gbar', origin='parent',
+                               slope=find_param_value('dend.gbar_nas slope', x, param_indexes, default_params),
+                               min=find_param_value('dend.gbar_nas min', x, param_indexes, default_params),
+                               custom={'method': 'custom_gradient_by_terminal'}, replace=False)
     return cell
 
 def export_sim_results():
     """
     Export the most recent time and recorded waveforms from the QuickSim object.
     """
-    with h5py.File(context.rec_filepath, 'a') as f:
+    with h5py.File(context.rec_file_path, 'a') as f:
         context.sim.export_to_file(f)
+
+def plot_exported_synaptic_features(processed_export_file_path):
+    """
+
+    :param processed_export_file_path: str
+    :return:
+    """
+    with h5py.File(processed_export_file_path, 'r') as f:
+        trace_type_list = [trace_type for trace_type in f]
+        trace_group_list = [trace_group for trace_group in f.itervalues()]
+        fig_num = 1
+        for branch in context.branch_list:
+            AP5 = context.AP5_cond_list[0]
+            for sim_id in trace_group_list[0][branch][AP5]:
+                trial = trace_group_list[0][branch][AP5][sim_id]
+                fig, axes = plt.subplots(len(context.AP5_cond_list), len(trial['rec']))
+                for i, AP5_cond in enumerate(context.AP5_cond_list):
+                    for j, loc in enumerate(trial['rec']):
+                        for g, trace_group in enumerate(trace_group_list):
+                            axes[i][j].scatter(trace_group[branch][AP5][sim_id]['tvec'],
+                                               trace_group[branch][AP5][sim_id]['rec'][loc],
+                                               label=trace_type_list[g])
+                            axes[i][j].set_xlabel('Time (ms')
+                            axes[i][j].set_ylabel('Vm (mv)')
+                            axes[i][j].set_title('%s %s' %(loc, AP5_cond))
+                            axes[i][j].legend(loc='best', frameon=False, framealpha=0.5)
+                fig.suptitle('%s, %d synapses' %(branch, sim_id))
+                clean_axes(axes)
+                fig.tight_layout()
+        plt.show()
+        plt.close()

@@ -17,6 +17,9 @@ bounds:
   dend.gbar_nas: !!python/tuple
   - 0.01
   - 0.05
+  dend.gbar_nas slope: !!python/tuple
+  - -0.5
+  - 0.
   dend.gkabar: !!python/tuple
   - 0.001
   - 0.25
@@ -41,6 +44,9 @@ bounds:
   soma.sh_nas/x: !!python/tuple
   - 0.1
   - 6.0
+default_params:
+  dend.gbar_nas bo: 4
+  dend.gbar_nas min: 0.
 feature_names:
 - na_gradient
 - v_rest
@@ -95,7 +101,7 @@ param_gen: BGen
 param_names:
 - soma.gbar_nas
 - dend.gbar_nas
-- dend.gbar_slope **
+- dend.gbar_nas slope
 - axon.gbar_nax
 - ais.gbar_nax
 - soma.gkabar
@@ -148,6 +154,7 @@ x0:
   axon.gbar_nax: 0.06
   axon.gkbar: 0.05266
   dend.gbar_nas: 0.03
+  dend.gbar_nas slope: -0.001
   dend.gkabar: 0.002709
   soma.gCa factor: 0.3364
   soma.gCadepK factor: 4.096

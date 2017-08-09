@@ -119,7 +119,7 @@ def main(cluster_id, profile, param_file_path, param_gen, update_params, update_
         if disp:
             print 'Multi-Objective Optimization: Best params:'
             print x
-    elif os.path.isfile(storage_file_path):
+    elif storage_file_path is not None and os.path.isfile(storage_file_path):
         storage = PopulationStorage(file_path=storage_file_path)
         print 'Analysis mode: history loaded from path: %s' % storage_file_path
         best_ind = storage.get_best(1, 'last')[0]
@@ -163,6 +163,7 @@ def process_params(cluster_id, profile, param_file_path, param_gen, update_param
     if param_file_path is not None:
         params_dict = read_from_yaml(param_file_path)
         param_names = params_dict['param_names']
+        default_params = params_dict['default_params']
         x0 = params_dict['x0']
         bounds = [params_dict['bounds'][key] for key in param_names]
         feature_names = params_dict['feature_names']
@@ -226,12 +227,12 @@ def init_controller(update_params, update_modules, get_features, features_module
     main_ctxt.module_set = module_set
     for module_name in module_set:
         m = importlib.import_module(module_name)
-        m.config_controller()
+        m.config_controller(main_ctxt.export_file_path)
     update_params_funcs = []
     for i, module_name in enumerate(update_modules):
         module = sys.modules[module_name]
         func = getattr(module, update_params[i])
-        if not callable (func):
+        if not callable(func):
             raise Exception('Multi-Objective Optimization: update_params: %s for module %s is not a callable function.'
                             % (update_params[i], module))
         update_params_funcs.append(func)
@@ -240,7 +241,7 @@ def init_controller(update_params, update_modules, get_features, features_module
     for i, module_name in enumerate(features_modules):
         module = sys.modules[module_name]
         func = getattr(module, get_features[i])
-        if not callable (func):
+        if not callable(func):
             raise Exception('Multi-Objective Optimization: get_features: %s for module %s is not a callable function.'
                             % (get_features[i], module))
         get_features_funcs.append(func)
@@ -249,7 +250,7 @@ def init_controller(update_params, update_modules, get_features, features_module
     for module_name in objectives_modules:
         module = sys.modules[module_name]
         func = getattr(module, 'get_objectives')
-        if not callable (func):
+        if not callable(func):
             raise Exception('Multi-Objective Optimization: get_objectives for module %s is not a callable function.'
                             % (module))
         get_objectives_funcs.append(func)
@@ -298,26 +299,26 @@ def setup_client_interface(sleep, cluster_id, profile, group_sizes, pop_size, up
     print 'Multi-Objective Optimization %s: Generator: %s; Total processes: %i; Population size: %i; Group sizes: %s; ' \
           'Update functions: %s; Feature calculator: %s; Objective calculator: %s; Blocks / generation: %s' % \
           (main_ctxt.optimization_title, param_gen, num_procs, pop_size, (','.join(str(x) for x in group_sizes)),
-           (','.join(func for func in update_params)), (','.join(func for func in get_features)), (','.join(obj for obj in objectives_modules)),
-           (','.join(str(x) for x in blocks)))
+           (','.join(func for func in update_params)), (','.join(func for func in get_features)),
+           (','.join(obj for obj in objectives_modules)), (','.join(str(x) for x in blocks)))
 
     main_ctxt.c[:].execute('from parallel_optimize_main import *', block=True)
     if sleep:
         time.sleep(120.)
     main_ctxt.c[:].apply_sync(init_engine, main_ctxt.module_set, main_ctxt.update_params_funcs, main_ctxt.param_names,
-                              main_ctxt.export_file_path, output_dir, **main_ctxt.kwargs)
+                              main_ctxt.default_params, main_ctxt.export_file_path, output_dir, **main_ctxt.kwargs)
 
-def init_engine(module_set, update_params_funcs, param_names, export_file_path, output_dir, **kwargs):
+def init_engine(module_set, update_params_funcs, param_names, default_params, export_file_path, output_dir, **kwargs):
     for module_name in module_set:
         m = importlib.import_module(module_name)
         config_func = getattr(m, 'config_engine')
         if not callable(config_func):
             raise Exception('config_engine: %s.config engine is not callable' % (module_name))
         else:
-            global rec_filepath
-            rec_filepath = output_dir + '/sim_output' + datetime.datetime.today().strftime('%m%d%Y%H%M') + \
+            global rec_file_path
+            rec_file_path = output_dir + '/sim_output' + datetime.datetime.today().strftime('%m%d%Y%H%M') + \
                            '_pid' + str(os.getpid()) + '.hdf5'
-            config_func(update_params_funcs, param_names, rec_filepath, export_file_path, **kwargs)
+            config_func(update_params_funcs, param_names, default_params, rec_file_path, export_file_path, **kwargs)
     sys.stdout.flush()
 
 def run_optimization(disp):
@@ -417,7 +418,7 @@ def export_traces(x, group_sizes, export_file_path=None, discard=True, disp=Fals
     """
     x_arr = param_dict_to_array(x, main_ctxt.param_names)
     exported_features, exported_objectives = get_all_features([x_arr], group_sizes=group_sizes, disp=disp, export=True)
-    rec_file_path_list = [filepath for filepath in main_ctxt.c[:]['rec_filepath']
+    rec_file_path_list = [filepath for filepath in main_ctxt.c[:]['rec_file_path']
                           if os.path.isfile(filepath)]
     combine_hdf5_file_paths(rec_file_path_list, export_file_path)
     if discard:

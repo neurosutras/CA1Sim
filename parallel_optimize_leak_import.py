@@ -15,19 +15,55 @@ Current YAML filepath: data/optimize_leak_defaults.yaml
 
 context = Context()
 
-def config_controller():
+def setup_module_from_file(param_file_path='data/optimize_leak_defaults.yaml', rec_file_path = None, export_file_path=None):
+    """
+
+    :param param_file_path: str (path to a yaml file)
+    :return:
+    """
+    params_dict = read_from_yaml(param_file_path)
+    param_gen = params_dict['param_gen']
+    param_names = params_dict['param_names']
+    default_params = params_dict['default_params']
+    x0 = params_dict['x0']
+    bounds = [params_dict['bounds'][key] for key in param_names]
+    feature_names = params_dict['feature_names']
+    objective_names = params_dict['objective_names']
+    target_val = params_dict['target_val']
+    target_range = params_dict['target_range']
+    optimization_title = params_dict['optimization_title']
+    kwargs = params_dict['kwargs']  # Extra arguments
+    update_params = params_dict['update_params']
+    update_params_funcs = []
+    for update_params_func_name in update_params:
+        func = globals().get(update_params_func_name)
+        if not callable (func):
+            raise Exception('Multi-Objective Optimization: update_params: %s is not a callable function.'
+                            % (update_params_func_name))
+    if rec_file_path is None:
+        rec_file_path = 'data/sim_output' + datetime.datetime.today().strftime('%m%d%Y%H%M') + \
+                   '_pid' + str(os.getpid()) + '.hdf5'
+    if export_file_path is None:
+        export_file_path = 'data/%s_%s_%s_optimization_exported_traces.hdf5' % \
+                           (datetime.datetime.today().strftime('%m%d%Y%H%M'), optimization_title, param_gen)
+    context.update(locals())
+    config_engine(update_params_funcs, param_names, default_params, rec_file_path, export_file_path, **kwargs)
+
+def config_controller(export_file_path):
     """
 
     :return:
     """
+    context.update(locals())
 
-def config_engine(update_params_funcs, param_names, rec_filepath, export_file_path, mech_file_path, neurotree_file_path, neurotree_index,
-                  spines):
+def config_engine(update_params_funcs, param_names, default_params, rec_file_path, export_file_path, mech_file_path,
+                  neurotree_file_path, neurotree_index, spines):
     """
 
     :param update_params_funcs: list of function references
     :param param_names: list of str
-    :param rec_filepath: str
+    :param default_params: dict
+    :param rec_file_path: str
     :param export_file_path: str
     :param mech_file_path: str
     :param neurotree_file_path: str
@@ -160,7 +196,7 @@ def compute_Rinp_features(section, x, export=False):
     start_time = time.time()
     context.cell.reinit_mechanisms(reset_cable=True, from_file=True)
     for update_func in context.update_params_funcs:
-        context.cell = update_func(context.cell, x, context.param_indexes)
+        context.cell = update_func(context.cell, x, context.param_indexes, context.default_params)
     context.cell.zero_na()
 
     duration = context.duration
@@ -246,7 +282,21 @@ def offset_vm(description, vm_target=None):
     context.sim.tstop = duration
     return v_rest
 
-def update_pas_exp(cell, x, param_indexes):
+def find_param_value(param_name, x, param_indexes, default_params):
+    """
+
+    :param param_name: str
+    :param x: arr
+    :param param_indexes: dict
+    :param default_params: dict
+    :return:
+    """
+    if param_name in param_indexes:
+        return x[param_indexes[param_name]]
+    else:
+        return default_params[param_name]
+
+def update_pas_exp(cell, x, param_indexes, default_params):
     """
 
     x0 = ['soma.g_pas': 2.28e-05, 'dend.g_pas slope': 1.58e-06, 'dend.g_pas tau': 58.4]
@@ -254,9 +304,10 @@ def update_pas_exp(cell, x, param_indexes):
     """
     if context.spines is False:
         cell.reinit_mechanisms(reset_cable=True)
-    cell.modify_mech_param('soma', 'pas', 'g', x[param_indexes['soma.g_pas']])
-    cell.modify_mech_param('apical', 'pas', 'g', origin='soma', slope=x[param_indexes['dend.g_pas slope']],
-                           tau=x[param_indexes['dend.g_pas tau']])
+    cell.modify_mech_param('soma', 'pas', 'g', find_param_value('soma.g_pas', x, param_indexes, default_params))
+    cell.modify_mech_param('apical', 'pas', 'g', origin='soma', slope=find_param_value('dend.g_pas slope', x,
+                                                                                       param_indexes, default_params),
+                           tau=find_param_value('dend.g_pas tau', x, param_indexes, default_params))
     for sec_type in ['axon_hill', 'axon', 'ais', 'apical', 'spine_neck', 'spine_head']:
         cell.reinitialize_subset_mechanisms(sec_type, 'pas')
     if context.spines is False:
@@ -267,5 +318,5 @@ def export_sim_results():
     """
     Export the most recent time and recorded waveforms from the QuickSim object.
     """
-    with h5py.File(context.rec_filepath, 'a') as f:
+    with h5py.File(context.rec_file_path, 'a') as f:
         context.sim.export_to_file(f)

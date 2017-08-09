@@ -675,18 +675,18 @@ class HocCell(object):
             # applying a distance-dependent gradient
             if rules['origin'] == 'parent':
                 if node.type == 'spine_head':
-                    donor = node.parent.parent
+                    donor = node.parent.parent.parent
                 elif node.type == 'spine_neck':
-                    donor = node.parent
+                    donor = node.parent.parent
                 else:
-                    donor = self.get_dendrite_origin(node)
+                    donor = node.parent
+            elif rules['origin'] == 'branch_origin':
+                donor = self.get_dendrite_origin(node)
             elif rules['origin'] in sec_types:
                 donor = self._get_node_along_path_to_root(node, rules['origin'])
             else:
-                raise Exception('Mechanism: {} parameter: {} cannot reference unknown sec_type: {}'.format(mech_name,
-                                                                                                           param_name,
-                                                                                                           rules[
-                                                                                                               'origin']))
+                raise Exception('Mechanism: {} parameter: {} cannot reference unknown sec_type: {}'.
+                                format(mech_name, param_name, rules['origin']))
         else:
             donor = None
         if 'value' in rules:
@@ -713,30 +713,33 @@ class HocCell(object):
                 node.init_nseg(self._get_spatial_res(node))
             node.reinit_diam()
         else:
-            if 'min_loc' in rules or 'max_loc' in rules or 'slope' in rules:
-                if 'custom' in rules:
-                    method_exists = hasattr(self, rules['custom']['method'])
-                    if method_exists:
-                        method_to_call = getattr(self, rules['custom']['method'])
-                        method_to_call(node, mech_name, param_name, baseline, rules, syn_type, donor)
-                    else:
-                        raise Exception('The custom method is not defined for this cell type.')
+            if 'custom' in rules:
+                method_exists = hasattr(self, rules['custom']['method'])
+                if method_exists:
+                    method_to_call = getattr(self, rules['custom']['method'])
+                    method_to_call(node, mech_name, param_name, baseline, rules, syn_type, donor)
+                else:
+                    raise Exception('The custom method is not defined for this cell type.')
+            elif 'min_loc' in rules or 'max_loc' in rules or 'slope' in rules:
                 if donor is None:
                     raise Exception('Cannot follow specifications for mechanism: {} parameter: {} without a provided '
                                     'origin'.format(mech_name, param_name))
                 if mech_name == 'synapse':
-                    self._specify_synaptic_parameter(node, param_name, baseline, rules, syn_type, donor)
+                    self._specify_synaptic_parameter(node, mech_name, param_name, baseline, rules, syn_type, donor)
                 else:
                     self._specify_mech_parameter(node, mech_name, param_name, baseline, rules, syn_type, donor)
             elif mech_name == 'ions':
                 setattr(node.sec, param_name, baseline)
             elif mech_name == 'synapse':
-                self._specify_synaptic_parameter(node, param_name, baseline, rules, syn_type)
+                self._specify_synaptic_parameter(node, mech_name, param_name, baseline, rules, syn_type)
             else:
                 node.sec.insert(mech_name)
                 setattr(node.sec, param_name + "_" + mech_name, baseline)
 
     def _specify_mech_parameter(self, node, mech_name, param_name, baseline, rules, syn_type, donor=None):
+        if donor is None:
+            raise Exception('Cannot follow specifications for mechanism: {} parameter: {} without a provided '
+                            'origin'.format(mech_name, param_name))
         if 'min_loc' in rules:
             min_distance = rules['min_loc']
         else:
@@ -791,7 +794,7 @@ class HocCell(object):
                     else:
                         setattr(getattr(seg, mech_name), param_name, value)
 
-    def _specify_synaptic_parameter(self, node, param_name, baseline, rules, syn_type, donor=None):
+    def _specify_synaptic_parameter(self, node, mech_name, param_name, baseline, rules, syn_type, donor=None):
         """
         This method interprets an entry from the mechanism dictionary to set parameters associated with a synaptic
         point_process mechanism that has been inserted either into a spine attached to this node, or inserted directly
@@ -2795,5 +2798,18 @@ class DG_GC(HocCell):
         if self.get_branch_order(node) >= branch_order:
             self._specify_mech_parameter(node, mech_name, param_name, baseline, rules, syn_type, donor)
 
-    def custom_gradient_by_terminal(self):
-        slope = 1.
+    def custom_gradient_by_terminal(self, node, mech_name, param_name, baseline, rules, syn_type, donor=None):
+        if self.is_terminal(node):
+            start_val = getattr(node.sec(0.), param_name + '_' + mech_name)
+            if 'min' not in rules:
+                end_val = 0.
+            else:
+                end_val = rules['min']
+            if 'slope' in rules:
+                given_slope = rules['slope']
+            slope = min(given_slope, end_val - start_val)
+            for seg in node.sec:
+                value = start_val + slope * seg.x
+                if value < end_val:
+                    value = end_val
+                setattr(getattr(seg, mech_name), param_name, value)

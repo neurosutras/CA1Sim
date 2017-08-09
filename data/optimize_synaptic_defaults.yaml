@@ -23,10 +23,21 @@ bounds:
   dend.gbar_nas: !!python/tuple
   - 0.01
   - 0.05
+  dend.gbar_nas slope: !!python/tuple
+  - -0.1
+  - 0.
+  dend.gbar_nas min: !!python/tuple
+  - 0.
+  - 0.03
+  dend.gbar_nas bo: !!python/tuple
+  - 2
+  - 6
   dend.gkabar: !!python/tuple
   - 0.001
   - 0.25
+default_params:
 feature_names:
+- dend_amp
 - soma_EPSP_AP5
 - soma_EPSP_control
 - NMDA_contribution
@@ -37,18 +48,22 @@ feature_names:
 features_modules: !!python/tuple
 - parallel_optimize_synaptic_import
 - parallel_optimize_synaptic_import
+- parallel_optimize_synaptic_import
 get_features: !!python/tuple
 - get_unitary_EPSP_features
 - get_compound_EPSP_features
+- get_stability_features
 group_sizes: !!python/tuple
 - 28
 - 10
+- 1
 kwargs:
   mech_file_path: data/080217 GC optimizing synaptic.pkl
   neurotree_file_path: morphologies/121516_DGC_trees.pkl
   neurotree_index: 0
   spines: false
 objective_names:
+- dend_amp
 - soma_EPSP_AP5
 - soma_EPSP_control
 - NMDA_contribution
@@ -69,8 +84,12 @@ param_names:
 - NMDA.Kd
 - NMDA.kin_scale
 - dend.gbar_nas
+- dend.gbar_nas slope
+- dend.gbar_nas min
+- dend.gbar_nas bo
 - dend.gkabar
 target_range:
+  dend_amp: 0.0002
   soma_EPSP_AP5: 0.6
   soma_EPSP_control: 1.0
   NMDA_contribution: 0.5
@@ -79,6 +98,7 @@ target_range:
   min_supralinearity_AP5: 0.8
   min_supralinearity_con: 0.8
 target_val:
+  dend_amp: 0.3
   soma_EPSP_AP5: 0.01
   soma_EPSP_control: 0.01
   NMDA_contribution: 0.
@@ -99,4 +119,7 @@ x0:
   NMDA.Kd: 7.51
   NMDA.kin_scale: 1.81
   dend.gbar_nas: 0.03
+  dend.gbar_nas slope: -0.0001
+  dend.gbar_nas min: 0.
+  dend.gbar_nas bo: 4
   dend.gkabar: 0.002709
