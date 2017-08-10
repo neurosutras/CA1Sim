@@ -52,9 +52,11 @@ def setup_module_from_file(param_file_path='data/optimize_spiking_defaults.yaml'
     context.update(locals())
     config_engine(update_params_funcs, param_names, default_params, rec_file_path, export_file_path, **kwargs)
 
+
 def config_controller(export_file_path):
     context.update(locals())
     set_constants()
+
 
 def config_engine(update_params_funcs, param_names, default_params, rec_file_path, export_file_path, mech_file_path,
                   neurotree_file_path, neurotree_index, spines, verbose=False):
@@ -76,6 +78,7 @@ def config_engine(update_params_funcs, param_names, default_params, rec_file_pat
     context.update(locals())
     set_constants()
     setup_cell(verbose)
+
 
 def set_constants():
     equilibrate = 250.  # time to steady-state
@@ -104,6 +107,7 @@ def set_constants():
     i_inj_increment = 0.05
     num_increments = 10
     context.update(locals())
+
 
 def get_adaptation_index(spike_times):
     """
@@ -170,9 +174,11 @@ def setup_cell(verbose=False):
     context.spike_output_vec = h.Vector()
     cell.spike_detector.record(context.spike_output_vec)
 
+
 def update_mech_dict(x, update_function, mech_file_path):
     update_function(x)
     context.cell.export_mech_dict(mech_file_path)
+
 
 def get_stability_features(indiv, c, client_range, export=False):
     """
@@ -187,6 +193,7 @@ def get_stability_features(indiv, c, client_range, export=False):
     x = indiv['x']
     result = dv.map_async(compute_stability_features, [x], [export])
     return {'pop_id': indiv['pop_id'], 'client_range': client_range, 'async_result': result}
+
 
 def get_fI_features(indiv, c, client_range, export=False):
     """
@@ -206,6 +213,7 @@ def get_fI_features(indiv, c, client_range, export=False):
                           [x] * num_incr, [False] * (num_incr-1) + [True], [export] * num_incr)
     return {'pop_id': indiv['pop_id'], 'client_range': client_range, 'async_result': result,
             'filter_features': filter_fI_features}
+
 
 def filter_fI_features(get_result, old_features, export):
     """
@@ -251,8 +259,8 @@ def filter_fI_features(get_result, old_features, export):
     new_features['f_I'] = map(new_features['f_I'].__getitem__, adapt_ind)
     amps = map(amps.__getitem__, adapt_ind)
     if export:
-        new_export_file_path = context.export_file_path.replace('.hdf5', '_processed.hdf5')
-        with h5py.File(new_export_file_path, 'a') as f:
+        context.processed_export_file_path = context.export_file_path.replace('.hdf5', '_processed.hdf5')
+        with h5py.File(context.processed_export_file_path, 'a') as f:
             if not f.keys():
                 group = f.create_group(str(0))
             else:
@@ -269,6 +277,7 @@ def filter_fI_features(get_result, old_features, export):
                           for i in range(num_increments)]
             group.create_dataset('exp_f_I', compression='gzip', compression_opts=9, data=exp_f_I)
     return new_features
+
 
 def get_objectives(features, objective_names, target_val, target_range):
     """
@@ -311,6 +320,7 @@ def get_objectives(features, objective_names, target_val, target_range):
         features['f_I_slope'] = slope
         features.pop('f_I')
     return features, objectives
+
 
 def compute_stability_features(x, export=False, plot=False):
     """
@@ -406,6 +416,7 @@ def compute_stability_features(x, export=False, plot=False):
         export_sim_results()
     return result
 
+
 def compute_fI_features(amp, x, extend_dur=False, export=False, plot=False):
     """
 
@@ -459,6 +470,7 @@ def compute_fI_features(amp, x, extend_dur=False, export=False, plot=False):
     if export:
         export_sim_results()
     return result
+
 
 def offset_vm(description, vm_target=None):
     """
@@ -516,6 +528,7 @@ def offset_vm(description, vm_target=None):
     context.sim.tstop = duration
     return v_rest
 
+
 def get_spike_shape(vm, spike_times):
     """
 
@@ -553,6 +566,7 @@ def get_spike_shape(vm, spike_times):
     else:
         ADP = 0.
     return v_peak, th_v, ADP, AHP
+
 
 def update_na_ka_stability(cell, x, param_indexes, default_params):
     """
@@ -614,12 +628,14 @@ def update_na_ka_stability(cell, x, param_indexes, default_params):
         cell.correct_for_spines()
     return cell
 
+
 def export_sim_results():
     """
     Export the most recent time and recorded waveforms from the QuickSim object.
     """
     with h5py.File(context.rec_file_path, 'a') as f:
         context.sim.export_to_file(f)
+
 
 def plot_exported_spiking_features(processed_export_file_path):
     """
@@ -631,16 +647,16 @@ def plot_exported_spiking_features(processed_export_file_path):
         for group in f.itervalues():
             amps = group['amps']
             plt.figure(1)
-            plt.scatter(amps, group['adi'], label='actual')
-            plt.scatter(amps, group['exp_adi'], label='expected')
+            plt.scatter(amps, group['adi'], label='Simulation')
+            plt.scatter(amps, group['exp_adi'], label='Experiment')
             plt.legend(loc='best', frameon=False, framealpha=0.5)
-            plt.xlabel('Current injection amp (mA)')
+            plt.xlabel('Current injection amp (nA)')
             plt.ylabel('Adaptation index')
             plt.figure(2)
-            plt.scatter(amps, group['f_I'], label='actual')
-            plt.scatter(amps, group['exp_f_I'], label='expected')
+            plt.scatter(amps, group['f_I'], label='Simulation')
+            plt.scatter(amps, group['exp_f_I'], label='Experiment')
             plt.legend(loc='best', frameon=False, framealpha=0.5)
-            plt.xlabel('Current injection amp (mA)')
+            plt.xlabel('Current injection amp (nA)')
             plt.ylabel('Firing rate')
         plt.show()
         plt.close()
