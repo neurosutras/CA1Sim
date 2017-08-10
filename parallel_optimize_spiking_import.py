@@ -378,8 +378,8 @@ def compute_stability_features(x, export=False, plot=False):
         end = th_x + int(10. / dt)
     result['soma_peak'] = peak
     dend_peak = np.max(dend_vm[th_x:end])
-    dend_pre = np.mean(dend_vm[th_x - int(0.2 / dt):th_x - int(0.1 / dt)])
-    result['dend_amp'] = (dend_peak - dend_pre) / (peak - threshold)
+    dend_pre = np.mean(dend_vm[int((equilibrate - 3.) / dt):int((equilibrate - 1.) / dt)])
+    result['dend_amp'] = (dend_peak - dend_pre) / (peak - soma_vm)
 
     # calculate AIS delay
     soma_dvdt = np.gradient(vm, dt)
