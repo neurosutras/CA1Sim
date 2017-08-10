@@ -13,7 +13,8 @@ Current YAML filepath: data/optimize_synaptic_defaults.yaml
 
 context = Context()
 
-def setup_module_from_file(param_file_path='data/optimize_synaptic_defaults.yaml', rec_file_path = None, export_file_path=None):
+def setup_module_from_file(param_file_path='data/optimize_synaptic_defaults.yaml', rec_file_path=None,
+                           export_file_path=None, verbose=False):
     """
 
     :param param_file_path: str (path to a yaml file)
@@ -31,6 +32,7 @@ def setup_module_from_file(param_file_path='data/optimize_synaptic_defaults.yaml
     target_range = params_dict['target_range']
     optimization_title = params_dict['optimization_title']
     kwargs = params_dict['kwargs']  # Extra arguments
+    kwargs['verbose'] = verbose
     update_params = params_dict['update_params']
     update_params_funcs = []
     for update_params_func_name in update_params:
@@ -52,7 +54,7 @@ def config_controller(export_file_path):
     set_constants()
 
 def config_engine(update_params_funcs, param_names, default_params, rec_file_path, export_file_path, mech_file_path,
-                  neurotree_file_path, neurotree_index, spines):
+                  neurotree_file_path, neurotree_index, spines, verbose=False):
     """
 
     :param update_params_funcs: list of function references
@@ -70,7 +72,7 @@ def config_engine(update_params_funcs, param_names, default_params, rec_file_pat
     param_indexes = {param_name: i for i, param_name in enumerate(param_names)}
     context.update(locals())
     set_constants()
-    setup_cell()
+    setup_cell(verbose)
 
 def set_constants():
     """
@@ -105,7 +107,7 @@ def set_constants():
     i_th = {'soma': 0.1}
     context.update(locals())
 
-def setup_cell():
+def setup_cell(verbose=False):
     """
 
     """
@@ -215,7 +217,7 @@ def setup_cell():
     dt = context.dt
     stim_dur = context.stim_dur
 
-    sim = QuickSim(unitary_duration, cvode=False, dt=dt, verbose=False)
+    sim = QuickSim(unitary_duration, cvode=False, dt=dt, verbose=verbose)
     sim.parameters['equilibrate'] = equilibrate
     sim.parameters['duration'] = unitary_duration
     sim.parameters['spines'] = context.spines
