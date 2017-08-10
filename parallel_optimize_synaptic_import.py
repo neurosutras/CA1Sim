@@ -89,12 +89,12 @@ def set_constants():
     for i, branch in enumerate(branch_list):
         syn_ind_legend[branch] = range(num_random_syn + i*num_clustered_syn, num_random_syn + (i+1)*num_clustered_syn)
     AP5_cond_list = ['AP5', 'con']
-    isi = 100. # Inter-stimulus interval for unitary sims
+    unitary_isi = 125. # Inter-stimulus interval for unitary sims
     num_unitary_stims = 3 #5 # Number of unitary stims (each separated by isi) in a simulation
     equilibrate = 250.  # time to steady-state
-    unitary_duration = equilibrate + num_unitary_stims * isi
+    unitary_duration = equilibrate + num_unitary_stims * unitary_isi
     compound_duration = 450.
-    compound_stim_offset = 0.3
+    compound_isi = 0.3
     stim_dur = 150.
     th_dvdt = 10.
     dt = 0.02
@@ -302,6 +302,10 @@ def filter_unitary_EPSP_features(get_result, old_features, export):
                     'NMDA_contribution': avg_NMDA_contr}
     for branch in context.branch_list:
         new_features[branch+'_unitary'] = clustered_results[branch]
+    if export:
+        new_export_file_path = context.export_file_path.replace('.hdf5', '_processed.hdf5')
+        with h5py.File(new_export_file_path, 'a') as f:
+            f.create_group('actual_compound_traces')
     return new_features
 
 def get_compound_EPSP_features(indiv, c, client_range, export=False):
@@ -465,7 +469,7 @@ def compute_EPSP_amp_features(x, test_syns, AP5_condition, group_type, export=Fa
     soma_vm = offset_vm('soma', context.v_init)
     synapses = [context.syn_list[syn_index] for syn_index in test_syns]
     for i, syn in enumerate(synapses):
-        syn.source.play(h.Vector([context.equilibrate + i*context.isi]))
+        syn.source.play(h.Vector([context.equilibrate + i*context.unitary_isi]))
         if i == 0:
             if context.spines:
                 spine = syn.node
@@ -488,12 +492,13 @@ def compute_EPSP_amp_features(x, test_syns, AP5_condition, group_type, export=Fa
     equilibrate = context.equilibrate
     interp_t = np.arange(0, duration, dt)
     left, right = time2index(interp_t, equilibrate-3.0, equilibrate-1.0)
+    #baseline should change for each interval
     result = {}
     for rec_ind, rec in enumerate(context.sim.rec_list):
         vm = np.array(rec['vec'])
         interp_vm = np.interp(interp_t, t, vm)
         for i, syn in enumerate(synapses):
-            start, end = time2index(interp_t, equilibrate + i*context.isi, equilibrate + (i+1)*context.isi)
+            start, end = time2index(interp_t, equilibrate + i*context.unitary_isi, equilibrate + (i+1)*context.unitary_isi)
             baseline = np.average(interp_vm[left:right])
             corrected_vm = interp_vm - baseline
             peak = np.max(corrected_vm[start:end])
@@ -546,7 +551,7 @@ def compute_branch_cooperativity_features(x, test_syns, AP5_condition, group_typ
     # sim.cvode_state = True
     synapses = [context.syn_list[syn_index] for syn_index in test_syns]
     for i, syn in enumerate(synapses):
-        syn.source.play(h.Vector([context.equilibrate + i * context.compound_stim_offset]))
+        syn.source.play(h.Vector([context.equilibrate + i * context.compound_isi]))
         if i == 0:
             if context.spines:
                 spine = syn.node
@@ -670,30 +675,29 @@ def get_expected_compound_features(unitary_branch_results):
     """
     expected_compound_traces = {}
     expected_compound_EPSP = {}
+    baseline_len = 0 # int(10. / context.dt)
+    unitary_len = int(context.unitary_isi / context.dt)
+    compound_isi_len = int(context.compound_isi / context.dt)
+    actual_trace_len = int((context.compound_duration - context.equilibrate) / context.dt) + baseline_len
     for AP5_condition in context.AP5_cond_list:
         expected_compound_traces[AP5_condition] = {}
         expected_compound_EPSP[AP5_condition] = []
         summed_traces = {}
         total_syns = len(unitary_branch_results[AP5_condition])
+        start_ind = baseline_len
         for num_syn, syn_id in enumerate(unitary_branch_results[AP5_condition]):
             syn_result = unitary_branch_results[AP5_condition][syn_id]
             for loc in unitary_branch_results[AP5_condition][syn_id]['rec'].iterkeys():
                 if loc not in summed_traces:
-                    unitary_sim_inds = len(syn_result['rec'][loc]) # Number of indices in an interpolated time vector
-                                                                    # corresponding to length of a unitary simulation
-                    offset_inds = int(math.ceil(context.compound_stim_offset / context.isi * unitary_sim_inds))
-                        # Number of indices in an interpolated time vector corresponding to the offset time between stims
-                    summed_traces[loc] = np.zeros(unitary_sim_inds + offset_inds * (total_syns - 1))
-                start_ind = num_syn * offset_inds
-                summed_traces[loc][start_ind:start_ind+unitary_sim_inds] += syn_result['rec'][loc]
+                    summed_traces[loc] = np.zeros(actual_trace_len)
+
+                summed_traces[loc][start_ind:start_ind+unitary_len] += syn_result['rec'][loc][baseline_len:]
             expected_compound_traces[AP5_condition][syn_id] = {}
-            expected_compound_traces[AP5_condition][syn_id]['rec'] = summed_traces # This stores the summed traces of
+            expected_compound_traces[AP5_condition][syn_id]['rec'] = copy.deepcopy(summed_traces) # This stores the summed traces of
                                                                                     # all the synapses up to and including
                                                                                     # the synapse with this syn_id
-            last_time_pt = syn_result['tvec'][-1]
-            extra_tvec = np.array([last_time_pt + (i+1)*context.dt for i in range(offset_inds * (total_syns - 1))])
-            expected_compound_traces[AP5_condition][syn_id]['tvec'] = np.append(syn_result['tvec'], extra_tvec)
             expected_compound_EPSP[AP5_condition].append(np.max(summed_traces['soma']))
+            start_ind += compound_isi_len
     return expected_compound_traces, expected_compound_EPSP
 
 def offset_vm(description, vm_target=None):
