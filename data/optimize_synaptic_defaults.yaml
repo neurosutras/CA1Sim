@@ -99,8 +99,7 @@ target_range:
   min_supralinearity_con: 0.8
 target_val:
   dend_amp: 0.3
-  soma_EPSP_AP5: 0.01
-  soma_EPSP_control: 0.01
+  soma_EPSP_control: 0.5
   NMDA_contribution: 0.
   peak_supralinearity_AP5: 1.
   peak_supralinearity_con: 1.

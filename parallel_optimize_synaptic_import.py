@@ -13,7 +13,8 @@ Current YAML filepath: data/optimize_synaptic_defaults.yaml
 
 context = Context()
 
-def setup_module_from_file(param_file_path='data/optimize_synaptic_defaults.yaml', rec_file_path = None, export_file_path=None):
+def setup_module_from_file(param_file_path='data/optimize_synaptic_defaults.yaml', rec_file_path=None,
+                           export_file_path=None, verbose=False):
     """
 
     :param param_file_path: str (path to a yaml file)
@@ -31,6 +32,7 @@ def setup_module_from_file(param_file_path='data/optimize_synaptic_defaults.yaml
     target_range = params_dict['target_range']
     optimization_title = params_dict['optimization_title']
     kwargs = params_dict['kwargs']  # Extra arguments
+    kwargs['verbose'] = verbose
     update_params = params_dict['update_params']
     update_params_funcs = []
     for update_params_func_name in update_params:
@@ -52,7 +54,7 @@ def config_controller(export_file_path):
     set_constants()
 
 def config_engine(update_params_funcs, param_names, default_params, rec_file_path, export_file_path, mech_file_path,
-                  neurotree_file_path, neurotree_index, spines):
+                  neurotree_file_path, neurotree_index, spines, verbose=False):
     """
 
     :param update_params_funcs: list of function references
@@ -70,7 +72,7 @@ def config_engine(update_params_funcs, param_names, default_params, rec_file_pat
     param_indexes = {param_name: i for i, param_name in enumerate(param_names)}
     context.update(locals())
     set_constants()
-    setup_cell()
+    setup_cell(verbose)
 
 def set_constants():
     """
@@ -93,6 +95,8 @@ def set_constants():
     unitary_duration = equilibrate + num_unitary_stims * isi
     compound_duration = 450.
     compound_stim_offset = 0.3
+    stim_dur = 150.
+    th_dvdt = 10.
     dt = 0.02
     v_init = -77. #The optimize_branch_cooperativity_nmda_kin3_engine script says -67.
     v_active = -77.
@@ -103,7 +107,7 @@ def set_constants():
     i_th = {'soma': 0.1}
     context.update(locals())
 
-def setup_cell():
+def setup_cell(verbose=False):
     """
 
     """
@@ -211,15 +215,20 @@ def setup_cell():
     equilibrate = context.equilibrate
     unitary_duration = context.unitary_duration
     dt = context.dt
+    stim_dur = context.stim_dur
 
-    sim = QuickSim(unitary_duration, cvode=False, dt=dt, verbose=False)
+    sim = QuickSim(unitary_duration, cvode=False, dt=dt, verbose=verbose)
     sim.parameters['equilibrate'] = equilibrate
     sim.parameters['duration'] = unitary_duration
     sim.parameters['spines'] = context.spines
-    sim.append_stim(cell, cell.tree.root, loc=0., amp=0., delay=0., dur=unitary_duration) #Should the duration be this long for stim in offset_vm?
+    sim.append_stim(cell, cell.tree.root, loc=0., amp=0., delay=equilibrate, dur=stim_dur)
+    sim.append_stim(cell, cell.tree.root, loc=0., amp=0., delay=0., dur=context.compound_duration)
     for description, node in rec_nodes.iteritems():
         sim.append_rec(cell, node, loc=rec_locs[description], description=description)
     context.sim = sim
+
+    context.spike_output_vec = h.Vector()
+    cell.spike_detector.record(context.spike_output_vec)
 
 def update_mech_dict(x, update_function, mech_file_path):
     update_function(x)
@@ -644,8 +653,8 @@ def compute_stability_features(x, export=False, plot=False):
     else:
         end = th_x + int(10. / dt)
     dend_peak = np.max(dend_vm[th_x:end])
-    dend_pre = np.mean(dend_vm[th_x - int(0.2 / dt):th_x - int(0.1 / dt)])
-    result = {'dend_amp': (dend_peak - dend_pre) / (peak - threshold)}
+    dend_pre = np.mean(dend_vm[int((equilibrate - 3.) / dt):int((equilibrate - 1.) / dt)])
+    result = {'dend_amp': (dend_peak - dend_pre) / (peak - soma_vm)}
     print 'Process %i took %.1f s to find spike rheobase at amp: %.3f' % (os.getpid(), time.time() - start_time, amp)
     if plot:
         context.sim.plot()
@@ -681,7 +690,9 @@ def get_expected_compound_features(unitary_branch_results):
             expected_compound_traces[AP5_condition][syn_id]['rec'] = summed_traces # This stores the summed traces of
                                                                                     # all the synapses up to and including
                                                                                     # the synapse with this syn_id
-            expected_compound_traces[AP5_condition][syn_id]['tvec'] = syn_result['tvec']
+            last_time_pt = syn_result['tvec'][-1]
+            extra_tvec = np.array([last_time_pt + (i+1)*context.dt for i in range(offset_inds * (total_syns - 1))])
+            expected_compound_traces[AP5_condition][syn_id]['tvec'] = np.append(syn_result['tvec'], extra_tvec)
             expected_compound_EPSP[AP5_condition].append(np.max(summed_traces['soma']))
     return expected_compound_traces, expected_compound_EPSP
 
@@ -697,17 +708,17 @@ def offset_vm(description, vm_target=None):
     node = context.rec_nodes[description]
     loc = context.rec_locs[description]
     rec_dict = context.sim.get_rec(description)
-    context.sim.modify_stim(0, node=node, loc=loc, amp=0.)
+    context.sim.modify_stim(1, node=node, loc=loc, amp=0.)
     rec = rec_dict['vec']
     offset = True
 
     equilibrate = context.equilibrate
     dt = context.dt
-    duration = context.unitary_duration
+    duration = context.compound_duration
 
     context.sim.tstop = equilibrate
     t = np.arange(0., equilibrate, dt)
-    context.sim.modify_stim(0, amp=context.i_holding[description])
+    context.sim.modify_stim(1, amp=context.i_holding[description])
     context.sim.run(vm_target)
     vm = np.interp(t, context.sim.tvec, rec)
     v_rest = np.mean(vm[int((equilibrate - 3.)/dt):int((equilibrate - 1.)/dt)])
@@ -717,7 +728,7 @@ def offset_vm(description, vm_target=None):
         while offset:
             if context.sim.verbose:
                 print 'increasing i_holding to %.3f (%s)' % (context.i_holding[description], description)
-            context.sim.modify_stim(0, amp=context.i_holding[description])
+            context.sim.modify_stim(1, amp=context.i_holding[description])
             context.sim.run(vm_target)
             vm = np.interp(t, context.sim.tvec, rec)
             v_rest = np.mean(vm[int((equilibrate - 3.)/dt):int((equilibrate - 1.)/dt)])
@@ -730,7 +741,7 @@ def offset_vm(description, vm_target=None):
         while offset:
             if context.sim.verbose:
                 print 'decreasing i_holding to %.3f (%s)' % (context.i_holding[description], description)
-            context.sim.modify_stim(0, amp=context.i_holding[description])
+            context.sim.modify_stim(1, amp=context.i_holding[description])
             context.sim.run(vm_target)
             vm = np.interp(t, context.sim.tvec, rec)
             v_rest = np.mean(vm[int((equilibrate - 3.)/dt):int((equilibrate - 1.)/dt)])
@@ -862,7 +873,7 @@ def plot_exported_synaptic_features(processed_export_file_path):
                             axes[i][j].set_ylabel('Vm (mv)')
                             axes[i][j].set_title('%s %s' %(loc, AP5_cond))
                             axes[i][j].legend(loc='best', frameon=False, framealpha=0.5)
-                fig.suptitle('%s, %d synapses' %(branch, sim_id))
+                fig.suptitle('%s, %d synapses' %(branch, int(sim_id)))
                 clean_axes(axes)
                 fig.tight_layout()
         plt.show()

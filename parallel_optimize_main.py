@@ -369,7 +369,7 @@ def get_all_features(generation, group_sizes=(1, 10), disp=False, export=False):
                         if disp:
                             flush_engine_buffer(this_result['async_result'])
                         get_result = this_result['async_result'].get()
-                        if get_result is None:
+                        if None in get_result:
                             final_features[this_result['pop_id']] = None
                         else:
                             next_generation[this_result['pop_id']] = generation[this_result['pop_id']]
