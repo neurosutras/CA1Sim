@@ -302,7 +302,7 @@ def get_objectives(features, objective_names, target_val, target_range):
         target_f_I = [context.experimental_f_I_slope * np.log((rheobase + i_inj_increment * (i + 1)) / rheobase)
                       for i in range(num_increments)]
         f_I_residuals = [(features['f_I'][i] - target_f_I[i]) for i in range(num_increments)]
-        features['f_I_residuals'] = np.mean(f_I_residuals)
+        features['f_I_residuals'] = np.mean(np.abs(f_I_residuals))
         for i in range(num_increments):
             objectives['f_I_slope'] += (f_I_residuals[i] / (0.01 * target_f_I[i])) ** 2.
         I_inj = [np.log((rheobase + i_inj_increment * (i + 1)) / rheobase) for i in range(num_increments)]
@@ -552,20 +552,6 @@ def get_spike_shape(vm, spike_times):
     else:
         ADP = 0.
     return v_peak, th_v, ADP, AHP
-
-def find_param_value(param_name, x, param_indexes, default_params):
-    """
-
-    :param param_name: str
-    :param x: arr
-    :param param_indexes: dict
-    :param default_params: dict
-    :return:
-    """
-    if param_name in param_indexes:
-        return x[param_indexes[param_name]]
-    else:
-        return default_params[param_name]
 
 def update_na_ka_stability(cell, x, param_indexes, default_params):
     """

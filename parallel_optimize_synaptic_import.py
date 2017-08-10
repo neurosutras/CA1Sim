@@ -207,9 +207,9 @@ def setup_cell(verbose=False):
     index = candidate_diams.index(max(candidate_diams))
     dend = candidate_branches[index]
 
-    rec_locs = {'soma': 0., 'thickest_dend': 0., 'local_branch': 0.}
+    rec_locs = {'soma': 0., 'dend': 0., 'local_branch': 0.}
     context.rec_locs = rec_locs
-    rec_nodes = {'soma': cell.tree.root, 'thickest_dend': dend, 'local_branch': dend}
+    rec_nodes = {'soma': cell.tree.root, 'dend': dend, 'local_branch': dend}
     context.rec_nodes = rec_nodes
 
     equilibrate = context.equilibrate
@@ -790,19 +790,6 @@ def get_spike_shape(vm, spike_times):
         ADP = 0.
     return v_peak, th_v, ADP, AHP
 
-def find_param_value(param_name, x, param_indexes, default_params):
-    """
-
-    :param param_name: str
-    :param x: arr
-    :param param_indexes: dict
-    :param default_params: dict
-    :return:
-    """
-    if param_name in param_indexes:
-        return x[param_indexes[param_name]]
-    else:
-        return default_params[param_name]
 
 def update_AMPA_NMDA(cell, x, param_indexes, default_params):
     """
@@ -857,23 +844,22 @@ def plot_exported_synaptic_features(processed_export_file_path):
     with h5py.File(processed_export_file_path, 'r') as f:
         trace_type_list = [trace_type for trace_type in f]
         trace_group_list = [trace_group for trace_group in f.itervalues()]
-        fig_num = 1
+        num_colors = context.num_clustered_syn * len(trace_type_list) * len(context.branch_list) * len(context.AP5_cond_list)
+        colors = list(cm.rainbow(np.linspace(0, 1, num_colors)))
+        plot_num = 0
         for branch in context.branch_list:
-            AP5 = context.AP5_cond_list[0]
-            for sim_id in trace_group_list[0][branch][AP5]:
-                trial = trace_group_list[0][branch][AP5][sim_id]
-                fig, axes = plt.subplots(len(context.AP5_cond_list), len(trial['rec']))
-                for i, AP5_cond in enumerate(context.AP5_cond_list):
-                    for j, loc in enumerate(trial['rec']):
-                        for g, trace_group in enumerate(trace_group_list):
-                            axes[i][j].scatter(trace_group[branch][AP5][sim_id]['tvec'],
-                                               trace_group[branch][AP5][sim_id]['rec'][loc],
-                                               label=trace_type_list[g])
-                            axes[i][j].set_xlabel('Time (ms')
-                            axes[i][j].set_ylabel('Vm (mv)')
-                            axes[i][j].set_title('%s %s' %(loc, AP5_cond))
-                            axes[i][j].legend(loc='best', frameon=False, framealpha=0.5)
-                fig.suptitle('%s, %d synapses' %(branch, int(sim_id)))
+            for AP5_cond in context.AP5_cond_list:
+                fig, axes = plt.subplots(1, len(trace_group_list))
+                for g, trace_group in enumerate(trace_group_list):
+                    for sim_id in trace_group[branch][AP5_cond].keys():
+                        axes[g].scatter(trace_group[branch][AP5_cond][sim_id]['tvec'],
+                                           trace_group[branch][AP5_cond][sim_id]['rec']['soma'],
+                                           label='Syn %d' %int(sim_id))
+                        plot_num += 1
+                    axes[g].set_xlabel('Time (ms)')
+                    axes[g].set_ylabel('Vm (mv)')
+                    axes[g].set_title('%s %s %s' %(branch, AP5_cond, trace_type_list[g].split('_')[0]))
+                    axes[g].legend(loc='best', frameon=False, framealpha=0.5)
                 clean_axes(axes)
                 fig.tight_layout()
         plt.show()

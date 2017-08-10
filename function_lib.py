@@ -2581,3 +2581,18 @@ class Context(object):
         for key in self.ignore:
             keys.remove(key)
         return {key: getattr(self, key) for key in keys}
+
+
+def find_param_value(param_name, x, param_indexes, default_params):
+    """
+
+    :param param_name: str
+    :param x: arr
+    :param param_indexes: dict
+    :param default_params: dict
+    :return:
+    """
+    if param_name in param_indexes:
+        return float(x[param_indexes[param_name]])
+    else:
+        return float(default_params[param_name])
