@@ -260,11 +260,11 @@ def read_from_pkl(fname):
     if os.path.isfile(fname):
         pkl_file = open(fname, 'rb')
         data = pickle.load(pkl_file)
-#        pprint.pprint(data)
         pkl_file.close()
         return data
     else:
         raise Exception('File: {} does not exist.'.format(fname))
+
 
 def write_to_yaml(file_path, dict):
     """
@@ -276,6 +276,7 @@ def write_to_yaml(file_path, dict):
     import yaml
     with open(file_path, 'w') as outfile:
         yaml.dump(dict, outfile, default_flow_style=False)
+
 
 def read_from_yaml(file_path):
     """
@@ -290,6 +291,7 @@ def read_from_yaml(file_path):
         return data
     else:
         raise Exception('File: {} does not exist.'.format(file_path))
+
 
 class CheckBounds(object):
     """

@@ -15,7 +15,9 @@ Current YAML filepath: data/optimize_spiking_defaults.yaml'
 
 context = Context()
 
-def setup_module_from_file(param_file_path='data/optimize_spiking_defaults.yaml', rec_file_path = None, export_file_path=None):
+
+def setup_module_from_file(param_file_path='data/optimize_spiking_defaults.yaml', rec_file_path=None,
+                           export_file_path=None):
     """
 
     :param param_file_path: str (path to a yaml file)
