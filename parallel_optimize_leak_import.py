@@ -284,20 +284,6 @@ def offset_vm(description, vm_target=None):
     context.sim.tstop = duration
     return v_rest
 
-def find_param_value(param_name, x, param_indexes, default_params):
-    """
-
-    :param param_name: str
-    :param x: arr
-    :param param_indexes: dict
-    :param default_params: dict
-    :return:
-    """
-    if param_name in param_indexes:
-        return x[param_indexes[param_name]]
-    else:
-        return default_params[param_name]
-
 def update_pas_exp(cell, x, param_indexes, default_params):
     """
 

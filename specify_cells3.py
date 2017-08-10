@@ -2795,7 +2795,7 @@ class DG_GC(HocCell):
                             setattr(target, param_name, value)
 
     def custom_gradient_by_branch_ord(self, node, mech_name, param_name, baseline, rules, syn_type, donor=None):
-        branch_order = rules['custom']['branch_order']
+        branch_order = int(rules['custom']['branch_order'])
         if self.get_branch_order(node) >= branch_order:
             self._specify_mech_parameter(node, mech_name, param_name, baseline, rules, syn_type, donor)
 
