@@ -89,7 +89,7 @@ group_sizes: !!python/tuple
 - 1
 - 10
 kwargs:
-  mech_file_path: data/071817 GC optimizing spiking.pkl
+  mech_file_path: data/081017 GC optimizing spiking.yaml
   neurotree_file_path: morphologies/121516_DGC_trees.pkl
   neurotree_index: 0
   spines: false

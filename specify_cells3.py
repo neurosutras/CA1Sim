@@ -35,9 +35,9 @@ class HocCell(object):
         self.index = 0  # Keep track of number of nodes
         self._node_dict = {'soma': [], 'axon': [], 'basal': [], 'trunk': [], 'apical': [], 'tuft': [], 'spine': []}
         self.mech_file_path = mech_file_path
-        self.mech_dict = self.load_mech_dict(mech_file_path)    # Refer to function_lib for description of structure of
-                                                                # mechanism dictionary. loads from .pkl or
-                                                                # default_mech_dict in function_lib
+        # Refer to function_lib for description of structure of mechanism dictionary. loads from .yaml or
+        # default_mech_dict in function_lib
+        self.mech_dict = self.load_mech_dict(mech_file_path)
         self.morph_file_path = morph_file_path
         self.existing_hoc_cell = existing_hoc_cell
         self.neurotree_dict = neurotree_dict
@@ -51,8 +51,9 @@ class HocCell(object):
         """
         if not self.morph_file_path is None:
             self.load_morphology_from_swc(preserve_3d)
-            self.reinit_mechanisms()    # Membrane mechanisms must be reinitialized whenever cable properties (Ra, cm)
-                                        # or spatial resolution (nseg) changes.
+            # Membrane mechanisms must be reinitialized whenever cable properties (Ra, cm) or spatial resolution (nseg)
+            # changes.
+            self.reinit_mechanisms()
         elif not self.existing_hoc_cell is None:
             self.load_morphology_from_hoc()
             self.reinit_mechanisms()
@@ -490,12 +491,12 @@ class HocCell(object):
 
     def load_mech_dict(self, mech_file_path=None):
         """
-        This method loads the dictionary specifying membrane mechanism parameters. If a .pkl file is not provided, a
+        This method loads the dictionary specifying membrane mechanism parameters. If a .yaml file is not provided, a
         global variable default_mech_dict from function_lib is used.
         :param mech_file_path: str
         """
-        if not mech_file_path is None:
-            return read_from_pkl(mech_file_path)
+        if not mech_file_path is None and os.path.isfile(mech_file_path):
+            return read_from_yaml(mech_file_path)
         else:
             local_mech_dict = copy.deepcopy(default_mech_dict)
             return local_mech_dict
@@ -1294,8 +1295,8 @@ class HocCell(object):
         current set of mechanism parameters to be recalled later.
         """
         if mech_file_path is None:
-            mech_file_path = data_dir + 'mech_dict_' + datetime.datetime.today().strftime('%m%d%Y%H%M') + '.pkl'
-        write_to_pkl(mech_file_path, self.mech_dict)
+            mech_file_path = data_dir + 'mech_dict_' + datetime.datetime.today().strftime('%m%d%Y%H%M') + '.yaml'
+        write_to_yaml(mech_file_path, self.mech_dict)
         print "Exported mechanism dictionary to " + mech_file_path
 
     def get_node_by_distance_to_soma(self, distance, sec_type):
