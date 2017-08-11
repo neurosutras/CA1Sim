@@ -338,7 +338,7 @@ def compute_stability_features(x, export=False, plot=False):
 
     context.cell.reinit_mechanisms(reset_cable=True, from_file=True)
     for update_func in context.update_params_funcs:
-        context.cell = update_func(context.cell, x, context.param_indexes, context.default_params)
+        update_func(x, context)
     # sim.cvode_state = True
 
     v_active = context.v_active
@@ -427,7 +427,7 @@ def compute_fI_features(amp, x, extend_dur=False, export=False, plot=False):
     """
     context.cell.reinit_mechanisms(reset_cable=True, from_file=True)
     for update_func in context.update_params_funcs:
-        context.cell = update_func(context.cell, x, context.param_indexes, context.default_params)
+        update_func(x, context)
         sys.stdout.flush()
     # sim.cvode_state = True
     soma_vm = offset_vm('soma', context.v_active)
@@ -568,12 +568,17 @@ def get_spike_shape(vm, spike_times):
     return v_peak, th_v, ADP, AHP
 
 
-def update_na_ka_stability(cell, x, param_indexes, default_params):
+def update_na_ka_stability(x, local_context=None):
     """
     :param x: array ['soma.gbar_nas', 'dend.gbar_nas', 'dend.gbar_nas slope', 'dend.gbar_nas min', 'dend.gbar_nas bc',
                     'axon.gbar_nax', 'ais.gbar_nax', 'soma.gkabar', 'dend.gkabar', 'soma.gkdrbar', 'axon.gkbar',
                     'soma.sh_nas/x', 'ais.sha_nas', 'soma.gCa factor', 'soma.gCadepK factor', 'soma.gkmbar', 'ais.gkmbar']
     """
+    if local_context is None:
+        local_context = context
+    cell = local_context.cell
+    param_indexes = local_context.param_indexes
+    default_params = local_context.default_params
     cell.modify_mech_param('soma', 'nas', 'gbar', find_param_value('soma.gbar_nas', x, param_indexes, default_params))
     cell.modify_mech_param('soma', 'kdr', 'gkdrbar', find_param_value('soma.gkdrbar', x, param_indexes, default_params))
     cell.modify_mech_param('soma', 'kap', 'gkabar', find_param_value('soma.gkabar', x, param_indexes, default_params))
@@ -611,7 +616,7 @@ def update_na_ka_stability(cell, x, param_indexes, default_params):
     cell.modify_mech_param('axon', 'kdr', 'gkdrbar', origin='ais')
     cell.modify_mech_param('axon', 'kap', 'gkabar', origin='ais')
     cell.modify_mech_param('axon_hill', 'nax', 'sh', find_param_value('soma.sh_nas/x', x, param_indexes, default_params))
-    cell.modify_mech_param('axon_hill', 'nax', 'gbar', context.soma_na_gbar)
+    cell.modify_mech_param('axon_hill', 'nax', 'gbar', local_context.soma_na_gbar)
     cell.modify_mech_param('axon', 'nax', 'gbar', find_param_value('axon.gbar_nax', x, param_indexes, default_params))
     for sec_type in ['ais', 'axon']:
         cell.modify_mech_param(sec_type, 'nax', 'sh', origin='axon_hill')
@@ -624,9 +629,8 @@ def update_na_ka_stability(cell, x, param_indexes, default_params):
     cell.modify_mech_param('axon', 'km3', 'gkmbar', origin='ais')
     cell.modify_mech_param('ais', 'nax', 'sha', find_param_value('ais.sha_nas', x, param_indexes, default_params))
     cell.modify_mech_param('ais', 'nax', 'gbar', find_param_value('ais.gbar_nax', x, param_indexes, default_params))
-    if context.spines is False:
+    if local_context.spines is False:
         cell.correct_for_spines()
-    return cell
 
 
 def export_sim_results():

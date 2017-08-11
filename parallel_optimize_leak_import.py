@@ -90,6 +90,7 @@ def set_constants():
     v_active = -77.
     i_holding = {'soma': 0., 'dend': 0., 'distal_dend': 0.}
     soma_ek = -77.
+    soma_na_gbar = 0.04
     context.update(locals())
 
 def setup_cell(verbose=False):
@@ -198,7 +199,7 @@ def compute_Rinp_features(section, x, export=False):
     start_time = time.time()
     context.cell.reinit_mechanisms(reset_cable=True, from_file=True)
     for update_func in context.update_params_funcs:
-        context.cell = update_func(context.cell, x, context.param_indexes, context.default_params)
+        update_func(x, context)
     context.cell.zero_na()
 
     duration = context.duration
@@ -284,13 +285,18 @@ def offset_vm(description, vm_target=None):
     context.sim.tstop = duration
     return v_rest
 
-def update_pas_exp(cell, x, param_indexes, default_params):
+def update_pas_exp(x, local_context=None):
     """
 
     x0 = ['soma.g_pas': 2.28e-05, 'dend.g_pas slope': 1.58e-06, 'dend.g_pas tau': 58.4]
     :param x: array [soma.g_pas, dend.g_pas slope, dend.g_pas tau]
     """
-    if context.spines is False:
+    if local_context is None:
+        local_context = context
+    cell = local_context.cell
+    param_indexes = local_context.param_indexes
+    default_params = local_context.default_params
+    if local_context.spines is False:
         cell.reinit_mechanisms(reset_cable=True)
     cell.modify_mech_param('soma', 'pas', 'g', find_param_value('soma.g_pas', x, param_indexes, default_params))
     cell.modify_mech_param('apical', 'pas', 'g', origin='soma', slope=find_param_value('dend.g_pas slope', x,
@@ -298,9 +304,9 @@ def update_pas_exp(cell, x, param_indexes, default_params):
                            tau=find_param_value('dend.g_pas tau', x, param_indexes, default_params))
     for sec_type in ['axon_hill', 'axon', 'ais', 'apical', 'spine_neck', 'spine_head']:
         cell.reinitialize_subset_mechanisms(sec_type, 'pas')
-    if context.spines is False:
+    if local_context.spines is False:
         cell.correct_for_spines()
-    return cell
+
 
 def export_sim_results():
     """
