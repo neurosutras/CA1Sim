@@ -22,6 +22,7 @@ script_filename = 'parallel_optimize_main.py'
 
 main_ctxt = Context()
 
+
 @click.command()
 @click.option("--cluster-id", type=str, default=None)
 @click.option("--profile", type=str, default='default')
@@ -139,6 +140,7 @@ def main(cluster_id, profile, param_file_path, param_gen, update_params, update_
     if export:
         return export_traces(x, main_ctxt.group_sizes, export_file_path=main_ctxt.export_file_path, disp=disp)
 
+
 def process_params(cluster_id, profile, param_file_path, param_gen, update_params, update_modules, get_features,
                    features_modules, objectives_modules, group_sizes, pop_size, path_length, sleep, storage_file_path,
                    output_dir, export_file_path):
@@ -208,6 +210,7 @@ def process_params(cluster_id, profile, param_file_path, param_gen, update_param
     main_ctxt.output_dir = output_dir
     sys.stdout.flush()
 
+
 def init_controller(update_params, update_modules, get_features, features_modules, group_sizes, objectives_modules):
     """
 
@@ -259,6 +262,7 @@ def init_controller(update_params, update_modules, get_features, features_module
         get_objectives_funcs.append(func)
     main_ctxt.get_objectives_funcs = get_objectives_funcs
     sys.stdout.flush()
+
 
 def setup_client_interface(sleep, cluster_id, profile, group_sizes, pop_size, update_params, get_features,
                            objectives_modules, param_gen, output_dir):
@@ -350,6 +354,7 @@ def run_optimization(disp):
         this_param_gen.update_population(features, objectives)
     this_param_gen.storage.save(main_ctxt.storage_file_path, n=main_ctxt.path_length)
 
+
 def get_all_features(generation, group_sizes=(1, 10), disp=False, export=False):
     """
 
@@ -419,6 +424,7 @@ def get_all_features(generation, group_sizes=(1, 10), disp=False, export=False):
         objectives.append(this_objectives)
     return features, objectives
 
+
 def export_traces(x, group_sizes, export_file_path=None, discard=True, disp=False):
     """
     Run simulations on the engines with the given parameter values, have the engines export their results to .hdf5,
@@ -441,6 +447,7 @@ def export_traces(x, group_sizes, export_file_path=None, discard=True, disp=Fals
     print 'Multi-Objective Optimization: Exported traces to %s' % export_file_path
     sys.stdout.flush()
     return exported_features, exported_objectives
+
 
 def plot_traces(export_file_path):
     with h5py.File(export_file_path, 'r') as f:
