@@ -42,6 +42,12 @@ main_ctxt = Context()
 @click.option("--path-length", type=int, default=1)
 @click.option("--initial-step-size", type=float, default=0.5)
 @click.option("--adaptive-step-factor", type=float, default=0.9)
+@click.option("--m0", type=int, default=20)
+@click.option("--c0", type=int, default=20)
+@click.option("--p_m", type=float, default=0.5)
+@click.option("--delta_m", type=int, default=0)
+@click.option("--delta_c", type=int, default=0)
+@click.option("--mutate_survivors", is_flag=True)
 @click.option("--survival-rate", type=float, default=0.2)
 @click.option("--sleep", is_flag=True)
 @click.option("--analyze", is_flag=True)
@@ -53,8 +59,8 @@ main_ctxt = Context()
 @click.option("--disp", is_flag=True)
 def main(cluster_id, profile, param_file_path, param_gen, update_params, update_modules, get_features, features_modules,
          objectives_modules, group_sizes, pop_size, wrap_bounds, seed, max_iter, path_length, initial_step_size,
-         adaptive_step_factor, survival_rate, sleep, analyze, hot_start, storage_file_path, export, output_dir,
-         export_file_path, disp):
+         adaptive_step_factor, m0, c0, p_m, delta_m, delta_c, mutate_survivors, survival_rate, sleep, analyze, hot_start,
+         storage_file_path, export, output_dir, export_file_path, disp):
     """
 
     :param cluster_id: str
@@ -72,8 +78,14 @@ def main(cluster_id, profile, param_file_path, param_gen, update_params, update_
     :param seed: int
     :param max_iter: int
     :param path_length: int
-    :param initial_step_size: float in [0., 1.]
-    :param adaptive_step_factor: float in [0., 1.]
+    :param initial_step_size: float in [0., 1.]  # BGen-specific argument
+    :param adaptive_step_factor: float in [0., 1.]  # BGen-specific argument
+    :param m0: int : initial strength of mutation  # EGen-specific argument
+    :param c0: int : initial strength of crossover  # EGen-specific argument
+    :param p_m: float in [0., 1.] : probability of mutation  # EGen-specific argument
+    :param delta_m: int : decrease mutation strength every interval  # EGen-specific argument
+    :param delta_c: int : decrease crossover strength every interval  # EGen-specific argument
+    :param mutate_survivors: bool  # EGen-specific argument
     :param survival_rate: float
     :param sleep: bool
     :param analyze: bool
@@ -85,34 +97,38 @@ def main(cluster_id, profile, param_file_path, param_gen, update_params, update_
     :param disp: bool
     """
     process_params(cluster_id, profile, param_file_path, param_gen, update_params, update_modules, get_features,
-                   features_modules, objectives_modules, group_sizes, pop_size, path_length, sleep, storage_file_path,
+                   features_modules, objectives_modules, group_sizes, pop_size, path_length, storage_file_path,
                    output_dir, export_file_path)
     init_controller(main_ctxt.update_params, main_ctxt.update_modules, main_ctxt.get_features,
                     main_ctxt.features_modules, main_ctxt.group_sizes, main_ctxt.objectives_modules)
     if not analyze or export:
-        setup_client_interface(sleep, cluster_id, profile, main_ctxt.group_sizes, pop_size, main_ctxt.update_params,
-                               main_ctxt.get_features, main_ctxt.objectives_modules, main_ctxt.param_gen, output_dir)
+        setup_client_interface(cluster_id, profile, main_ctxt.group_sizes, pop_size, main_ctxt.update_params,
+                               main_ctxt.get_features, main_ctxt.objectives_modules, main_ctxt.param_gen, output_dir,
+                               sleep)
     global storage
     global x
     if not analyze:
         global this_param_gen
         if hot_start:
-            this_param_gen = main_ctxt.param_gen_func(pop_size=pop_size, x0=param_dict_to_array(main_ctxt.x0,
-                                                                                               main_ctxt.param_names),
-                                                              bounds=main_ctxt.bounds, wrap_bounds=wrap_bounds,
-                                                              seed=seed, max_iter=max_iter,
-                                                              adaptive_step_factor=adaptive_step_factor,
-                                                              survival_rate=survival_rate, disp=disp, hot_start=storage_file_path)
+            this_param_gen = main_ctxt.param_gen_func(pop_size=pop_size,
+                                                      x0=param_dict_to_array(main_ctxt.x0, main_ctxt.param_names),
+                                                      bounds=main_ctxt.bounds, wrap_bounds=wrap_bounds, seed=seed,
+                                                      max_iter=max_iter, adaptive_step_factor=adaptive_step_factor,
+                                                      p_m=p_m, delta_m=delta_m, delta_c=delta_c,
+                                                      mutate_survivors=mutate_survivors, survival_rate=survival_rate,
+                                                      disp=disp, hot_start=storage_file_path)
         else:
             this_param_gen = main_ctxt.param_gen_func(param_names=main_ctxt.param_names,
-                                                              feature_names=main_ctxt.feature_names,
-                                                              objective_names=main_ctxt.objective_names, pop_size=pop_size,
-                                                              x0=param_dict_to_array(main_ctxt.x0, main_ctxt.param_names),
-                                                              bounds=main_ctxt.bounds, wrap_bounds=wrap_bounds,
-                                                              seed=seed, max_iter=max_iter, path_length=path_length,
-                                                              initial_step_size=initial_step_size,
-                                                              adaptive_step_factor=adaptive_step_factor,
-                                                              survival_rate=survival_rate, disp=disp)
+                                                      feature_names=main_ctxt.feature_names,
+                                                      objective_names=main_ctxt.objective_names, pop_size=pop_size,
+                                                      x0=param_dict_to_array(main_ctxt.x0, main_ctxt.param_names),
+                                                      bounds=main_ctxt.bounds, wrap_bounds=wrap_bounds, seed=seed,
+                                                      max_iter=max_iter, path_length=path_length,
+                                                      initial_step_size=initial_step_size, m0=m0, c0=c0, p_m=p_m,
+                                                      delta_m=delta_m, delta_c=delta_c,
+                                                      mutate_survivors=mutate_survivors,
+                                                      adaptive_step_factor=adaptive_step_factor,
+                                                      survival_rate=survival_rate, disp=disp)
         run_optimization(disp)
         storage = this_param_gen.storage
         best_ind = storage.get_best(1, 'last')[0]
@@ -140,7 +156,7 @@ def main(cluster_id, profile, param_file_path, param_gen, update_params, update_
 
 
 def process_params(cluster_id, profile, param_file_path, param_gen, update_params, update_modules, get_features,
-                   features_modules, objectives_modules, group_sizes, pop_size, path_length, sleep, storage_file_path,
+                   features_modules, objectives_modules, group_sizes, pop_size, path_length, storage_file_path,
                    output_dir, export_file_path):
     """
 
@@ -156,7 +172,6 @@ def process_params(cluster_id, profile, param_file_path, param_gen, update_param
     :param group_sizes: tuple of int
     :param pop_size: int
     :param path_length: int
-    :param sleep: bool
     :param storage_file_path: str
     :param output_dir: str
     :param export_file_path: str
@@ -173,7 +188,7 @@ def process_params(cluster_id, profile, param_file_path, param_gen, update_param
         target_val = params_dict['target_val']
         target_range = params_dict['target_range']
         optimization_title = params_dict['optimization_title']
-        kwargs = params_dict['kwargs'] #Extra arguments that will later be passed to all of the imported modules
+        kwargs = params_dict['kwargs'] # Extra arguments that will later be passed to all of the imported modules
 
         if param_gen is None:
             param_gen = params_dict['param_gen']
@@ -191,10 +206,12 @@ def process_params(cluster_id, profile, param_file_path, param_gen, update_param
             group_sizes = params_dict['group_sizes']
         if storage_file_path is None:
             storage_file_path = '%s/%s_%s_%s_optimization_history.hdf5' % \
-                                (output_dir, datetime.datetime.today().strftime('%m%d%Y%H%M'), optimization_title, param_gen)
+                                (output_dir, datetime.datetime.today().strftime('%m%d%Y%H%M'), optimization_title,
+                                 param_gen)
         if export_file_path is None:
             export_file_path = '%s/%s_%s_%s_optimization_exported_traces.hdf5' % \
-                               (output_dir, datetime.datetime.today().strftime('%m%d%Y%H%M'), optimization_title, param_gen)
+                               (output_dir, datetime.datetime.today().strftime('%m%d%Y%H%M'), optimization_title,
+                                param_gen)
     else:
         raise Exception('A param_file_path containing default paramters must be provided.')
     main_ctxt.update(locals())
@@ -261,11 +278,10 @@ def init_controller(update_params, update_modules, get_features, features_module
     sys.stdout.flush()
 
 
-def setup_client_interface(sleep, cluster_id, profile, group_sizes, pop_size, update_params, get_features,
-                           objectives_modules, param_gen, output_dir):
+def setup_client_interface(cluster_id, profile, group_sizes, pop_size, update_params, get_features, objectives_modules,
+                           param_gen, output_dir, sleep):
     """
 
-    :param sleep: bool
     :param cluster_id: str
     :param profile: str
     :param group_sizes: tuple of str
@@ -274,7 +290,7 @@ def setup_client_interface(sleep, cluster_id, profile, group_sizes, pop_size, up
     :param objectives_modules: tuple of str
     :param param_gen: str
     :param output_dir: str
-    :return:
+    :param sleep: bool
     """
     if cluster_id is not None:
         c = Client(cluster_id=cluster_id, profile=profile)
@@ -290,11 +306,11 @@ def setup_client_interface(sleep, cluster_id, profile, group_sizes, pop_size, up
     for ind in range(len(group_sizes)):
         if new_group_sizes[ind] > num_procs:
             new_group_sizes[ind] = num_procs
-            print 'Multi-Objective Optimization: group_sizes index %i adjusted to not exceed num_processes: %i' % (
+            print 'Multi-Objective Optimization: stage %i adjusted group_size to not exceed num_processes: %i' % (
                 ind, num_procs)
         un_utilized[ind] = num_procs % new_group_sizes[ind]
         if un_utilized[ind] > 0:
-            print 'Multi-Objective Optimization: index %i has %i unutilized processes' % (ind, un_utilized[ind])
+            print 'Multi-Objective Optimization: stage %i has %i unutilized processes' % (ind, un_utilized[ind])
         blocks[ind] = pop_size / (num_procs / new_group_sizes[ind]) * (len(get_features) / new_group_sizes[ind])
         if blocks[ind] * (num_procs / new_group_sizes[ind]) < pop_size:
             blocks[ind] += 1

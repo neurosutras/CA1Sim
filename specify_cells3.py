@@ -1108,7 +1108,7 @@ class HocCell(object):
                     return
             rules = {}
             if not origin is None:
-                if not origin in sec_types + ['parent']:
+                if not origin in sec_types + ['parent', 'branch_origin']:
                     raise Exception('Cannot inherit mechanism: {} parameter: {} from unknown sec_type: {}'.format(
                         mech_name, param_name, origin))
                 else:
@@ -1216,7 +1216,7 @@ class HocCell(object):
         backup_content = None
         rules = {}
         if not origin is None:
-            if not origin in sec_types + ['parent']:
+            if not origin in sec_types + ['parent', 'branch_origin']:
                 raise Exception('Cannot inherit synaptic mechanism: {} parameter: {} from unknown sec_type: {}'.format(
                     syn_type, param_name, origin))
             else:

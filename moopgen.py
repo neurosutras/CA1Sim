@@ -13,6 +13,7 @@ array at a time, these classes contain iterators and evaluation methods to proce
 and to store a complete history for later inspection .
 """
 
+
 def param_array_to_dict(x, param_names):
     """
 
@@ -21,6 +22,7 @@ def param_array_to_dict(x, param_names):
     :return:
     """
     return {param_name: x[ind] for ind, param_name in enumerate(param_names)}
+
 
 def param_dict_to_array(x_dict, param_names):
     """
@@ -85,13 +87,16 @@ class PopulationStorage(object):
             self.history = []  # a list of populations, each corresponding to one generation
             self.survivors = []  # a list of populations (some may be empty)
             self.failed = []  # a list of populations (some may be empty)
-            self.step_size = []  # a list of step sizes, each corresponding to one generation
+            # Enable tracking of param_gen-specific attributes through kwargs to 'append'
+            self.attributes = {}
 
-    def append(self, population, survivors=None, failed=None, step_size=None):
+    def append(self, population, survivors=None, failed=None, **kwargs):
         """
 
         :param population: list of :class:'Individual'
         :param survivors: list of :class:'Individual'
+        :param failed: list of :class:'Individual'
+        :param kwargs: dict of additional param_gen-specific attributes
         """
         if survivors is None:
             survivors = []
@@ -100,7 +105,14 @@ class PopulationStorage(object):
         self.survivors.append(deepcopy(survivors))
         self.history.append(deepcopy(population))
         self.failed.append(deepcopy(failed))
-        self.step_size.append(step_size)
+        for key in kwargs:
+            if key not in self.attributes:
+                self.attributes[key] = []
+        for key in self.attributes:
+            if key in kwargs:
+                self.attributes[key].append(kwargs[key])
+            else:
+                self.attributes[key].append(None)
 
     def get_best(self, n=1, iterations=None, offset=None, evaluate=None, modify=False):
         """
@@ -165,7 +177,19 @@ class PopulationStorage(object):
                             c=colors[j], alpha=0.05)
                 plt.scatter([indiv.rank for indiv in self.survivors[j]],
                             [getattr(indiv, this_attr) for indiv in self.survivors[j]], c=colors[j], alpha=0.5)
-            plt.title(this_attr)
+            if this_attr == 'energy':
+                plt.title('relative ' + this_attr)
+            else:
+                plt.title(this_attr)
+        plt.figure()
+        this_attr = 'objectives'
+        for j, population in enumerate(self.history):
+            plt.scatter([indiv.rank for indiv in population],
+                        [np.sum(getattr(indiv, this_attr)) for indiv in population],
+                        c=colors[j], alpha=0.05)
+            plt.scatter([indiv.rank for indiv in self.survivors[j]],
+                        [np.sum(getattr(indiv, this_attr)) for indiv in self.survivors[j]], c=colors[j], alpha=0.5)
+        plt.title('absolute energy')
         for i, param_name in enumerate(self.param_names):
             this_attr = 'x'
             plt.figure()
@@ -250,7 +274,8 @@ class PopulationStorage(object):
             j = n
             while n > 0:
                 f.create_group(str(gen_index))
-                f[str(gen_index)].attrs['step_size'] = self.step_size[gen_index]
+                for key in self.attributes:
+                    f[str(gen_index)].attrs[key] = self.attributes[key][gen_index]
                 for group_name, population in zip(['population', 'survivors', 'failed'],
                                                   [self.history[gen_index], self.survivors[gen_index],
                                                    self.failed[gen_index]]):
@@ -294,14 +319,17 @@ class PopulationStorage(object):
         self.history = []  # a list of populations, each corresponding to one generation
         self.survivors = []  # a list of populations (some may be empty)
         self.failed = []  # a list of populations (some may be empty)
-        self.step_size = []  # a list of step sizes, each corresponding to one generation
+        self.attributes = {}  # a dict containing lists of param_gen-specific attributes
         with h5py.File(file_path, 'r') as f:
             self.param_names = f.attrs['param_names']
             self.feature_names = f.attrs['feature_names']
             self.objective_names = f.attrs['objective_names']
             self.path_length = f.attrs['path_length']
             for gen_index in xrange(len(f)):
-                self.step_size.append(f[str(gen_index)].attrs['step_size'])
+                for key, value in f[str(gen_index)].attrs.iteritems():
+                    if key not in self.attributes:
+                        self.attributes[key] = []
+                    self.attributes[key].append(value)
                 history, survivors, failed = [], [], []
                 for group_name, population in zip(['population', 'survivors', 'failed'], [history, survivors,
                                                                                           failed]):
@@ -739,7 +767,7 @@ class BGen(object):
         self.xmax = np.array([bound[1] for bound in bounds])
         if hot_start is not None:
             if not os.path.isfile(hot_start):
-                raise IOError('BGen: invalid file path provided to hot start from stored history: %s' % hot_start)
+                raise IOError('BGen: invalid file path. Cannot hot start from stored history: %s' % hot_start)
             else:
                 self.storage = PopulationStorage(file_path=hot_start)
                 self.path_length = self.storage.path_length
@@ -905,12 +933,6 @@ class BGen(object):
         new_population = [Individual(self.take_step(individual.x)) for individual in self.population]
         self.population = new_population
 
-    def report_best(self, generations=None):
-        """
-        Format and print the contents of self.final_survivors.
-        """
-        pass
-
 
 class EGen(object):
     """
@@ -918,9 +940,10 @@ class EGen(object):
     generator interface to produce a list of parameter arrays for parallel evaluation.
     """
 
-    def __init__(self, param_names, feature_names, objective_names, pop_size, x0=None, bounds=None, take_step=None,
-                 evaluate=None, seed=None, max_iter=None, max_gens=None, path_length=1, niter_success=None,
-                 survival_rate=0.2, disp=False, **kwargs):
+    def __init__(self, param_names=None, feature_names=None, objective_names=None, pop_size=None, x0=None,
+                 bounds=None, wrap_bounds=False, take_step=None, m0=20, c0=20, p_m=0.5, delta_m=0, delta_c=0,
+                 mutate_survivors=False, evaluate=None, seed=None, max_iter=None, survival_rate=0.1, disp=False,
+                 hot_start=None, **kwargs):
         """
         :param param_names: list of str
         :param feature_names: list of str
@@ -928,15 +951,20 @@ class EGen(object):
         :param pop_size: int
         :param x0: array
         :param bounds: list of tuple of float
+        :param wrap_bounds: bool
         :param take_step: callable
+        :param m0: int : initial strength of mutation
+        :param c0: int : initial strength of crossover
+        :param p_m: float : probability of mutation
+        :param delta_m: int : decrease mutation strength every interval
+        :param delta_c: int : decrease crossover strength every interval
+        :param mutate_survivors: bool
         :param evaluate: callable
         :param seed: int or :class:'np.random.RandomState'
         :param max_iter: int
-        :param max_gens: int
-        :param path_length: int
-        :param niter_success: int
         :param survival_rate: float in [0., 1.]
         :param disp: bool
+        :param hot_start: str (path)
         :param kwargs: dict of additional options, catches generator-specific options that do not apply
         """
         if x0 is None:
@@ -944,9 +972,6 @@ class EGen(object):
         else:
             self.x0 = np.array(x0)
         self.num_params = len(param_names)
-        self.storage = PopulationStorage(param_names=param_names, feature_names=feature_names,
-                                         objective_names=objective_names, path_length=path_length)
-        self.pop_size = pop_size
         if evaluate is None:
             self._evaluate = evaluate_bgen
         elif isinstance(evaluate, collections.Callable):
@@ -956,49 +981,45 @@ class EGen(object):
         self.random = check_random_state(seed)
         self.xmin = np.array([bound[0] for bound in bounds])
         self.xmax = np.array([bound[1] for bound in bounds])
+        if hot_start is not None:
+            if not os.path.isfile(hot_start):
+                raise IOError('EGen: invalid file path. Cannot hot start from stored history: %s' % hot_start)
+            else:
+                self.storage = PopulationStorage(file_path=hot_start)
+                self.num_gen = len(self.storage.history)
+                self.population = self.storage.history[-1]
+                self.survivors = self.storage.survivors[-1]
+                self.failed = self.storage.failed[-1]
+                self.objectives_stored = True
+        else:
+            self.storage = PopulationStorage(param_names=param_names, feature_names=feature_names,
+                                             objective_names=objective_names, path_length=1)
+            self.num_gen = 0
+            self.population = []
+            self.survivors = []
+            self.failed = []
+            self.objectives_stored = False
+        self.pop_size = pop_size
         if take_step is None:
-            self.take_step = BoundedStep(self.x0, stepsize=1., bounds=bounds, wrap=True, random=self.random)
+            self.take_step = BoundedStep(self.x0, stepsize=1., bounds=bounds, wrap=wrap_bounds, random=self.random)
+            self.x0 = np.array(self.take_step.x0)
             self.xmin = np.array(self.take_step.xmin)
             self.xmax = np.array(self.take_step.xmax)
-            self.x0 = np.array(self.take_step.x0)
-        elif isinstance(take_step, collections.Callable):
+        elif isinstance(take_step, collections.Callable):  # must accept the above named keyword arguments
             self.take_step = take_step
+            self.xmin = np.array(self.take_step.xmin)
+            self.xmax = np.array(self.take_step.xmax)
         else:
             raise TypeError("EGen: take_step must be callable.")
-        self.path_length = path_length
         if max_iter is None:
-            if max_gens is None:
-                self.max_gens = self.path_length * 30
-            else:
-                self.max_gens = max_gens
+            self.max_gens = 30.
         else:
-            if max_gens is None:
-                self.max_gens = self.path_length * max_iter
-            else:
-                self.max_gens = min(max_gens, self.path_length * max_iter)
-        if niter_success is None:
-            self.ngen_success = self.max_gens
-        else:
-            self.ngen_success = min(self.max_gens, self.path_length * niter_success)
-        self.num_survivors = max(1, int(pop_size * survival_rate))
+            self.max_gens = max_iter
+        self.num_survivors = max(1, int(self.pop_size * survival_rate))
         self.disp = disp
-        self.objectives_stored = False
         self.evaluated = False
-        self.population = []
-        self.survivors = []
         self.final_survivors = None
-        self.config(**kwargs)
-
-    def config(self, m0=20, c0=20, p_m=0.5, delta_m=0, delta_c=0, mutate_survivors=False):
-        """
-
-        :param m0: int : initial strength of mutation
-        :param c0: int : initial strength of crossover
-        :param p_m: float : probability of mutation
-        :param delta_m: int : decrease mutation strength every interval
-        :param delta_c: int : decrease crossover strength every interval
-        :param mutate_survivors: bool
-        """
+        self.local_time = time.time()
         self.m0 = m0
         self.m = self.m0
         self.c0 = c0
