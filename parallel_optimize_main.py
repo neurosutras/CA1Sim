@@ -90,7 +90,8 @@ def main(cluster_id, profile, param_file_path, param_gen, update_params, update_
                     main_ctxt.features_modules, main_ctxt.group_sizes, main_ctxt.objectives_modules)
     if not analyze or export:
         setup_client_interface(sleep, cluster_id, profile, main_ctxt.group_sizes, pop_size, main_ctxt.update_params,
-                               main_ctxt.get_features, main_ctxt.objectives_modules, main_ctxt.param_gen, output_dir)
+                               main_ctxt.get_features, main_ctxt.objectives_modules, main_ctxt.param_gen,
+                               main_ctxt.output_dir)
     global storage
     global x
     if not analyze:
@@ -101,7 +102,8 @@ def main(cluster_id, profile, param_file_path, param_gen, update_params, update_
                                                               bounds=main_ctxt.bounds, wrap_bounds=wrap_bounds,
                                                               seed=seed, max_iter=max_iter,
                                                               adaptive_step_factor=adaptive_step_factor,
-                                                              survival_rate=survival_rate, disp=disp, hot_start=storage_file_path)
+                                                              survival_rate=survival_rate, disp=disp,
+                                                      hot_start=storage_file_path)
         else:
             this_param_gen = main_ctxt.param_gen_func(param_names=main_ctxt.param_names,
                                                               feature_names=main_ctxt.feature_names,
@@ -203,6 +205,7 @@ def process_params(cluster_id, profile, param_file_path, param_gen, update_param
     param_gen_func = globals()[param_gen] # The variable 'param_gen_func' points to the actual generator function, while
                                           # param_gen points to the string name of the generator
     main_ctxt.param_gen_func = param_gen_func
+    main_ctxt.output_dir = output_dir
     sys.stdout.flush()
 
 def init_controller(update_params, update_modules, get_features, features_modules, group_sizes, objectives_modules):
@@ -308,6 +311,16 @@ def setup_client_interface(sleep, cluster_id, profile, group_sizes, pop_size, up
     main_ctxt.c[:].apply_sync(init_engine, main_ctxt.module_set, main_ctxt.update_params_funcs, main_ctxt.param_names,
                               main_ctxt.default_params, main_ctxt.export_file_path, output_dir, **main_ctxt.kwargs)
 
+
+def init_engine_interactive(x):
+    x_array = param_dict_to_array(x, main_ctxt.param_names)
+    init_engine(main_ctxt.module_set, main_ctxt.update_params_funcs, main_ctxt.param_names,
+                main_ctxt.default_params, main_ctxt.export_file_path, main_ctxt.output_dir, ** main_ctxt.kwargs)
+    for submodule in main_ctxt.module_set:
+        for update_func in main_ctxt.update_params_funcs:
+            update_func(x_array, sys.modules[submodule].context)
+
+
 def init_engine(module_set, update_params_funcs, param_names, default_params, export_file_path, output_dir, **kwargs):
     for module_name in module_set:
         m = importlib.import_module(module_name)
@@ -320,6 +333,7 @@ def init_engine(module_set, update_params_funcs, param_names, default_params, ex
                            '_pid' + str(os.getpid()) + '.hdf5'
             config_func(update_params_funcs, param_names, default_params, rec_file_path, export_file_path, **kwargs)
     sys.stdout.flush()
+
 
 def run_optimization(disp):
     """

@@ -305,7 +305,29 @@ def filter_unitary_EPSP_features(get_result, old_features, export):
     if export:
         new_export_file_path = context.export_file_path.replace('.hdf5', '_processed.hdf5')
         with h5py.File(new_export_file_path, 'a') as f:
-            f.create_group('actual_compound_traces')
+            average_traces = f.create_group('average_unitary_traces')
+            EPSP_amps = f.create_group('EPSP_amps')
+            for branch in clustered_results:
+                branch_trace_group = average_traces.create_group(branch)
+                branch_amp_group = EPSP_amps.create_group(branch)
+                for AP5_cond in clustered_results[branch]:
+                    AP5_group = branch_trace_group.create_group(AP5_cond)
+                    all_traces = {}
+                    syn_ids = [syn_id for syn_id in clustered_results[branch][AP5_cond]]
+                    syn_ids.sort()
+                    for syn_id in syn_ids:
+                        for loc in clustered_results[branch][AP5_cond][syn_id]:
+                            if loc not in all_traces:
+                                all_traces[loc] = []
+                            all_traces[loc].append(clustered_results[branch][AP5_cond][syn_id]['rec'][loc])
+                    rec_group = AP5_group.create_group('rec')
+                    rec_group.create_datset(loc, compression='gzip', compression_opts=9, data=all_traces[loc])
+                    AP5_group.create_datset('tvec', compression='gzip', compression_opts=9,
+                                            data=clustered_results[branch][AP5_cond][syn_ids[0]]['tvec'])
+                EPSP_AP5_list = [random_AP5_results[syn_id] for syn_id in syn_ids]
+                EPSP_con_list = [random_con_results[syn_id] for syn_id in syn_ids]
+                branch_amp_group.create_group('AP5', compression='gzip', compression_opts=9, data=EPSP_AP5_list)
+                branch_amp_group.create_group('con', compression='gzip', compression_opts=9, data=EPSP_con_list)
     return new_features
 
 def get_compound_EPSP_features(indiv, c, client_range, export=False):
@@ -464,7 +486,7 @@ def compute_EPSP_amp_features(x, test_syns, AP5_condition, group_type, export=Fa
     start_time = time.time()
     context.cell.reinit_mechanisms(reset_cable=True, from_file=True)
     for update_func in context.update_params_funcs:
-        context.cell = update_func(context.cell, x, context.param_indexes, context.default_params)
+        update_func(x, context)
     # sim.cvode_state = True
     soma_vm = offset_vm('soma', context.v_init)
     synapses = [context.syn_list[syn_index] for syn_index in test_syns]
@@ -491,15 +513,14 @@ def compute_EPSP_amp_features(x, test_syns, AP5_condition, group_type, export=Fa
     dt = context.dt
     equilibrate = context.equilibrate
     interp_t = np.arange(0, duration, dt)
-    left, right = time2index(interp_t, equilibrate-3.0, equilibrate-1.0)
-    #baseline should change for each interval
     result = {}
     for rec_ind, rec in enumerate(context.sim.rec_list):
         vm = np.array(rec['vec'])
         interp_vm = np.interp(interp_t, t, vm)
         for i, syn in enumerate(synapses):
             start, end = time2index(interp_t, equilibrate + i*context.unitary_isi, equilibrate + (i+1)*context.unitary_isi)
-            baseline = np.average(interp_vm[left:right])
+            baseline_start, baseline_end = start - 10./context.dt, start
+            baseline = np.average(interp_vm[baseline_start:baseline_end])
             corrected_vm = interp_vm - baseline
             peak = np.max(corrected_vm[start:end])
             peak_index = np.where(corrected_vm == peak)[0][0]
@@ -513,9 +534,9 @@ def compute_EPSP_amp_features(x, test_syns, AP5_condition, group_type, export=Fa
                                   'rec': {}}
             if rec['description'] is 'soma':
                 result[syn_id]['EPSP_amp'] = peak
-            result[syn_id]['rec'][rec['description']] = corrected_vm[start:end]
+            result[syn_id]['rec'][rec['description']] = corrected_vm[baseline_start:end]
             if rec_ind == len(context.sim.rec_list) - 1:
-                corrected_t = interp_t[start:end]
+                corrected_t = interp_t[baseline_start:end]
                 result[syn_id]['tvec'] = corrected_t - corrected_t[0] #sets each tvec to start at 0
                 syn.source.play(h.Vector())  # playing an empty vector turns this synapse off for future runs while
                                             # keeping the VecStim source object in existence so it can be activated again
@@ -547,7 +568,7 @@ def compute_branch_cooperativity_features(x, test_syns, AP5_condition, group_typ
     test_syns = np.array(test_syns)
     context.cell.reinit_mechanisms(reset_cable=True, from_file=True)
     for update_func in context.update_params_funcs:
-        context.cell = update_func(context.cell, x, context.param_indexes, context.default_params)
+        update_func(x, context)
     # sim.cvode_state = True
     synapses = [context.syn_list[syn_index] for syn_index in test_syns]
     for i, syn in enumerate(synapses):
@@ -613,7 +634,7 @@ def compute_stability_features(x, export=False, plot=False):
     start_time = time.time()
     context.cell.reinit_mechanisms(reset_cable=True, from_file=True)
     for update_func in context.update_params_funcs:
-        context.cell = update_func(context.cell, x, context.param_indexes, context.default_params)
+        update_func(x, context)
     # sim.cvode_state = True
 
     v_active = context.v_active
@@ -795,12 +816,17 @@ def get_spike_shape(vm, spike_times):
     return v_peak, th_v, ADP, AHP
 
 
-def update_AMPA_NMDA(cell, x, param_indexes, default_params):
+def update_AMPA_NMDA(x, local_context=None):
     """
 
     :param x: array. Default: value=1.711e-03, slope=6.652e-05, tau=7.908e+01
     :return:
     """
+    if local_context is None:
+        local_context = context
+    cell = local_context.cell
+    param_indexes = local_context.param_indexes
+    default_params = local_context.default_params
     if context.spines is False:
         cell.correct_for_spines()
     cell.modify_mech_param('apical', 'synapse', 'gmax', value=find_param_value('AMPA.g0', x, param_indexes, default_params),
@@ -830,7 +856,6 @@ def update_AMPA_NMDA(cell, x, param_indexes, default_params):
                                slope=find_param_value('dend.gbar_nas slope', x, param_indexes, default_params),
                                min=find_param_value('dend.gbar_nas min', x, param_indexes, default_params),
                                custom={'method': 'custom_gradient_by_terminal'}, replace=False)
-    return cell
 
 def export_sim_results():
     """
@@ -846,8 +871,8 @@ def plot_exported_synaptic_features(processed_export_file_path):
     :return:
     """
     with h5py.File(processed_export_file_path, 'r') as f:
-        trace_type_list = [trace_type for trace_type in f]
-        trace_group_list = [trace_group for trace_group in f.itervalues()]
+        trace_type_list = ['actual_compound_traces', 'expected_compound_traces']
+        trace_group_list = [f[trace_type] for trace_type in trace_type_list]
         num_colors = context.num_clustered_syn * len(trace_type_list) * len(context.branch_list) * len(context.AP5_cond_list)
         colors = list(cm.rainbow(np.linspace(0, 1, num_colors)))
         plot_num = 0
