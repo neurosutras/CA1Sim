@@ -715,12 +715,12 @@ class HocCell(object):
             node.reinit_diam()
         else:
             if 'custom' in rules:
-                method_exists = hasattr(self, rules['custom']['method'])
-                if method_exists:
+                if hasattr(self, rules['custom']['method']):
                     method_to_call = getattr(self, rules['custom']['method'])
                     method_to_call(node, mech_name, param_name, baseline, rules, syn_type, donor)
                 else:
-                    raise Exception('The custom method is not defined for this cell type.')
+                    raise Exception('The custom method %s is not defined for this cell type.' %
+                                    rules['custom']['method'])
             elif 'min_loc' in rules or 'max_loc' in rules or 'slope' in rules:
                 if donor is None:
                     raise Exception('Cannot follow specifications for mechanism: {} parameter: {} without a provided '
