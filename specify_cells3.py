@@ -715,12 +715,12 @@ class HocCell(object):
             node.reinit_diam()
         else:
             if 'custom' in rules:
-                method_exists = hasattr(self, rules['custom']['method'])
-                if method_exists:
+                if hasattr(self, rules['custom']['method']):
                     method_to_call = getattr(self, rules['custom']['method'])
                     method_to_call(node, mech_name, param_name, baseline, rules, syn_type, donor)
                 else:
-                    raise Exception('The custom method is not defined for this cell type.')
+                    raise Exception('The custom method %s is not defined for this cell type.' %
+                                    rules['custom']['method'])
             elif 'min_loc' in rules or 'max_loc' in rules or 'slope' in rules:
                 if donor is None:
                     raise Exception('Cannot follow specifications for mechanism: {} parameter: {} without a provided '
@@ -2797,20 +2797,23 @@ class DG_GC(HocCell):
     def custom_gradient_by_branch_ord(self, node, mech_name, param_name, baseline, rules, syn_type, donor=None):
         branch_order = int(rules['custom']['branch_order'])
         if self.get_branch_order(node) >= branch_order:
-            self._specify_mech_parameter(node, mech_name, param_name, baseline, rules, syn_type, donor)
+            if mech_name == 'synapse':
+                self._specify_synaptic_parameter(node, mech_name, param_name, baseline, rules, syn_type, donor)
+            else:
+                self._specify_mech_parameter(node, mech_name, param_name, baseline, rules, syn_type, donor)
 
     def custom_gradient_by_terminal(self, node, mech_name, param_name, baseline, rules, syn_type, donor=None):
         if self.is_terminal(node):
-            start_val = getattr(node.sec(0.), param_name + '_' + mech_name)
+            start_val = baseline
             if 'min' not in rules:
                 end_val = 0.
             else:
                 end_val = rules['min']
             if 'slope' in rules:
                 given_slope = rules['slope']
-            slope = min(given_slope, end_val - start_val)
+            slope = min(given_slope, (end_val - start_val)/node.sec.L)
             for seg in node.sec:
-                value = start_val + slope * seg.x
+                value = start_val + slope * seg.x * node.sec.L
                 if value < end_val:
                     value = end_val
                 setattr(getattr(seg, mech_name), param_name, value)

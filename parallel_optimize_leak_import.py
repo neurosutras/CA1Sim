@@ -15,6 +15,7 @@ Current YAML filepath: data/optimize_leak_defaults.yaml
 
 context = Context()
 
+
 def setup_module_from_file(param_file_path='data/optimize_leak_defaults.yaml', rec_file_path=None,
                            export_file_path=None, verbose=False):
     """
@@ -51,12 +52,14 @@ def setup_module_from_file(param_file_path='data/optimize_leak_defaults.yaml', r
     context.update(locals())
     config_engine(update_params_funcs, param_names, default_params, rec_file_path, export_file_path, **kwargs)
 
+
 def config_controller(export_file_path):
     """
 
     :return:
     """
     context.update(locals())
+
 
 def config_engine(update_params_funcs, param_names, default_params, rec_file_path, export_file_path, mech_file_path,
                   neurotree_file_path, neurotree_index, spines, verbose=False):
@@ -79,6 +82,7 @@ def config_engine(update_params_funcs, param_names, default_params, rec_file_pat
     set_constants()
     setup_cell(verbose)
 
+
 def set_constants():
     equilibrate = 250.  # time to steady-state
     stim_dur = 500.
@@ -92,6 +96,7 @@ def set_constants():
     soma_ek = -77.
     soma_na_gbar = 0.04
     context.update(locals())
+
 
 def setup_cell(verbose=False):
     """
@@ -150,9 +155,11 @@ def setup_cell(verbose=False):
     context.spike_output_vec = h.Vector()
     cell.spike_detector.record(context.spike_output_vec)
 
+
 def update_mech_dict(x, update_function, mech_file_path):
     update_function(x)
     context.cell.export_mech_dict(mech_file_path)
+
 
 def get_Rinp_features(indiv, c, client_range, export=False):
     """
@@ -168,6 +175,7 @@ def get_Rinp_features(indiv, c, client_range, export=False):
     sec_list = ['soma', 'dend', 'distal_dend']
     result = dv.map_async(compute_Rinp_features, sec_list, [x] * len(sec_list), [export] * len(sec_list))
     return {'pop_id': indiv['pop_id'], 'client_range': client_range, 'async_result': result}
+
 
 def get_objectives(features, objective_names, target_val, target_range):
     """
@@ -187,6 +195,7 @@ def get_objectives(features, objective_names, target_val, target_range):
     else:
         objectives[objective_name] = 0.
     return features, objectives
+
 
 def compute_Rinp_features(section, x, export=False):
     """
@@ -228,6 +237,7 @@ def compute_Rinp_features(section, x, export=False):
     if export:
         export_sim_results()
     return result
+
 
 def offset_vm(description, vm_target=None):
     """
@@ -284,6 +294,7 @@ def offset_vm(description, vm_target=None):
                 offset = False
     context.sim.tstop = duration
     return v_rest
+
 
 def update_pas_exp(x, local_context=None):
     """

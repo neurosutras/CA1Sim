@@ -169,6 +169,9 @@ class PopulationStorage(object):
         """
         import matplotlib.pyplot as plt
         from matplotlib.pyplot import cm
+        import matplotlib as mpl
+        mpl.rcParams['svg.fonttype'] = 'none'
+        mpl.rcParams['text.usetex'] = False
         colors = list(cm.rainbow(np.linspace(0, 1, len(self.history))))
         for this_attr in ['fitness', 'energy', 'distance', 'survivor']:
             plt.figure()
