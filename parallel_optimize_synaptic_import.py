@@ -165,7 +165,7 @@ def setup_cell(verbose=False):
 
     # Choose clustered synapses from two distal apical oblique branches to find compound EPSP. Each branch must have
     # > 30 synapses within 30 um, choose synapses near the middle of the branch.
-    branch_list = [apical for apical in cell.apical if 150. < cell.get_distance_to_node(cell.tree.root, apical) < 250.
+    branch_list = [apical for apical in cell.apical if 50. < cell.get_distance_to_node(cell.tree.root, apical) < 150.
                    and apical.sec.L > 80.]
     branch = context.local_random.sample(branch_list, 1)[0]
     tested_branches = 0
@@ -866,7 +866,7 @@ def update_AMPA_NMDA(x, local_context=None):
     cell.modify_mech_param('apical', 'synapse', 'kin_scale',
                            value=find_param_value('NMDA.kin_scale', x, param_indexes, default_params),
                            syn_type=local_context.NMDA_type)
-    cell.init_synaptic_mechanisms()
+    # cell.init_synaptic_mechanisms()
     for sec_type in ['apical']:
         cell.modify_mech_param(sec_type, 'nas', 'gbar',
                                find_param_value('dend.gbar_nas', x, param_indexes, default_params))

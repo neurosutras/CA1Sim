@@ -2769,7 +2769,8 @@ class DG_GC(HocCell):
             normal = True
         else:
             normal = False
-        if self.is_terminal(node) or (branch_order is not None and self.get_branch_order(node) > branch_order):
+        if self.is_terminal(node) or (branch_order is not None and self.get_branch_order(node) >= branch_order):
+            print node.name, self.get_branch_order(node)
             for syn in syn_list:
                 value = baseline
                 if syn_type in syn._syn:  # not all synapses contain every synaptic mechanism
@@ -2785,7 +2786,7 @@ class DG_GC(HocCell):
                             value = rules['max']
                         if normal:
                             value = self.random.normal(value, value / 6.)
-                        setattr(target, param_name, value)
+                    setattr(target, param_name, value)
 
     def custom_gradient_by_branch_ord(self, node, mech_name, param_name, baseline, rules, syn_type, donor=None):
         branch_order = int(rules['custom']['branch_order'])
