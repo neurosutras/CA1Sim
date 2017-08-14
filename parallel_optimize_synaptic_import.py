@@ -13,6 +13,7 @@ Current YAML filepath: data/optimize_synaptic_defaults.yaml
 
 context = Context()
 
+
 def setup_module_from_file(param_file_path='data/optimize_synaptic_defaults.yaml', rec_file_path=None,
                            export_file_path=None, verbose=False):
     """
@@ -49,9 +50,11 @@ def setup_module_from_file(param_file_path='data/optimize_synaptic_defaults.yaml
     context.update(locals())
     config_engine(update_params_funcs, param_names, default_params, rec_file_path, export_file_path, **kwargs)
 
+
 def config_controller(export_file_path):
     context.update(locals())
     set_constants()
+
 
 def config_engine(update_params_funcs, param_names, default_params, rec_file_path, export_file_path, mech_file_path,
                   neurotree_file_path, neurotree_index, spines, verbose=False):
@@ -66,13 +69,13 @@ def config_engine(update_params_funcs, param_names, default_params, rec_file_pat
     :param neurotree_file_path: str
     :param neurotree_index: int
     :param spines: bool
-    :return:
     """
     neurotree_dict = read_from_pkl(neurotree_file_path)[neurotree_index]
     param_indexes = {param_name: i for i, param_name in enumerate(param_names)}
     context.update(locals())
     set_constants()
     setup_cell(verbose)
+
 
 def set_constants():
     """
@@ -106,6 +109,7 @@ def set_constants():
     i_holding = {'soma': 0.}
     i_th = {'soma': 0.1}
     context.update(locals())
+
 
 def setup_cell(verbose=False):
     """
@@ -230,9 +234,11 @@ def setup_cell(verbose=False):
     context.spike_output_vec = h.Vector()
     cell.spike_detector.record(context.spike_output_vec)
 
+
 def update_mech_dict(x, update_function, mech_file_path):
     update_function(x)
     context.cell.export_mech_dict(mech_file_path)
+
 
 def get_unitary_EPSP_features(indiv, c, client_range, export=False):
     """
@@ -265,6 +271,7 @@ def get_unitary_EPSP_features(indiv, c, client_range, export=False):
                           [export] * len(test_syns))
     return {'pop_id': indiv['pop_id'], 'client_range': client_range, 'async_result': result,
             'filter_features': filter_unitary_EPSP_features}
+
 
 def filter_unitary_EPSP_features(get_result, old_features, export):
     """
@@ -330,6 +337,7 @@ def filter_unitary_EPSP_features(get_result, old_features, export):
                 branch_amp_group.create_group('con', compression='gzip', compression_opts=9, data=EPSP_con_list)
     return new_features
 
+
 def get_compound_EPSP_features(indiv, c, client_range, export=False):
     """
     Distribute simulations across available engines for testing spike stability.
@@ -355,6 +363,7 @@ def get_compound_EPSP_features(indiv, c, client_range, export=False):
                           [export] * len(test_syns))
     return {'pop_id': indiv['pop_id'], 'client_range': client_range, 'async_result': result,
             'filter_features': filter_compound_EPSP_features}
+
 
 def filter_compound_EPSP_features(get_result, old_features, export):
     """
@@ -445,6 +454,7 @@ def filter_compound_EPSP_features(get_result, old_features, export):
                                                             data=trace_dict[group_type][AP5_condition][sim_id]['rec'][loc])
     return new_features
 
+
 def get_stability_features(indiv, c, client_range, export=False):
     """
     Distribute simulations across available engines for testing spike stability.
@@ -459,6 +469,7 @@ def get_stability_features(indiv, c, client_range, export=False):
     result = dv.map_async(compute_stability_features, [x], [export])
     return {'pop_id': indiv['pop_id'], 'client_range': client_range, 'async_result': result}
 
+
 def get_objectives(features, objective_names, target_val, target_range):
     """
 
@@ -470,6 +481,7 @@ def get_objectives(features, objective_names, target_val, target_range):
         objectives[objective_name] = ((target_val[objective_name] - features[objective_name]) /
                                                   target_range[objective_name]) ** 2.
     return features, objectives
+
 
 def compute_EPSP_amp_features(x, test_syns, AP5_condition, group_type, export=False, plot=False):
     """
@@ -549,6 +561,7 @@ def compute_EPSP_amp_features(x, test_syns, AP5_condition, group_type, export=Fa
         export_sim_results()
     return result
 
+
 def compute_branch_cooperativity_features(x, test_syns, AP5_condition, group_type, export=False, plot=False):
     """
     This simulation tests a value for gmax_NMDA_KIN. Results are later compared to branch cooperativity data from
@@ -624,6 +637,7 @@ def compute_branch_cooperativity_features(x, test_syns, AP5_condition, group_typ
         export_sim_results()
     return result
 
+
 def compute_stability_features(x, export=False, plot=False):
     """
     :param local_x: array [soma.gkabar, soma.gkdrbar, axon.gkabar_kap factor, axon.gbar_nax factor, soma.sh_nas/x,
@@ -688,6 +702,7 @@ def compute_stability_features(x, export=False, plot=False):
         export_sim_results()
     return result
 
+
 def get_expected_compound_features(unitary_branch_results):
     """
 
@@ -720,6 +735,7 @@ def get_expected_compound_features(unitary_branch_results):
             expected_compound_EPSP[AP5_condition].append(np.max(summed_traces['soma']))
             start_ind += compound_isi_len
     return expected_compound_traces, expected_compound_EPSP
+
 
 def offset_vm(description, vm_target=None):
     """
@@ -777,6 +793,7 @@ def offset_vm(description, vm_target=None):
     context.sim.tstop = duration
     return v_rest
 
+
 def get_spike_shape(vm, spike_times):
     """
 
@@ -829,33 +846,40 @@ def update_AMPA_NMDA(x, local_context=None):
     default_params = local_context.default_params
     if context.spines is False:
         cell.correct_for_spines()
-    cell.modify_mech_param('apical', 'synapse', 'gmax', value=find_param_value('AMPA.g0', x, param_indexes, default_params),
-                           origin='soma', syn_type='AMPA_KIN', slope=find_param_value('AMPA.slope', x, param_indexes,
-                                                                                      default_params),
+    cell.modify_mech_param('apical', 'synapse', 'gmax',
+                           value=find_param_value('AMPA.g0', x, param_indexes, default_params),
+                           origin='soma', syn_type='AMPA_KIN',
+                           slope=find_param_value('AMPA.slope', x, param_indexes, default_params),
                            tau=find_param_value('AMPA.tau', x, param_indexes, default_params))
-    cell.modify_mech_param('apical', 'synapse', 'gmax', value=find_param_value('AMPA.g0', x, param_indexes, default_params),
-                           syn_type='AMPA_KIN', custom={'method': 'custom_inheritance_by_nonterm_branchord',
-                                                        'branch_cutoff': 4}, replace=False)
-    cell.modify_mech_param('apical', 'synapse', 'gmax', value=find_param_value('NMDA.gmax', x, param_indexes, default_params),
-                           syn_type=context.NMDA_type)
-    cell.modify_mech_param('apical', 'synapse', 'gamma', value=find_param_value('NMDA.gamma', x, param_indexes, default_params),
-                           syn_type=context.NMDA_type)
-    cell.modify_mech_param('apical', 'synapse', 'Kd', value=find_param_value('NMDA.Kd', x, param_indexes, default_params),
-                           syn_type=context.NMDA_type)
-    cell.modify_mech_param('apical', 'synapse', 'kin_scale', value=find_param_value('NMDA.kin_scale', x, param_indexes,
-                                                                                    default_params), syn_type=context.NMDA_type)
+    cell.modify_mech_param('apical', 'synapse', 'gmax', origin='parent', syn_type='AMPA_KIN',
+                           custom={'method': 'custom_inherit_by_branch_order', 'branch_order': 4}, replace=False)
+    cell.modify_mech_param('apical', 'synapse', 'gmax',
+                           value=find_param_value('NMDA.gmax', x, param_indexes, default_params),
+                           syn_type=local_context.NMDA_type)
+    cell.modify_mech_param('apical', 'synapse', 'gamma',
+                           value=find_param_value('NMDA.gamma', x, param_indexes, default_params),
+                           syn_type=local_context.NMDA_type)
+    cell.modify_mech_param('apical', 'synapse', 'Kd',
+                           value=find_param_value('NMDA.Kd', x, param_indexes, default_params),
+                           syn_type=local_context.NMDA_type)
+    cell.modify_mech_param('apical', 'synapse', 'kin_scale',
+                           value=find_param_value('NMDA.kin_scale', x, param_indexes, default_params),
+                           syn_type=local_context.NMDA_type)
     cell.init_synaptic_mechanisms()
     for sec_type in ['apical']:
-        cell.modify_mech_param(sec_type, 'nas', 'gbar', find_param_value('dend.gbar_nas', x, param_indexes, default_params))
+        cell.modify_mech_param(sec_type, 'nas', 'gbar',
+                               find_param_value('dend.gbar_nas', x, param_indexes, default_params))
         cell.modify_mech_param(sec_type, 'nas', 'gbar', origin='parent',
                                slope=find_param_value('dend.gbar_nas slope', x, param_indexes, default_params),
                                min=find_param_value('dend.gbar_nas min', x, param_indexes, default_params),
                                custom={'method': 'custom_gradient_by_branch_ord', 'branch_order':
-                                   find_param_value('dend.gbar_nas bo', x, param_indexes, default_params)}, replace=False)
+                                   find_param_value('dend.gbar_nas bo', x, param_indexes, default_params)},
+                               replace=False)
         cell.modify_mech_param(sec_type, 'nas', 'gbar', origin='parent',
                                slope=find_param_value('dend.gbar_nas slope', x, param_indexes, default_params),
                                min=find_param_value('dend.gbar_nas min', x, param_indexes, default_params),
                                custom={'method': 'custom_gradient_by_terminal'}, replace=False)
+
 
 def export_sim_results():
     """
@@ -863,6 +887,7 @@ def export_sim_results():
     """
     with h5py.File(context.rec_file_path, 'a') as f:
         context.sim.export_to_file(f)
+
 
 def plot_exported_synaptic_features(processed_export_file_path):
     """
