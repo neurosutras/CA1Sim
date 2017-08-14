@@ -11,14 +11,14 @@ bounds:
   axon.gbar_nax: !!python/tuple
   - 0.02
   - 0.1
-  axon.gkbar: !!python/tuple
+  axon.gkabar: !!python/tuple
   - 0.01
   - 0.18
   dend.gbar_nas: !!python/tuple
   - 0.01
   - 0.05
   dend.gbar_nas slope: !!python/tuple
-  - -0.5
+  - -0.0004
   - 0.
   dend.gkabar: !!python/tuple
   - 0.001
@@ -48,7 +48,7 @@ default_params:
   dend.gbar_nas bo: 4
   dend.gbar_nas min: 0.
 feature_names:
-- na_gradient
+- relative_bounds
 - v_rest
 - v_th
 - ADP
@@ -83,7 +83,7 @@ objective_names:
 - v_th
 - ADP
 - AHP
-- na_gradient
+- relative_bounds
 - spont_firing
 - rebound_firing
 - vm_stability
@@ -107,7 +107,7 @@ param_names:
 - soma.gkabar
 - dend.gkabar
 - soma.gkdrbar
-- axon.gkbar
+- axon.gkabar
 - soma.sh_nas/x
 - ais.sha_nas
 - soma.gCa factor
@@ -120,7 +120,7 @@ target_range:
   AHP: 0.005
   ais_delay: 0.0005
   dend_amp: 0.0002
-  na_gradient: .001
+  relative_bounds: .001
   rebound_firing: .002
   slow_depo: 0.1
   soma_peak: 2.0
@@ -134,7 +134,7 @@ target_val:
   AHP: 4.0
   ais_delay: 0.0
   dend_amp: 0.3
-  na_gradient: 0.
+  relative_bounds: 0.
   rebound_firing: 0
   slow_depo: 10.0
   soma_peak: 40.0
@@ -152,7 +152,7 @@ x0:
   ais.gkmbar: 0.01286
   ais.sha_nas: -2.659
   axon.gbar_nax: 0.06
-  axon.gkbar: 0.05266
+  axon.gkabar: 0.05266
   dend.gbar_nas: 0.03
   dend.gbar_nas slope: -0.0001
   dend.gkabar: 0.002709
