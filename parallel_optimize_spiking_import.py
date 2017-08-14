@@ -293,7 +293,7 @@ def get_objectives(features, objective_names, target_val, target_range):
             objectives[objective] = 0.
         rheobase = features['rheobase']
         for target in ['v_rest', 'v_th', 'ADP', 'AHP', 'spont_firing', 'rebound_firing', 'vm_stability', 'ais_delay',
-                       'slow_depo', 'dend_amp', 'soma_peak', 'th_count', 'na_gradient']:
+                       'slow_depo', 'dend_amp', 'soma_peak', 'th_count', 'relative_bounds']:
             # don't penalize AHP or slow_depo less than target
             if not ((target == 'AHP' and features[target] < target_val[target]) or
                         (target == 'slow_depo' and features[target] < target_val[target])):
@@ -324,17 +324,29 @@ def get_objectives(features, objective_names, target_val, target_range):
 
 def compute_stability_features(x, export=False, plot=False):
     """
-    :param local_x: array [soma.gkabar, soma.gkdrbar, axon.gkabar_kap factor, axon.gbar_nax factor, soma.sh_nas/x,
-                    axon.gkbar factor, dend.gkabar factor]
+    :param local_x: array
     :param plot: bool
     :return: float
     """
     start_time = time.time()
-    na_gradient = max(0., x[context.param_indexes['dend.gbar_nas']] - x[context.param_indexes['soma.gbar_nas']]) + \
-                  max(0., x[context.param_indexes['soma.gbar_nas']] - x[context.param_indexes['ais.gbar_nax']]) + \
-                  max(0., x[context.param_indexes['soma.gbar_nas']] - x[context.param_indexes['axon.gbar_nax']]) + \
-                  max(0., x[context.param_indexes['axon.gbar_nax']] - x[context.param_indexes['ais.gbar_nax']])
-    result = {'na_gradient': na_gradient}
+    param_indexes = context.param_indexes
+    default_params = context.default_params
+
+    relative_bounds = max(0., find_param_value('dend.gbar_nas', x, param_indexes, default_params) -
+                          find_param_value('soma.gbar_nas', x, param_indexes, default_params)) + \
+                      max(0., find_param_value('soma.gbar_nas', x, param_indexes, default_params) -
+                          find_param_value('ais.gbar_nax', x, param_indexes, default_params)) + \
+                      max(0., find_param_value('soma.gbar_nas', x, param_indexes, default_params) -
+                          find_param_value('axon.gbar_nax', x, param_indexes, default_params)) + \
+                      max(0., find_param_value('axon.gbar_nax', x, param_indexes, default_params) -
+                          find_param_value('ais.gbar_nax', x, param_indexes, default_params)) + \
+                      max(0., find_param_value('dend.gbar_nas min', x, param_indexes, default_params) -
+                          find_param_value('dend.gbar_nas', x, param_indexes, default_params)) + \
+                      max(0., find_param_value('soma.gkabar', x, param_indexes, default_params) -
+                          find_param_value('dend.gkabar', x, param_indexes, default_params)) + \
+                      max(0., find_param_value('axon.gkabar', x, param_indexes, default_params) -
+                          3 * find_param_value('soma.gkabar', x, param_indexes, default_params))
+    result = {'relative_bounds': relative_bounds}
 
     context.cell.reinit_mechanisms(reset_cable=True, from_file=True)
     for update_func in context.update_params_funcs:
@@ -571,7 +583,7 @@ def get_spike_shape(vm, spike_times):
 def update_na_ka_stability(x, local_context=None):
     """
     :param x: array ['soma.gbar_nas', 'dend.gbar_nas', 'dend.gbar_nas slope', 'dend.gbar_nas min', 'dend.gbar_nas bc',
-                    'axon.gbar_nax', 'ais.gbar_nax', 'soma.gkabar', 'dend.gkabar', 'soma.gkdrbar', 'axon.gkbar',
+                    'axon.gbar_nax', 'ais.gbar_nax', 'soma.gkabar', 'dend.gkabar', 'soma.gkdrbar', 'axon.gkabar',
                     'soma.sh_nas/x', 'ais.sha_nas', 'soma.gCa factor', 'soma.gCadepK factor', 'soma.gkmbar', 'ais.gkmbar']
     """
     if local_context is None:
@@ -615,7 +627,7 @@ def update_na_ka_stability(x, local_context=None):
     cell.reinitialize_subset_mechanisms('axon_hill', 'kap')
     cell.reinitialize_subset_mechanisms('axon_hill', 'kdr')
     cell.modify_mech_param('ais', 'kdr', 'gkdrbar', origin='soma')
-    cell.modify_mech_param('ais', 'kap', 'gkabar', find_param_value('axon.gkbar', x, param_indexes, default_params))
+    cell.modify_mech_param('ais', 'kap', 'gkabar', find_param_value('axon.gkabar', x, param_indexes, default_params))
     cell.modify_mech_param('axon', 'kdr', 'gkdrbar', origin='ais')
     cell.modify_mech_param('axon', 'kap', 'gkabar', origin='ais')
     cell.modify_mech_param('axon_hill', 'nax', 'sh',
