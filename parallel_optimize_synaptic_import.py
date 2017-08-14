@@ -316,18 +316,20 @@ def filter_unitary_EPSP_features(get_result, old_features, export):
                     syn_ids = [syn_id for syn_id in clustered_results[branch][AP5_cond]]
                     syn_ids.sort()
                     for syn_id in syn_ids:
-                        for loc in clustered_results[branch][AP5_cond][syn_id]:
+                        for loc in clustered_results[branch][AP5_cond][syn_id]['rec']:
                             if loc not in all_traces:
                                 all_traces[loc] = []
                             all_traces[loc].append(clustered_results[branch][AP5_cond][syn_id]['rec'][loc])
                     rec_group = AP5_group.create_group('rec')
-                    rec_group.create_datset(loc, compression='gzip', compression_opts=9, data=all_traces[loc])
-                    AP5_group.create_datset('tvec', compression='gzip', compression_opts=9,
+                    rec_group.create_dataset(loc, compression='gzip', compression_opts=9, data=all_traces[loc])
+                    AP5_group.create_dataset('tvec', compression='gzip', compression_opts=9,
                                             data=clustered_results[branch][AP5_cond][syn_ids[0]]['tvec'])
-                EPSP_AP5_list = [random_AP5_results[syn_id] for syn_id in syn_ids]
-                EPSP_con_list = [random_con_results[syn_id] for syn_id in syn_ids]
-                branch_amp_group.create_group('AP5', compression='gzip', compression_opts=9, data=EPSP_AP5_list)
-                branch_amp_group.create_group('con', compression='gzip', compression_opts=9, data=EPSP_con_list)
+            random_syn_ids = random_AP5_results.keys()
+            random_syn_ids.sort()
+            EPSP_AP5_list = [random_AP5_results[syn_id] for syn_id in random_syn_ids]
+            EPSP_con_list = [random_con_results[syn_id] for syn_id in random_syn_ids]
+            branch_amp_group.create_group('AP5', compression='gzip', compression_opts=9, data=EPSP_AP5_list)
+            branch_amp_group.create_group('con', compression='gzip', compression_opts=9, data=EPSP_con_list)
     return new_features
 
 def get_compound_EPSP_features(indiv, c, client_range, export=False):
@@ -696,7 +698,7 @@ def get_expected_compound_features(unitary_branch_results):
     """
     expected_compound_traces = {}
     expected_compound_EPSP = {}
-    baseline_len = 0 # int(10. / context.dt)
+    baseline_len = int(10. / context.dt)
     unitary_len = int(context.unitary_isi / context.dt)
     compound_isi_len = int(context.compound_isi / context.dt)
     actual_trace_len = int((context.compound_duration - context.equilibrate) / context.dt) + baseline_len
@@ -704,7 +706,6 @@ def get_expected_compound_features(unitary_branch_results):
         expected_compound_traces[AP5_condition] = {}
         expected_compound_EPSP[AP5_condition] = []
         summed_traces = {}
-        total_syns = len(unitary_branch_results[AP5_condition])
         start_ind = baseline_len
         for num_syn, syn_id in enumerate(unitary_branch_results[AP5_condition]):
             syn_result = unitary_branch_results[AP5_condition][syn_id]
@@ -891,5 +892,6 @@ def plot_exported_synaptic_features(processed_export_file_path):
                     axes[g].legend(loc='best', frameon=False, framealpha=0.5)
                 clean_axes(axes)
                 fig.tight_layout()
+
         plt.show()
         plt.close()
