@@ -2741,18 +2741,18 @@ class DG_GC(HocCell):
         self.set_special_mech_param_linear_gradient(na_type, 'gbar', ['apical'],
                                                     self.is_terminal, gmin)
 
-    def custom_inheritance_by_nonterm_branchord(self, node, mech_name, param_name, baseline, rules, syn_type, donor=None):
+    def custom_inherit_by_branch_order(self, node, mech_name, param_name, baseline, rules, syn_type, donor=None):
         """
 
         :param node: :class:'SHocNode'
+        :param mech_name: str
         :param param_name: str
         :param baseline: float
         :param rules: dict
         :param syn_type: str
         :param donor: :class:'SHocNode' or None
-        :return:
         """
-        branch_cutoff = rules['custom']['branch_cutoff']
+        branch_order = rules['custom']['branch_order']
         syn_list = []
         syn_list.extend(node.synapses)
         for spine in node.spines:
@@ -2769,30 +2769,23 @@ class DG_GC(HocCell):
             normal = True
         else:
             normal = False
-        for syn in syn_list:
-            if syn_type in syn._syn:  # not all synapses contain every synaptic mechanism
-                target = syn.target(syn_type)
-                distance = self.get_distance_to_node(self.tree.root, node, syn.loc)
-                # note: if only some synapses in a section meet the location constraints, the synaptic parameter
-                # will maintain its default value in all other locations. values for other locations must be
-                # specified with an additional entry in the mechanism dictionary
-                if distance >= min_distance and (max_distance is None or distance <= max_distance):
-                    if self.is_terminal(node) or (branch_cutoff is not None and self.get_branch_order(node) > branch_cutoff):
-                        source = self._get_closest_synapse(node.parent, 1., syn_type=syn_type, downstream=False)
-                        if source is not None:
-                            setattr(target, param_name, getattr(source.target(syn_type), param_name))
-                        else:
-                            if 'min' in rules and value < rules['min']:
-                                value = rules['min']
-                            # elif value < 0.:
-                            #    value = 0.
-                            elif 'max' in rules and value > rules['max']:
-                                value = rules['max']
-                            else:
-                                value = baseline
-                            if normal:
-                                value = self.random.normal(value, value / 6.)
-                            setattr(target, param_name, value)
+        if self.is_terminal(node) or (branch_order is not None and self.get_branch_order(node) >= branch_order):
+            for syn in syn_list:
+                value = baseline
+                if syn_type in syn._syn:  # not all synapses contain every synaptic mechanism
+                    target = syn.target(syn_type)
+                    distance = self.get_distance_to_node(self.tree.root, node, syn.loc)
+                    # note: if only some synapses in a section meet the location constraints, the synaptic parameter
+                    # will maintain its default value in all other locations. values for other locations must be
+                    # specified with an additional entry in the mechanism dictionary
+                    if distance >= min_distance and (max_distance is None or distance <= max_distance):
+                        if 'min' in rules and value < rules['min']:
+                            value = rules['min']
+                        elif 'max' in rules and value > rules['max']:
+                            value = rules['max']
+                        if normal:
+                            value = self.random.normal(value, value / 6.)
+                    setattr(target, param_name, value)
 
     def custom_gradient_by_branch_ord(self, node, mech_name, param_name, baseline, rules, syn_type, donor=None):
         branch_order = int(rules['custom']['branch_order'])

@@ -94,9 +94,9 @@ apical:
         tau: 79.0793466
         value: 0.00171052379
       - custom:
-          branch_cutoff: 4
-          method: custom_inheritance_by_nonterm_branchord
-        value: 0.00171052379
+          branch_order: 4
+          method: custom_inherit_by_branch_order
+        origin: parent
     NMDA_KIN5:
       Kd:
         value: 7.51

@@ -150,7 +150,7 @@ target_range:
   th_count: .002
   v_rest: 0.25
   v_th: 0.01
-  vm_stability: 1.0
+  vm_stability: 0.1
 target_val:
   ADP: 0.0
   AHP: 4.0

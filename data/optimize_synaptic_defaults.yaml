@@ -8,6 +8,9 @@ bounds:
   AMPA.g0: !!python/tuple
   - 0.
   - 0.5
+  AMPA.gmax bo: !!python/tuple
+  - 4
+  - 6
   NMDA.gmax: !!python/tuple
   - 5.0e-4
   - 5.0e-3
@@ -37,14 +40,14 @@ bounds:
   - 0.25
 default_params:
 feature_names:
-- dend_amp
+- dend_AP_amp
 - soma_EPSP_AP5
 - soma_EPSP_control
 - NMDA_contribution
-- peak_supralinearity_AP5
-- peak_supralinearity_con
-- min_supralinearity_AP5
-- min_supralinearity_con
+- integration_gain_control
+- integration_gain_AP5
+- initial_gain_AP5
+- initial_gain_control
 features_modules: !!python/tuple
 - parallel_optimize_synaptic_import
 - parallel_optimize_synaptic_import
@@ -55,7 +58,7 @@ get_features: !!python/tuple
 - get_stability_features
 group_sizes: !!python/tuple
 - 28
-- 10
+- 80
 - 1
 kwargs:
   mech_file_path: data/081017 GC optimizing synaptic.yaml
@@ -63,14 +66,13 @@ kwargs:
   neurotree_index: 0
   spines: false
 objective_names:
-- dend_amp
-- soma_EPSP_AP5
+- dend_AP_amp
 - soma_EPSP_control
 - NMDA_contribution
-- peak_supralinearity_AP5
-- peak_supralinearity_con
-- min_supralinearity_AP5
-- min_supralinearity_con
+- integration_gain_control
+- integration_gain_AP5
+- initial_gain_AP5
+- initial_gain_control
 objectives_modules: !!python/tuple
 - parallel_optimize_synaptic_import
 optimization_title: synaptic
@@ -79,6 +81,7 @@ param_names:
 - AMPA.tau
 - AMPA.slope
 - AMPA.g0
+- AMPA.gmax bo
 - NMDA.gmax
 - NMDA.gamma
 - NMDA.Kd
@@ -89,22 +92,21 @@ param_names:
 - dend.gbar_nas bo
 - dend.gkabar
 target_range:
-  dend_amp: 0.0002
-  soma_EPSP_AP5: 0.6
-  soma_EPSP_control: 1.0
-  NMDA_contribution: 0.5
-  peak_supralinearity_AP5: 20.
-  peak_supralinearity_con: 44.
-  min_supralinearity_AP5: 0.8
-  min_supralinearity_con: 0.8
+  dend_AP_amp: 0.0002
+  soma_EPSP_control: 0.01
+  NMDA_contribution: 0.05
+  integration_gain_control: 0.05
+  integration_gain_AP5: 0.05
+  initial_gain_AP5: 0.1
+  initial_gain_control: 0.1
 target_val:
-  dend_amp: 0.3
+  dend_AP_amp: 0.3
   soma_EPSP_control: 0.5
   NMDA_contribution: 0.
-  peak_supralinearity_AP5: 1.
-  peak_supralinearity_con: 1.
-  min_supralinearity_AP5: 0.1
-  min_supralinearity_con: 0.1
+  integration_gain_control: 1.38
+  integration_gain_AP5: 0.8
+  initial_gain_AP5: 0.
+  initial_gain_control: 0.
 update_params: !!python/tuple
 - update_AMPA_NMDA
 update_modules: !!python/tuple
@@ -113,6 +115,7 @@ x0:
   AMPA.tau: 7.90793466e+01
   AMPA.slope: 6.65158925e-05
   AMPA.g0: 1.71052379e-03
+  AMPA.gmax bo: 5
   NMDA.gmax: 3.613E-03
   NMDA.gamma: 0.100
   NMDA.Kd: 7.51

@@ -327,7 +327,8 @@ def setup_client_interface(cluster_id, profile, group_sizes, pop_size, update_pa
     if sleep:
         time.sleep(120.)
     main_ctxt.c[:].apply_sync(init_engine, main_ctxt.module_set, main_ctxt.update_params_funcs, main_ctxt.param_names,
-                              main_ctxt.default_params, main_ctxt.export_file_path, output_dir, **main_ctxt.kwargs)
+                              main_ctxt.default_params, main_ctxt.export_file_path, main_ctxt.output_dir,
+                              **main_ctxt.kwargs)
 
 
 def init_engine_interactive(x):
