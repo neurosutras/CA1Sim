@@ -490,7 +490,7 @@ def compute_EPSP_amp_features(x, test_syns, AP5_condition, group_type, export=Fa
     soma_vm = offset_vm('soma', context.v_init)
     synapses = [context.syn_list[syn_index] for syn_index in test_syns]
     for i, syn in enumerate(synapses):
-        syn.source.play(h.Vector([context.equilibrate + i*context.unitary_isi]))
+        syn.source.play(h.Vector([context.equilibrate + i * context.unitary_isi]))
         if i == 0:
             if context.spines:
                 spine = syn.node
@@ -696,7 +696,8 @@ def get_expected_compound_features(unitary_branch_results):
     """
 
     :param unitary_branch_features: dict {'AP5': {syn_id: {'rec': {loc: trace}}
-    :return: dict {'AP5': {syn_group_id: {loc: summed_traces, ...}, syn_group_id: ...}, 'con': {syn_group_id: {loc: summed_traces, ..}}}
+    :return: dict {'AP5': {syn_group_id: {loc: summed_traces, ...}, syn_group_id: ...},
+                   'con': {syn_group_id: {loc: summed_traces, ..}}}
     """
     expected_compound_traces = {}
     expected_compound_EPSP_amp = {}
