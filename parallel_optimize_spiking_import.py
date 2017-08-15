@@ -285,19 +285,20 @@ def get_objectives(features, objective_names, target_val, target_range):
     :param features: dict
     :return: dict
     """
-    if features is None: #No rheobase value found
+    if features is None:  # No rheobase value found
         objectives = None
     else:
         objectives = {}
-        for objective in objective_names:
-            objectives[objective] = 0.
         rheobase = features['rheobase']
         for target in ['v_rest', 'v_th', 'ADP', 'AHP', 'spont_firing', 'rebound_firing', 'vm_stability', 'ais_delay',
-                       'slow_depo', 'dend_amp', 'soma_peak', 'th_count', 'relative_bounds']:
+                       'slow_depo', 'dend_amp', 'soma_peak', 'th_count']:
             # don't penalize AHP or slow_depo less than target
             if not ((target == 'AHP' and features[target] < target_val[target]) or
                         (target == 'slow_depo' and features[target] < target_val[target])):
                 objectives[target] = ((target_val[target] - features[target]) / target_range[target]) ** 2.
+            else:
+                objectives[target] = 0.
+        objectives['adi'] = 0.
         for i, this_adi in enumerate(features['adi']):
             if this_adi is not None and features['exp_adi'] is not None:
                 objectives['adi'] += ((this_adi - features['exp_adi'][i]) / (0.01 * features['exp_adi'][i])) ** 2.
@@ -346,8 +347,9 @@ def compute_stability_features(x, export=False, plot=False):
                           find_param_value('dend.gkabar', x, param_indexes, default_params)) + \
                       max(0., find_param_value('axon.gkabar', x, param_indexes, default_params) -
                           3 * find_param_value('soma.gkabar', x, param_indexes, default_params))
-    result = {'relative_bounds': relative_bounds}
-
+    if relative_bounds > 0.:
+        return None
+    result = {}
     context.cell.reinit_mechanisms(reset_cable=True, from_file=True)
     for update_func in context.update_params_funcs:
         update_func(x, context)
@@ -564,19 +566,23 @@ def get_spike_shape(vm, spike_times):
     v_peak = np.max(vm[th_x:th_x+int(5./dt)])
     x_peak = np.where(vm[th_x:th_x+int(5./dt)] == v_peak)[0][0]
     if len(spike_times) > 1:
-        end = max(th_x+x_peak, int((spike_times[1] - 5.) / dt) - start)
+        end = max(th_x + x_peak + int(10./dt), int((spike_times[1] - 1.6) / dt) - start)
     else:
         end = len(vm)
     v_AHP = np.min(vm[th_x+x_peak:end])
     x_AHP = np.where(vm[th_x+x_peak:end] == v_AHP)[0][0]
     AHP = v_before - v_AHP
     # if spike waveform includes an ADP before an AHP, return the value of the ADP in order to increase error function
+    ADP = 0.
     rising_x = np.where(dvdt[th_x+x_peak:th_x+x_peak+x_AHP] > 0.)[0]
     if rising_x.any():
         v_ADP = np.max(vm[th_x+x_peak+rising_x[0]:th_x+x_peak+x_AHP])
-        ADP = v_ADP - th_v
-    else:
-        ADP = 0.
+        pre_ADP = np.mean(vm[th_x+x_peak+rising_x[0] - int(0.1/dt):th_x+x_peak+rising_x[0]])
+        ADP += v_ADP - pre_ADP
+    falling_x = np.where(dvdt[th_x + x_peak + x_AHP:end] < 0.)[0]
+    if falling_x.any():
+        v_ADP = np.max(vm[th_x + x_peak + x_AHP: th_x + x_peak + x_AHP + falling_x[0]])
+        ADP += v_ADP - v_AHP
     return v_peak, th_v, ADP, AHP
 
 
@@ -611,7 +617,7 @@ def update_na_ka_stability(x, local_context=None):
                                value=find_param_value('soma.gkabar', x, param_indexes, default_params)+slope*300.,
                                replace=False)
         cell.modify_mech_param(sec_type, 'kdr', 'gkdrbar', origin='soma')
-        cell.modify_mech_param(sec_type, 'nas', 'sha', 5.)
+        cell.modify_mech_param(sec_type, 'nas', 'sha', 0.)  # 5.)
         cell.modify_mech_param(sec_type, 'nas', 'gbar',
                                find_param_value('dend.gbar_nas', x, param_indexes, default_params))
         cell.modify_mech_param(sec_type, 'nas', 'gbar', origin='parent',

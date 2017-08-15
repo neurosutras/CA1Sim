@@ -27,7 +27,7 @@ bounds:
   - -0.0004
   - 0.
   dend.gkabar: !!python/tuple
-  - 0.001
+  - 0.01
   - 0.25
   soma.g_pas: !!python/tuple
   - 1.0E-18
@@ -57,7 +57,6 @@ default_params:
   dend.gbar_nas bo: 4
   dend.gbar_nas min: 0.
 feature_names:
-- relative_bounds
 - dend R_inp
 - distal_dend R_inp
 - soma R_inp
@@ -94,7 +93,6 @@ kwargs:
   neurotree_index: 0
   spines: false
 objective_names:
-- relative_bounds
 - dend R_inp
 - distal_dend R_inp
 - soma R_inp
@@ -140,7 +138,6 @@ target_range:
   AHP: 0.005
   ais_delay: 0.0005
   dend_amp: 0.0002
-  relative_bounds: .001
   dend R_inp: 1.
   soma R_inp: 0.5
   rebound_firing: .002
@@ -156,7 +153,6 @@ target_val:
   AHP: 4.0
   ais_delay: 0.0
   dend_amp: 0.3
-  relative_bounds: 0.
   dend R_inp: 375.
   soma R_inp: 295.
   rebound_firing: 0
@@ -184,7 +180,7 @@ x0:
   soma.g_pas: 1.050E-10
   dend.gbar_nas: 0.03
   dend.gbar_nas slope: -0.0001
-  dend.gkabar: 0.002709
+  dend.gkabar: 0.04
   soma.gCa factor: 0.3364
   soma.gCadepK factor: 4.096
   soma.gbar_nas: 0.03
