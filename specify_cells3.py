@@ -2770,7 +2770,6 @@ class DG_GC(HocCell):
         else:
             normal = False
         if self.is_terminal(node) or (branch_order is not None and self.get_branch_order(node) >= branch_order):
-            print node.name, self.get_branch_order(node)
             for syn in syn_list:
                 value = baseline
                 if syn_type in syn._syn:  # not all synapses contain every synaptic mechanism

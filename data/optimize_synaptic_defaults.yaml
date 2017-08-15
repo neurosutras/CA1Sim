@@ -46,8 +46,8 @@ feature_names:
 - NMDA_contribution
 - integration_gain_control
 - integration_gain_AP5
-- max_integration_gain_AP5
-- min_integration_gain_control
+- initial_gain_AP5
+- initial_gain_control
 features_modules: !!python/tuple
 - parallel_optimize_synaptic_import
 - parallel_optimize_synaptic_import
@@ -71,8 +71,8 @@ objective_names:
 - NMDA_contribution
 - integration_gain_control
 - integration_gain_AP5
-- max_integration_gain_AP5
-- min_integration_gain_control
+- initial_gain_AP5
+- initial_gain_control
 objectives_modules: !!python/tuple
 - parallel_optimize_synaptic_import
 optimization_title: synaptic
@@ -97,16 +97,16 @@ target_range:
   NMDA_contribution: 0.05
   integration_gain_control: 0.05
   integration_gain_AP5: 0.05
-  max_integration_gain_AP5: 0.1
-  min_integration_gain_control: 0.1
+  initial_gain_AP5: 0.1
+  initial_gain_control: 0.1
 target_val:
-  dend_amp: 0.3
+  dend_AP_amp: 0.3
   soma_EPSP_control: 0.5
   NMDA_contribution: 0.
   integration_gain_control: 1.38
   integration_gain_AP5: 0.8
-  max_integration_gain_AP5: 0.
-  min_integration_gain_control: 0.
+  initial_gain_AP5: 0.
+  initial_gain_control: 0.
 update_params: !!python/tuple
 - update_AMPA_NMDA
 update_modules: !!python/tuple
