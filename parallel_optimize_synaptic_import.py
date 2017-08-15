@@ -293,6 +293,11 @@ def filter_unitary_EPSP_features(get_result, old_features, export):
             else:
                 group_type = syn_result['group_type']
                 clustered_results[group_type][AP5_cond][syn_id] = syn_result
+    print 'AP5 len %d' %len(random_results['AP5'])
+    pprint.pprint(random_results['AP5'])
+    print 'con len %d' %len(random_results['con'])
+    pprint.pprint(random_results['con'])
+    sys.stdout.flush()
     avg_EPSP_AP5 = np.average(random_results['AP5'].values())
     avg_EPSP_con = np.average(random_results['con'].values())
     NMDA_contributions = []
@@ -514,7 +519,8 @@ def compute_EPSP_amp_features(x, test_syns, AP5_condition, group_type, export=Fa
         vm = np.array(rec['vec'])
         interp_vm = np.interp(interp_t, t, vm)
         for i, syn in enumerate(synapses):
-            start, end = time2index(interp_t, equilibrate + i*context.unitary_isi, equilibrate + (i+1)*context.unitary_isi)
+            start = int((equilibrate + i * context.unitary_isi) / dt)
+            end = start + int(context.unitary_isi / dt)
             baseline_start, baseline_end = start - 10./context.dt, start
             baseline = np.average(interp_vm[baseline_start:baseline_end])
             corrected_vm = interp_vm - baseline
