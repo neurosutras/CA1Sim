@@ -228,6 +228,21 @@ class PopulationStorage(object):
         plt.show()
         plt.close()
 
+    def plot_best_objectives(self):
+        """
+
+        :return:
+        """
+        import matplotlib.pyplot as plt
+        from matplotlib.pyplot import cm
+        import matplotlib as mpl
+        import seaborn as sns
+        mpl.rcParams['svg.fonttype'] = 'none'
+        mpl.rcParams['text.usetex'] = False
+        fig, axes = plt.subplot(1)
+        sns.boxplot()
+
+
     def nan2None(self, attr):
         """
         Convert from numpy nan to Python None.
@@ -812,7 +827,6 @@ class BGen(object):
         self.num_survivors = max(1, int(self.pop_size * survival_rate))
         self.disp = disp
         self.evaluated = False
-        self.final_survivors = None
         self.local_time = time.time()
 
     def __call__(self):
@@ -841,15 +855,16 @@ class BGen(object):
             yield [individual.x for individual in self.population]
         # evaluate the final, potentially incomplete interval of generations
         if self.objectives_stored and not self.evaluated:
-            self.final_survivors = self.storage.get_best(n=self.num_survivors,
+            self.survivors = self.storage.get_best(n=self.num_survivors,
                                   iterations=1, evaluate=self._evaluate,
                                   modify=True)
             if self.disp:
                 print 'BGen: Gen %i, evaluating iteration took %.2f s' % (self.num_gen - 1,
                                                                           time.time() - self.local_time)
             self.local_time = time.time()
-            for individual in self.final_survivors:
+            for individual in self.survivors:
                 individual.survivor = True
+            self.storage.survivors[-1] = deepcopy(self.survivors)
             self.evaluated = True
             if self.disp:
                 print 'BGen: %i generations took %.2f s' % (self.max_gens, time.time()-self.start_time)
@@ -1021,7 +1036,6 @@ class EGen(object):
         self.num_survivors = max(1, int(self.pop_size * survival_rate))
         self.disp = disp
         self.evaluated = False
-        self.final_survivors = None
         self.local_time = time.time()
         self.m0 = m0
         self.m = self.m0
