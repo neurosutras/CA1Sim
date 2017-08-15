@@ -107,6 +107,7 @@ def main(cluster_id, profile, param_file_path, param_gen, update_params, update_
                                main_ctxt.output_dir, sleep)
     global storage
     global x
+    global best_indiv
     if not analyze:
         global this_param_gen
         if hot_start:
@@ -131,16 +132,16 @@ def main(cluster_id, profile, param_file_path, param_gen, update_params, update_
                                                       survival_rate=survival_rate, disp=disp)
         run_optimization(disp)
         storage = this_param_gen.storage
-        best_ind = storage.get_best(1, 'last')[0]
-        x = param_array_to_dict(best_ind.x, storage.param_names)
+        best_indiv = storage.get_best(1, 'last')[0]
+        x = param_array_to_dict(best_indiv.x, storage.param_names)
         if disp:
             print 'Multi-Objective Optimization: Best params:'
             print x
     elif storage_file_path is not None and os.path.isfile(storage_file_path):
         storage = PopulationStorage(file_path=storage_file_path)
         print 'Analysis mode: history loaded from path: %s' % storage_file_path
-        best_ind = storage.get_best(1, 'last')[0]
-        x = param_array_to_dict(best_ind.x, storage.param_names)
+        best_indiv = storage.get_best(1, 'last')[0]
+        x = param_array_to_dict(best_indiv.x, storage.param_names)
         if disp:
             print 'Multi-Objective Optimization: Best params:'
             print x
@@ -331,13 +332,16 @@ def setup_client_interface(cluster_id, profile, group_sizes, pop_size, update_pa
                               **main_ctxt.kwargs)
 
 
-def init_engine_interactive(x):
-    x_array = param_dict_to_array(x, main_ctxt.param_names)
-    init_engine(main_ctxt.module_set, main_ctxt.update_params_funcs, main_ctxt.param_names,
-                main_ctxt.default_params, main_ctxt.export_file_path, main_ctxt.output_dir, ** main_ctxt.kwargs)
+def init_engine_interactive(x, verbose=True):
+    x_dict = dict(x)
+    x_array = param_dict_to_array(x_dict, main_ctxt.param_names)
+    init_engine(main_ctxt.module_set, main_ctxt.update_params_funcs, main_ctxt.param_names, main_ctxt.default_params,
+                main_ctxt.export_file_path, main_ctxt.output_dir, verbose=verbose, **main_ctxt.kwargs)
     for submodule in main_ctxt.module_set:
         for update_func in main_ctxt.update_params_funcs:
             update_func(x_array, sys.modules[submodule].context)
+    main_ctxt.x_dict = x_dict
+    main_ctxt.x_array = x_array
 
 
 def init_engine(module_set, update_params_funcs, param_names, default_params, export_file_path, output_dir, **kwargs):

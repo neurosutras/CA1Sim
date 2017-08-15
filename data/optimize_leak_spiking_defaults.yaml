@@ -60,7 +60,6 @@ feature_names:
 - dend R_inp
 - distal_dend R_inp
 - soma R_inp
-- v_rest
 - v_th
 - ADP
 - AHP
@@ -96,7 +95,6 @@ objective_names:
 - dend R_inp
 - distal_dend R_inp
 - soma R_inp
-- v_rest
 - v_th
 - ADP
 - AHP
@@ -145,7 +143,6 @@ target_range:
   soma_peak: 2.0
   spont_firing: .002
   th_count: .002
-  v_rest: 0.25
   v_th: 0.01
   vm_stability: 0.1
 target_val:
@@ -160,7 +157,6 @@ target_val:
   soma_peak: 40.0
   spont_firing: 0
   th_count: 1
-  v_rest: -77.0
   v_th: -48.0
   vm_stability: 0.0
 update_params: !!python/tuple

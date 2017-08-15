@@ -101,6 +101,7 @@ def set_constants():
     compound_isi = 1.1
     trace_baseline = 10.
     stim_dur = 150.
+    duration = equilibrate + stim_dur
     th_dvdt = 10.
     dt = 0.02
     v_init = -77.
@@ -748,7 +749,7 @@ def offset_vm(description, vm_target=None):
 
     equilibrate = context.equilibrate
     dt = context.dt
-    duration = context.compound_duration
+    duration = context.duration
 
     context.sim.tstop = equilibrate
     t = np.arange(0., equilibrate, dt)
@@ -791,6 +792,7 @@ def get_spike_shape(vm, spike_times):
     """
 
     :param vm: array
+    :param spike_times: array
     :return: tuple of float: (v_peak, th_v, ADP, AHP)
     """
     equilibrate = context.equilibrate
@@ -810,19 +812,23 @@ def get_spike_shape(vm, spike_times):
     v_peak = np.max(vm[th_x:th_x+int(5./dt)])
     x_peak = np.where(vm[th_x:th_x+int(5./dt)] == v_peak)[0][0]
     if len(spike_times) > 1:
-        end = max(th_x+x_peak, int((spike_times[1] - 5.) / dt) - start)
+        end = max(th_x + x_peak + int(2./dt), int((spike_times[1] - 4.) / dt) - start)
     else:
         end = len(vm)
     v_AHP = np.min(vm[th_x+x_peak:end])
     x_AHP = np.where(vm[th_x+x_peak:end] == v_AHP)[0][0]
     AHP = v_before - v_AHP
     # if spike waveform includes an ADP before an AHP, return the value of the ADP in order to increase error function
-    rising_x = np.where(dvdt[th_x+x_peak:th_x+x_peak+x_AHP] > 0.)[0]
+    ADP = 0.
+    rising_x = np.where(dvdt[th_x+x_peak+1:th_x+x_peak+x_AHP-1] > 0.)[0]
     if rising_x.any():
-        v_ADP = np.max(vm[th_x+x_peak+rising_x[0]:th_x+x_peak+x_AHP])
-        ADP = v_ADP - th_v
-    else:
-        ADP = 0.
+        v_ADP = np.max(vm[th_x+x_peak+1+rising_x[0]:th_x+x_peak+x_AHP])
+        pre_ADP = np.mean(vm[th_x+x_peak+1+rising_x[0] - int(0.1/dt):th_x+x_peak+1+rising_x[0]])
+        ADP += v_ADP - pre_ADP
+    falling_x = np.where(dvdt[th_x + x_peak + x_AHP + 1:end] < 0.)[0]
+    if falling_x.any():
+        v_ADP = np.max(vm[th_x + x_peak + x_AHP + 1: th_x + x_peak + x_AHP + 1 + falling_x[0]])
+        ADP += v_ADP - v_AHP
     return v_peak, th_v, ADP, AHP
 
 

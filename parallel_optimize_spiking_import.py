@@ -3,14 +3,9 @@ from specify_cells3 import *
 from plot_results import *
 
 """
-Aims for spike initiation at initial segment by increasing nax density and decreasing activation V1/2 relative to soma,
-axon_hill, and axon compartments. Extend linear kap gradient into basals and obliques, aim for 60% spike attenuation
-at bifurcation of trunk and tuft.
-
-Optimizes gbar_nax/nas/sh/sha, gkabar_kap/d, gkdrbar for target na spike threshold, AHP amp, and vm stability
-
-Modify a YAML file to include parameters necessary for this script. Then, set up ipcluster and run parallel_optimize_main.py
-Current YAML filepath: data/optimize_spiking_defaults.yaml'
+Submodule used by parallel_optimize to tune spike shape, f-I curve, and spike adaptation.
+Requires a YAML file to specify required configuration parameters. 
+Requires use of an ipyparallel client.
 """
 
 context = Context()
@@ -20,8 +15,10 @@ def setup_module_from_file(param_file_path='data/optimize_spiking_defaults.yaml'
                            export_file_path=None, verbose=False):
     """
 
-    :param param_file_path: str (path to a yaml file)
-    :return:
+    :param param_file_path: str (.yaml file path)
+    :param rec_file_path: str (.hdf5 file path)
+    :param export_file_path: str (.hdf5 file path)
+    :param verbose: bool
     """
     params_dict = read_from_yaml(param_file_path)
     param_gen = params_dict['param_gen']
@@ -54,6 +51,10 @@ def setup_module_from_file(param_file_path='data/optimize_spiking_defaults.yaml'
 
 
 def config_controller(export_file_path):
+    """
+
+    :param export_file_path: str
+    """
     context.update(locals())
     set_constants()
 
@@ -71,7 +72,7 @@ def config_engine(update_params_funcs, param_names, default_params, rec_file_pat
     :param neurotree_file_path: str
     :param neurotree_index: int
     :param spines: bool
-    :return:
+    :param verbose: bool
     """
     neurotree_dict = read_from_pkl(neurotree_file_path)[neurotree_index]
     param_indexes = {param_name: i for i, param_name in enumerate(param_names)}
@@ -81,6 +82,9 @@ def config_engine(update_params_funcs, param_names, default_params, rec_file_pat
 
 
 def set_constants():
+    """
+
+    """
     equilibrate = 250.  # time to steady-state
     stim_dur = 500.
     duration = equilibrate + stim_dur
@@ -130,8 +134,10 @@ def get_adaptation_index(spike_times):
 def setup_cell(verbose=False):
     """
 
+    :param verbose: bool
     """
-    cell = DG_GC(neurotree_dict=context.neurotree_dict, mech_file_path=context.mech_file_path, full_spines=context.spines)
+    cell = DG_GC(neurotree_dict=context.neurotree_dict, mech_file_path=context.mech_file_path,
+                 full_spines=context.spines)
     context.cell = cell
 
     # get the thickest apical dendrite ~200 um from the soma
@@ -175,8 +181,14 @@ def setup_cell(verbose=False):
     cell.spike_detector.record(context.spike_output_vec)
 
 
-def update_mech_dict(x, update_function, mech_file_path):
-    update_function(x)
+def update_mech_dict(x, mech_file_path):
+    """
+
+    :param x: array
+    :param mech_file_path: str
+    """
+    for update_func in context.update_params_funcs:
+        update_func(x, context)
     context.cell.export_mech_dict(mech_file_path)
 
 
@@ -261,11 +273,7 @@ def filter_fI_features(get_result, old_features, export):
     if export:
         context.processed_export_file_path = context.export_file_path.replace('.hdf5', '_processed.hdf5')
         with h5py.File(context.processed_export_file_path, 'a') as f:
-            if not f.keys():
-                group = f.create_group(str(0))
-            else:
-                last_ind = int(f.keys()[-1])
-                group = f.create_group(str(last_ind+1))
+            group = f.create_group(str(len(f)))
             group.create_dataset('amps', compression='gzip', compression_opts=9, data=amps)
             group.create_dataset('adi', compression='gzip', compression_opts=9, data=new_features['adi'])
             group.create_dataset('exp_adi', compression='gzip', compression_opts=9, data=new_features['exp_adi'])
@@ -283,14 +291,17 @@ def get_objectives(features, objective_names, target_val, target_range):
     """
 
     :param features: dict
-    :return: dict
+    :param objective_names: list of str
+    :param target_val: dict
+    :param target_range: dict
+    :return: tuple of dict
     """
     if features is None:  # No rheobase value found
         objectives = None
     else:
         objectives = {}
         rheobase = features['rheobase']
-        for target in ['v_rest', 'v_th', 'ADP', 'AHP', 'spont_firing', 'rebound_firing', 'vm_stability', 'ais_delay',
+        for target in ['v_th', 'ADP', 'AHP', 'spont_firing', 'rebound_firing', 'vm_stability', 'ais_delay',
                        'slow_depo', 'dend_amp', 'soma_peak', 'th_count']:
             # don't penalize AHP or slow_depo less than target
             if not ((target == 'AHP' and features[target] < target_val[target]) or
@@ -314,6 +325,7 @@ def get_objectives(features, objective_names, target_val, target_range):
                       for i in range(num_increments)]
         f_I_residuals = [(features['f_I'][i] - target_f_I[i]) for i in range(num_increments)]
         features['f_I_residuals'] = np.mean(np.abs(f_I_residuals))
+        objectives['f_I_slope'] = 0.
         for i in range(num_increments):
             objectives['f_I_slope'] += (f_I_residuals[i] / (0.01 * target_f_I[i])) ** 2.
         I_inj = [np.log((rheobase + i_inj_increment * (i + 1)) / rheobase) for i in range(num_increments)]
@@ -325,7 +337,8 @@ def get_objectives(features, objective_names, target_val, target_range):
 
 def compute_stability_features(x, export=False, plot=False):
     """
-    :param local_x: array
+    :param x: array
+    :param export: bool
     :param plot: bool
     :return: float
     """
@@ -353,7 +366,6 @@ def compute_stability_features(x, export=False, plot=False):
     context.cell.reinit_mechanisms(reset_cable=True, from_file=True)
     for update_func in context.update_params_funcs:
         update_func(x, context)
-    # sim.cvode_state = True
 
     v_active = context.v_active
     equilibrate = context.equilibrate
@@ -435,7 +447,9 @@ def compute_fI_features(amp, x, extend_dur=False, export=False, plot=False):
     """
 
     :param amp: float
-    :param local_x: array
+    :param x: array
+    :param extend_dur: bool
+    :param export: bool
     :param plot: bool
     :return: dict
     """
@@ -443,7 +457,7 @@ def compute_fI_features(amp, x, extend_dur=False, export=False, plot=False):
     for update_func in context.update_params_funcs:
         update_func(x, context)
         sys.stdout.flush()
-    # sim.cvode_state = True
+
     soma_vm = offset_vm('soma', context.v_active)
     context.sim.parameters['amp'] = amp
     context.sim.parameters['description'] = 'f_I'
@@ -547,6 +561,7 @@ def get_spike_shape(vm, spike_times):
     """
 
     :param vm: array
+    :param spike_times: array
     :return: tuple of float: (v_peak, th_v, ADP, AHP)
     """
     equilibrate = context.equilibrate
@@ -566,7 +581,7 @@ def get_spike_shape(vm, spike_times):
     v_peak = np.max(vm[th_x:th_x+int(5./dt)])
     x_peak = np.where(vm[th_x:th_x+int(5./dt)] == v_peak)[0][0]
     if len(spike_times) > 1:
-        end = max(th_x + x_peak + int(10./dt), int((spike_times[1] - 1.6) / dt) - start)
+        end = max(th_x + x_peak + int(2./dt), int((spike_times[1] - 4.) / dt) - start)
     else:
         end = len(vm)
     v_AHP = np.min(vm[th_x+x_peak:end])
@@ -574,14 +589,14 @@ def get_spike_shape(vm, spike_times):
     AHP = v_before - v_AHP
     # if spike waveform includes an ADP before an AHP, return the value of the ADP in order to increase error function
     ADP = 0.
-    rising_x = np.where(dvdt[th_x+x_peak:th_x+x_peak+x_AHP] > 0.)[0]
+    rising_x = np.where(dvdt[th_x+x_peak+1:th_x+x_peak+x_AHP-1] > 0.)[0]
     if rising_x.any():
-        v_ADP = np.max(vm[th_x+x_peak+rising_x[0]:th_x+x_peak+x_AHP])
-        pre_ADP = np.mean(vm[th_x+x_peak+rising_x[0] - int(0.1/dt):th_x+x_peak+rising_x[0]])
+        v_ADP = np.max(vm[th_x+x_peak+1+rising_x[0]:th_x+x_peak+x_AHP])
+        pre_ADP = np.mean(vm[th_x+x_peak+1+rising_x[0] - int(0.1/dt):th_x+x_peak+1+rising_x[0]])
         ADP += v_ADP - pre_ADP
-    falling_x = np.where(dvdt[th_x + x_peak + x_AHP:end] < 0.)[0]
+    falling_x = np.where(dvdt[th_x + x_peak + x_AHP + 1:end] < 0.)[0]
     if falling_x.any():
-        v_ADP = np.max(vm[th_x + x_peak + x_AHP: th_x + x_peak + x_AHP + falling_x[0]])
+        v_ADP = np.max(vm[th_x + x_peak + x_AHP + 1: th_x + x_peak + x_AHP + 1 + falling_x[0]])
         ADP += v_ADP - v_AHP
     return v_peak, th_v, ADP, AHP
 
