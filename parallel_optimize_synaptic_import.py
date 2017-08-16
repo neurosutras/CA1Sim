@@ -639,7 +639,6 @@ def compute_stability_features(x, export=False, plot=False):
     context.cell.reinit_mechanisms(reset_cable=True, from_file=True)
     for update_func in context.update_params_funcs:
         update_func(x, context)
-    # sim.cvode_state = True
 
     v_active = context.v_active
     equilibrate = context.equilibrate

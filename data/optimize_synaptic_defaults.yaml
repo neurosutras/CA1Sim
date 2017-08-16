@@ -36,7 +36,7 @@ bounds:
   - 2
   - 6
   dend.gkabar: !!python/tuple
-  - 0.001
+  - 0.01
   - 0.25
 default_params:
 feature_names:
@@ -64,7 +64,7 @@ kwargs:
   mech_file_path: data/081017 GC optimizing synaptic.yaml
   neurotree_file_path: morphologies/121516_DGC_trees.pkl
   neurotree_index: 0
-  spines: false
+  spines: False
 objective_names:
 - dend_AP_amp
 - soma_EPSP_control
@@ -92,7 +92,7 @@ param_names:
 - dend.gbar_nas bo
 - dend.gkabar
 target_range:
-  dend_AP_amp: 0.0002
+  dend_AP_amp: 0.005
   soma_EPSP_control: 0.01
   NMDA_contribution: 0.05
   integration_gain_control: 0.05
@@ -124,4 +124,4 @@ x0:
   dend.gbar_nas slope: -0.0001
   dend.gbar_nas min: 0.
   dend.gbar_nas bo: 4
-  dend.gkabar: 0.002709
+  dend.gkabar: 0.04
