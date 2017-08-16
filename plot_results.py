@@ -5140,3 +5140,31 @@ def plot_place_field_i_syn_across_cells(rec_filename_array, groups=None, svg_tit
         for key in i_syn_dict:
             i_syn_dict[key][group]['modinh3_out'] = copy.deepcopy(i_syn_dict[key][group]['modinh3'])
             get_i_syn_mean_values(i_syn_dict[key][group], key, ['modinh0', 'modinh3_out', 'modinh3'])
+
+def plot_best_objectives(storage):
+    """
+
+    :return:
+    """
+    fig, axes = plt.subplot(1)
+    y_labels = storage.objective_names
+    y_values = range(len(y_labels))
+    final_survivors = storage.survivors[-1]
+    objective_vals = {}
+    colors = list(cm.rainbow(np.linspace(0, 1, len(self.history))))
+    for survivor in final_survivors:
+        for i, objective in enumerate(storage.objective_names):
+            if objective not in objective_vals:
+                objective_vals[objective] = []
+            objective_vals[objective].append(getattr(survivor, 'objectives')[i])
+    x_values_list = [objective_vals[objective] for objective in storage.objective_names]
+    for i, y_value in enumerate(y_values):
+        axes.scatter(x_values_list[i], np.ones(len(x_values_list[i])), c=colors[i])
+    axes.set_xlabel('Normalized Objectives')
+    axes.set_yticks(y_values)
+    axes.set_yticklabels(y_labels)
+    axes.set_title('Best Survivors')
+    clean_axes(axes)
+    fig.tight_layout()
+
+
