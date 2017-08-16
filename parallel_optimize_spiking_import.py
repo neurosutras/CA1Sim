@@ -361,6 +361,7 @@ def compute_stability_features(x, export=False, plot=False):
                       max(0., find_param_value('axon.gkabar', x, param_indexes, default_params) -
                           3 * find_param_value('soma.gkabar', x, param_indexes, default_params))
     if relative_bounds > 0.:
+        print 'Process %i: Aborting - relative bounds are incorrect' % (os.getpid())
         return None
     result = {}
     context.cell.reinit_mechanisms(reset_cable=True, from_file=True)
