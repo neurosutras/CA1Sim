@@ -59,7 +59,10 @@ STATE {
 }
 
 BREAKPOINT {
-	SOLVE state METHOD derivimplicit
+    if (ca_i < ca0) {
+        ca_i = ca0
+    }
+    SOLVE state METHOD derivimplicit
 	e_ca = (1000)*(celsius+273.15)*R/(2*F)*log(cao/ca_i)
 	gtca = gtcabar*gcamult*a*a*b
 	gnca = gncabar*gcamult*c*c*d

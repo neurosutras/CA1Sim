@@ -15,6 +15,7 @@ morph_filename = 'EB2-late-bifurcation.swc'
 # mech_filename = '012816 altered intrinsic properties'
 mech_filename = '020516 altered km2 rinp'
 
+
 def epsp_amp_error(x, syn):
     """
     Function called by optimize.minimize. Sets specified synaptic point_process parameters, runs a simulation

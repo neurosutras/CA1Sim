@@ -54,6 +54,9 @@ STATE {
 }
 
 BREAKPOINT {
+    if (ca_i < ca0) {
+        ca_i = ca0
+    }
 	SOLVE state METHOD derivimplicit
 	gbk = gbkbar*gcakmult*r*s*s
 	gsk = gskbar*gcakmult*q*q

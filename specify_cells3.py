@@ -2163,7 +2163,7 @@ class QuickSim(object):
             self.dt = dt
         self.verbose = verbose
         self.tvec = h.Vector()
-        self.tvec.record(h._ref_t)
+        self.tvec.record(h._ref_t, self.dt)
         self.parameters = {}
 
     def run(self, v_init=-65.):
@@ -2210,7 +2210,7 @@ class QuickSim(object):
         if object is None:
             if loc is None:
                 loc = 0.5
-            rec_dict['vec'].record(getattr(node.sec(loc), param))
+            rec_dict['vec'].record(getattr(node.sec(loc), param), self.dt)
         else:
             if loc is None:
                 try:
@@ -2218,9 +2218,9 @@ class QuickSim(object):
                 except:
                     loc = 0.5  # if the object doesn't have a .get_loc() method, default to 0.5
             if param is None:
-                rec_dict['vec'].record(object)
+                rec_dict['vec'].record(object, self.dt)
             else:
-                rec_dict['vec'].record(getattr(object, param))
+                rec_dict['vec'].record(getattr(object, param), self.dt)
         rec_dict['loc'] = loc
         self.rec_list.append(rec_dict)
 
@@ -2252,7 +2252,7 @@ class QuickSim(object):
         stim_dict['stim'].delay = delay
         stim_dict['stim'].dur = dur
         stim_dict['vec'] = h.Vector()
-        stim_dict['vec'].record(stim_dict['stim']._ref_i)
+        stim_dict['vec'].record(stim_dict['stim']._ref_i, self.dt)
         self.stim_list.append(stim_dict)
 
     def modify_stim(self, index=0, node=None, loc=None, amp=None, delay=None, dur=None, description=None):
@@ -2305,11 +2305,11 @@ class QuickSim(object):
         if not loc is None:
             rec_dict['loc'] = loc
         if object is None:
-            rec_dict['vec'].record(getattr(rec_dict['node'].sec(rec_dict['loc']), param))
+            rec_dict['vec'].record(getattr(rec_dict['node'].sec(rec_dict['loc']), param), self.dt)
         elif param is None:
-            rec_dict['vec'].record(object)
+            rec_dict['vec'].record(object, self.dt)
         else:
-            rec_dict['vec'].record(getattr(object, param))
+            rec_dict['vec'].record(getattr(object, param), self.dt)
         if not description is None:
             rec_dict['description'] = description
 

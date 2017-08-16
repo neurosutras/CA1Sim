@@ -18,9 +18,10 @@ context = Context()
 def setup_module_from_file(param_file_path='data/optimize_synaptic_defaults.yaml', rec_file_path=None,
                            export_file_path=None, verbose=False):
     """
-
-    :param param_file_path: str (path to a yaml file)
-    :return:
+    :param param_file_path: str (.yaml file path)
+    :param rec_file_path: str (.hdf5 file path)
+    :param export_file_path: str (.hdf5 file path)
+    :param verbose: bool
     """
     params_dict = read_from_yaml(param_file_path)
     param_gen = params_dict['param_gen']
@@ -101,7 +102,7 @@ def set_constants():
     compound_isi = 1.1
     trace_baseline = 10.
     stim_dur = 150.
-    duration = equilibrate + stim_dur
+    duration = max(equilibrate + stim_dur, unitary_duration, compound_duration)
     th_dvdt = 10.
     dt = 0.02
     v_init = -77.
@@ -118,10 +119,12 @@ def setup_cell(verbose=False):
     """
 
     """
-    cell = DG_GC(neurotree_dict=context.neurotree_dict, mech_file_path=context.mech_file_path, full_spines=context.spines)
+    cell = DG_GC(neurotree_dict=context.neurotree_dict, mech_file_path=context.mech_file_path,
+                 full_spines=context.spines)
+    context.cell = cell
+
     if context.spines is False:
         cell.correct_for_spines()
-    cell.zero_na()
     context.local_random.seed(int(context.neurotree_index + context.seed_offset))
 
     # these synapses will not be used, but must be inserted for inheritance of synaptic parameters from trunk
@@ -192,7 +195,6 @@ def setup_cell(verbose=False):
     if success_branches < 2:
         raise Exception('Could not find enough branches that satisfy the specified requirements.')
 
-    context.cell = cell
     syn_list = []
     for group_type in context.group_type_list:
         syn_list.extend(final_syn_dict[group_type])
@@ -214,8 +216,8 @@ def setup_cell(verbose=False):
                     break
     index = candidate_diams.index(max(candidate_diams))
     dend = candidate_branches[index]
-
-    rec_locs = {'soma': 0., 'dend': 0., 'local_branch': 0.}
+    dend_loc = candidate_locs[index]
+    rec_locs = {'soma': 0., 'dend': dend_loc, 'local_branch': 0.5}
     context.rec_locs = rec_locs
     rec_nodes = {'soma': cell.tree.root, 'dend': dend, 'local_branch': dend}
     context.rec_nodes = rec_nodes
@@ -225,12 +227,12 @@ def setup_cell(verbose=False):
     dt = context.dt
     stim_dur = context.stim_dur
 
-    sim = QuickSim(unitary_duration, cvode=False, dt=dt, verbose=verbose)
+    # sim = QuickSim(unitary_duration, cvode=False, dt=dt, verbose=verbose)
+    sim = QuickSim(unitary_duration, cvode=True, dt=dt, verbose=verbose)
     sim.parameters['equilibrate'] = equilibrate
-    sim.parameters['duration'] = unitary_duration
     sim.parameters['spines'] = context.spines
     sim.append_stim(cell, cell.tree.root, loc=0., amp=0., delay=equilibrate, dur=stim_dur)
-    sim.append_stim(cell, cell.tree.root, loc=0., amp=0., delay=0., dur=context.compound_duration)
+    sim.append_stim(cell, cell.tree.root, loc=0., amp=0., delay=0., dur=context.duration)
     for description, node in rec_nodes.iteritems():
         sim.append_rec(cell, node, loc=rec_locs[description], description=description)
     context.sim = sim
@@ -508,14 +510,14 @@ def compute_EPSP_amp_features(x, test_syns, AP5_condition, group_type, export=Fa
         context.sim.parameters[param_name] = x[context.param_indexes[param_name]]
     duration = context.unitary_duration
     context.sim.tstop = duration
-    context.sim.run()
+    context.sim.run(context.v_init)
     t = np.array(context.sim.tvec)
     dt = context.dt
     equilibrate = context.equilibrate
     interp_t = np.arange(0, duration, dt)
     trace_baseline = context.trace_baseline
     corrected_t = interp_t[int((equilibrate - trace_baseline)/dt):int((equilibrate + context.unitary_isi) / dt)] - \
-                  trace_baseline
+                  equilibrate - trace_baseline
     result = {}
     for i, syn in enumerate(synapses):
         start = int((equilibrate + i * context.unitary_isi) / dt)
@@ -630,15 +632,26 @@ def compute_branch_cooperativity_features(x, test_syns, AP5_condition, group_typ
 
 def compute_stability_features(x, export=False, plot=False):
     """
-    :param local_x: array [soma.gkabar, soma.gkdrbar, axon.gkabar_kap factor, axon.gbar_nax factor, soma.sh_nas/x,
-                    axon.gkbar factor, dend.gkabar factor]
+    :param x: array
+    :param export: bool
     :param plot: bool
-    :return: float
+    :return: dict
     """
     start_time = time.time()
     context.cell.reinit_mechanisms(reset_cable=True, from_file=True)
     for update_func in context.update_params_funcs:
         update_func(x, context)
+    param_indexes = context.param_indexes
+    default_params = context.default_params
+
+    relative_bounds = max(0., find_param_value('dend.gbar_nas', x, param_indexes, default_params) -
+                          context.cell.mech_dict['soma']['nas']['gbar']['value']) + \
+                      max(0., find_param_value('dend.gbar_nas min', x, param_indexes, default_params) -
+                          find_param_value('dend.gbar_nas', x, param_indexes, default_params)) + \
+                      max(0., context.cell.mech_dict['soma']['kap']['gkabar']['value'] -
+                          find_param_value('dend.gkabar', x, param_indexes, default_params))
+    if relative_bounds > 0.:
+        return None
 
     v_active = context.v_active
     equilibrate = context.equilibrate

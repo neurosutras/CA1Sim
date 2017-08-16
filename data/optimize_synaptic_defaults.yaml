@@ -61,7 +61,7 @@ group_sizes: !!python/tuple
 - 80
 - 1
 kwargs:
-  mech_file_path: data/081017 GC optimizing synaptic.yaml
+  mech_file_path: data/081517 GC optimizing synaptic.yaml
   neurotree_file_path: morphologies/121516_DGC_trees.pkl
   neurotree_index: 0
   spines: False
@@ -124,4 +124,4 @@ x0:
   dend.gbar_nas slope: -0.0001
   dend.gbar_nas min: 0.
   dend.gbar_nas bo: 4
-  dend.gkabar: 0.04
+  dend.gkabar: 0.05
