@@ -862,9 +862,11 @@ class BGen(object):
         :param objectives: list of dict
         """
         filtered_population = []
+        num_failed = 0
         for i, objective_dict in enumerate(objectives):
             if objective_dict is None or features[i] is None:
                 self.failed.append(deepcopy(self.population[i]))
+                num_failed += 1
             elif type(objective_dict) != dict:
                 raise TypeError('BGen.update_population: objectives must be a list of dict')
             elif type(features[i]) != dict:
@@ -876,8 +878,8 @@ class BGen(object):
                 self.population[i].features = this_features
                 filtered_population.append(deepcopy(self.population[i]))
         if self.disp:
-            print 'BGen: Gen %i, computing features for population size %i took %.2f s' % \
-                  (self.num_gen - 1, self.pop_size, time.time() - self.local_time)
+            print 'BGen: Gen %i, computing features for population size %i took %.2f s; %i individuals failed' % \
+                  (self.num_gen - 1, self.pop_size, time.time() - self.local_time, num_failed)
         self.local_time = time.time()
         self.population = filtered_population
         if (self.num_gen - 1) % self.path_length > 0:
