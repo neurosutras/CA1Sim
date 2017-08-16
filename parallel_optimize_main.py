@@ -434,12 +434,15 @@ def get_all_features(generation, group_sizes=(1, 10), disp=False, export=False):
     features = [final_features[pop_id] for pop_id in pop_ids]
     objectives = []
     for i, this_features in enumerate(features):
-        this_objectives = {}
-        for j, objective_function in enumerate(main_ctxt.get_objectives_funcs):
-            new_features, new_objectives = objective_function(this_features, main_ctxt.objective_names,
-                                                              main_ctxt.target_val, main_ctxt.target_range)
-            features[i] = new_features
-            this_objectives.update(new_objectives)
+        if this_features is None:
+            this_objectives = None
+        else:
+            this_objectives = {}
+            for j, objective_function in enumerate(main_ctxt.get_objectives_funcs):
+                new_features, new_objectives = objective_function(this_features, main_ctxt.objective_names,
+                                                                  main_ctxt.target_val, main_ctxt.target_range)
+                features[i] = new_features
+                this_objectives.update(new_objectives)
         objectives.append(this_objectives)
     return features, objectives
 
