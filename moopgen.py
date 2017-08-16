@@ -228,21 +228,6 @@ class PopulationStorage(object):
         plt.show()
         plt.close()
 
-    def plot_best_objectives(self):
-        """
-
-        :return:
-        """
-        import matplotlib.pyplot as plt
-        from matplotlib.pyplot import cm
-        import matplotlib as mpl
-        import seaborn as sns
-        mpl.rcParams['svg.fonttype'] = 'none'
-        mpl.rcParams['text.usetex'] = False
-        fig, axes = plt.subplot(1)
-        sns.boxplot()
-
-
     def nan2None(self, attr):
         """
         Convert from numpy nan to Python None.

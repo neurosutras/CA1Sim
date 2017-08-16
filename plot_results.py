@@ -5140,3 +5140,17 @@ def plot_place_field_i_syn_across_cells(rec_filename_array, groups=None, svg_tit
         for key in i_syn_dict:
             i_syn_dict[key][group]['modinh3_out'] = copy.deepcopy(i_syn_dict[key][group]['modinh3'])
             get_i_syn_mean_values(i_syn_dict[key][group], key, ['modinh0', 'modinh3_out', 'modinh3'])
+
+def plot_best_objectives(self):
+    """
+
+    :return:
+    """
+    import matplotlib.pyplot as plt
+    from matplotlib.pyplot import cm
+    import matplotlib as mpl
+    import seaborn as sns
+    mpl.rcParams['svg.fonttype'] = 'none'
+    mpl.rcParams['text.usetex'] = False
+    fig, axes = plt.subplot(1)
+    sns.boxplot()
