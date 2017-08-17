@@ -5201,6 +5201,11 @@ def plot_best_norm_features_scatter(storage, target_val, target_range):
     :return:
     """
     #Ensure that f_I_slope is in target_val with a value of 53.
+    """
+    {'ADP': 2.0, 'AHP': 0.8, 'ais_delay': 0.02, 'dend R_inp': 75.0, 'dend_amp': 0.06, 'rebound_firing': 0.2,
+     'slow_depo': 2.0, 'soma R_inp': 59.0, 'soma_peak': 8.0, 'spont_firing': 0.2, 'v_th': -9.600000000000001,
+     'vm_stability': 2.0, 'f_I_slope': 10.6}
+    """
     orig_fontsize = mpl.rcParams['font.size']
     mpl.rcParams['font.size'] = 16.
     fig, axes = plt.subplots(1)
@@ -5276,4 +5281,26 @@ def plot_traces(export_file_path):
             fig.tight_layout()
         plt.show()
         plt.close()
+
+def plot_na_gradient_params(x_dict):
+    """
+
+    :param x_dict: dict
+    :return:
+    """
+    fig, axes = plt.subplots(1)
+    x_labels = ['axon', 'AIS', 'soma', 'dend']
+    x_values = range(len(x_labels))
+    colors = ['b', 'c', 'g', 'r']
+    y_values = [x_dict['axon.gbar_nax'], x_dict['ais.gbar_nax'], x_dict['soma.gbar_nas'], x_dict['dend.gbar_nas']]
+    for i in x_values:
+        axes.scatter(x_values[i], y_values[i], c=colors[i])
+    # axes.set_ylim(-2.5, 2.5)
+    axes.set_xticks(x_values)
+    axes.set_xticklabels(x_labels)
+    axes.set_ylabel('gmax_na')
+    clean_axes(axes)
+    fig.tight_layout()
+    plt.show()
+    plt.close()
 

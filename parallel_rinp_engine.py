@@ -1,5 +1,5 @@
 __author__ = 'milsteina'
-from specify_cells2 import *
+from specify_cells3 import *
 import os
 import sys
 from ipyparallel import interactive
@@ -19,9 +19,9 @@ else:
     spines = False
 
 if len(sys.argv) > 2:
-    mech_filename = str(sys.argv[2])
+    mech_file_path = str(sys.argv[2])
 else:
-    mech_filename = None
+    mech_file_path = None
 
 
 @interactive
@@ -91,8 +91,8 @@ duration = equilibrate + delay + stim_dur + 100.
 amp = -0.15
 v_init = -67.
 
-#cell = CA1_Pyr(morph_filename, mech_filename, full_spines=True)
-cell = DG_GC(neurotree_dict=neurotree_dict[0], mech_filename=mech_filename, full_spines=spines)
+#cell = CA1_Pyr(morph_filename, mech_file_path, full_spines=True)
+cell = DG_GC(neurotree_dict=neurotree_dict[0], mech_file_path=mech_file_path, full_spines=spines)
 if not spines:
     cell.correct_for_spines()
 cell.zero_na()
