@@ -935,8 +935,14 @@ class BGen(object):
         """
 
         """
-        new_population = [Individual(self.take_step(individual.x)) for individual in self.population]
-        self.population = new_population
+        if len(self.population) == 0:
+            self.init_population()
+        else:
+            new_population = []
+            for i in xrange(self.pop_size):
+                individual = Individual(self.take_step(self.population[i % self.num_survivors].x))
+                new_population.append(individual)
+            self.population = new_population
 
 
 class EGen(object):

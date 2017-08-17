@@ -18,9 +18,9 @@ if len(sys.argv) > 1:
 else:
     spines = False
 if len(sys.argv) > 2:
-    mech_filename = str(sys.argv[2])
+    mech_file_path = str(sys.argv[2])
 else:
-    mech_filename = '121516 DG_GC pas spines'
+    mech_file_path = 'data/121516 DG_GC pas spines.pkl'
 if len(sys.argv) > 3:
     description = str(sys.argv[3])
     new_rec_filename = datetime.datetime.today().strftime('%m%d%Y%H%M') + '_Rinp_' + description
@@ -36,7 +36,7 @@ else:
 dv = c[:]
 dv.block = True
 start_time = time.time()
-dv.execute('run parallel_rinp_engine %i \"%s\"' % (int(spines), mech_filename))
+dv.execute('run parallel_rinp_engine %i \"%s\"' % (int(spines), mech_file_path))
 # time.sleep(120)
 v = c.load_balanced_view()
 

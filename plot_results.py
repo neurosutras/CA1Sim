@@ -5141,30 +5141,166 @@ def plot_place_field_i_syn_across_cells(rec_filename_array, groups=None, svg_tit
             i_syn_dict[key][group]['modinh3_out'] = copy.deepcopy(i_syn_dict[key][group]['modinh3'])
             get_i_syn_mean_values(i_syn_dict[key][group], key, ['modinh0', 'modinh3_out', 'modinh3'])
 
-def plot_best_objectives(storage):
+def plot_absolute_energy(storage):
+    fig, axes = plt.subplots(1)
+    colors = list(cm.rainbow(np.linspace(0, 1, len(storage.history))))
+    this_attr = 'objectives'
+    for j, population in enumerate(storage.history):
+        axes.scatter([indiv.rank for indiv in population],
+                    [np.sum(getattr(indiv, this_attr)) for indiv in population],
+                    c=colors[j], alpha=0.05)
+        axes.scatter([indiv.rank for indiv in storage.survivors[j]],
+                    [np.sum(getattr(indiv, this_attr)) for indiv in storage.survivors[j]], c=colors[j], alpha=0.5)
+    axes.set_xlabel('Rank')
+    axes.set_ylabel('Summed Objectives')
+
+def plot_best_norm_features_boxplot(storage, target_val, target_range):
     """
 
     :return:
     """
-    fig, axes = plt.subplot(1)
-    y_labels = storage.objective_names
-    y_values = range(len(y_labels))
+    #Ensure that f_I_slope is in target_val with a value of 53.
+    fig, axes = plt.subplots(1)
+    labels = target_val.keys()
+    # y_values = range(len(y_labels))
     final_survivors = storage.survivors[-1]
-    objective_vals = {}
-    colors = list(cm.rainbow(np.linspace(0, 1, len(self.history))))
+    norm_feature_vals = {}
+    colors = list(cm.rainbow(np.linspace(0, 1, len(labels))))
     for survivor in final_survivors:
-        for i, objective in enumerate(storage.objective_names):
-            if objective not in objective_vals:
-                objective_vals[objective] = []
-            objective_vals[objective].append(getattr(survivor, 'objectives')[i])
-    x_values_list = [objective_vals[objective] for objective in storage.objective_names]
+        for i, feature in enumerate(storage.feature_names):
+            if feature in target_val:
+                if feature not in norm_feature_vals:
+                    norm_feature_vals[feature] = []
+                if (feature == 'slow_depo' and getattr(survivor, 'features')[i] < target_val[feature]) or \
+                        (feature == 'AHP' and getattr(survivor, 'features')[i] < target_val[feature]):
+                    normalized_val = 0.
+                else:
+                    normalized_val = (getattr(survivor, 'features')[i] - target_val[feature]) / target_range[feature]
+                norm_feature_vals[feature].append(normalized_val)
+    x_values_list = [norm_feature_vals[feature] for feature in labels]
+    """
     for i, y_value in enumerate(y_values):
-        axes.scatter(x_values_list[i], np.ones(len(x_values_list[i])), c=colors[i])
-    axes.set_xlabel('Normalized Objectives')
-    axes.set_yticks(y_values)
-    axes.set_yticklabels(y_labels)
-    axes.set_title('Best Survivors')
+        axes.scatter(x_values_list[i], y_value * np.ones(len(x_values_list[i])), c=colors[i])
+    """
+    bplot = axes.boxplot(x_values_list, vert=False, labels=labels, patch_artist=True)
+    colors = list(cm.rainbow(np.linspace(0, 1, len(labels))))
+    for patch, color in zip(bplot['boxes'], colors):
+        patch.set_facecolor(color)
+    axes.set_xlabel('Normalized Features')
+    #axes.set_yticks(y_values)
+    #axes.set_yticklabels(y_labels)
+    axes.set_title('Best Parameter Sets')
     clean_axes(axes)
     fig.tight_layout()
+    plt.show()
+    plt.close()
 
+def plot_best_norm_features_scatter(storage, target_val, target_range):
+    """
+
+    :return:
+    """
+    #Ensure that f_I_slope is in target_val with a value of 53.
+    """
+    {'ADP': 2.0, 'AHP': 0.8, 'ais_delay': 0.02, 'dend R_inp': 75.0, 'dend_amp': 0.06, 'rebound_firing': 0.2,
+     'slow_depo': 2.0, 'soma R_inp': 59.0, 'soma_peak': 8.0, 'spont_firing': 0.2, 'v_th': -9.600000000000001,
+     'vm_stability': 2.0, 'f_I_slope': 10.6}
+    """
+    orig_fontsize = mpl.rcParams['font.size']
+    mpl.rcParams['font.size'] = 16.
+    fig, axes = plt.subplots(1)
+    y_labels = target_val.keys()
+    y_values = range(len(y_labels))
+    final_survivors = storage.survivors[-1]
+    norm_feature_vals = {}
+    colors = list(cm.rainbow(np.linspace(0, 1, len(y_labels))))
+    for survivor in final_survivors:
+        for i, feature in enumerate(storage.feature_names):
+            if feature in target_val:
+                if feature not in norm_feature_vals:
+                    norm_feature_vals[feature] = []
+                if (feature == 'slow_depo' and getattr(survivor, 'features')[i] < target_val[feature]) or \
+                        (feature == 'AHP' and getattr(survivor, 'features')[i] < target_val[feature]):
+                    normalized_val = 0.
+                else:
+                    normalized_val = (getattr(survivor, 'features')[i] - target_val[feature]) / target_range[feature]
+                norm_feature_vals[feature].append(normalized_val)
+    x_values_list = [norm_feature_vals[feature] for feature in y_labels]
+    for i, y_value in enumerate(y_values):
+        axes.scatter(x_values_list[i], y_value * np.ones(len(x_values_list[i])), c=colors[i], alpha=0.4)
+    axes.set_xlabel('Normalized Features')
+    axes.set_xlim(-2.5, 2.5)
+    axes.set_yticks(y_values)
+    axes.set_yticklabels(y_labels)
+    axes.set_title('Best Parameter Sets', fontsize=mpl.rcParams['font.size'] + 2)
+    clean_axes(axes)
+    fig.tight_layout()
+    plt.show()
+    plt.close()
+    mpl.rcParams['font.size'] = orig_fontsize
+
+def plot_exported_spiking_features(processed_export_file_path):
+    """
+
+    :param processed_export_file_path: str
+    :return:
+    """
+    mpl.rcParams['font.size'] = 12.
+    with h5py.File(processed_export_file_path, 'r') as f:
+        for group in f.itervalues():
+            amps = group['amps']
+            colors = ['k', 'r', 'c', 'y', 'm', 'g', 'b']
+            plt.figure(1)
+            plt.scatter(amps, group['adi'], label='Simulation', c='r', alpha = 0.8)
+            plt.scatter(amps, group['exp_adi'], label='Experiment', c='k', alpha = 0.4)
+            plt.legend(loc='best', frameon=False, framealpha=0.5)
+            plt.xlabel('Current injection amp (nA)')
+            plt.ylabel('Adaptation index')
+            plt.figure(2)
+            plt.scatter(amps, group['f_I'], label='Simulation', c='m', alpha = 0.7)
+            plt.scatter(amps, group['exp_f_I'], label='Experiment', c='g', alpha = 0.7)
+            plt.legend(loc='best', frameon=False, framealpha=0.5)
+            plt.xlabel('Current injection amp (nA)')
+            plt.ylabel('Firing Rate (Hz)')
+        plt.show()
+        plt.close()
+
+
+def plot_traces(export_file_path):
+    with h5py.File(export_file_path, 'r') as f:
+        for trial in f.itervalues():
+            amplitude = trial.attrs['amp']
+            fig, axes = plt.subplots(1)
+            for rec in trial['rec'].itervalues():
+                axes.plot(trial['time'], rec, label=rec.attrs['description'])
+            axes.legend(loc='best', frameon=False, framealpha=0.5)
+            axes.set_xlabel('Time (ms)')
+            axes.set_ylabel('Vm (mV)')
+            axes.set_title('Optimize %s: I_inj amplitude %.2f' % (trial.attrs['description'], amplitude))
+            clean_axes(axes)
+            fig.tight_layout()
+        plt.show()
+        plt.close()
+
+def plot_na_gradient_params(x_dict):
+    """
+
+    :param x_dict: dict
+    :return:
+    """
+    fig, axes = plt.subplots(1)
+    x_labels = ['axon', 'AIS', 'soma', 'dend']
+    x_values = range(len(x_labels))
+    colors = ['b', 'c', 'g', 'r']
+    y_values = [x_dict['axon.gbar_nax'], x_dict['ais.gbar_nax'], x_dict['soma.gbar_nas'], x_dict['dend.gbar_nas']]
+    for i in x_values:
+        axes.scatter(x_values[i], y_values[i], c=colors[i])
+    # axes.set_ylim(-2.5, 2.5)
+    axes.set_xticks(x_values)
+    axes.set_xticklabels(x_labels)
+    axes.set_ylabel('gmax_na')
+    clean_axes(axes)
+    fig.tight_layout()
+    plt.show()
+    plt.close()
 
