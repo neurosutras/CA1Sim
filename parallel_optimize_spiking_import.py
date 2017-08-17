@@ -352,14 +352,14 @@ def compute_stability_features(x, export=False, plot=False):
                           find_param_value('ais.gbar_nax', x, param_indexes, default_params)) + \
                       max(0., find_param_value('soma.gbar_nas', x, param_indexes, default_params) -
                           find_param_value('axon.gbar_nax', x, param_indexes, default_params)) + \
-                      max(0., find_param_value('axon.gbar_nax', x, param_indexes, default_params) -
+                      max(0., 2. * find_param_value('axon.gbar_nax', x, param_indexes, default_params) -
                           find_param_value('ais.gbar_nax', x, param_indexes, default_params)) + \
                       max(0., find_param_value('dend.gbar_nas min', x, param_indexes, default_params) -
                           find_param_value('dend.gbar_nas', x, param_indexes, default_params)) + \
                       max(0., find_param_value('soma.gkabar', x, param_indexes, default_params) -
                           find_param_value('dend.gkabar', x, param_indexes, default_params)) + \
                       max(0., find_param_value('axon.gkabar', x, param_indexes, default_params) -
-                          3 * find_param_value('soma.gkabar', x, param_indexes, default_params))
+                          3. * find_param_value('soma.gkabar', x, param_indexes, default_params))
     if relative_bounds > 0.:
         print 'Process %i: Aborting - relative bounds are incorrect' % (os.getpid())
         return None
@@ -676,28 +676,3 @@ def export_sim_results():
     """
     with h5py.File(context.rec_file_path, 'a') as f:
         context.sim.export_to_file(f)
-
-
-def plot_exported_spiking_features(processed_export_file_path):
-    """
-
-    :param processed_export_file_path: str
-    :return:
-    """
-    with h5py.File(processed_export_file_path, 'r') as f:
-        for group in f.itervalues():
-            amps = group['amps']
-            plt.figure(1)
-            plt.scatter(amps, group['adi'], label='Simulation')
-            plt.scatter(amps, group['exp_adi'], label='Experiment')
-            plt.legend(loc='best', frameon=False, framealpha=0.5)
-            plt.xlabel('Current injection amp (nA)')
-            plt.ylabel('Adaptation index')
-            plt.figure(2)
-            plt.scatter(amps, group['f_I'], label='Simulation')
-            plt.scatter(amps, group['exp_f_I'], label='Experiment')
-            plt.legend(loc='best', frameon=False, framealpha=0.5)
-            plt.xlabel('Current injection amp (nA)')
-            plt.ylabel('Firing rate')
-        plt.show()
-        plt.close()

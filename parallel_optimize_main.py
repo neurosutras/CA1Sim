@@ -471,22 +471,6 @@ def export_traces(x, group_sizes, export_file_path=None, discard=True, disp=Fals
     return exported_features, exported_objectives
 
 
-def plot_traces(export_file_path):
-    with h5py.File(export_file_path, 'r') as f:
-        for trial in f.itervalues():
-            amplitude = trial.attrs['amp']
-            fig, axes = plt.subplots(1)
-            for rec in trial['rec'].itervalues():
-                axes.plot(trial['time'], rec, label=rec.attrs['description'])
-            axes.legend(loc='best', frameon=False, framealpha=0.5)
-            axes.set_xlabel('Time (ms)')
-            axes.set_ylabel('Vm (mV)')
-            axes.set_title('Optimize %s: I_inj amplitude %.2f' % (trial.attrs['description'], amplitude))
-            clean_axes(axes)
-            fig.tight_layout()
-        plt.show()
-        plt.close()
-
 
 if __name__ == '__main__':
     main(args=sys.argv[(list_find(lambda s: s.find(script_filename) != -1,sys.argv)+1):])
