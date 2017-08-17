@@ -3,10 +3,10 @@
 
 NEURON {
 	SUFFIX Ca
-	USEION ca WRITE ica
+	USEION ca READ cai, cao WRITE cai, cao
 	RANGE gtcabar, gncabar, glcabar, gtca, gnca, glca
-	RANGE ainf, taua, binf, taub, e_ca, gbar, gcamult, i, ca_i
-	GLOBAL ca0, cao, taucadiv, B, tauctdiv, Vshift
+	RANGE ainf, taua, binf, taub, gbar, gcamult, i, e_ca
+	GLOBAL taucadiv, B, tauctdiv, Vshift
 }
 
 UNITS {
@@ -20,8 +20,8 @@ UNITS {
 }
 
 PARAMETER {
-	ca0 = .00007	(mM)		: initial calcium concentration inside
-	cao = 1.3		  (mM)	  : calcium concentration outside
+	cai0 = .00007	(mM)		: initial calcium concentration inside
+	cao0 = 1.3  (mM)    : calcium concentration outside
 	tau = 9		    (ms)
 	taucadiv = 1
 	tauctdiv = 1
@@ -36,7 +36,9 @@ PARAMETER {
 ASSIGNED {
 	v		(mV)
 	e_ca		(mV)
-	ica			(mA/cm2)
+	:ica			(mA/cm2)
+    :cai     (mM)
+    cao     (mM)
 	i 			(mA/cm2)
 	gtca		(S/cm2)
 	gnca		(S/cm2)
@@ -50,7 +52,7 @@ ASSIGNED {
 }
 
 STATE { 
-	ca_i (mM)  <1e-5>
+	cai (mM)  <1e-5>
 	a 
 	b 
 	c 
@@ -59,20 +61,20 @@ STATE {
 }
 
 BREAKPOINT {
-    if (ca_i < ca0) {
-        ca_i = ca0
-    }
     SOLVE state METHOD derivimplicit
-	e_ca = (1000)*(celsius+273.15)*R/(2*F)*log(cao/ca_i)
+    if (cai < cai0) {
+        cai = cai0
+    }
+    e_ca = (1000)*(celsius+273.15)*R/(2*F)*log(cao/cai)
 	gtca = gtcabar*gcamult*a*a*b
 	gnca = gncabar*gcamult*c*c*d
 	glca = glcabar*gcamult*e*e
-	ica = (gtca+gnca+glca)*(v - e_ca)
-	i = ica
+	i = (gtca+gnca+glca)*(v - e_ca)
 }
 
 DERIVATIVE state {	: exact when v held constant; integrates over dt step
-	ca_i' = -B*ica - taucadiv*(ca_i-ca0)/tau
+	cai' = -B*i - taucadiv*(cai-cai0)/tau
+    cao = cao0
 	ainf = alphaa(v)/(alphaa(v) + betaa(v))
 	taua = 1/(alphaa(v) + betaa(v))
 	a' = (ainf - a)/taua
@@ -85,7 +87,9 @@ DERIVATIVE state {	: exact when v held constant; integrates over dt step
 }
 
 INITIAL {
-	ca_i = ca0
+	cai = cai0
+    cao = cao0
+    e_ca = (1000)*(celsius+273.15)*R/(2*F)*log(cao/cai)
 	a = alphaa(v)/(alphaa(v)+betaa(v))
 	b = alphab(v)/(alphab(v)+betab(v))
 	c = alphac(v)/(alphac(v)+betac(v))
@@ -165,6 +169,3 @@ FUNCTION exptrap(x) {
     exptrap = exp(x)
   }
 }
-
-
-

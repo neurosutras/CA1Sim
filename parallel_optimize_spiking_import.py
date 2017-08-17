@@ -170,7 +170,7 @@ def setup_cell(verbose=False):
     dt = context.dt
 
     # sim = QuickSim(duration, cvode=False, dt=dt, verbose=verbose)
-    sim = QuickSim(duration, cvode=True, verbose=verbose)
+    sim = QuickSim(duration, cvode=True, dt=dt, verbose=verbose)
     sim.append_stim(cell, cell.tree.root, loc=0., amp=0., delay=equilibrate, dur=stim_dur)
     sim.append_stim(cell, cell.tree.root, loc=0., amp=0., delay=0., dur=duration)
     for description, node in rec_nodes.iteritems():
