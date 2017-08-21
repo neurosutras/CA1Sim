@@ -834,7 +834,7 @@ class BGen(object):
                     self.step_population()
             self.objectives_stored = False
             if self.disp:
-                print 'BGen: Gen %i, yielding parameters for population size %i' % (self.num_gen, self.pop_size)
+                print 'BGen: Gen %i, yielding parameters for population size %i' % (self.num_gen, len(self.population))
             self.local_time = time.time()
             self.num_gen += 1
             yield [individual.x for individual in self.population]
@@ -879,7 +879,7 @@ class BGen(object):
                 filtered_population.append(deepcopy(self.population[i]))
         if self.disp:
             print 'BGen: Gen %i, computing features for population size %i took %.2f s; %i individuals failed' % \
-                  (self.num_gen - 1, self.pop_size, time.time() - self.local_time, num_failed)
+                  (self.num_gen - 1, len(self.population), time.time() - self.local_time, num_failed)
         self.local_time = time.time()
         self.population = filtered_population
         if (self.num_gen - 1) % self.path_length > 0:

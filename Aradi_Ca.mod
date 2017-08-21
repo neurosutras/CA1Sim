@@ -5,7 +5,7 @@ NEURON {
 	SUFFIX Ca
 	USEION ca READ cai, cao WRITE cai, cao
 	RANGE gtcabar, gncabar, glcabar, gtca, gnca, glca
-	RANGE ainf, taua, binf, taub, gbar, gcamult, i, e_ca
+	RANGE ainf, taua, binf, taub, gbar, gcamult, i, e_ca, F, R
 	GLOBAL taucadiv, B, tauctdiv, Vshift
 }
 

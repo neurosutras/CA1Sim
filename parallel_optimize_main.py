@@ -389,12 +389,12 @@ def get_all_features(generation, group_sizes=(1, 10), disp=False, export=False):
     final_features = {pop_id: {} for pop_id in pop_ids}
     for ind in range(len(main_ctxt.get_features_funcs)):
         next_generation = {}
-        this_group_size = min(len(main_ctxt.c), group_sizes[ind])
+        this_group_size = min(main_ctxt.num_procs, group_sizes[ind])
         usable_procs = main_ctxt.num_procs - (main_ctxt.num_procs % this_group_size)
         client_ranges = [range(start, start + this_group_size) for start in range(0, usable_procs, this_group_size)]
         feature_function = main_ctxt.get_features_funcs[ind]
         indivs = [{'pop_id': pop_id, 'x': curr_generation[pop_id],
-                   'features': final_features[pop_id]} for pop_id in curr_generation.keys()]
+                   'features': final_features[pop_id]} for pop_id in curr_generation]
         while len(indivs) > 0 or len(results) > 0:
             num_groups = min(len(client_ranges), len(indivs))
             if num_groups > 0:
