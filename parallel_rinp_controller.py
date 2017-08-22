@@ -60,6 +60,7 @@ print 'Parallel execution took: ', time.time()-start_time, ' s'
 rec_file_list = [filename for filename in dv['rec_filename'] if os.path.isfile(data_dir+filename+'.hdf5')]
 
 with h5py.File(data_dir+new_rec_filename+'.hdf5', 'w') as f:
+    f.create_group('stim_data')
     f.create_group('Rinp_data')
     f.create_group('avg_waves')
     rec_dict = {sec_type: [] for sec_type in ['axon', 'soma']}
