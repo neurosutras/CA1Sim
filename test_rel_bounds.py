@@ -1,7 +1,7 @@
 from moopgen import *
 
 param_names = {0: 'dend.gbar_nas min', 1: 'dend.gbar_nas', 2: 'soma.gbar_nas', 3: 'axon.gbar_nax', 4: 'ais.gbar_nax',
-               5: 'axon.gkabar', 6: 'soma.gkabar', 7: 'dend.gkabar', 8: 'soma.gkdrbar'}
+               5: 'axon.gkabar', 6: 'soma.gkabar', 7: 'dend.gkabar', 8: 'logrange8', 9: 'logrange9'}
 """
 Rules:
 DEP                 IND
@@ -12,18 +12,25 @@ ais.gbar_nax      > 2. * axon.gbar_nax
 dend.gkabar       > soma.gkabar
 axon.gkabar       < 3. * soma.gkabar
 """
-rel_bounds = [[1, "<", 1., 2], [0, "<", 1., 1], [3, ">", 1., 2], [4, ">", 2., 3], [7, ">", 1., 6], [5, "<", 3., 6]]
+rel_bounds = [[1, "<", 1., 2], [0, "<", 1., 1], [3, ">", 1., 2], [4, ">", 2., 3], [7, ">", 1., 6], [5, "<", 3., 6],
+              [8, "<=", 1., 9]]
 bounds = [(0., 0.015), (0.01, 0.05), (0.01, 0.05), (0.02, 0.1), (0.02, 0.5), (0.01, 0.18), (0.01, 0.05), (0.01, 0.25),
-          (0.01, 0.06)]
-x0 = np.array([0., 0.03, 0.03, 0.06, 0.1681, 0.05266, 0.02108, 0.04, 0.04299])
+          (0.01, 100.), (0.01, 100.)]
+x0 = np.array([0., 0.03, 0.03, 0.06, 0.1681, 0.05266, 0.02108, 0.04, 0.05, 0.05])
 
 
-def check_bounds(x, bounds, rel_bonds):
+def check_abs_bounds(x, bounds):
     for i, xi in enumerate(x):
         if (xi < bounds[i][0]):
             print 'Paramater %d: value %.3f is less than minimum bound' % (i, xi)
+            return False
         if (xi >= bounds[i][1]):
             print 'Paramater %d: value %.3f is greater than maximum bound' % (i, xi)
+            return False
+    return True
+
+
+def check_rel_bounds(x, rel_bounds):
     for r, rule in enumerate(rel_bounds):
         dep_param_ind = rule[0]  # Dependent param. index: index of the parameter that may be modified
         if dep_param_ind >= len(x):
@@ -42,25 +49,46 @@ def check_bounds(x, bounds, rel_bonds):
             operator = lambda x, y: x >= y
         elif rule[1] == ">":
             operator = lambda x, y: x > y
-        if operator(x[dep_param_ind], factor * x[ind_param_ind]) is False:
-            print 'Parameter %d: value %.3f did not meet relative bound in rule %d.' %(dep_param_ind, x[dep_param_ind], r)
+        if not operator(x[dep_param_ind], factor * x[ind_param_ind]):
+            print 'Parameter %d: value %.3f did not meet relative bound in rule %d.' % \
+                  (dep_param_ind, x[dep_param_ind], r)
+            return False
+    return True
+
 
 
 step = RelativeBoundedStep(x0, bounds, rel_bounds, wrap=False)
 prev_x = x0
-for i in range(50):
+x_history = []
+abs_bounds_failed = 0
+rel_bounds_failed = 0
+for i in range(200):
     new_x = step(prev_x)
-    if check_bounds(new_x, bounds, rel_bounds) is False:
-        break
+    if not check_abs_bounds(new_x, bounds):
+        print 'Absolute bounds failed for x: %s' % str(new_x)
+        abs_bounds_failed += 1
+    if not check_rel_bounds(new_x, rel_bounds):
+        print 'Relative bounds failed for x: %s' % str(new_x)
+        rel_bounds_failed += 1
     prev_x = new_x
-print 'Completed no wrap test.'
+    x_history.append(prev_x)
+print 'Relative bound test (no wrap) ended after %i iterations with %i abs failures and %i rel failures.' % \
+      ((i + 1), abs_bounds_failed, rel_bounds_failed)
+
 
 step2 = RelativeBoundedStep(x0, bounds, rel_bounds, wrap=True)
 prev_x = x0
-for i in range(50):
+x_history_wrap = []
+failed = 0
+for i in range(200):
     new_x = step2(prev_x)
-    if check_bounds(new_x, bounds, rel_bounds) is False:
-        break
+    if not check_abs_bounds(new_x, bounds):
+        print 'Absolute bounds failed for x: %s' % str(new_x)
+        abs_bounds_failed += 1
+    if not check_rel_bounds(new_x, rel_bounds):
+        print 'Relative bounds failed for x: %s' % str(new_x)
+        rel_bounds_failed += 1
     prev_x = new_x
-print 'Completed wrap test.'
-
+    x_history_wrap.append(prev_x)
+print 'Relative bound test (wrap) ended after %i iterations with %i abs failures and %i rel failures.' % \
+      ((i + 1), abs_bounds_failed, rel_bounds_failed)

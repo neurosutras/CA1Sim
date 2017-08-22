@@ -519,90 +519,88 @@ class RelativeBoundedStep(object):
         new_xi = self.logmod_inv(new_logmod_xi)
         return new_xi
 
-    def apply_rel_bounds(self, x, rel_bounds, stepsize=None, wrap=None):
+    def apply_rel_bounds(self, x, rel_bounds=None, stepsize=None, wrap=None):
         """
 
         :param x: array
         :param rel_bounds: list of lists
         :return:
         """
-        for i, rel_bound_rule in enumerate(rel_bounds):
-            dep_param_ind = rel_bound_rule[0]  #Dependent param. index: index of the parameter that may be modified
-            if dep_param_ind >= len(x):
-                raise Exception('Dependent parameter index is out of bounds for rule %d.' %i)
-            factor = rel_bound_rule[2]
-            ind_param_ind = rel_bound_rule[3]  #Independent param. index: index of the parameter that sets the bounds
-            if ind_param_ind >= len(x):
-                raise Exception('Independent parameter index is out of bounds for rule %d.' %i)
-            if rel_bound_rule[1] == "=":
-                new_xi = factor * x[ind_param_ind]
-                if (new_xi >= self.xmin[dep_param_ind]) and (new_xi < self.xmax[dep_param_ind]):
-                    x[dep_param_ind] = new_xi
+        if rel_bounds is not None:
+            rel_bounds = self.rel_bounds
+        if rel_bounds:
+            for i, rel_bound_rule in enumerate(rel_bounds):
+                dep_param_ind = rel_bound_rule[0]  #Dependent param. index: index of the parameter that may be modified
+                if dep_param_ind >= len(x):
+                    raise Exception('Dependent parameter index is out of bounds for rule %d.' %i)
+                factor = rel_bound_rule[2]
+                ind_param_ind = rel_bound_rule[3]  #Independent param. index: index of the parameter that sets the bounds
+                if ind_param_ind >= len(x):
+                    raise Exception('Independent parameter index is out of bounds for rule %d.' %i)
+                if rel_bound_rule[1] == "=":
+                    new_xi = factor * x[ind_param_ind]
+                    if (new_xi >= self.xmin[dep_param_ind]) and (new_xi < self.xmax[dep_param_ind]):
+                        x[dep_param_ind] = new_xi
+                    else:
+                        raise Exception('Relative bounds rule %d contradicts fixed parameter bounds.' %i)
+                    continue
+                elif rel_bound_rule[1] == "<":
+                    operator = lambda x, y: x < y
+                elif rel_bound_rule[1] == "<=":
+                    operator = lambda x, y: x <= y
+                elif rel_bound_rule[1] == ">=":
+                    operator = lambda x, y: x >= y
+                elif rel_bound_rule[1] == ">":
+                    operator = lambda x, y: x > y
                 else:
-                    raise Exception('Relative bounds rule %d contradicts fixed parameter bounds.' %i)
-                continue
-            elif rel_bound_rule[1] == "<":
-                operator = lambda x, y: x < y
-            elif rel_bound_rule[1] == "<=":
-                operator = lambda x, y: x <= y
-            elif rel_bound_rule[1] == ">=":
-                operator = lambda x, y: x >= y
-            elif rel_bound_rule[1] == ">":
-                operator = lambda x, y: x > y
-            else:
-                raise Exception('Operator invalid: must be <, <=, =, >=, or >.')
-            if not operator(x[dep_param_ind], factor * x[ind_param_ind]):
-                if self.order_mag[dep_param_ind] >= 2.:
-                    if rel_bound_rule[1] == "<":
-                        rel_logmax = self.logmod(factor * x[ind_param_ind])
-                        new_xi_logmax = max(min(self.logmod_xmax[dep_param_ind], rel_logmax),
-                                            self.logmod_xmin[dep_param_ind])
-                        new_xi_logmin = self.logmod_xmin[dep_param_ind]
-                    elif rel_bound_rule[1] == "<=":
-                        rel_logmax = self.logmod(factor * x[ind_param_ind])
-                        new_xi_logmax = max(min(self.logmod_xmax[dep_param_ind],
-                                                np.nextafter(rel_logmax, rel_logmax + 1)),
-                                            self.logmod_xmin[dep_param_ind])
-                        new_xi_logmin = self.logmod_xmin[dep_param_ind]
-                    elif rel_bound_rule[1] == ">=":
-                        rel_logmin = self.logmod(factor * x[ind_param_ind])
-                        new_xi_logmin = min(max(self.logmod_xmin[dep_param_ind], rel_logmin),
-                                            self.logmod_xmax[dep_param_ind])
-                        new_xi_logmax = self.logmod_xmax[dep_param_ind]
-                    elif rel_bound_rule[1] == ">":
-                        rel_logmin = self.logmod(factor * x[ind_param_ind])
-                        new_xi_logmin = min(max(self.logmod_xmin[dep_param_ind],
-                                                np.nextafter(rel_logmin, rel_logmin + 1)),
-                                            self.logmod_xmax[dep_param_ind])
-                        new_xi_logmax = self.logmod_xmax[dep_param_ind]
-                    x[dep_param_ind] = self.log10_step(x[dep_param_ind], dep_param_ind, new_xi_logmin, new_xi_logmax,
-                                                       stepsize, wrap)
-                else:
-                    if rel_bound_rule[1] == "<":
-                        rel_max = factor * x[ind_param_ind]
-                        new_xi_max = max(min(self.xmax[dep_param_ind], rel_max), self.xmin[dep_param_ind])
-                        new_xi_min = self.xmin[dep_param_ind]
-                    elif rel_bound_rule[1] == "<=":
-                        rel_max = factor * x[ind_param_ind]
-                        new_xi_max = max(min(self.xmax[dep_param_ind], np.nextafter(rel_max, rel_max + 1)),
-                                         self.xmin[dep_param_ind])
-                        new_xi_min = self.xmin[dep_param_ind]
-                    elif rel_bound_rule[1] == ">=":
-                        rel_min = factor * x[ind_param_ind]
-                        new_xi_min = min(max(self.xmin[dep_param_ind], rel_min), self.xmax[dep_param_ind])
-                        new_xi_max = self.xmax[dep_param_ind]
-                    elif rel_bound_rule[1] == ">":
-                        rel_min = factor * x[ind_param_ind]
-                        new_xi_min = min(max(self.xmin[dep_param_ind], np.nextafter(rel_min, rel_min + 1)),
-                                         self.xmax[dep_param_ind])
-                        new_xi_max = self.xmax[dep_param_ind]
-
-                    if x[dep_param_ind] < new_xi_min:
-                        x[dep_param_ind] = new_xi_min
-                    elif x[dep_param_ind] > new_xi_max:
-                        x[dep_param_ind] = new_xi_max
-                    x[dep_param_ind] = self.linear_step(x[dep_param_ind], dep_param_ind, new_xi_min, new_xi_max,
-                                                        stepsize, wrap)
+                    raise Exception('Operator invalid: must be <, <=, =, >=, or >.')
+                if not operator(x[dep_param_ind], factor * x[ind_param_ind]):
+                    if self.order_mag[dep_param_ind] >= 2.:
+                        if rel_bound_rule[1] == "<":
+                            rel_logmax = self.logmod(factor * x[ind_param_ind])
+                            new_xi_logmax = max(min(self.logmod_xmax[dep_param_ind], rel_logmax),
+                                                self.logmod_xmin[dep_param_ind])
+                            new_xi_logmin = self.logmod_xmin[dep_param_ind]
+                        elif rel_bound_rule[1] == "<=":
+                            rel_logmax = self.logmod(factor * x[ind_param_ind])
+                            new_xi_logmax = max(min(self.logmod_xmax[dep_param_ind],
+                                                    np.nextafter(rel_logmax, rel_logmax + 1)),
+                                                self.logmod_xmin[dep_param_ind])
+                            new_xi_logmin = self.logmod_xmin[dep_param_ind]
+                        elif rel_bound_rule[1] == ">=":
+                            rel_logmin = self.logmod(factor * x[ind_param_ind])
+                            new_xi_logmin = min(max(self.logmod_xmin[dep_param_ind], rel_logmin),
+                                                self.logmod_xmax[dep_param_ind])
+                            new_xi_logmax = self.logmod_xmax[dep_param_ind]
+                        elif rel_bound_rule[1] == ">":
+                            rel_logmin = self.logmod(factor * x[ind_param_ind])
+                            new_xi_logmin = min(max(self.logmod_xmin[dep_param_ind],
+                                                    np.nextafter(rel_logmin, rel_logmin + 1)),
+                                                self.logmod_xmax[dep_param_ind])
+                            new_xi_logmax = self.logmod_xmax[dep_param_ind]
+                        x[dep_param_ind] = self.log10_step(x[dep_param_ind], dep_param_ind, new_xi_logmin, new_xi_logmax,
+                                                           stepsize, wrap)
+                    else:
+                        if rel_bound_rule[1] == "<":
+                            rel_max = factor * x[ind_param_ind]
+                            new_xi_max = max(min(self.xmax[dep_param_ind], rel_max), self.xmin[dep_param_ind])
+                            new_xi_min = self.xmin[dep_param_ind]
+                        elif rel_bound_rule[1] == "<=":
+                            rel_max = factor * x[ind_param_ind]
+                            new_xi_max = max(min(self.xmax[dep_param_ind], np.nextafter(rel_max, rel_max + 1)),
+                                             self.xmin[dep_param_ind])
+                            new_xi_min = self.xmin[dep_param_ind]
+                        elif rel_bound_rule[1] == ">=":
+                            rel_min = factor * x[ind_param_ind]
+                            new_xi_min = min(max(self.xmin[dep_param_ind], rel_min), self.xmax[dep_param_ind])
+                            new_xi_max = self.xmax[dep_param_ind]
+                        elif rel_bound_rule[1] == ">":
+                            rel_min = factor * x[ind_param_ind]
+                            new_xi_min = min(max(self.xmin[dep_param_ind], np.nextafter(rel_min, rel_min + 1)),
+                                             self.xmax[dep_param_ind])
+                            new_xi_max = self.xmax[dep_param_ind]
+                        x[dep_param_ind] = self.linear_step(x[dep_param_ind], dep_param_ind, new_xi_min, new_xi_max,
+                                                            stepsize, wrap)
         return x
 
 
