@@ -43,6 +43,7 @@ def setup_module_from_file(param_file_path='data/optimize_synaptic_defaults.yaml
         if not callable (func):
             raise Exception('Multi-Objective Optimization: update_params: %s is not a callable function.'
                             % (update_params_func_name))
+        update_params_funcs.append(func)
     if rec_file_path is None:
         rec_file_path = 'data/sim_output' + datetime.datetime.today().strftime('%m%d%Y%H%M') + \
                    '_pid' + str(os.getpid()) + '.hdf5'
