@@ -333,6 +333,8 @@ def plot_Rinp(rec_file_list, sec_types_list=None, features_list=None, features_l
     membrane time constant.
     :return:
     """
+    orig_fontsize = mpl.rcParams['font.size']
+    mpl.rcParams['font.size'] = 18.
     if isinstance(rec_file_list, str):
         rec_file_list = [rec_file_list]
     if isinstance(sec_types_list, str):
@@ -408,6 +410,26 @@ def plot_Rinp(rec_file_list, sec_types_list=None, features_list=None, features_l
             clean_axes(ax_list[index])
     plt.show()
     plt.close()
+    mpl.rcParams['font.size'] = orig_fontsize
+
+def plot_Rinp_curr_inj(rec_file, rec_num):
+    """
+
+    :param rec_file: str
+    :return:
+    """
+    with h5py.File(data_dir + rec_file + '.hdf5', 'r') as f:
+        y_vals = f[str(rec_num)]['stim']['0'][:]
+        x_vals = f[str(rec_num)]['time']
+        fig, axes = plt.subplots(1)
+        #axes.scatter(x_vals, y_vals)
+        axes.plot(x_vals, y_vals)
+        axes.set_xlabel('Time (ms')
+        axes.set_ylabel('Injected current (nA)')
+        clean_axes(axes)
+        fig.tight_layout()
+    plt.show()
+    plt.close()
 
 
 def plot_Rinp_avg_waves(rec_file_list, sec_types_list=None, file_labels=None):
@@ -419,6 +441,8 @@ def plot_Rinp_avg_waves(rec_file_list, sec_types_list=None, file_labels=None):
     :param sec_types_list:  str or list of str
     :param file_labels:  str or list of str
     """
+    orig_fontsize = mpl.rcParams['font.size']
+    mpl.rcParams['font.size'] = 18.
     if isinstance(rec_file_list, str):
         rec_file_list = [rec_file_list]
     if isinstance(sec_types_list, str):
@@ -452,6 +476,7 @@ def plot_Rinp_avg_waves(rec_file_list, sec_types_list=None, file_labels=None):
                 clean_axes(ax_list[i])
     plt.show()
     plt.close()
+    mpl.rcParams['font.size'] = orig_fontsize
 
 
 def plot_superimpose_conditions(rec_filename, legend=False):
@@ -5245,28 +5270,32 @@ def plot_exported_spiking_features(processed_export_file_path):
     :param processed_export_file_path: str
     :return:
     """
-    mpl.rcParams['font.size'] = 12.
+    orig_fontsize = mpl.rcParams['font.size']
+    mpl.rcParams['font.size'] = 20.
     with h5py.File(processed_export_file_path, 'r') as f:
         for group in f.itervalues():
             amps = group['amps']
             colors = ['k', 'r', 'c', 'y', 'm', 'g', 'b']
             plt.figure(1)
-            plt.scatter(amps, group['adi'], label='Simulation', c='r', alpha = 0.8)
-            plt.scatter(amps, group['exp_adi'], label='Experiment', c='k', alpha = 0.4)
+            plt.scatter(amps, group['adi'], label='Simulation', c='m', alpha = 0.6)
+            plt.scatter(amps, group['exp_adi'], label='Experiment', c='g', alpha = 0.6)
             plt.legend(loc='best', frameon=False, framealpha=0.5)
             plt.xlabel('Current injection amp (nA)')
             plt.ylabel('Adaptation index')
             plt.figure(2)
-            plt.scatter(amps, group['f_I'], label='Simulation', c='m', alpha = 0.7)
-            plt.scatter(amps, group['exp_f_I'], label='Experiment', c='g', alpha = 0.7)
+            plt.scatter(amps, group['f_I'], label='Simulation', c='m', alpha = 0.6)
+            plt.scatter(amps, group['exp_f_I'], label='Experiment', c='g', alpha = 0.6)
             plt.legend(loc='best', frameon=False, framealpha=0.5)
             plt.xlabel('Current injection amp (nA)')
             plt.ylabel('Firing Rate (Hz)')
         plt.show()
         plt.close()
+    mpl.rcParams['font.size'] = orig_fontsize
 
 
 def plot_traces(export_file_path):
+    orig_fontsize = mpl.rcParams['font.size']
+    mpl.rcParams['font.size'] = 20.
     with h5py.File(export_file_path, 'r') as f:
         for trial in f.itervalues():
             amplitude = trial.attrs['amp']
@@ -5281,6 +5310,7 @@ def plot_traces(export_file_path):
             fig.tight_layout()
         plt.show()
         plt.close()
+    mpl.rcParams['font.size'] = orig_fontsize
 
 def plot_na_gradient_params(x_dict):
     """
@@ -5288,6 +5318,8 @@ def plot_na_gradient_params(x_dict):
     :param x_dict: dict
     :return:
     """
+    orig_fontsize = mpl.rcParams['font.size']
+    mpl.rcParams['font.size'] = 20.
     fig, axes = plt.subplots(1)
     x_labels = ['axon', 'AIS', 'soma', 'dend']
     x_values = range(len(x_labels))
@@ -5303,4 +5335,5 @@ def plot_na_gradient_params(x_dict):
     fig.tight_layout()
     plt.show()
     plt.close()
+    mpl.rcParams['font.size'] = orig_fontsize
 

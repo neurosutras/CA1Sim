@@ -110,7 +110,6 @@ param_names:
 - soma.gCadepK factor
 - soma.gkmbar
 - ais.gkmbar
-spines: False
 target_range:
   ADP: 0.01
   AHP: 0.005

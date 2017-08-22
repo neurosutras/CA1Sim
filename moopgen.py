@@ -355,6 +355,232 @@ class PopulationStorage(object):
         print 'PopulationStorage: loaded %i generations from file: %s' % (len(self.history), file_path)
 
 
+class RelativeBoundedStep(object):
+    """
+    Step-taking method for use with BGen. Steps each parameter within specified bounds. Explores the range in log10
+    space when the range is >= 2 orders of magnitude. Uses the log-modulus transformation (John & Draper, 1980) as an
+    approximation that tolerates ranges that span zero. If bounds are not provided for some parameters, the default is
+    (0.1 * x0, 10. * x0).
+    """
+    def __init__(self, x0, bounds=None, rel_bounds=None, stepsize=0.5, wrap=False, random=None):
+        """
+
+        :param x0: array
+        :param bounds: list of tuple
+        :param rel_bounds: list of lists
+        :param stepsize: float in [0., 1.]
+        :param wrap: bool  # whether or not to wrap around bounds
+        :param random: int or :class:'np.random.RandomState'
+        """
+        self.wrap = wrap
+        self.stepsize = stepsize
+        if x0 is None and bounds is None:
+            raise ValueError('BoundedStep: Either starting parameters or bounds are missing.')
+        if random is None:
+            self.random = np.random
+        else:
+            self.random = random
+        if bounds is None:
+            xmin = [None for xi in x0]
+            xmax = [None for xi in x0]
+        else:
+            xmin = [bound[0] for bound in bounds]
+            xmax = [bound[1] for bound in bounds]
+        if x0 is None:
+            x0 = [None for i in xrange(len(bounds))]
+        for i in xrange(len(x0)):
+            if x0[i] is None:
+                if xmin[i] is None or xmax[i] is None:
+                    raise ValueError('BoundedStep: Either starting parameters or bounds are missing.')
+                else:
+                    x0[i] = 0.5 * (xmin[i] + xmax[i])
+            if xmin[i] is None:
+                if x0[i] > 0.:
+                    xmin[i] = 0.1 * x0[i]
+                elif x0[i] == 0.:
+                    xmin[i] = -1.
+                else:
+                    xmin[i] = 10. * x0[i]
+            if xmax[i] is None:
+                if x0[i] > 0.:
+                    xmax[i] = 10. * x0[i]
+                elif x0[i] == 0.:
+                    xmax[i] = 1.
+                else:
+                    xmax[i] = 0.1 * x0[i]
+        self.x0 = np.array(x0)
+        self.xmin = np.array(xmin)
+        self.xmax = np.array(xmax)
+        self.x_range = np.subtract(self.xmax, self.xmin)
+        self.order_mag = np.ones_like(self.x0)
+        if np.any(self.xmin == self.xmax):
+            raise ValueError('BoundedStep: xmin and xmax cannot have the same value.')
+        for i in xrange(len(self.x0)):
+            if self.xmin[i] == 0. and self.xmax[i] != 0.:
+                self.order_mag[i] = abs(np.log10(abs(self.xmax[i])))
+            elif self.xmax[i] == 0. and self.xmin[i] != 0.:
+                self.order_mag[i] = abs(np.log10(abs(self.xmin[i])))
+            else:
+                self.order_mag[i] = abs(np.log10(abs(self.xmax[i] / self.xmin[i])))
+        self.logmod = lambda x: np.sign(x) * np.log10(np.add(np.abs(x), 1.))
+        self.logmod_inv = lambda x: np.sign(x) * ((10. ** np.abs(x)) - 1.)
+        self.logmod_xmin = self.logmod(self.xmin)
+        self.logmod_xmax = self.logmod(self.xmax)
+        self.logmod_range = np.subtract(self.logmod_xmax, self.logmod_xmin)
+        self.rel_bounds = rel_bounds
+
+    def __call__(self, current_x, stepsize=None, wrap=None):
+        """
+        Take a step within bounds. If stepsize or wrap is specified for an individual call, it overrides the default.
+        :param current_x: array
+        :param stepsize: float in [0., 1.]
+        :param wrap: bool
+        :return: array
+        """
+        if stepsize is None:
+            stepsize = self.stepsize
+        if wrap is None:
+            wrap = self.wrap
+        x = np.array(current_x)
+        for i in xrange(len(x)):
+            if self.order_mag[i] >= 2.:
+                x[i] = self.log10_step(x[i], i, self.logmod_xmin[i], self.logmod_xmax[i], stepsize, wrap)
+            else:
+                x[i] = self.linear_step(x[i], i, self.xmin[i], self.xmax[i], stepsize, wrap)
+        if self.rel_bounds:
+            x = self.apply_rel_bounds(x, self.rel_bounds, stepsize, wrap)
+        return x
+
+    def linear_step(self, xi, i, xi_min, xi_max, stepsize=None, wrap=None):
+        """
+        Steps the specified parameter within the bounds according to the current stepsize.
+        :param xi: float
+        :param i: int
+        :param stepsize: float in [0., 1.]
+        :param wrap: bool
+        :return: float
+        """
+        if stepsize is None:
+            stepsize = self.stepsize
+        if wrap is None:
+            wrap = self.wrap
+        step = stepsize * self.x_range[i] / 2.
+        if wrap:
+            delta = self.random.uniform(-step, step)
+            new_xi = xi + delta
+            if xi_min > new_xi:
+                new_xi = max(xi_max - (xi_min - new_xi), xi_min)
+            elif xi_max < new_xi:
+                new_xi = min(xi_min + (new_xi - xi_max), xi_max)
+        else:
+            xi_min = max(xi_min, xi - step)
+            xi_max = min(xi_max, xi + step)
+            new_xi = self.random.uniform(xi_min, xi_max)
+        return new_xi
+
+    def log10_step(self, xi, i, xi_logmin, xi_logmax, stepsize=None, wrap=None):
+        """
+        Steps the specified parameter within the bounds according to the current stepsize.
+        :param xi: float
+        :param i: int
+        :param stepsize: float in [0., 1.]
+        :param wrap: bool
+        :return: float
+        """
+        if stepsize is None:
+            stepsize = self.stepsize
+        if wrap is None:
+            wrap = self.wrap
+        step = stepsize * self.logmod_range[i] / 2.
+        logmod_xi = self.logmod(xi)
+        if wrap:
+            delta = np.random.uniform(-step, step)
+            new_logmod_xi = logmod_xi + delta
+            if xi_logmin > new_logmod_xi:
+                new_logmod_xi = max(xi_logmax - (xi_logmin - new_logmod_xi), xi_logmin)
+            elif xi_logmax < new_logmod_xi:
+                new_logmod_xi = min(xi_logmin + (new_logmod_xi - xi_logmax), xi_logmax)
+        else:
+            logmod_xi_min = max(xi_logmin, logmod_xi - step)
+            logmod_xi_max = min(xi_logmax, logmod_xi + step)
+            new_logmod_xi = self.random.uniform(logmod_xi_min, logmod_xi_max)
+        new_xi = self.logmod_inv(new_logmod_xi)
+        return new_xi
+
+    def apply_rel_bounds(self, x, rel_bounds, stepsize, wrap):
+        """
+
+        :param x: array
+        :param rel_bounds: list of lists
+        :return:
+        """
+        for i, rel_bound_rule in enumerate(rel_bounds):
+            dep_param_ind = rel_bound_rule[0]  #Dependent param. index: index of the parameter that may be modified
+            if dep_param_ind >= len(x):
+                raise Exception('Dependent parameter index is out of bounds for rule %d.' %i)
+            factor = rel_bound_rule[2]
+            ind_param_ind = rel_bound_rule[3]  #Independent param. index: index of the parameter that sets the bounds
+            if ind_param_ind >= len(x):
+                raise Exception('Independent parameter index is out of bounds for rule %d.' %i)
+            if rel_bound_rule[1] == "=":
+                new_xi = factor * x[ind_param_ind]
+                if (new_xi >= self.xmin[dep_param_ind]) and (new_xi < self.xmax[dep_param_ind]):
+                    x[dep_param_ind] = new_xi
+                else:
+                    raise Exception('Relative bounds rule %d contradicts fixed parameter bounds.' %i)
+                continue
+            elif rel_bound_rule[1] == "<":
+                operator = lambda x, y: x < y
+            elif rel_bound_rule[1] == "<=":
+                operator = lambda x, y: x <= y
+            elif rel_bound_rule[1] == ">=":
+                operator = lambda x, y: x >= y
+            elif rel_bound_rule[1] == ">":
+                operator = lambda x, y: x > y
+            else:
+                raise Exception('Operator invalid: must be <, <=, =, >=, or >.')
+            if operator(x[dep_param_ind], factor * x[ind_param_ind]) is False:
+                if self.order_mag[dep_param_ind] >= 2.:
+                    if rel_bound_rule[1] == "<":
+                        rel_logmax = self.logmod(factor * x[ind_param_ind])
+                        new_xi_logmax = min(self.logmod_xmax[dep_param_ind], rel_logmax)
+                        new_xi_logmin = self.logmod_xmin[dep_param_ind]
+                    elif rel_bound_rule[1] == "<=":
+                        rel_logmax = self.logmod(factor * x[ind_param_ind])
+                        new_xi_logmax = min(self.logmod_xmax[dep_param_ind], np.nextafter(rel_logmax, rel_logmax + 1))
+                        new_xi_logmin = self.logmod_xmin[dep_param_ind]
+                    elif rel_bound_rule[1] == ">=":
+                        rel_logmin = self.logmod(factor * x[ind_param_ind])
+                        new_xi_logmin = max(self.logmod_xmin[dep_param_ind], rel_logmin)
+                        new_xi_logmax = self.logmod_xmax[dep_param_ind]
+                    elif rel_bound_rule[1] == ">":
+                        rel_logmin = self.logmod(factor * x[ind_param_ind])
+                        new_xi_logmin = max(self.logmod_xmin[dep_param_ind], np.nextafter(rel_logmin, rel_logmin + 1))
+                        new_xi_logmax = self.logmod_xmax[dep_param_ind]
+                    x[dep_param_ind] = self.log10_step(x[dep_param_ind], dep_param_ind, new_xi_logmin, new_xi_logmax,
+                                                       stepsize, wrap)
+                else:
+                    if rel_bound_rule[1] == "<":
+                        rel_max = factor * x[ind_param_ind]
+                        new_xi_max = min(self.xmax[dep_param_ind], rel_max)
+                        new_xi_min = self.xmin[dep_param_ind]
+                    elif rel_bound_rule[1] == "<=":
+                        rel_max = factor * x[ind_param_ind]
+                        new_xi_max = min(self.xmax[dep_param_ind], np.nextafter(rel_max, rel_max + 1))
+                        new_xi_min = self.xmin[dep_param_ind]
+                    elif rel_bound_rule[1] == ">=":
+                        rel_min = factor * x[ind_param_ind]
+                        new_xi_min = max(self.xmin[dep_param_ind], rel_min)
+                        new_xi_max = self.xmax[dep_param_ind]
+                    elif rel_bound_rule[1] == ">":
+                        rel_min = factor * x[ind_param_ind]
+                        new_xi_min = max(self.xmin[dep_param_ind], np.nextafter(rel_min, rel_min + 1))
+                        new_xi_max = self.xmax[dep_param_ind]
+                    x[dep_param_ind] = self.linear_step(x[dep_param_ind], dep_param_ind, new_xi_min, new_xi_max,
+                                                        stepsize, wrap)
+        return x
+
+
 class BoundedStep(object):
     """
     Step-taking method for use with BGen. Steps each parameter within specified bounds. Explores the range in log10
@@ -695,7 +921,7 @@ def assign_fitness_by_dominance(population, disp=False):
             i += 1
     else:
         for individual in population:
-            individual.fitness == 0
+            individual.fitness = 0
     if disp:
         print F
 
@@ -706,8 +932,11 @@ def evaluate_bgen(population, disp=False):
     :param population: list of :class:'Individual'
     :param disp: bool
     """
-    assign_fitness_by_dominance(population)
-    assign_rank_by_fitness_and_energy(population)
+    if len(population) > 0:
+        assign_fitness_by_dominance(population)
+        assign_rank_by_fitness_and_energy(population)
+    else:
+        print ('evaluate_bgen: entire population failed.')
 
 
 def evaluate_random(population, disp):
@@ -926,10 +1155,13 @@ class BGen(object):
         for individual in self.survivors:
             individual.survivor = True
         new_population = []
-        for i in xrange(self.pop_size):
-            individual = Individual(self.take_step(self.survivors[i % self.num_survivors].x))
-            new_population.append(individual)
-        self.population = new_population
+        if (len(self.survivors) < 1) or (not survivor for survivor in self.survivors):
+            self.init_population()
+        if len(self.survivors) > 0:
+            for i in xrange(self.pop_size):
+                individual = Individual(self.take_step(self.survivors[i % self.num_survivors].x))
+                new_population.append(individual)
+            self.population = new_population
 
     def step_population(self):
         """

@@ -87,7 +87,7 @@ def calc_decay(decay_degree, tvec, vec, start, stop, dt = 0.02):
 equilibrate = 250.  # time to steady-state
 delay = 10.
 stim_dur = 750.
-duration = equilibrate + delay + stim_dur + 100.
+duration = equilibrate + delay + stim_dur + 400.
 amp = -0.15
 v_init = -67.
 

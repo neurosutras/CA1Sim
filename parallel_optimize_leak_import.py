@@ -215,7 +215,6 @@ def compute_Rinp_features(section, x, export=False):
     stim_dur = context.stim_dur
     equilibrate = context.equilibrate
     v_init = context.v_init
-
     context.sim.tstop = duration
     context.sim.parameters['section'] = section
     context.sim.parameters['target'] = 'Rinp'

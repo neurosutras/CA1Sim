@@ -388,6 +388,8 @@ def get_all_features(generation, group_sizes=(1, 10), disp=False, export=False):
     curr_generation = {pop_id: generation[pop_id] for pop_id in pop_ids}
     final_features = {pop_id: {} for pop_id in pop_ids}
     for ind in range(len(main_ctxt.get_features_funcs)):
+        print 'Start %s with IDs: ' %(main_ctxt.get_features[ind])
+        print curr_generation.keys()
         next_generation = {}
         this_group_size = min(main_ctxt.num_procs, group_sizes[ind])
         usable_procs = main_ctxt.num_procs - (main_ctxt.num_procs % this_group_size)
@@ -400,34 +402,46 @@ def get_all_features(generation, group_sizes=(1, 10), disp=False, export=False):
             if num_groups > 0:
                 results.extend(map(feature_function, [indivs.pop(0) for i in range(num_groups)], [main_ctxt.c] * num_groups,
                                    [client_ranges.pop(0) for i in range(num_groups)], [export] * num_groups))
-            if np.any([this_result['async_result'].ready() for this_result in results]):
-                for this_result in results:
-                    if this_result['async_result'].ready():
-                        client_ranges.append(this_result['client_range'])
+            ready_results_list = [this_result for this_result in results if this_result['async_result'].ready()]
+            processed_ids = []
+            if len(ready_results_list) > 0:
+                for this_result in ready_results_list:
+                    client_ranges.append(this_result['client_range'])
+                    if disp:
+                        flush_engine_buffer(this_result['async_result'])
+                    get_result = this_result['async_result'].get()
+                    if None in get_result:
                         if disp:
-                            flush_engine_buffer(this_result['async_result'])
-                        get_result = this_result['async_result'].get()
-                        if None in get_result:
-                            final_features[this_result['pop_id']] = None
-                        else:
-                            next_generation[this_result['pop_id']] = generation[this_result['pop_id']]
-                            if 'filter_features' in this_result.keys():
-                                filter_features_func = this_result['filter_features']
-                                if not callable(filter_features_func):
-                                    raise Exception('Multi-Objective Optimization: filter_features function %s is '
-                                                    'not callable' % filter_features_func)
-                                new_features = filter_features_func(get_result, final_features[this_result['pop_id']],
-                                                                    export)
-                            else:
-                                new_features = {key: value for result_dict in get_result for key, value in
-                                                result_dict.iteritems()}
-                            final_features[this_result['pop_id']].update(new_features)
+                            print 'Individual: %i, failed %s in %.2f s' % (this_result['pop_id'],
+                                                                                main_ctxt.get_features[ind],
+                                                                                this_result['async_result'].wall_time)
+                        final_features[this_result['pop_id']] = None
+                    else:
+                        next_generation[this_result['pop_id']] = generation[this_result['pop_id']]
+                        if disp:
+                            print 'Individual: %i, computing %s took %.2f s' % (this_result['pop_id'],
+                                                                                main_ctxt.get_features[ind],
+                                                                                this_result['async_result'].wall_time)
+                        if 'filter_features' in this_result:
+                            local_time = time.time()
+                            filter_features_func = this_result['filter_features']
+                            if not callable(filter_features_func):
+                                raise Exception('Multi-Objective Optimization: filter_features function %s is '
+                                                'not callable' % filter_features_func)
+                            new_features = filter_features_func(get_result, final_features[this_result['pop_id']],
+                                                                export)
                             if disp:
-                                print 'Individual: %i, computing %s took %.2f s' % (this_result['pop_id'],
-                                                                                    main_ctxt.get_features[ind],
-                                                                                    this_result['async_result'].wall_time)
-                        results.remove(this_result)
+                                print 'Individual: %i, filtering features %s took %.2f s' % \
+                                      (this_result['pop_id'], str(this_result['filter_features']), time.time() - local_time)
+                        else:
+                            new_features = {key: value for result_dict in get_result for key, value in
+                                            result_dict.iteritems()}
+                        final_features[this_result['pop_id']].update(new_features)
+                    processed_ids.append(this_result['pop_id'])
+                    results.remove(this_result)
                     sys.stdout.flush()
+                print 'processed: '
+                print processed_ids
             else:
                 time.sleep(1.)
         curr_generation = next_generation
