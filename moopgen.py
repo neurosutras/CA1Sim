@@ -362,10 +362,11 @@ class RelativeBoundedStep(object):
     approximation that tolerates ranges that span zero. If bounds are not provided for some parameters, the default is
     (0.1 * x0, 10. * x0).
     """
-    def __init__(self, x0, bounds=None, rel_bounds=None, stepsize=0.5, wrap=False, random=None):
+    def __init__(self, x0, param_names, bounds=None, rel_bounds=None, stepsize=0.5, wrap=False, random=None):
         """
 
         :param x0: array
+        :param param_names: list
         :param bounds: list of tuple
         :param rel_bounds: list of lists
         :param stepsize: float in [0., 1.]
@@ -409,19 +410,13 @@ class RelativeBoundedStep(object):
                 else:
                     xmax[i] = 0.1 * x0[i]
         self.x0 = np.array(x0)
+        self.param_names = param_names
+        self.param_indexes = {param: i for i, param in enumerate(param_names)}
         self.xmin = np.array(xmin)
         self.xmax = np.array(xmax)
         self.x_range = np.subtract(self.xmax, self.xmin)
-        self.order_mag = np.ones_like(self.x0)
         if np.any(self.xmin == self.xmax):
             raise ValueError('BoundedStep: xmin and xmax cannot have the same value.')
-        for i in xrange(len(self.x0)):
-            if self.xmin[i] == 0. and self.xmax[i] != 0.:
-                self.order_mag[i] = abs(np.log10(abs(self.xmax[i])))
-            elif self.xmax[i] == 0. and self.xmin[i] != 0.:
-                self.order_mag[i] = abs(np.log10(abs(self.xmin[i])))
-            else:
-                self.order_mag[i] = abs(np.log10(abs(self.xmax[i] / self.xmin[i])))
         self.logmod = lambda x: np.sign(x) * np.log10(np.add(np.abs(x), 1.))
         self.logmod_inv = lambda x: np.sign(x) * ((10. ** np.abs(x)) - 1.)
         self.logmod_xmin = self.logmod(self.xmin)
@@ -442,14 +437,47 @@ class RelativeBoundedStep(object):
         if wrap is None:
             wrap = self.wrap
         x = np.array(current_x)
-        for i in xrange(len(x)):
-            if self.order_mag[i] >= 2.:
-                x[i] = self.log10_step(x[i], i, self.logmod_xmin[i], self.logmod_xmax[i], stepsize, wrap)
-            else:
-                x[i] = self.linear_step(x[i], i, self.xmin[i], self.xmax[i], stepsize, wrap)
+        x = self.generate_params(x, self.xmin, self.xmax, stepsize, wrap)
         if self.rel_bounds:
-            x = self.apply_rel_bounds(x, self.rel_bounds, stepsize, wrap)
+            x, xmin, xmax = self.apply_rel_bounds(x, self.rel_bounds, stepsize, wrap)
+            x = self.generate_params(x, xmin, xmax, stepsize, wrap)
         return x
+
+    def generate_params(self, x, min, max, stepsize, wrap):
+        """
+
+        :param x: arr
+        :param min: list
+        :param max: list
+        :param stepsize: float
+        :param wrap: bool
+        :return:
+        """
+        new_x = np.array(x)
+        for i in xrange(len(x)):
+            step = stepsize * self.x_range[i] / 2.
+            if self.order_mag(step * min[i], step * max[i]) > 1.:
+                new_x[i] = self.log10_step(x[i], i, min[i], max[i], stepsize, wrap)
+            else:
+                new_x[i] = self.linear_step(x[i], i, min[i], max[i], stepsize, wrap)
+        return new_x
+
+    def order_mag(self, xi_min, xi_max):
+        """
+
+        :param xi_min: float
+        :param xi_max: float
+        :return:
+        """
+        if xi_min == 0. and xi_max != 0.:
+            order_mag = abs(np.log10(abs(xi_max)))
+        elif xi_max == 0. and xi_min != 0.:
+            order_mag = abs(np.log10(abs(xi_min)))
+        elif xi_max == xi_min:
+            order_mag = 0.
+        else:
+            order_mag = abs(np.log10(abs(xi_max / xi_min)))
+        return order_mag
 
     def linear_step(self, xi, i, xi_min, xi_max, stepsize=None, wrap=None):
         """
@@ -466,8 +494,6 @@ class RelativeBoundedStep(object):
             wrap = self.wrap
         step = stepsize * self.x_range[i] / 2.
         print 'Before: xi: %.4f, step: %.4f, xi_min: %.4f, xi_max: %.4f' % (xi, step, xi_min, xi_max)
-        xi = max(xi, xi_min)
-        xi = min(xi, xi_max)
         if wrap:
             step = min(step, xi_max - xi_min)
             delta = self.random.uniform(-step, step)
@@ -483,7 +509,7 @@ class RelativeBoundedStep(object):
         print 'After: xi: %.4f, step: %.4f, xi_min: %.4f, xi_max: %.4f' % (xi, step, xi_min, xi_max)
         return new_xi
 
-    def log10_step(self, xi, i, xi_logmin, xi_logmax, stepsize=None, wrap=None):
+    def log10_step(self, xi, i, xi_min, xi_max, stepsize=None, wrap=None):
         """
         Steps the specified parameter within the bounds according to the current stepsize.
         :param xi: float
@@ -492,6 +518,8 @@ class RelativeBoundedStep(object):
         :param wrap: bool
         :return: float
         """
+        xi_logmin = self.logmod(xi_min)
+        xi_logmax = self.logmod(xi_max)
         if stepsize is None:
             stepsize = self.stepsize
         if wrap is None:
@@ -500,8 +528,6 @@ class RelativeBoundedStep(object):
         logmod_xi = self.logmod(xi)
         print 'Before: log_xi: %.4f, step: %.4f, xi_logmin: %.4f, xi_logmax: %.4f' % (logmod_xi, step, xi_logmin,
                                                                                       xi_logmax)
-        logmod_xi = max(logmod_xi, xi_logmin)
-        logmod_xi = min(logmod_xi, xi_logmax)
         if wrap:
             step = min(step, xi_logmax - xi_logmin)
             delta = np.random.uniform(-step, step)
@@ -526,21 +552,26 @@ class RelativeBoundedStep(object):
         :param rel_bounds: list of lists
         :return:
         """
+        new_x = np.array(x)
+        new_min = deepcopy(self.xmin)
+        new_max = deepcopy(self.xmax)
         if rel_bounds is not None:
             rel_bounds = self.rel_bounds
         if rel_bounds:
             for i, rel_bound_rule in enumerate(rel_bounds):
-                dep_param_ind = rel_bound_rule[0]  #Dependent param. index: index of the parameter that may be modified
+                dep_param = rel_bound_rule[0]  #Dependent param: name of the parameter that may be modified
+                dep_param_ind = self.param_indexes[dep_param]
                 if dep_param_ind >= len(x):
                     raise Exception('Dependent parameter index is out of bounds for rule %d.' %i)
                 factor = rel_bound_rule[2]
-                ind_param_ind = rel_bound_rule[3]  #Independent param. index: index of the parameter that sets the bounds
+                ind_param = rel_bound_rule[3]  #Independent param: name of the parameter that sets the bounds
+                ind_param_ind = self.param_indexes[ind_param]
                 if ind_param_ind >= len(x):
                     raise Exception('Independent parameter index is out of bounds for rule %d.' %i)
                 if rel_bound_rule[1] == "=":
                     new_xi = factor * x[ind_param_ind]
                     if (new_xi >= self.xmin[dep_param_ind]) and (new_xi < self.xmax[dep_param_ind]):
-                        x[dep_param_ind] = new_xi
+                        new_x[dep_param_ind] = new_xi
                     else:
                         raise Exception('Relative bounds rule %d contradicts fixed parameter bounds.' %i)
                     continue
@@ -555,53 +586,28 @@ class RelativeBoundedStep(object):
                 else:
                     raise Exception('Operator invalid: must be <, <=, =, >=, or >.')
                 if not operator(x[dep_param_ind], factor * x[ind_param_ind]):
-                    if self.order_mag[dep_param_ind] >= 2.:
-                        if rel_bound_rule[1] == "<":
-                            rel_logmax = self.logmod(factor * x[ind_param_ind])
-                            new_xi_logmax = max(min(self.logmod_xmax[dep_param_ind], rel_logmax),
-                                                self.logmod_xmin[dep_param_ind])
-                            new_xi_logmin = self.logmod_xmin[dep_param_ind]
-                        elif rel_bound_rule[1] == "<=":
-                            rel_logmax = self.logmod(factor * x[ind_param_ind])
-                            new_xi_logmax = max(min(self.logmod_xmax[dep_param_ind],
-                                                    np.nextafter(rel_logmax, rel_logmax + 1)),
-                                                self.logmod_xmin[dep_param_ind])
-                            new_xi_logmin = self.logmod_xmin[dep_param_ind]
-                        elif rel_bound_rule[1] == ">=":
-                            rel_logmin = self.logmod(factor * x[ind_param_ind])
-                            new_xi_logmin = min(max(self.logmod_xmin[dep_param_ind], rel_logmin),
-                                                self.logmod_xmax[dep_param_ind])
-                            new_xi_logmax = self.logmod_xmax[dep_param_ind]
-                        elif rel_bound_rule[1] == ">":
-                            rel_logmin = self.logmod(factor * x[ind_param_ind])
-                            new_xi_logmin = min(max(self.logmod_xmin[dep_param_ind],
-                                                    np.nextafter(rel_logmin, rel_logmin + 1)),
-                                                self.logmod_xmax[dep_param_ind])
-                            new_xi_logmax = self.logmod_xmax[dep_param_ind]
-                        x[dep_param_ind] = self.log10_step(x[dep_param_ind], dep_param_ind, new_xi_logmin, new_xi_logmax,
-                                                           stepsize, wrap)
-                    else:
-                        if rel_bound_rule[1] == "<":
-                            rel_max = factor * x[ind_param_ind]
-                            new_xi_max = max(min(self.xmax[dep_param_ind], rel_max), self.xmin[dep_param_ind])
-                            new_xi_min = self.xmin[dep_param_ind]
-                        elif rel_bound_rule[1] == "<=":
-                            rel_max = factor * x[ind_param_ind]
-                            new_xi_max = max(min(self.xmax[dep_param_ind], np.nextafter(rel_max, rel_max + 1)),
-                                             self.xmin[dep_param_ind])
-                            new_xi_min = self.xmin[dep_param_ind]
-                        elif rel_bound_rule[1] == ">=":
-                            rel_min = factor * x[ind_param_ind]
-                            new_xi_min = min(max(self.xmin[dep_param_ind], rel_min), self.xmax[dep_param_ind])
-                            new_xi_max = self.xmax[dep_param_ind]
-                        elif rel_bound_rule[1] == ">":
-                            rel_min = factor * x[ind_param_ind]
-                            new_xi_min = min(max(self.xmin[dep_param_ind], np.nextafter(rel_min, rel_min + 1)),
-                                             self.xmax[dep_param_ind])
-                            new_xi_max = self.xmax[dep_param_ind]
-                        x[dep_param_ind] = self.linear_step(x[dep_param_ind], dep_param_ind, new_xi_min, new_xi_max,
-                                                            stepsize, wrap)
-        return x
+                    if rel_bound_rule[1] == "<":
+                        rel_max = factor * x[ind_param_ind]
+                        new_xi_max = max(min(self.xmax[dep_param_ind], rel_max), self.xmin[dep_param_ind])
+                        new_xi_min = self.xmin[dep_param_ind]
+                    elif rel_bound_rule[1] == "<=":
+                        rel_max = factor * x[ind_param_ind]
+                        new_xi_max = max(min(self.xmax[dep_param_ind], np.nextafter(rel_max, rel_max + 1)),
+                                         self.xmin[dep_param_ind])
+                        new_xi_min = self.xmin[dep_param_ind]
+                    elif rel_bound_rule[1] == ">=":
+                        rel_min = factor * x[ind_param_ind]
+                        new_xi_min = min(max(self.xmin[dep_param_ind], rel_min), self.xmax[dep_param_ind])
+                        new_xi_max = self.xmax[dep_param_ind]
+                    elif rel_bound_rule[1] == ">":
+                        rel_min = factor * x[ind_param_ind]
+                        new_xi_min = min(max(self.xmin[dep_param_ind], np.nextafter(rel_min, rel_min + 1)),
+                                         self.xmax[dep_param_ind])
+                        new_xi_max = self.xmax[dep_param_ind]
+                    new_xi = max(x[dep_param_ind], new_xi_min)
+                    new_xi = min(new_xi, new_xi_max)
+                    new_x[dep_param_ind] = new_xi
+        return new_x, new_min, new_max
 
 
 class BoundedStep(object):
