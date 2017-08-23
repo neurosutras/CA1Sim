@@ -2154,6 +2154,7 @@ class QuickSim(object):
         self.tstop = tstop
         h.load_file('stdrun.hoc')
         h.celsius = 35.0
+        h.cao0_ca_ion = 1.3
         self.cvode = h.CVode()
         self.cvode_atol = 0.001
         self.cvode_state = cvode
@@ -2177,12 +2178,12 @@ class QuickSim(object):
             h.steps_per_ms = int(1. / self.dt)
             h.dt = self.dt
         h.v_init = v_init
-        h.init()
-        h.finitialize(v_init)
-        if self.cvode_state:
-            self.cvode.re_init()
-        else:
-            h.fcurrent()
+        # h.init()
+        # h.finitialize(v_init)
+        # if self.cvode_state:
+        #     self.cvode.re_init()
+        # else:
+        #     h.fcurrent()
         h.run()
         if self.verbose:
             print 'Simulation runtime: ', time.time() - start_time, ' sec'

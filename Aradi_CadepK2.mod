@@ -2,11 +2,11 @@
 
 
 NEURON {
-	SUFFIX CadepK_orig
-	USEION ca READ ica
+	SUFFIX CadepK
+	USEION ca READ cai
 	USEION k READ ek WRITE ik
-	RANGE gbkbar, gskbar, gbar, i, ask, bsk, gsk, gbk, isk, ibk, gcakmult, ca_i
-	GLOBAL ca0, tau, stau, taucadiv, tauskdiv
+	RANGE gbkbar, gskbar, gbar, i, ask, bsk, gsk, gbk, isk, ibk, gcakmult
+	GLOBAL stau, tauskdiv
 }
 
 UNITS {
@@ -15,16 +15,12 @@ UNITS {
 	(mV) = (millivolt)
 	(mA) = (milliamp)
 	(S) = (siemens)
-	B = .26 (mM-cm2/mA-ms)
 }
 
 PARAMETER {
 	gbkbar = .0003	(S/cm2)	: maximum permeability
 	gskbar = .0005	(S/cm2)	: maximum permeability
 	gcakmult = 1.
-	ca0 = .00007	(mM)
-	tau = 9		(ms)
-	taucadiv = 1
 	tauskdiv = 1
 	ask = 1
 	bsk = 1
@@ -39,22 +35,21 @@ ASSIGNED {
 	isk		(mA/cm2)
 	ibk		(mA/cm2)
 	i 		(mA/cm2)
-	ica		(mA/cm2)
+	cai		(mM)
 	area	(microm2)
   	gbk		(S/cm2)
   	gsk		(S/cm2)
   	gbar  (S/cm2)
 }
 
-STATE { 
-	ca_i (mM)		<1e-5> 
+STATE {
 	q 
 	r 
 	s 
 }
 
 BREAKPOINT {
-	SOLVE state METHOD derivimplicit
+    SOLVE state METHOD derivimplicit
 	gbk = gbkbar*gcakmult*r*s*s
 	gsk = gskbar*gcakmult*q*q
 	isk = gsk*(v - ek)
@@ -64,17 +59,15 @@ BREAKPOINT {
 }
 
 DERIVATIVE state {	: exact when v held constant; integrates over dt step
-	ca_i' = -B*ica - taucadiv*(ca_i-ca0)/tau
-	q' = tauskdiv*(ask*alphaq(ca_i)*(1-q)-bsk*betaq(ca_i)*q)
+	q' = tauskdiv*(ask*alphaq(cai)*(1-q)-bsk*betaq(cai)*q)
 	r' = alphar*(1-r)-betar(v)*r
-	s' = (sinf(ca_i)-s)/stau
+	s' = (sinf(cai)-s)/stau
 }
 
 INITIAL {
-	ca_i = ca0
-	q = alphaq(ca_i)/(alphaq(ca_i)+betaq(ca_i))
+	q = alphaq(cai)/(alphaq(cai)+betaq(cai))
 	r = alphar/(alphar+betar(v))
-  	s = sinf(ca_i)
+  	s = sinf(cai)
   	gbar = gbkbar + gskbar
 }
 
