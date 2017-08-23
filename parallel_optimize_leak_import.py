@@ -53,16 +53,16 @@ def setup_module_from_file(param_file_path='data/optimize_leak_defaults.yaml', r
     config_engine(update_params_funcs, param_names, default_params, rec_file_path, export_file_path, **kwargs)
 
 
-def config_controller(export_file_path):
+def config_controller(export_file_path, **kwargs):
     """
 
-    :return:
+    :param export_file_path: str (path)
     """
     context.update(locals())
 
 
 def config_engine(update_params_funcs, param_names, default_params, rec_file_path, export_file_path, mech_file_path,
-                  neurotree_file_path, neurotree_index, spines, verbose=False):
+                  neurotree_file_path, neurotree_index, spines, **kwargs):
     """
 
     :param update_params_funcs: list of function references
@@ -74,13 +74,12 @@ def config_engine(update_params_funcs, param_names, default_params, rec_file_pat
     :param neurotree_file_path: str
     :param neurotree_index: int
     :param spines: bool
-    :return:
     """
     neurotree_dict = read_from_pkl(neurotree_file_path)[neurotree_index]
     param_indexes = {param_name: i for i, param_name in enumerate(param_names)}
     context.update(locals())
     set_constants()
-    setup_cell(verbose)
+    setup_cell(**kwargs)
 
 
 def set_constants():
@@ -98,9 +97,11 @@ def set_constants():
     context.update(locals())
 
 
-def setup_cell(verbose=False):
+def setup_cell(verbose=False, cvode=False):
     """
 
+    :param verbose: bool
+    :param cvode: bool
     """
     cell = DG_GC(neurotree_dict=context.neurotree_dict, mech_file_path=context.mech_file_path, full_spines=context.spines)
     context.cell = cell
@@ -144,7 +145,7 @@ def setup_cell(verbose=False):
     duration = context.duration
     dt = context.dt
 
-    sim = QuickSim(duration, cvode=False, dt=dt, verbose=verbose)
+    sim = QuickSim(duration, cvode=cvode, dt=dt, verbose=verbose)
     sim.append_stim(cell, cell.tree.root, loc=0., amp=0., delay=equilibrate, dur=stim_dur)
     sim.append_stim(cell, cell.tree.root, loc=0., amp=0., delay=0., dur=duration)
     for description, node in rec_nodes.iteritems():
