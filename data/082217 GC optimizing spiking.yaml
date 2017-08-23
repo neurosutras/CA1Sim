@@ -84,8 +84,8 @@ apical:
       origin: soma
     g:
       origin: soma
-      slope: 3.6138351e-07
-      tau: 60.6900347
+      slope: 1.058e-08
+      tau: 38.86
 axon:
   cable:
     Ra:
@@ -146,6 +146,7 @@ soma:
   Ca:
     gcamult:
       value: 0.3364
+  Cacum: null
   CadepK:
     gcakmult:
       value: 4.096
@@ -175,7 +176,7 @@ soma:
     e:
       value: -77.0
     g:
-      value: 2.46506522e-08
+      value: 1.05e-10
 spine_head:
   cable:
     Ra:

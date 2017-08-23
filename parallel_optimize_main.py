@@ -335,8 +335,9 @@ def setup_client_interface(cluster_id, profile, group_sizes, pop_size, update_pa
 def init_engine_interactive(x, verbose=True):
     x_dict = dict(x)
     x_array = param_dict_to_array(x_dict, main_ctxt.param_names)
+    main_ctxt.kwargs['verbose'] = verbose
     init_engine(main_ctxt.module_set, main_ctxt.update_params_funcs, main_ctxt.param_names, main_ctxt.default_params,
-                main_ctxt.export_file_path, main_ctxt.output_dir, verbose=verbose, **main_ctxt.kwargs)
+                main_ctxt.export_file_path, main_ctxt.output_dir, **main_ctxt.kwargs)
     for submodule in main_ctxt.module_set:
         for update_func in main_ctxt.update_params_funcs:
             update_func(x_array, sys.modules[submodule].context)
@@ -415,6 +416,7 @@ def get_all_features(generation, group_sizes=(1, 10), disp=False, export=False):
                             print 'Individual: %i, failed %s in %.2f s' % (this_result['pop_id'],
                                                                                 main_ctxt.get_features[ind],
                                                                                 this_result['async_result'].wall_time)
+                            sys.stdout.flush()
                         final_features[this_result['pop_id']] = None
                     else:
                         next_generation[this_result['pop_id']] = generation[this_result['pop_id']]
@@ -422,6 +424,7 @@ def get_all_features(generation, group_sizes=(1, 10), disp=False, export=False):
                             print 'Individual: %i, computing %s took %.2f s' % (this_result['pop_id'],
                                                                                 main_ctxt.get_features[ind],
                                                                                 this_result['async_result'].wall_time)
+                            sys.stdout.flush()
                         if 'filter_features' in this_result:
                             local_time = time.time()
                             filter_features_func = this_result['filter_features']
@@ -432,7 +435,9 @@ def get_all_features(generation, group_sizes=(1, 10), disp=False, export=False):
                                                                 export)
                             if disp:
                                 print 'Individual: %i, filtering features %s took %.2f s' % \
-                                      (this_result['pop_id'], str(this_result['filter_features']), time.time() - local_time)
+                                      (this_result['pop_id'], str(this_result['filter_features']),
+                                       time.time() - local_time)
+                                sys.stdout.flush()
                         else:
                             new_features = {key: value for result_dict in get_result for key, value in
                                             result_dict.iteritems()}
@@ -440,8 +445,8 @@ def get_all_features(generation, group_sizes=(1, 10), disp=False, export=False):
                     processed_ids.append(this_result['pop_id'])
                     results.remove(this_result)
                     sys.stdout.flush()
-                print 'processed: '
-                print processed_ids
+                print 'processed: ', processed_ids
+                sys.stdout.flush()
             else:
                 time.sleep(1.)
         curr_generation = next_generation

@@ -68,7 +68,13 @@ INITIAL {
 	q = alphaq(cai)/(alphaq(cai)+betaq(cai))
 	r = alphar/(alphar+betar(v))
   	s = sinf(cai)
-  	gbar = gbkbar + gskbar
+	gbk = gbkbar*gcakmult*r*s*s
+	gsk = gskbar*gcakmult*q*q
+	isk = gsk*(v - ek)
+	ibk = gbk*(v - ek)
+	ik = isk + ibk
+	i = ik
+  	gbar = gcakmult * (gbkbar + gskbar)
 }
 
 FUNCTION exp1(A (/ms), d, k, x (mM)) (/ms) {

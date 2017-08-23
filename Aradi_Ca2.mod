@@ -74,7 +74,7 @@ INITIAL {
 	c = alphac(v)/(alphac(v)+betac(v))
 	d = alphad(v)/(alphad(v)+betad(v))
 	e = alphae(v)/(alphae(v)+betae(v))
-	gbar = gtcabar + gncabar + glcabar
+	gbar = gcamult * (gtcabar + gncabar + glcabar)
 	gtca = gtcabar*gcamult*a*a*b
 	gnca = gncabar*gcamult*c*c*d
 	glca = glcabar*gcamult*e*e
