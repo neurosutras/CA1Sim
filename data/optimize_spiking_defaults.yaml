@@ -75,7 +75,9 @@ kwargs:
   mech_file_path: data/082217 GC optimizing spiking.yaml
   neurotree_file_path: morphologies/121516_DGC_trees.pkl
   neurotree_index: 0
-  spines: false
+  spines: False
+  cvode: False
+  verbose: False
 objective_names:
 - v_th
 - ADP

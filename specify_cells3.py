@@ -2409,6 +2409,7 @@ class QuickSim(object):
         if state:
             self.cvode.active(1)
             self.cvode.atol(self.cvode_atol)
+            # self.cvode.use_daspk(1)
         else:
             self.cvode.active(0)
 

@@ -16,12 +16,15 @@ Current YAML filepath: data/optimize_leak_defaults.yaml
 context = Context()
 
 
-def setup_module_from_file(param_file_path='data/optimize_leak_defaults.yaml', rec_file_path=None,
-                           export_file_path=None, verbose=False):
+def setup_module_from_file(param_file_path='data/optimize_leak_defaults.yaml', output_dir='data', rec_file_path=None,
+                           export_file_path=None, verbose=True):
     """
 
-    :param param_file_path: str (path to a yaml file)
-    :return:
+    :param param_file_path: str (.yaml file path)
+    :param output_dir: str (dir path)
+    :param rec_file_path: str (.hdf5 file path)
+    :param export_file_path: str (.hdf5 file path)
+    :param verbose: bool
     """
     params_dict = read_from_yaml(param_file_path)
     param_gen = params_dict['param_gen']
@@ -59,17 +62,19 @@ def config_controller(export_file_path, **kwargs):
     :param export_file_path: str (path)
     """
     context.update(locals())
+    set_constants()
 
 
-def config_engine(update_params_funcs, param_names, default_params, rec_file_path, export_file_path, mech_file_path,
-                  neurotree_file_path, neurotree_index, spines, **kwargs):
+def config_engine(update_params_funcs, param_names, default_params, rec_file_path, export_file_path, output_dur, disp,
+                  mech_file_path, neurotree_file_path, neurotree_index, spines, **kwargs):
     """
-
     :param update_params_funcs: list of function references
     :param param_names: list of str
     :param default_params: dict
     :param rec_file_path: str
     :param export_file_path: str
+    :param output_dur: str (dir path)
+    :param disp: bool
     :param mech_file_path: str
     :param neurotree_file_path: str
     :param neurotree_index: int
@@ -78,6 +83,7 @@ def config_engine(update_params_funcs, param_names, default_params, rec_file_pat
     neurotree_dict = read_from_pkl(neurotree_file_path)[neurotree_index]
     param_indexes = {param_name: i for i, param_name in enumerate(param_names)}
     context.update(locals())
+    context.update(kwargs)
     set_constants()
     setup_cell(**kwargs)
 
@@ -97,7 +103,7 @@ def set_constants():
     context.update(locals())
 
 
-def setup_cell(verbose=False, cvode=False):
+def setup_cell(verbose=False, cvode=False, **kwargs):
     """
 
     :param verbose: bool
@@ -158,7 +164,8 @@ def setup_cell(verbose=False, cvode=False):
 
 
 def update_mech_dict(x, update_function, mech_file_path):
-    update_function(x)
+    for update_func in context.update_params_funcs:
+        update_func(x, context)
     context.cell.export_mech_dict(mech_file_path)
 
 
