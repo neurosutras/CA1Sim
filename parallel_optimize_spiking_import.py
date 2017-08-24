@@ -27,6 +27,7 @@ def setup_module_from_file(param_file_path='data/optimize_spiking_defaults.yaml'
     default_params = params_dict['default_params']
     x0 = params_dict['x0']
     bounds = [params_dict['bounds'][key] for key in param_names]
+    rel_bounds = params_dict['rel_bounds']
     feature_names = params_dict['feature_names']
     objective_names = params_dict['objective_names']
     target_val = params_dict['target_val']

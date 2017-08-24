@@ -110,9 +110,10 @@ def main(cluster_id, profile, param_file_path, param_gen, update_params, update_
         if hot_start:
             this_param_gen = main_ctxt.param_gen_func(pop_size=pop_size,
                                                       x0=param_dict_to_array(main_ctxt.x0, main_ctxt.param_names),
-                                                      bounds=main_ctxt.bounds, wrap_bounds=wrap_bounds, seed=seed,
-                                                      max_iter=max_iter, adaptive_step_factor=adaptive_step_factor,
-                                                      p_m=p_m, delta_m=delta_m, delta_c=delta_c,
+                                                      bounds=main_ctxt.bounds, rel_bounds=main_ctxt.rel_bounds,
+                                                      wrap_bounds=wrap_bounds, seed=seed, max_iter=max_iter,
+                                                      adaptive_step_factor=adaptive_step_factor, p_m=p_m,
+                                                      delta_m=delta_m, delta_c=delta_c,
                                                       mutate_survivors=mutate_survivors, survival_rate=survival_rate,
                                                       disp=disp, hot_start=storage_file_path)
         else:
@@ -120,10 +121,10 @@ def main(cluster_id, profile, param_file_path, param_gen, update_params, update_
                                                       feature_names=main_ctxt.feature_names,
                                                       objective_names=main_ctxt.objective_names, pop_size=pop_size,
                                                       x0=param_dict_to_array(main_ctxt.x0, main_ctxt.param_names),
-                                                      bounds=main_ctxt.bounds, wrap_bounds=wrap_bounds, seed=seed,
-                                                      max_iter=max_iter, path_length=path_length,
-                                                      initial_step_size=initial_step_size, m0=m0, c0=c0, p_m=p_m,
-                                                      delta_m=delta_m, delta_c=delta_c,
+                                                      bounds=main_ctxt.bounds, rel_bounds=main_ctxt.rel_bounds,
+                                                      wrap_bounds=wrap_bounds, seed=seed, max_iter=max_iter,
+                                                      path_length=path_length, initial_step_size=initial_step_size,
+                                                      m0=m0, c0=c0, p_m=p_m, delta_m=delta_m, delta_c=delta_c,
                                                       mutate_survivors=mutate_survivors,
                                                       adaptive_step_factor=adaptive_step_factor,
                                                       survival_rate=survival_rate, disp=disp)
@@ -179,6 +180,12 @@ def process_params(cluster_id, profile, param_file_path, param_gen, update_param
         default_params = params_dict['default_params']
         x0 = params_dict['x0']
         bounds = [params_dict['bounds'][key] for key in param_names]
+        for param in default_params:
+            bounds[param] = (default_params[param], np.nextafter(default_params[param], default_params[param] + 1))
+        if 'rel_bounds' in params_dict:
+            rel_bounds = params_dict['rel_bounds']
+        else:
+            rel_bounds = None
         feature_names = params_dict['feature_names']
         objective_names = params_dict['objective_names']
         target_val = params_dict['target_val']
