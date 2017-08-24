@@ -27,6 +27,8 @@ def check_abs_bounds(x, bounds):
         if (xi < bounds[i][0]):
             print 'Paramater %d: value %.3f is less than minimum bound' % (i, xi)
             return False
+        if (xi == bounds[i][0] and xi == bounds[i][1]):
+            return True
         if (xi >= bounds[i][1]):
             print 'Paramater %d: value %.3f is greater than maximum bound' % (i, xi)
             return False

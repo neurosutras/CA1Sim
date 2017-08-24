@@ -184,9 +184,10 @@ def process_params(cluster_id, profile, param_file_path, param_gen, update_param
         param_names = params_dict['param_names']
         default_params = params_dict['default_params']
         x0 = params_dict['x0']
-        bounds = [params_dict['bounds'][key] for key in param_names]
+        given_bounds = params_dict['bounds']
         for param in default_params:
-            bounds[param] = (default_params[param], np.nextafter(default_params[param], default_params[param] + 1))
+            given_bounds[param] = (default_params[param], np.nextafter(default_params[param], default_params[param] + 1))
+        bounds = [given_bounds[key] for key in param_names]
         if 'rel_bounds' in params_dict:
             rel_bounds = params_dict['rel_bounds']
         else:
@@ -396,8 +397,6 @@ def get_all_features(generation, group_sizes=(1, 10), disp=False, export=False):
     curr_generation = {pop_id: generation[pop_id] for pop_id in pop_ids}
     final_features = {pop_id: {} for pop_id in pop_ids}
     for ind in range(len(main_ctxt.get_features_funcs)):
-        print 'Start %s with IDs: ' %(main_ctxt.get_features[ind])
-        print curr_generation.keys()
         next_generation = {}
         this_group_size = min(main_ctxt.num_procs, group_sizes[ind])
         usable_procs = main_ctxt.num_procs - (main_ctxt.num_procs % this_group_size)
@@ -452,8 +451,6 @@ def get_all_features(generation, group_sizes=(1, 10), disp=False, export=False):
                     processed_ids.append(this_result['pop_id'])
                     results.remove(this_result)
                     sys.stdout.flush()
-                print 'processed: ', processed_ids
-                sys.stdout.flush()
             else:
                 time.sleep(1.)
         curr_generation = next_generation

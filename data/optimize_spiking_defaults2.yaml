@@ -178,6 +178,8 @@ x0:
   axon.gbar_nax: 0.06
   axon.gkabar: 0.05266
   dend.gbar_nas: 0.03
+  dend.gbar_nas bo: 4
+  dend.gbar_nas min: 0.0
   dend.gbar_nas slope: -0.0001
   dend.gkabar: 0.04
   soma.gCa factor: 0.3364
