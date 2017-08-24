@@ -362,7 +362,7 @@ class RelativeBoundedStep(object):
     approximation that tolerates ranges that span zero. If bounds are not provided for some parameters, the default is
     (0.1 * x0, 10. * x0).
     """
-    def __init__(self, x0, param_names, bounds=None, rel_bounds=None, stepsize=0.5, wrap=False, random=None):
+    def __init__(self, x0, param_names, bounds=None, rel_bounds=None, stepsize=0.5, wrap=False, random=None, **kwargs):
         """
 
         :param x0: array
@@ -611,7 +611,7 @@ class BoundedStep(object):
     approximation that tolerates ranges that span zero. If bounds are not provided for some parameters, the default is
     (0.1 * x0, 10. * x0).
     """
-    def __init__(self, x0, bounds=None, stepsize=0.5, wrap=False, random=None):
+    def __init__(self, x0, bounds=None, stepsize=0.5, wrap=False, random=None, **kwargs):
         """
 
         :param x0: array
@@ -1046,17 +1046,21 @@ class BGen(object):
             self.objectives_stored = False
         self.pop_size = pop_size
         if take_step is None:
-            self.take_step = RelativeBoundedStep(self.x0, param_names, bounds, rel_bounds, stepsize=initial_step_size,
-                                                 wrap=wrap_bounds, random=self.random)
+            self.take_step = RelativeBoundedStep(self.x0, param_names=param_names, bounds=bounds, rel_bounds=rel_bounds,
+                                                 stepsize=initial_step_size, wrap=wrap_bounds, random=self.random)
             self.x0 = np.array(self.take_step.x0)
             self.xmin = np.array(self.take_step.xmin)
             self.xmax = np.array(self.take_step.xmax)
-        elif isinstance(take_step, collections.Callable):  # must accept the above named keyword arguments
-            self.take_step = take_step
-            self.xmin = np.array(self.take_step.xmin)
-            self.xmax = np.array(self.take_step.xmax)
         else:
-            raise TypeError("BGen: take_step must be callable.")
+            if take_step in globals() and callable(globals()[take_step]):
+                self.take_step = globals()[take_step](self.x0, param_names=param_names, bounds=bounds,
+                                                      rel_bounds=rel_bounds, stepsize=initial_step_size,
+                                                      wrap=wrap_bounds, random=self.random)
+                self.x0 = np.array(self.take_step.x0)
+                self.xmin = np.array(self.take_step.xmin)
+                self.xmax = np.array(self.take_step.xmax)
+            else:
+                raise TypeError('BGen: provided take_step: %s is not callable.' % take_step)
         if max_iter is None:
             self.max_gens = self.path_length * 30
         else:
