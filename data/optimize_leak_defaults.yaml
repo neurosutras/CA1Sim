@@ -24,8 +24,9 @@ kwargs:
   neurotree_file_path: morphologies/121516_DGC_trees.pkl
   neurotree_index: 0
   spines: False
-  cvode: True
+  cvode: False
   verbose: False
+  daspk: True
 objective_names:
 - dend R_inp
 - distal_dend R_inp

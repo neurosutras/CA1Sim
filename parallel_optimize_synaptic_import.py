@@ -15,13 +15,15 @@ Current YAML filepath: data/optimize_synaptic_defaults.yaml
 context = Context()
 
 
-def setup_module_from_file(param_file_path='data/optimize_synaptic_defaults.yaml', rec_file_path=None,
-                           export_file_path=None, verbose=False):
+def setup_module_from_file(param_file_path='data/optimize_synaptic_defaults.yaml', output_dir='data',
+                           rec_file_path=None, export_file_path=None, verbose=True, disp=True):
     """
     :param param_file_path: str (.yaml file path)
+    :param output_dir: str (dir path)
     :param rec_file_path: str (.hdf5 file path)
     :param export_file_path: str (.hdf5 file path)
     :param verbose: bool
+    :param disp: bool
     """
     params_dict = read_from_yaml(param_file_path)
     param_gen = params_dict['param_gen']
@@ -42,32 +44,39 @@ def setup_module_from_file(param_file_path='data/optimize_synaptic_defaults.yaml
         func = globals().get(update_params_func_name)
         if not callable (func):
             raise Exception('Multi-Objective Optimization: update_params: %s is not a callable function.'
-                            % (update_params_func_name))
+                            % update_params_func_name)
         update_params_funcs.append(func)
     if rec_file_path is None:
-        rec_file_path = 'data/sim_output' + datetime.datetime.today().strftime('%m%d%Y%H%M') + \
+        rec_file_path = output_dir + '/sim_output' + datetime.datetime.today().strftime('%m%d%Y%H%M') + \
                    '_pid' + str(os.getpid()) + '.hdf5'
     if export_file_path is None:
-        export_file_path = 'data/%s_%s_%s_optimization_exported_traces.hdf5' % \
+        export_file_path = output_dir + '/%s_%s_%s_optimization_exported_traces.hdf5' % \
                            (datetime.datetime.today().strftime('%m%d%Y%H%M'), optimization_title, param_gen)
     context.update(locals())
-    config_engine(update_params_funcs, param_names, default_params, rec_file_path, export_file_path, **kwargs)
+    context.update(kwargs)
+    config_engine(update_params_funcs, param_names, default_params, rec_file_path, export_file_path, output_dir, disp,
+                  **kwargs)
 
 
-def config_controller(export_file_path):
+def config_controller(export_file_path, **kwargs):
+    """
+
+    :param export_file_path: str
+    """
     context.update(locals())
     set_constants()
 
 
-def config_engine(update_params_funcs, param_names, default_params, rec_file_path, export_file_path, mech_file_path,
-                  neurotree_file_path, neurotree_index, spines, verbose=False):
+def config_engine(update_params_funcs, param_names, default_params, rec_file_path, export_file_path, output_dur, disp,
+                  mech_file_path, neurotree_file_path, neurotree_index, spines, **kwargs):
     """
-
     :param update_params_funcs: list of function references
     :param param_names: list of str
     :param default_params: dict
     :param rec_file_path: str
     :param export_file_path: str
+    :param output_dur: str (dir path)
+    :param disp: bool
     :param mech_file_path: str
     :param neurotree_file_path: str
     :param neurotree_index: int
@@ -76,8 +85,9 @@ def config_engine(update_params_funcs, param_names, default_params, rec_file_pat
     neurotree_dict = read_from_pkl(neurotree_file_path)[neurotree_index]
     param_indexes = {param_name: i for i, param_name in enumerate(param_names)}
     context.update(locals())
+    context.update(kwargs)
     set_constants()
-    setup_cell(verbose)
+    setup_cell(**kwargs)
 
 
 def set_constants():
@@ -116,9 +126,12 @@ def set_constants():
     context.update(locals())
 
 
-def setup_cell(verbose=False):
+def setup_cell(verbose=False, cvode=False, daspk=False, **kwargs):
     """
 
+    :param verbose: bool
+    :param cvode: bool
+    :param daspk: bool
     """
     cell = DG_GC(neurotree_dict=context.neurotree_dict, mech_file_path=context.mech_file_path,
                  full_spines=context.spines)
@@ -228,8 +241,7 @@ def setup_cell(verbose=False):
     dt = context.dt
     stim_dur = context.stim_dur
 
-    # sim = QuickSim(unitary_duration, cvode=False, dt=dt, verbose=verbose)
-    sim = QuickSim(unitary_duration, cvode=True, dt=dt, verbose=verbose)
+    sim = QuickSim(unitary_duration, cvode=True, daspk=daspk, dt=dt, verbose=verbose)
     sim.parameters['equilibrate'] = equilibrate
     sim.parameters['spines'] = context.spines
     sim.append_stim(cell, cell.tree.root, loc=0., amp=0., delay=equilibrate, dur=stim_dur)
@@ -242,8 +254,14 @@ def setup_cell(verbose=False):
     cell.spike_detector.record(context.spike_output_vec)
 
 
-def update_mech_dict(x, update_function, mech_file_path):
-    update_function(x)
+def update_mech_dict(x, mech_file_path):
+    """
+
+    :param x: array
+    :param mech_file_path: str
+    """
+    for update_func in context.update_params_funcs:
+        update_func(x, context)
     context.cell.export_mech_dict(mech_file_path)
 
 
@@ -280,7 +298,7 @@ def get_unitary_EPSP_features(indiv, c, client_range, export=False):
             'filter_features': filter_unitary_EPSP_features}
 
 
-def filter_unitary_EPSP_features(get_result, old_features, export):
+def filter_unitary_EPSP_features(get_result, old_features, export=False):
     """
 
     :param get_result: list of dict (each dict has the results from a particular simulation)
@@ -355,7 +373,7 @@ def get_compound_EPSP_features(indiv, c, client_range, export=False):
             'filter_features': filter_compound_EPSP_features}
 
 
-def filter_compound_EPSP_features(get_result, old_features, export):
+def filter_compound_EPSP_features(get_result, old_features, export=False):
     """
 
     :param get_result: list of dict (each dict has the results from a particular simulation)
@@ -642,17 +660,6 @@ def compute_stability_features(x, export=False, plot=False):
     context.cell.reinit_mechanisms(reset_cable=True, from_file=True)
     for update_func in context.update_params_funcs:
         update_func(x, context)
-    param_indexes = context.param_indexes
-    default_params = context.default_params
-
-    relative_bounds = max(0., find_param_value('dend.gbar_nas', x, param_indexes, default_params) -
-                          context.cell.mech_dict['soma']['nas']['gbar']['value']) + \
-                      max(0., find_param_value('dend.gbar_nas min', x, param_indexes, default_params) -
-                          find_param_value('dend.gbar_nas', x, param_indexes, default_params)) + \
-                      max(0., context.cell.mech_dict['soma']['kap']['gkabar']['value'] -
-                          find_param_value('dend.gkabar', x, param_indexes, default_params))
-    if relative_bounds > 0.:
-        return None
 
     v_active = context.v_active
     equilibrate = context.equilibrate
@@ -849,7 +856,7 @@ def update_AMPA_NMDA(x, local_context=None):
     """
 
     :param x: array. Default: value=1.711e-03, slope=6.652e-05, tau=7.908e+01
-    :return:
+    :param local_context: :class:'Context'
     """
     if local_context is None:
         local_context = context
@@ -862,7 +869,8 @@ def update_AMPA_NMDA(x, local_context=None):
                            value=x[param_indexes['AMPA.g0']], origin='soma', syn_type='AMPA_KIN',
                            slope=x[param_indexes['AMPA.slope']], tau=x[param_indexes['AMPA.tau']])
     cell.modify_mech_param('apical', 'synapse', 'gmax', origin='parent', syn_type='AMPA_KIN',
-                           custom={'method': 'custom_inherit_by_branch_order', 'branch_order': 4}, replace=False)
+                           custom={'method': 'custom_inherit_by_branch_order', 'branch_order':
+                               x[param_indexes['AMPA.gmax bo']]}, replace=False)
     cell.modify_mech_param('apical', 'synapse', 'gmax', value=x[param_indexes['NMDA.gmax']],
                            syn_type=local_context.NMDA_type)
     cell.modify_mech_param('apical', 'synapse', 'gamma', value=x[param_indexes['NMDA.gamma']],

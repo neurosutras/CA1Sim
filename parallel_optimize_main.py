@@ -115,7 +115,7 @@ def main(cluster_id, profile, param_file_path, param_gen, update_params, update_
                                                       adaptive_step_factor=adaptive_step_factor, p_m=p_m,
                                                       delta_m=delta_m, delta_c=delta_c,
                                                       mutate_survivors=mutate_survivors, survival_rate=survival_rate,
-                                                      disp=disp, hot_start=storage_file_path)
+                                                      disp=disp, hot_start=storage_file_path, **main_ctxt.kwargs)
         else:
             this_param_gen = main_ctxt.param_gen_func(param_names=main_ctxt.param_names,
                                                       feature_names=main_ctxt.feature_names,
@@ -127,7 +127,7 @@ def main(cluster_id, profile, param_file_path, param_gen, update_params, update_
                                                       m0=m0, c0=c0, p_m=p_m, delta_m=delta_m, delta_c=delta_c,
                                                       mutate_survivors=mutate_survivors,
                                                       adaptive_step_factor=adaptive_step_factor,
-                                                      survival_rate=survival_rate, disp=disp)
+                                                      survival_rate=survival_rate, disp=disp, **main_ctxt.kwargs)
         run_optimization()
         storage = this_param_gen.storage
         best_indiv = storage.get_best(1, 'last')[0]

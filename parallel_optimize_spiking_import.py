@@ -12,7 +12,7 @@ context = Context()
 
 
 def setup_module_from_file(param_file_path='data/optimize_spiking_defaults.yaml', output_dir='data', rec_file_path=None,
-                           export_file_path=None, verbose=True):
+                           export_file_path=None, verbose=True, disp=True):
     """
 
     :param param_file_path: str (.yaml file path)
@@ -41,7 +41,8 @@ def setup_module_from_file(param_file_path='data/optimize_spiking_defaults.yaml'
         func = globals().get(update_params_func_name)
         if not callable(func):
             raise Exception('Multi-Objective Optimization: update_params: %s is not a callable function.'
-                            % (update_params_func_name))
+                            % update_params_func_name)
+        update_params_funcs.append(func)
     if rec_file_path is None:
         rec_file_path = output_dir + '/sim_output' + datetime.datetime.today().strftime('%m%d%Y%H%M') + \
                    '_pid' + str(os.getpid()) + '.hdf5'
@@ -49,7 +50,9 @@ def setup_module_from_file(param_file_path='data/optimize_spiking_defaults.yaml'
         export_file_path = output_dir + '%s_%s_%s_optimization_exported_traces.hdf5' % \
                            (datetime.datetime.today().strftime('%m%d%Y%H%M'), optimization_title, param_gen)
     context.update(locals())
-    config_engine(update_params_funcs, param_names, default_params, rec_file_path, export_file_path, **kwargs)
+    context.update(kwargs)
+    config_engine(update_params_funcs, param_names, default_params, rec_file_path, export_file_path, output_dir, disp,
+                  **kwargs)
 
 
 def config_controller(export_file_path, **kwargs):
@@ -122,7 +125,6 @@ def get_adaptation_index(spike_times):
     :param spike_times: list of float
     :return: float
     """
-    import numpy as np
     if len(spike_times) < 3:
         return None
     isi = []
@@ -134,11 +136,12 @@ def get_adaptation_index(spike_times):
     return np.mean(adi)
 
 
-def setup_cell(verbose=False, cvode=False, **kwargs):
+def setup_cell(verbose=False, cvode=False, daspk=False, **kwargs):
     """
 
     :param verbose: bool
     :param cvode: bool
+    :param daspk: bool
     """
     cell = DG_GC(neurotree_dict=context.neurotree_dict, mech_file_path=context.mech_file_path,
                  full_spines=context.spines)
@@ -173,7 +176,7 @@ def setup_cell(verbose=False, cvode=False, **kwargs):
     duration = context.duration
     dt = context.dt
 
-    sim = QuickSim(duration, cvode=cvode, dt=dt, verbose=verbose)
+    sim = QuickSim(duration, cvode=cvode, daspk=daspk, dt=dt, verbose=verbose)
     sim.append_stim(cell, cell.tree.root, loc=0., amp=0., delay=equilibrate, dur=stim_dur)
     sim.append_stim(cell, cell.tree.root, loc=0., amp=0., delay=0., dur=duration)
     for description, node in rec_nodes.iteritems():
