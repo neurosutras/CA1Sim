@@ -859,37 +859,27 @@ def update_AMPA_NMDA(x, local_context=None):
     if context.spines is False:
         cell.correct_for_spines()
     cell.modify_mech_param('apical', 'synapse', 'gmax',
-                           value=find_param_value('AMPA.g0', x, param_indexes, default_params),
-                           origin='soma', syn_type='AMPA_KIN',
-                           slope=find_param_value('AMPA.slope', x, param_indexes, default_params),
-                           tau=find_param_value('AMPA.tau', x, param_indexes, default_params))
+                           value=x[param_indexes['AMPA.g0']], origin='soma', syn_type='AMPA_KIN',
+                           slope=x[param_indexes['AMPA.slope']], tau=x[param_indexes['AMPA.tau']])
     cell.modify_mech_param('apical', 'synapse', 'gmax', origin='parent', syn_type='AMPA_KIN',
                            custom={'method': 'custom_inherit_by_branch_order', 'branch_order': 4}, replace=False)
-    cell.modify_mech_param('apical', 'synapse', 'gmax',
-                           value=find_param_value('NMDA.gmax', x, param_indexes, default_params),
+    cell.modify_mech_param('apical', 'synapse', 'gmax', value=x[param_indexes['NMDA.gmax']],
                            syn_type=local_context.NMDA_type)
-    cell.modify_mech_param('apical', 'synapse', 'gamma',
-                           value=find_param_value('NMDA.gamma', x, param_indexes, default_params),
+    cell.modify_mech_param('apical', 'synapse', 'gamma', value=x[param_indexes['NMDA.gamma']],
                            syn_type=local_context.NMDA_type)
-    cell.modify_mech_param('apical', 'synapse', 'Kd',
-                           value=find_param_value('NMDA.Kd', x, param_indexes, default_params),
+    cell.modify_mech_param('apical', 'synapse', 'Kd', value=x[param_indexes['NMDA.Kd']],
                            syn_type=local_context.NMDA_type)
-    cell.modify_mech_param('apical', 'synapse', 'kin_scale',
-                           value=find_param_value('NMDA.kin_scale', x, param_indexes, default_params),
+    cell.modify_mech_param('apical', 'synapse', 'kin_scale', value=x[param_indexes['NMDA.kin_scale']],
                            syn_type=local_context.NMDA_type)
     # cell.init_synaptic_mechanisms()
     for sec_type in ['apical']:
-        cell.modify_mech_param(sec_type, 'nas', 'gbar',
-                               find_param_value('dend.gbar_nas', x, param_indexes, default_params))
-        cell.modify_mech_param(sec_type, 'nas', 'gbar', origin='parent',
-                               slope=find_param_value('dend.gbar_nas slope', x, param_indexes, default_params),
-                               min=find_param_value('dend.gbar_nas min', x, param_indexes, default_params),
+        cell.modify_mech_param(sec_type, 'nas', 'gbar', x[param_indexes['dend.gbar_nas']])
+        cell.modify_mech_param(sec_type, 'nas', 'gbar', origin='parent', slope=x[param_indexes['dend.gbar_nas slope']],
+                               min=x[param_indexes['dend.gbar_nas min']],
                                custom={'method': 'custom_gradient_by_branch_ord', 'branch_order':
-                                   find_param_value('dend.gbar_nas bo', x, param_indexes, default_params)},
-                               replace=False)
+                                   x[param_indexes['dend.gbar_nas bo']]}, replace=False)
         cell.modify_mech_param(sec_type, 'nas', 'gbar', origin='parent',
-                               slope=find_param_value('dend.gbar_nas slope', x, param_indexes, default_params),
-                               min=find_param_value('dend.gbar_nas min', x, param_indexes, default_params),
+                               slope=x[param_indexes['dend.gbar_nas slope']], min=x[param_indexes['dend.gbar_nas min']],
                                custom={'method': 'custom_gradient_by_terminal'}, replace=False)
 
 

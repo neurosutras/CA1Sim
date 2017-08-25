@@ -604,59 +604,50 @@ def update_na_ka_stability(x, local_context=None):
     default_params = local_context.default_params
     if local_context.spines is False:
         cell.correct_for_spines()
-    cell.modify_mech_param('soma', 'nas', 'gbar', find_param_value('soma.gbar_nas', x, param_indexes, default_params))
-    cell.modify_mech_param('soma', 'kdr', 'gkdrbar', find_param_value('soma.gkdrbar', x, param_indexes, default_params))
-    cell.modify_mech_param('soma', 'kap', 'gkabar', find_param_value('soma.gkabar', x, param_indexes, default_params))
-    slope = (find_param_value('dend.gkabar', x, param_indexes, default_params) -
-             find_param_value('soma.gkabar', x, param_indexes, default_params)) / 300.
-    cell.modify_mech_param('soma', 'nas', 'sh', find_param_value('soma.sh_nas/x', x, param_indexes, default_params))
+    cell.modify_mech_param('soma', 'nas', 'gbar', x[param_indexes['soma.gbar_nas']])
+    cell.modify_mech_param('soma', 'kdr', 'gkdrbar', x[param_indexes['soma.gkdrbar']])
+    cell.modify_mech_param('soma', 'kap', 'gkabar', x[param_indexes['soma.gkabar']])
+    slope = (x[param_indexes['dend.gkabar']] - x[param_indexes['soma.gkabar']]) / 300.
+    cell.modify_mech_param('soma', 'nas', 'sh', x[param_indexes['soma.sh_nas/x']])
     for sec_type in ['apical']:
         cell.reinitialize_subset_mechanisms(sec_type, 'nas')
         cell.modify_mech_param(sec_type, 'kap', 'gkabar', origin='soma', min_loc=75., value=0.)
         cell.modify_mech_param(sec_type, 'kap', 'gkabar', origin='soma', max_loc=75., slope=slope, replace=False)
         cell.modify_mech_param(sec_type, 'kad', 'gkabar', origin='soma', max_loc=75., value=0.)
         cell.modify_mech_param(sec_type, 'kad', 'gkabar', origin='soma', min_loc=75., max_loc=300., slope=slope,
-                               value=find_param_value('soma.gkabar', x, param_indexes, default_params)+slope*75.,
-                               replace=False)
+                               value=(x[param_indexes['soma.gkabar']] + slope * 75.), replace=False)
         cell.modify_mech_param(sec_type, 'kad', 'gkabar', origin='soma', min_loc=300.,
-                               value=find_param_value('soma.gkabar', x, param_indexes, default_params)+slope*300.,
-                               replace=False)
+                               value=(x[param_indexes['soma.gkabar']] + slope * 300.), replace=False)
         cell.modify_mech_param(sec_type, 'kdr', 'gkdrbar', origin='soma')
         cell.modify_mech_param(sec_type, 'nas', 'sha', 0.)  # 5.)
         cell.modify_mech_param(sec_type, 'nas', 'gbar',
-                               find_param_value('dend.gbar_nas', x, param_indexes, default_params))
+                               x[param_indexes['dend.gbar_nas']])
+        cell.modify_mech_param(sec_type, 'nas', 'gbar', origin='parent', slope=x[param_indexes['dend.gbar_nas slope']],
+                               min=x[param_indexes['dend.gbar_nas min']],
+                               custom={'method': 'custom_gradient_by_branch_ord',
+                                       'branch_order': x[param_indexes['dend.gbar_nas bo']]}, replace=False)
         cell.modify_mech_param(sec_type, 'nas', 'gbar', origin='parent',
-                               slope=find_param_value('dend.gbar_nas slope', x, param_indexes, default_params),
-                               min=find_param_value('dend.gbar_nas min', x, param_indexes, default_params),
-                               custom={'method': 'custom_gradient_by_branch_ord', 'branch_order':
-                                   find_param_value('dend.gbar_nas bo', x, param_indexes, default_params)},
-                               replace=False)
-        cell.modify_mech_param(sec_type, 'nas', 'gbar', origin='parent',
-                               slope=find_param_value('dend.gbar_nas slope', x, param_indexes, default_params),
-                               min=find_param_value('dend.gbar_nas min', x, param_indexes, default_params),
+                               slope=x[param_indexes['dend.gbar_nas slope']], min=x[param_indexes['dend.gbar_nas min']],
                                custom={'method': 'custom_gradient_by_terminal'}, replace=False)
     cell.reinitialize_subset_mechanisms('axon_hill', 'kap')
     cell.reinitialize_subset_mechanisms('axon_hill', 'kdr')
     cell.modify_mech_param('ais', 'kdr', 'gkdrbar', origin='soma')
-    cell.modify_mech_param('ais', 'kap', 'gkabar', find_param_value('axon.gkabar', x, param_indexes, default_params))
+    cell.modify_mech_param('ais', 'kap', 'gkabar', x[param_indexes['axon.gkabar']])
     cell.modify_mech_param('axon', 'kdr', 'gkdrbar', origin='ais')
     cell.modify_mech_param('axon', 'kap', 'gkabar', origin='ais')
-    cell.modify_mech_param('axon_hill', 'nax', 'sh',
-                           find_param_value('soma.sh_nas/x', x, param_indexes, default_params))
+    cell.modify_mech_param('axon_hill', 'nax', 'sh', x[param_indexes['soma.sh_nas/x']])
     cell.modify_mech_param('axon_hill', 'nax', 'gbar', local_context.soma_na_gbar)
-    cell.modify_mech_param('axon', 'nax', 'gbar', find_param_value('axon.gbar_nax', x, param_indexes, default_params))
+    cell.modify_mech_param('axon', 'nax', 'gbar', x[param_indexes['axon.gbar_nax']])
     for sec_type in ['ais', 'axon']:
         cell.modify_mech_param(sec_type, 'nax', 'sh', origin='axon_hill')
-    cell.modify_mech_param('soma', 'Ca', 'gcamult',
-                           find_param_value('soma.gCa factor', x, param_indexes, default_params))
-    cell.modify_mech_param('soma', 'CadepK', 'gcakmult', find_param_value('soma.gCadepK factor', x, param_indexes,
-                                                                          default_params))
-    cell.modify_mech_param('soma', 'km3', 'gkmbar', find_param_value('soma.gkmbar', x, param_indexes, default_params))
-    cell.modify_mech_param('ais', 'km3', 'gkmbar', find_param_value('ais.gkmbar', x, param_indexes, default_params))
+    cell.modify_mech_param('soma', 'Ca', 'gcamult', x[param_indexes['soma.gCa factor']])
+    cell.modify_mech_param('soma', 'CadepK', 'gcakmult', x[param_indexes['soma.gCadepK factor']])
+    cell.modify_mech_param('soma', 'km3', 'gkmbar', x[param_indexes['soma.gkmbar']])
+    cell.modify_mech_param('ais', 'km3', 'gkmbar', x[param_indexes['ais.gkmbar']])
     cell.modify_mech_param('axon_hill', 'km3', 'gkmbar', origin='soma')
     cell.modify_mech_param('axon', 'km3', 'gkmbar', origin='ais')
-    cell.modify_mech_param('ais', 'nax', 'sha', find_param_value('ais.sha_nas', x, param_indexes, default_params))
-    cell.modify_mech_param('ais', 'nax', 'gbar', find_param_value('ais.gbar_nax', x, param_indexes, default_params))
+    cell.modify_mech_param('ais', 'nax', 'sha', x[param_indexes['ais.sha_nas']])
+    cell.modify_mech_param('ais', 'nax', 'gbar', x[param_indexes['ais.gbar_nax']])
 
 
 def export_sim_results():

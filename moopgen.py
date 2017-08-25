@@ -454,19 +454,21 @@ class RelativeBoundedStep(object):
         :return:
         """
         step = stepsize * self.x_range[i] / 2.
-        if self.order_mag(step * xi_min, step * xi_max) > 1.:
+        if self.order_mag(xi, xi_min, xi_max, step) > 1.:
             new_xi = self.log10_step(xi, i, xi_min, xi_max, stepsize, wrap, disp)
         else:
             new_xi = self.linear_step(xi, i, xi_min, xi_max, stepsize, wrap, disp)
         return new_xi
 
-    def order_mag(self, xi_min, xi_max):
+    def order_mag(self, xi, xi_min, xi_max, step):
         """
 
         :param xi_min: float
         :param xi_max: float
         :return:
         """
+        xi_min = max(xi_min, xi - step)
+        xi_max = min(xi_max, xi + step)
         if xi_min == 0. and xi_max != 0.:
             order_mag = abs(np.log10(abs(xi_max)))
         elif xi_max == 0. and xi_min != 0.:
@@ -547,14 +549,15 @@ class RelativeBoundedStep(object):
         new_xi = self.logmod_inv(new_logmod_xi)
         return new_xi
 
-    def apply_rel_bounds(self, x, stepsize, wrap, rel_bounds=None):
+    def apply_rel_bounds(self, x, stepsize, wrap, rel_bounds=None, disp=False):
         """
 
         :param x: array
         :param rel_bounds: list of lists
         :return:
         """
-        #print 'orig x: %s' % str(x)
+        if disp:
+            print 'orig x: %s' % str(x)
         new_x = np.array(x)
         new_min = deepcopy(self.xmin)
         new_max = deepcopy(self.xmax)
@@ -576,11 +579,11 @@ class RelativeBoundedStep(object):
                     else:
                         raise Exception('Relative bounds rule %d contradicts fixed parameter bounds.' %i)
                     continue
-                """
-                print 'Before rel bound rule %i. xi: %.4f, min: %.4f, max: %.4f' % (i, new_x[dep_param_ind],
-                                                                                    new_min[dep_param_ind],
-                                                                                    new_max[dep_param_ind])
-                """
+                if disp:
+                    print 'Before rel bound rule %i. xi: %.4f, min: %.4f, max: %.4f' % (i, new_x[dep_param_ind],
+                                                                                        new_min[dep_param_ind],
+                                                                                        new_max[dep_param_ind])
+
                 if rel_bound_rule[1] == "<":
                     rel_max = factor * new_x[ind_param_ind]
                     new_max[dep_param_ind] = max(min(new_max[dep_param_ind], rel_max), new_min[dep_param_ind])
@@ -598,9 +601,12 @@ class RelativeBoundedStep(object):
                 if not (new_x[dep_param_ind] >= new_min[dep_param_ind] and new_x[dep_param_ind] < new_max[dep_param_ind]):
                     new_xi = max(new_x[dep_param_ind], new_min[dep_param_ind])
                     new_xi = min(new_xi, new_max[dep_param_ind])
-                    #print 'After rel bound rule %i. xi: %.4f, min: %.4f, max: %.4f' % (i, new_xi, new_min[dep_param_ind], new_max[dep_param_ind])
+                    if disp:
+                        print 'After rel bound rule %i. xi: %.4f, min: %.4f, max: %.4f' % (i, new_xi,
+                                                                                           new_min[dep_param_ind],
+                                                                                           new_max[dep_param_ind])
                     new_x[dep_param_ind] = self.generate_param(new_xi, dep_param_ind, new_min[dep_param_ind],
-                                                               new_max[dep_param_ind], stepsize, wrap, disp=False)
+                                                               new_max[dep_param_ind], stepsize, wrap, disp=disp)
         return new_x
 
 

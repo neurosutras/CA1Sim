@@ -2156,7 +2156,7 @@ class QuickSim(object):
         h.celsius = 35.0
         h.cao0_ca_ion = 1.3
         self.cvode = h.CVode()
-        self.cvode_atol = 0.001
+        self.cvode_atol = 0.01
         self.cvode_state = cvode
         if dt is None:
             self.dt = h.dt

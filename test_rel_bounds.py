@@ -1,8 +1,8 @@
 from moopgen import *
-
-param_names = ['dend.gbar_nas min', 'dend.gbar_nas', 'soma.gbar_nas', 'axon.gbar_nax', 'ais.gbar_nax',
-               'axon.gkabar', 'soma.gkabar', 'dend.gkabar', 'logrange8', 'logrange9']
 """
+param_names = ['dend.gbar_nas min', 'dend.gbar_nas', 'soma.gbar_nas', 'axon.gbar_nax', 'ais.gbar_nax',
+               'axon.gkabar', 'soma.gkabar', 'dend.gkabar', 'logrange8', 'logrange9', 'log10', 'log11']
+
 Rules:
 DEP                 IND
 soma.gbar_nas     > dend.gbar_nas min
@@ -12,14 +12,20 @@ axon.gbar_nax     > soma.gbar_nas
 ais.gbar_nax      > 2. * axon.gbar_nax
 dend.gkabar       > soma.gkabar
 axon.gkabar       < 3. * soma.gkabar
-"""
+
 rel_bounds = [['soma.gbar_nas', ">", 1., 'dend.gbar_nas min'], ['dend.gbar_nas', "<", 1., 'soma.gbar_nas'],
               ['dend.gbar_nas', ">", 1., 'dend.gbar_nas min'], ['axon.gbar_nax', ">", 1., 'soma.gbar_nas'],
               ['ais.gbar_nax', ">", 2., 'axon.gbar_nax'], ['dend.gkabar', ">", 1., 'soma.gkabar'],
-              ['axon.gkabar', "<", 3., 'soma.gkabar'], ['logrange8', "<=", 1., 'logrange9']]
+              ['axon.gkabar', "<", 3., 'soma.gkabar'], ['logrange8', "<=", 1., 'logrange9'], ['log10', ">=", 2., 'log11']]
 bounds = [(0., 0.), (0.01, 0.05), (0.01, 0.05), (0.02, 0.1), (0.02, 0.5), (0.01, 0.18), (0.01, 0.05), (0.01, 0.25),
-          (0.01, 100.), (0.01, 100.)]
-x0 = np.array([0., 0.03, 0.03, 0.06, 0.1681, 0.05266, 0.02108, 0.04, 0.05, 0.05])
+          (0.01, 100.), (0.01, 100.), (0.01, 1000.), (0.001, 500.)]
+x0 = np.array([0., 0.03, 0.03, 0.06, 0.1681, 0.05266, 0.02108, 0.04, 0.05, 0.05, 0.2, 0.12])
+"""
+
+param_names = ['log10', 'log11']
+rel_bounds = [['log10', ">=", 2., 'log11']]
+bounds = [(0.01, 1.), (0.001, 0.5)]
+x0 = np.array([0.2, 0.12])
 
 
 def check_abs_bounds(x, bounds):
@@ -62,7 +68,7 @@ def check_rel_bounds(x, rel_bounds, param_indexes):
 
 
 
-step = RelativeBoundedStep(x0, param_names, bounds, rel_bounds, wrap=False)
+step = RelativeBoundedStep(x0, param_names, bounds, rel_bounds, stepsize=0.001, wrap=False)
 prev_x = x0
 x_history = []
 abs_bounds_failed = 0
@@ -81,7 +87,7 @@ print 'Relative bound test (no wrap) ended after %i iterations with %i abs failu
       ((i + 1), abs_bounds_failed, rel_bounds_failed)
 
 
-step2 = RelativeBoundedStep(x0, param_names, bounds, rel_bounds, wrap=True)
+step2 = RelativeBoundedStep(x0, param_names, bounds, rel_bounds, stepsize=0.001, wrap=True)
 prev_x = x0
 x_history_wrap = []
 failed = 0

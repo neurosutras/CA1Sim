@@ -91,6 +91,11 @@ param_names:
 - dend.gbar_nas min
 - dend.gbar_nas bo
 - dend.gkabar
+rel_bounds:
+- - dend.gbar_nas
+  - '>'
+  - 1.0
+  - dend.gbar_nas min
 target_range:
   dend_AP_amp: 0.005
   soma_EPSP_control: 0.01
