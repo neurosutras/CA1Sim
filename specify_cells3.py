@@ -2139,11 +2139,12 @@ class QuickSim(object):
     self.rec_list:
     """
 
-    def __init__(self, tstop=400., cvode=True, dt=None, verbose=True):
+    def __init__(self, tstop=400., cvode=True, daspk=False, dt=None, verbose=True):
         """
 
         :param tstop: float
         :param cvode: bool
+        :param daspk: bool
         :param dt: float
         :param verbose: bool
         """
@@ -2157,6 +2158,7 @@ class QuickSim(object):
         h.cao0_ca_ion = 1.3
         self.cvode = h.CVode()
         self.cvode_atol = 0.01  # 0.001
+        self.daspk = daspk
         self.cvode_state = cvode
         if dt is None:
             self.dt = h.dt
@@ -2409,7 +2411,7 @@ class QuickSim(object):
         if state:
             self.cvode.active(1)
             self.cvode.atol(self.cvode_atol)
-            # self.cvode.use_daspk(1)
+            self.cvode.use_daspk(int(self.daspk))
         else:
             self.cvode.active(0)
 

@@ -7,16 +7,10 @@ from ipyparallel import interactive
 Builds a cell locally so each engine is ready to receive jobs one at a time, specified by a list of indexes
 corresponding to which synapses to stimulate.
 """
-#morph_filename = 'EB1-early-bifurcation.swc'
+
 morph_filename = 'EB2-late-bifurcation.swc'
 
-# mech_filename = '050715 pas_exp_scale kdr ka_scale ih_sig_scale ampar_exp_scale nmda - EB2'
-# mech_filename = '052615 pas_exp_scale ampar_exp_scale nmda - EB2'
-# mech_filename = '072815 optimized basal ka_scale dend_sh_ar_nas - ampa_scale - EB2'
-# mech_filename = '080615 rebalanced na_ka ampa nmda - EB2'
-# mech_filename = '103015 interim dendritic excitability ampa'
-# mech_filename = '012816 altered intrinsic properties - ampa'
-mech_filename = '020516 altered km2 rinp - ampa'
+mech_filename = '043016 Type A - km2_NMDA_KIN5_Pr'
 
 rec_filename = 'output'+datetime.datetime.today().strftime('%m%d%Y%H%M')+'-pid'+str(os.getpid())
 

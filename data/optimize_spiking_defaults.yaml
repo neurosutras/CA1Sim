@@ -78,6 +78,7 @@ kwargs:
   spines: False
   cvode: False
   verbose: False
+  daspk: True
 objective_names:
 - v_th
 - ADP
