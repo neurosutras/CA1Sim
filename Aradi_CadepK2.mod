@@ -49,7 +49,7 @@ STATE {
 }
 
 BREAKPOINT {
-    SOLVE state METHOD derivimplicit
+    SOLVE state METHOD cnexp
 	gbk = gbkbar*gcakmult*r*s*s
 	gsk = gskbar*gcakmult*q*q
 	isk = gsk*(v - ek)
@@ -78,9 +78,11 @@ INITIAL {
 }
 
 FUNCTION exp1(A (/ms), d, k, x (mM)) (/ms) {
-	UNITSOFF
-	exp1 = A/exptrap((12*log10(x)+d)/k)
-	UNITSON
+	if (x > 1e-7) {
+		exp1 = A/exp((12*log10(x)+d)/k)
+	} else {
+		exp1 = A/exp((12*(-7.)+d)/k)
+	}
 }
 
 FUNCTION alphaq(x (mM)) (/ms) {
@@ -92,21 +94,13 @@ FUNCTION betaq(x (mM)) (/ms) {
 }
 
 FUNCTION betar(v (mV)) (/ms) {
-	UNITSOFF
-	betar = 0.11/exptrap((v-35)/14.9)
-	UNITSON
+	betar = 0.11/exp((v-35)/14.9)
 }
 
 FUNCTION sinf(x (mM)) {
-	UNITSOFF
-	sinf = 1/(1+4/(1000*x))
-	UNITSON
-}
-
-FUNCTION exptrap(x) {
-  if (x>=700.0) {
-    exptrap = exp(700.0)
-  } else {
-    exptrap = exp(x)
-  }
+	if (x > 1e-7) {
+		sinf = 1/(1+4/(1000*x))
+	} else {
+		sinf = 1/(1+4/(1000*(1e-7)))
+	}
 }

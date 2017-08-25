@@ -50,7 +50,7 @@ STATE {
 }
 
 BREAKPOINT {
-    SOLVE state METHOD derivimplicit
+    SOLVE state METHOD cnexp
 	gtca = gtcabar*gcamult*a*a*b
 	gnca = gncabar*gcamult*c*c*d
 	glca = glcabar*gcamult*e*e
@@ -58,7 +58,7 @@ BREAKPOINT {
 	i = ica
 }
 
-DERIVATIVE state {	: exact when v held constant; integrates over dt step
+DERIVATIVE state {
 	rates(v)
 	a' = (ainf - a)/taua
 	b' = (binf - b)/taub
@@ -131,32 +131,18 @@ FUNCTION betae(v (mV)) (/ms) {
 
 FUNCTION f(A, k, v (mV), D) (/ms) {
 	LOCAL x
-	UNITSOFF
 	x = k*(v-D)
 	if (fabs(x) > 1e-6) {
-		f = A*x/(1-exptrap(-x))
+		f = A*x/(1-exp(-x))
 	}else{
 		f = A/(1-0.5*x)
 	}
-	UNITSON
 }
 
 FUNCTION logistic(A, k, v (mV), D) (/ms) {
-	UNITSOFF
-	logistic = A/(1+exptrap(k*(v-D)))
-	UNITSON
+	logistic = A/(1+exp(k*(v-D)))
 }
 
 FUNCTION exponential(A, k, v (mV), D) (/ms) {
-	UNITSOFF
-	exponential = A*exptrap(k*(v-D))
-	UNITSON
-}
-
-FUNCTION exptrap(x) {
-  if (x>=700.0) {
-    exptrap = exp(700.0)
-  } else {
-    exptrap = exp(x)
-  }
+	exponential = A*exp(k*(v-D))
 }

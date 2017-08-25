@@ -11,11 +11,12 @@ Requires use of an ipyparallel client.
 context = Context()
 
 
-def setup_module_from_file(param_file_path='data/optimize_spiking_defaults.yaml', rec_file_path=None,
-                           export_file_path=None, verbose=False):
+def setup_module_from_file(param_file_path='data/optimize_spiking_defaults.yaml', output_dir='data', rec_file_path=None,
+                           export_file_path=None, verbose=True):
     """
 
     :param param_file_path: str (.yaml file path)
+    :param output_dir: str (dir path)
     :param rec_file_path: str (.hdf5 file path)
     :param export_file_path: str (.hdf5 file path)
     :param verbose: bool
@@ -42,10 +43,10 @@ def setup_module_from_file(param_file_path='data/optimize_spiking_defaults.yaml'
             raise Exception('Multi-Objective Optimization: update_params: %s is not a callable function.'
                             % (update_params_func_name))
     if rec_file_path is None:
-        rec_file_path = 'data/sim_output' + datetime.datetime.today().strftime('%m%d%Y%H%M') + \
+        rec_file_path = output_dir + '/sim_output' + datetime.datetime.today().strftime('%m%d%Y%H%M') + \
                    '_pid' + str(os.getpid()) + '.hdf5'
     if export_file_path is None:
-        export_file_path = 'data/%s_%s_%s_optimization_exported_traces.hdf5' % \
+        export_file_path = output_dir + '%s_%s_%s_optimization_exported_traces.hdf5' % \
                            (datetime.datetime.today().strftime('%m%d%Y%H%M'), optimization_title, param_gen)
     context.update(locals())
     config_engine(update_params_funcs, param_names, default_params, rec_file_path, export_file_path, **kwargs)
@@ -60,15 +61,16 @@ def config_controller(export_file_path, **kwargs):
     set_constants()
 
 
-def config_engine(update_params_funcs, param_names, default_params, rec_file_path, export_file_path, mech_file_path,
-                  neurotree_file_path, neurotree_index, spines, **kwargs):
+def config_engine(update_params_funcs, param_names, default_params, rec_file_path, export_file_path, output_dur, disp,
+                  mech_file_path, neurotree_file_path, neurotree_index, spines, **kwargs):
     """
-
     :param update_params_funcs: list of function references
     :param param_names: list of str
     :param default_params: dict
     :param rec_file_path: str
     :param export_file_path: str
+    :param output_dur: str (dir path)
+    :param disp: bool
     :param mech_file_path: str
     :param neurotree_file_path: str
     :param neurotree_index: int
@@ -77,6 +79,7 @@ def config_engine(update_params_funcs, param_names, default_params, rec_file_pat
     neurotree_dict = read_from_pkl(neurotree_file_path)[neurotree_index]
     param_indexes = {param_name: i for i, param_name in enumerate(param_names)}
     context.update(locals())
+    context.update(kwargs)
     set_constants()
     setup_cell(**kwargs)
 
@@ -131,10 +134,11 @@ def get_adaptation_index(spike_times):
     return np.mean(adi)
 
 
-def setup_cell(verbose=False, cvode=False):
+def setup_cell(verbose=False, cvode=False, **kwargs):
     """
 
     :param verbose: bool
+    :param cvode: bool
     """
     cell = DG_GC(neurotree_dict=context.neurotree_dict, mech_file_path=context.mech_file_path,
                  full_spines=context.spines)
@@ -227,11 +231,12 @@ def get_fI_features(indiv, c, client_range, export=False):
             'filter_features': filter_fI_features}
 
 
-def filter_fI_features(get_result, old_features, export):
+def filter_fI_features(get_result, old_features, export=False):
     """
 
     :param get_result: list of dict (each dict has the results from a particular simulation)
     :param old_features: dict
+    :param export: bool
     :return: dict
     """
     amps = []
@@ -343,26 +348,6 @@ def compute_stability_features(x, export=False, plot=False):
     :return: float
     """
     start_time = time.time()
-    param_indexes = context.param_indexes
-    default_params = context.default_params
-
-    relative_bounds = max(0., find_param_value('dend.gbar_nas', x, param_indexes, default_params) -
-                          find_param_value('soma.gbar_nas', x, param_indexes, default_params)) + \
-                      max(0., find_param_value('soma.gbar_nas', x, param_indexes, default_params) -
-                          find_param_value('ais.gbar_nax', x, param_indexes, default_params)) + \
-                      max(0., find_param_value('soma.gbar_nas', x, param_indexes, default_params) -
-                          find_param_value('axon.gbar_nax', x, param_indexes, default_params)) + \
-                      max(0., 2. * find_param_value('axon.gbar_nax', x, param_indexes, default_params) -
-                          find_param_value('ais.gbar_nax', x, param_indexes, default_params)) + \
-                      max(0., find_param_value('dend.gbar_nas min', x, param_indexes, default_params) -
-                          find_param_value('dend.gbar_nas', x, param_indexes, default_params)) + \
-                      max(0., find_param_value('soma.gkabar', x, param_indexes, default_params) -
-                          find_param_value('dend.gkabar', x, param_indexes, default_params)) + \
-                      max(0., find_param_value('axon.gkabar', x, param_indexes, default_params) -
-                          3. * find_param_value('soma.gkabar', x, param_indexes, default_params))
-    if relative_bounds > 0.:
-        print 'Process %i: Aborting - relative bounds are incorrect' % (os.getpid())
-        return None
     result = {}
     context.cell.reinit_mechanisms(reset_cable=True, from_file=True)
     for update_func in context.update_params_funcs:
@@ -388,12 +373,14 @@ def compute_stability_features(x, export=False, plot=False):
         context.sim.run(v_active)
         vm = np.interp(t, context.sim.tvec, context.sim.get_rec('soma')['vec'])
         if np.any(vm[:int(equilibrate/dt)] > -30.):
-            print 'Process %i: Aborting - spontaneous firing' % (os.getpid())
+            if context.disp:
+                print 'Process %i: Aborting - spontaneous firing' % (os.getpid())
             return None
         if np.any(vm[int(equilibrate/dt):int((equilibrate+50.)/dt)] > -30.):
             spike = True
         elif amp >= 0.4:
-            print 'Process %i: Aborting - rheobase outside target range' % (os.getpid())
+            if context.disp:
+                print 'Process %i: Aborting - rheobase outside target range' % (os.getpid())
             return None
         else:
             amp += d_amp
@@ -436,7 +423,9 @@ def compute_stability_features(x, export=False, plot=False):
     axon_peak = np.max(axon_dvdt[left:right])
     axon_peak_t = np.where(axon_dvdt[left:right] == axon_peak)[0][0] * dt
     result['ais_delay'] = max(0., ais_peak_t + dt - soma_peak_t) + max(0., ais_peak_t + dt - axon_peak_t)
-    print 'Process %i took %.1f s to find spike rheobase at amp: %.3f' % (os.getpid(), time.time() - start_time, amp)
+    if context.disp:
+        print 'Process %i took %.1f s to find spike rheobase at amp: %.3f' % (os.getpid(), time.time() - start_time,
+                                                                              amp)
     if plot:
         context.sim.plot()
     if export:
@@ -475,8 +464,6 @@ def compute_fI_features(amp, x, extend_dur=False, export=False, plot=False):
     else:
         duration = equilibrate + stim_dur
     context.sim.tstop = duration
-    print 'starting sim at %.1f A' %amp
-    sys.stdout.flush()
     context.sim.run(v_active)
     if plot:
         context.sim.plot()
@@ -494,8 +481,10 @@ def compute_fI_features(amp, x, extend_dur=False, export=False, plot=False):
         vm_stability = abs(v_after - v_rest)
         result['vm_stability'] = vm_stability
         result['rebound_firing'] = len(np.where(spike_times > stim_dur)[0])
-    print 'Process %i took %.1f s to run simulation with I_inj amp: %.3f' % (os.getpid(), time.time() - start_time, amp)
-    sys.stdout.flush()
+    if context.disp:
+        print 'Process %i took %.1f s to run simulation with I_inj amp: %.3f' % (os.getpid(), time.time() - start_time,
+                                                                                 amp)
+        sys.stdout.flush()
     if export:
         export_sim_results()
     return result
