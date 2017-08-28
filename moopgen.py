@@ -477,6 +477,7 @@ class RelativeBoundedStep(object):
             order_mag = 0.
         else:
             order_mag = abs(np.log10(abs(xi_max / xi_min)))
+        print 'xi_min: %.4f, xi_max: %.4f' %(xi_min, xi_max)
         return order_mag
 
     def linear_step(self, xi, i, xi_min, xi_max, stepsize=None, wrap=None, disp=False):
@@ -488,6 +489,7 @@ class RelativeBoundedStep(object):
         :param wrap: bool
         :return: float
         """
+        print 'linear'
         if stepsize is None:
             stepsize = self.stepsize
         if wrap is None:
@@ -520,6 +522,7 @@ class RelativeBoundedStep(object):
         :param wrap: bool
         :return: float
         """
+        print 'log'
         xi_logmin = self.logmod(xi_min)
         xi_logmax = self.logmod(xi_max)
         if stepsize is None:
@@ -1219,9 +1222,9 @@ class EGen(object):
     """
 
     def __init__(self, param_names=None, feature_names=None, objective_names=None, pop_size=None, x0=None,
-                 bounds=None, rel_bounds=None, wrap_bounds=False, take_step=None, m0=20, c0=20, p_m=0.5, delta_m=0,
-                 delta_c=0, mutate_survivors=False, evaluate=None, seed=None, max_iter=None, survival_rate=0.1,
-                 disp=False, hot_start=None, **kwargs):
+                 bounds=None, rel_bounds=None, wrap_bounds=False, take_step=None, initial_step_size=1., m0=20, c0=20,
+                 p_m=0.5, delta_m=0, delta_c=0, mutate_survivors=False, evaluate=None, seed=None, max_iter=None,
+                 survival_rate=0.1,  disp=False, hot_start=None, **kwargs):
         """
         :param param_names: list of str
         :param feature_names: list of str
@@ -1280,17 +1283,21 @@ class EGen(object):
             self.objectives_stored = False
         self.pop_size = pop_size
         if take_step is None:
-            self.take_step = RelativeBoundedStep(self.x0, param_names, bounds, rel_bounds, stepsize=1.,
-                                                 wrap = wrap_bounds, random = self.random)
+            self.take_step = RelativeBoundedStep(self.x0, param_names=param_names, bounds=bounds, rel_bounds=rel_bounds,
+                                                 stepsize=initial_step_size, wrap=wrap_bounds, random=self.random)
             self.x0 = np.array(self.take_step.x0)
             self.xmin = np.array(self.take_step.xmin)
             self.xmax = np.array(self.take_step.xmax)
-        elif isinstance(take_step, collections.Callable):  # must accept the above named keyword arguments
-            self.take_step = take_step
-            self.xmin = np.array(self.take_step.xmin)
-            self.xmax = np.array(self.take_step.xmax)
         else:
-            raise TypeError("EGen: take_step must be callable.")
+            if take_step in globals() and callable(globals()[take_step]):
+                self.take_step = globals()[take_step](self.x0, param_names=param_names, bounds=bounds,
+                                                      rel_bounds=rel_bounds, stepsize=initial_step_size,
+                                                      wrap=wrap_bounds, random=self.random)
+                self.x0 = np.array(self.take_step.x0)
+                self.xmin = np.array(self.take_step.xmin)
+                self.xmax = np.array(self.take_step.xmax)
+            else:
+                raise TypeError('BGen: provided take_step: %s is not callable.' % take_step)
         if max_iter is None:
             self.max_gens = 30.
         else:
@@ -1334,6 +1341,7 @@ class EGen(object):
         """
         p = np.minimum(p, self.param_max)
         p = np.maximum(p, self.param_min)
+        p = self.take_step.apply_rel_bounds(self, p, stepsize, wrap, rel_bounds=None, disp=False)
         return p
 
     def evolve(self, maxgen=200):
