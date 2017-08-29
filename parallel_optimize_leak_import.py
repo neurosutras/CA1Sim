@@ -324,10 +324,9 @@ def update_pas_exp(x, local_context=None):
     default_params = local_context.default_params
     if local_context.spines is False:
         cell.reinit_mechanisms(reset_cable=True)
-    cell.modify_mech_param('soma', 'pas', 'g', find_param_value('soma.g_pas', x, param_indexes, default_params))
-    cell.modify_mech_param('apical', 'pas', 'g', origin='soma', slope=find_param_value('dend.g_pas slope', x,
-                                                                                       param_indexes, default_params),
-                           tau=find_param_value('dend.g_pas tau', x, param_indexes, default_params))
+    cell.modify_mech_param('soma', 'pas', 'g', x[param_indexes['soma.g_pas']])
+    cell.modify_mech_param('apical', 'pas', 'g', origin='soma', slope=x[param_indexes['dend.g_pas slope']],
+                           tau=x[param_indexes['dend.g_pas tau']])
     for sec_type in ['axon_hill', 'axon', 'ais', 'apical', 'spine_neck', 'spine_head']:
         cell.reinitialize_subset_mechanisms(sec_type, 'pas')
     if local_context.spines is False:

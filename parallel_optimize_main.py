@@ -181,7 +181,8 @@ def process_params(cluster_id, profile, param_file_path, param_gen, update_param
         x0 = params_dict['x0']
 
         for param in default_params:
-            params_dict['bounds'][param] = (default_params[param], default_params[param])
+            params_dict['bounds'][param] = (default_params[param], np.nextafter(default_params[param],
+                                                                                default_params[param] + 1))
         bounds = [params_dict['bounds'][key] for key in param_names]
         if 'rel_bounds' in params_dict:
             rel_bounds = params_dict['rel_bounds']
