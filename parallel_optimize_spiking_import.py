@@ -65,7 +65,7 @@ def config_controller(export_file_path, **kwargs):
 
 
 def config_engine(update_params_funcs, param_names, default_params, rec_file_path, export_file_path, output_dur, disp,
-                  mech_file_path, neurotree_file_path, neurotree_index, spines, **kwargs):
+                  mech_file_path, neuroH5_file_path, neuroH5_index, spines, **kwargs):
     """
     :param update_params_funcs: list of function references
     :param param_names: list of str
@@ -75,11 +75,11 @@ def config_engine(update_params_funcs, param_names, default_params, rec_file_pat
     :param output_dur: str (dir path)
     :param disp: bool
     :param mech_file_path: str
-    :param neurotree_file_path: str
-    :param neurotree_index: int
+    :param neuroH5_file_path: str
+    :param neuroH5_index: int
     :param spines: bool
     """
-    neurotree_dict = read_from_pkl(neurotree_file_path)[neurotree_index]
+    neuroH5_dict = read_from_pkl(neuroH5_file_path)[neuroH5_index]
     param_indexes = {param_name: i for i, param_name in enumerate(param_names)}
     context.update(locals())
     context.update(kwargs)
@@ -102,7 +102,6 @@ def set_constants():
     i_holding = {'soma': 0., 'dend': 0., 'distal_dend': 0.}
     i_th = {'soma': 0.1}
     soma_ek = -77.
-    soma_na_gbar = 0.04
 
     # GC experimental spike adaptation data from Brenner...Aldrich, Nat. Neurosci., 2005
     experimental_spike_times = [0., 8.57331572, 21.79656539, 39.24702774, 60.92470277, 83.34214003, 109.5640687,
@@ -143,12 +142,9 @@ def setup_cell(verbose=False, cvode=False, daspk=False, **kwargs):
     :param cvode: bool
     :param daspk: bool
     """
-    cell = DG_GC(neurotree_dict=context.neurotree_dict, mech_file_path=context.mech_file_path,
+    cell = DG_GC(neuroH5_dict=context.neuroH5_dict, mech_file_path=context.mech_file_path,
                  full_spines=context.spines)
     context.cell = cell
-
-    if context.spines is False:
-        cell.correct_for_spines()
 
     # get the thickest apical dendrite ~200 um from the soma
     candidate_branches = []
@@ -354,11 +350,14 @@ def compute_stability_features(x, export=False, plot=False):
     :return: float
     """
     start_time = time.time()
-    result = {}
+
     context.cell.reinit_mechanisms(reset_cable=True, from_file=True)
+    if not context.spines:
+        context.cell.correct_for_spines()
     for update_func in context.update_params_funcs:
         update_func(x, context)
 
+    result = {}
     v_active = context.v_active
     equilibrate = context.equilibrate
     dt = context.dt
@@ -450,9 +449,10 @@ def compute_fI_features(amp, x, extend_dur=False, export=False, plot=False):
     :return: dict
     """
     context.cell.reinit_mechanisms(reset_cable=True, from_file=True)
+    if not context.spines:
+        context.cell.correct_for_spines()
     for update_func in context.update_params_funcs:
         update_func(x, context)
-        sys.stdout.flush()
 
     soma_vm = offset_vm('soma', context.v_active)
     context.sim.parameters['amp'] = amp
@@ -599,15 +599,15 @@ def get_spike_shape(vm, spike_times):
 
 def update_na_ka_stability(x, local_context=None):
     """
-    :param x: array ['soma.gbar_nas', 'dend.gbar_nas', 'dend.gbar_nas slope', 'dend.gbar_nas min', 'dend.gbar_nas bc',
+    :param x: array ['soma.gbar_nas', 'dend.gbar_nas', 'dend.gbar_nas slope', 'dend.gbar_nas min', 'dend.gbar_nas bo',
                     'axon.gbar_nax', 'ais.gbar_nax', 'soma.gkabar', 'dend.gkabar', 'soma.gkdrbar', 'axon.gkabar',
-                    'soma.sh_nas/x', 'ais.sha_nas', 'soma.gCa factor', 'soma.gCadepK factor', 'soma.gkmbar', 'ais.gkmbar']
+                    'soma.sh_nas/x', 'ais.sha_nas', 'soma.gCa factor', 'soma.gCadepK factor', 'soma.gkmbar',
+                    'ais.gkmbar']
     """
     if local_context is None:
         local_context = context
     cell = local_context.cell
     param_indexes = local_context.param_indexes
-    default_params = local_context.default_params
     cell.modify_mech_param('soma', 'nas', 'gbar', x[param_indexes['soma.gbar_nas']])
     cell.modify_mech_param('soma', 'kdr', 'gkdrbar', x[param_indexes['soma.gkdrbar']])
     cell.modify_mech_param('soma', 'kap', 'gkabar', x[param_indexes['soma.gkabar']])
@@ -640,7 +640,7 @@ def update_na_ka_stability(x, local_context=None):
     cell.modify_mech_param('axon', 'kdr', 'gkdrbar', origin='ais')
     cell.modify_mech_param('axon', 'kap', 'gkabar', origin='ais')
     cell.modify_mech_param('axon_hill', 'nax', 'sh', x[param_indexes['soma.sh_nas/x']])
-    cell.modify_mech_param('axon_hill', 'nax', 'gbar', local_context.soma_na_gbar)
+    cell.modify_mech_param('axon_hill', 'nax', 'gbar', x[param_indexes['soma.gbar_nas']])
     cell.modify_mech_param('axon', 'nax', 'gbar', x[param_indexes['axon.gbar_nax']])
     for sec_type in ['ais', 'axon']:
         cell.modify_mech_param(sec_type, 'nax', 'sh', origin='axon_hill')

@@ -62,8 +62,8 @@ group_sizes: !!python/tuple
 - 1
 kwargs:
   mech_file_path: data/082417 GC optimizing synaptic.yaml
-  neurotree_file_path: morphologies/121516_DGC_trees.pkl
-  neurotree_index: 0
+  neuroH5_file_path: morphologies/121516_DGC_trees.pkl
+  neuroH5_index: 0
   spines: False
   verbose: True
   cvode: True

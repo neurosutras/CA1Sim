@@ -9,8 +9,8 @@ which section to simulate (full sampling of sections).
 """
 
 # morph_filename = 'DG_GC_355549.swc'
-neurotree_filename = '121516_DGC_trees.pkl'
-neurotree_dict = read_from_pkl(morph_dir+neurotree_filename)
+neuroH5_filename = '121516_DGC_trees.pkl'
+neuroH5_dict = read_from_pkl(morph_dir+neuroH5_filename)
 rec_filename = 'output'+datetime.datetime.today().strftime('%m%d%Y%H%M')+'-pid'+str(os.getpid())
 
 spines = False
@@ -135,7 +135,7 @@ amp = -0.15
 v_init = -67.
 
 #cell = CA1_Pyr(morph_filename, mech_filename, full_spines=True)
-cell = DG_GC(neurotree_dict=neurotree_dict[0], mech_filename=mech_filename, full_spines=spines)
+cell = DG_GC(neuroH5_dict=neuroH5_dict[0], mech_filename=mech_filename, full_spines=spines)
 if not spines:
     cell.correct_for_spines()
 cell.zero_na()

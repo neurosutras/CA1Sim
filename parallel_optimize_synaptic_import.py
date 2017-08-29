@@ -70,7 +70,7 @@ def config_controller(export_file_path, **kwargs):
 
 
 def config_engine(update_params_funcs, param_names, default_params, rec_file_path, export_file_path, output_dur, disp,
-                  mech_file_path, neurotree_file_path, neurotree_index, spines, **kwargs):
+                  mech_file_path, neuroH5_file_path, neuroH5_index, spines, **kwargs):
     """
     :param update_params_funcs: list of function references
     :param param_names: list of str
@@ -80,11 +80,11 @@ def config_engine(update_params_funcs, param_names, default_params, rec_file_pat
     :param output_dur: str (dir path)
     :param disp: bool
     :param mech_file_path: str
-    :param neurotree_file_path: str
-    :param neurotree_index: int
+    :param neuroH5_file_path: str
+    :param neuroH5_index: int
     :param spines: bool
     """
-    neurotree_dict = read_from_pkl(neurotree_file_path)[neurotree_index]
+    neuroH5_dict = read_from_pkl(neuroH5_file_path)[neuroH5_index]
     param_indexes = {param_name: i for i, param_name in enumerate(param_names)}
     context.update(locals())
     context.update(kwargs)
@@ -135,14 +135,11 @@ def setup_cell(verbose=False, cvode=False, daspk=False, **kwargs):
     :param cvode: bool
     :param daspk: bool
     """
-    cell = DG_GC(neurotree_dict=context.neurotree_dict, mech_file_path=context.mech_file_path,
+    cell = DG_GC(neuroH5_dict=context.neuroH5_dict, mech_file_path=context.mech_file_path,
                  full_spines=context.spines)
     context.cell = cell
 
-    if context.spines is False:
-        cell.correct_for_spines()
-
-    context.local_random.seed(int(context.neurotree_index + context.seed_offset))
+    context.local_random.seed(int(context.neuroH5_index + context.seed_offset))
 
     # these synapses will not be used, but must be inserted for inheritance of synaptic parameters from trunk
     if context.spines:
@@ -507,11 +504,15 @@ def compute_EPSP_amp_features(x, test_syns, AP5_condition, group_type, export=Fa
     :param plot: bool
     :return: dict
     """
-    test_syns = np.array(test_syns)
     start_time = time.time()
+
     context.cell.reinit_mechanisms(reset_cable=True, from_file=True)
+    if not context.spines:
+        context.cell.correct_for_spines()
     for update_func in context.update_params_funcs:
         update_func(x, context)
+
+    test_syns = np.array(test_syns)
     soma_vm = offset_vm('soma', context.v_init)
     synapses = [context.syn_list[syn_index] for syn_index in test_syns]
     for i, syn in enumerate(synapses):
@@ -592,10 +593,14 @@ def compute_branch_cooperativity_features(x, test_syns, AP5_condition, group_typ
     :return: dict
     """
     start_time = time.time()
-    test_syns = np.array(test_syns)
+
     context.cell.reinit_mechanisms(reset_cable=True, from_file=True)
+    if not context.spines:
+        context.cell.correct_for_spines()
     for update_func in context.update_params_funcs:
         update_func(x, context)
+
+    test_syns = np.array(test_syns)
     synapses = [context.syn_list[syn_index] for syn_index in test_syns]
     for i, syn in enumerate(synapses):
         syn.source.play(h.Vector([context.equilibrate + i * context.compound_isi]))
@@ -660,7 +665,10 @@ def compute_stability_features(x, export=False, plot=False):
     :return: dict
     """
     start_time = time.time()
+
     context.cell.reinit_mechanisms(reset_cable=True, from_file=True)
+    if not context.spines:
+        context.cell.correct_for_spines()
     for update_func in context.update_params_funcs:
         update_func(x, context)
 
@@ -865,7 +873,6 @@ def update_AMPA_NMDA(x, local_context=None):
         local_context = context
     cell = local_context.cell
     param_indexes = local_context.param_indexes
-    default_params = local_context.default_params
     cell.modify_mech_param('apical', 'synapse', 'gmax',
                            value=x[param_indexes['AMPA.g0']], origin='soma', syn_type='AMPA_KIN',
                            slope=x[param_indexes['AMPA.slope']], tau=x[param_indexes['AMPA.tau']])
