@@ -3,6 +3,7 @@ from specify_cells3 import *
 from plot_results import *
 import random
 from numpy.polynomial import Polynomial
+from moopgen import *
 
 """
 Iterates through every spine and activates AMPA_KIN synapses. Allows measurement of EPSP attenuation
@@ -52,6 +53,7 @@ def setup_module_from_file(param_file_path='data/optimize_synaptic_defaults.yaml
     if export_file_path is None:
         export_file_path = output_dir + '/%s_%s_%s_optimization_exported_traces.hdf5' % \
                            (datetime.datetime.today().strftime('%m%d%Y%H%M'), optimization_title, param_gen)
+    x0_array = param_dict_to_array(x0, param_names)
     context.update(locals())
     context.update(kwargs)
     config_engine(update_params_funcs, param_names, default_params, rec_file_path, export_file_path, output_dir, disp,
@@ -139,6 +141,7 @@ def setup_cell(verbose=False, cvode=False, daspk=False, **kwargs):
 
     if context.spines is False:
         cell.correct_for_spines()
+
     context.local_random.seed(int(context.neurotree_index + context.seed_offset))
 
     # these synapses will not be used, but must be inserted for inheritance of synaptic parameters from trunk
@@ -863,8 +866,6 @@ def update_AMPA_NMDA(x, local_context=None):
     cell = local_context.cell
     param_indexes = local_context.param_indexes
     default_params = local_context.default_params
-    if context.spines is False:
-        cell.correct_for_spines()
     cell.modify_mech_param('apical', 'synapse', 'gmax',
                            value=find_param_value('AMPA.g0', x, param_indexes, default_params),
                            origin='soma', syn_type='AMPA_KIN',

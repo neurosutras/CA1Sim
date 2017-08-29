@@ -113,8 +113,12 @@ def setup_cell(verbose=False, cvode=False, daspk=False, **kwargs):
     :param cvode: bool
     :param daspk: bool
     """
-    cell = DG_GC(neurotree_dict=context.neurotree_dict, mech_file_path=context.mech_file_path, full_spines=context.spines)
+    cell = DG_GC(neurotree_dict=context.neurotree_dict, mech_file_path=context.mech_file_path,
+                 full_spines=context.spines)
     context.cell = cell
+
+    if context.spines is False:
+        cell.correct_for_spines()
 
     # get the thickest apical dendrite ~200 um from the soma
     candidate_branches = []

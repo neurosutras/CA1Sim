@@ -147,6 +147,9 @@ def setup_cell(verbose=False, cvode=False, daspk=False, **kwargs):
                  full_spines=context.spines)
     context.cell = cell
 
+    if context.spines is False:
+        cell.correct_for_spines()
+
     # get the thickest apical dendrite ~200 um from the soma
     candidate_branches = []
     candidate_diams = []
@@ -605,8 +608,6 @@ def update_na_ka_stability(x, local_context=None):
     cell = local_context.cell
     param_indexes = local_context.param_indexes
     default_params = local_context.default_params
-    if local_context.spines is False:
-        cell.correct_for_spines()
     cell.modify_mech_param('soma', 'nas', 'gbar', find_param_value('soma.gbar_nas', x, param_indexes, default_params))
     cell.modify_mech_param('soma', 'kdr', 'gkdrbar', find_param_value('soma.gkdrbar', x, param_indexes, default_params))
     cell.modify_mech_param('soma', 'kap', 'gkabar', find_param_value('soma.gkabar', x, param_indexes, default_params))
