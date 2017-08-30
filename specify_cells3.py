@@ -1634,8 +1634,8 @@ class SHocNode(btmorph.btstructs2.SNode2):
         if not self.get_diam_bounds() is None:
             sugg_nseg = max(sugg_nseg, 3)
         sugg_nseg *= 3 ** spatial_res
-        if self.sec.nseg < sugg_nseg:
-            self.sec.nseg = sugg_nseg
+        # if self.sec.nseg < sugg_nseg:
+        #    self.sec.nseg = sugg_nseg
 
     def reinit_diam(self):
         """
