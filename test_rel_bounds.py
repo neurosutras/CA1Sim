@@ -1,5 +1,7 @@
 import numpy as np
 from copy import deepcopy
+from plot_results import *
+
 
 class RelativeBoundedStep(object):
     """
@@ -8,7 +10,8 @@ class RelativeBoundedStep(object):
     approximation that tolerates ranges that span zero. If bounds are not provided for some parameters, the default is
     (0.1 * x0, 10. * x0).
     """
-    def __init__(self, x0, param_names, bounds=None, rel_bounds=None, stepsize=0.5, wrap=False, random=None, **kwargs):
+    def __init__(self, x0, param_names, bounds=None, rel_bounds=None, stepsize=0.5, wrap=False, random=None, disp=False,
+                 **kwargs):
         """
 
         :param x0: array
@@ -18,7 +21,9 @@ class RelativeBoundedStep(object):
         :param stepsize: float in [0., 1.]
         :param wrap: bool  # whether or not to wrap around bounds
         :param random: int or :class:'np.random.RandomState'
+        :param disp: bool
         """
+        self.disp = disp
         self.wrap = wrap
         self.stepsize = stepsize
         if x0 is None and bounds is None:
@@ -61,11 +66,12 @@ class RelativeBoundedStep(object):
         self.xmin = np.array(xmin)
         self.xmax = np.array(xmax)
         self.x_range = np.subtract(self.xmax, self.xmin)
-        print 'x: %s' %str(self.x0)
-        print 'xmin: %s' %str(self.xmin)
-        print 'xmax: %s' %str(self.xmax)
-        self.log_convert = lambda x, norm_factor, offset: np.log10(x / norm_factor + offset)
-        self.log_convert_inv = lambda logx, norm_factor, offset: (10. ** logx - offset) * norm_factor
+        self.logmod = lambda x, offset, factor: np.log10(x * factor + offset)
+        self.logmod_inv = lambda logmod_x, offset, factor: ((10. ** logmod_x) - offset) / factor
+        self.abs_order_mag = []
+        for i in xrange(len(xmin)):
+            xi_logmin, xi_logmax, offset, factor = self.logmod_bounds(xmin[i], xmax[i])
+            self.abs_order_mag.append(xi_logmax - xi_logmin)
         self.rel_bounds = rel_bounds
 
     def __call__(self, current_x, stepsize=None, wrap=None):
@@ -84,11 +90,62 @@ class RelativeBoundedStep(object):
         for i in xrange(len(x)):
             if not self.xmax[i] >= self.xmin[i]:
                 raise Exception('Bounds for paramter %d: max is not >= to min.') %i
-            new_xi, norm_factor, offset = self.generate_param(x[i], i, self.xmin[i], self.xmax[i], stepsize, wrap)
+            new_xi = self.generate_param(x[i], i, self.xmin[i], self.xmax[i], stepsize, wrap, self.disp)
             x[i] = new_xi
         if self.rel_bounds is not None:
             x = self.apply_rel_bounds(x, stepsize, wrap, self.rel_bounds)
         return x
+
+    def logmod_bounds(self, xi_min, xi_max):
+        """
+
+        :param xi_min: float
+        :param xi_max: float
+        :return: xi_logmin, xi_logmax, offset, factor
+        """
+        if xi_min < 0.:
+            if xi_max < 0.:
+                offset = 0.
+                factor = -1.
+            elif xi_max == 0.:
+                offset = 0.1
+                factor = -1.
+            else:
+                #If xi_min and xi_max are opposite signs, do not sample in log space; do linear sampling
+                return 0., 0., None, None
+            xi_logmin = self.logmod(xi_max, offset, factor)  # When the sign is flipped, the max and min will reverse
+            xi_logmax = self.logmod(xi_min, offset, factor)
+        elif xi_min == 0.:
+            if xi_max == 0.:
+                return 0., 0., None, None
+            else:
+                offset = 0.1
+                factor = 1.
+                xi_logmin = self.logmod(xi_min, offset, factor)
+                xi_logmax = self.logmod(xi_max, offset, factor)
+        else:
+            offset = 0.
+            factor = 1.
+            xi_logmin = self.logmod(xi_min, offset, factor)
+            xi_logmax = self.logmod(xi_max, offset, factor)
+        return xi_logmin, xi_logmax, offset, factor
+
+    def logmod_inv_bounds(self, xi_logmin, xi_logmax, offset, factor):
+        """
+
+        :param xi_logmin: float
+        :param xi_logmax: float
+        :param offset: float
+        :param factor: float
+        :return: xi_min, xi_max
+        """
+        if factor < 0.:
+            xi_min = self.logmod_inv(xi_logmax, offset, factor)
+            xi_max = self.logmod_inv(xi_logmin, offset, factor)
+        else:
+            xi_min = self.logmod_inv(xi_logmin, offset, factor)
+            xi_max = self.logmod_inv(xi_logmax, offset, factor)
+        return xi_min, xi_max
 
     def generate_param(self, xi, i, xi_min, xi_max, stepsize, wrap, disp=False):
         """
@@ -103,42 +160,16 @@ class RelativeBoundedStep(object):
         """
         if xi_min == xi_max:
             return xi_min
-        order_mag, norm_factor, offset = self.order_mag(xi_min, xi_max)
-        if order_mag <= 1.:
+        xi_logmin, xi_logmax, offset, factor = self.logmod_bounds(xi_min, xi_max)
+        if offset is None and factor is None:
             new_xi = self.linear_step(xi, i, xi_min, xi_max, stepsize, wrap, disp)
         else:
-            new_xi = self.log10_step(xi, i, xi_min, xi_max, norm_factor, offset, stepsize, wrap, disp)
+            order_mag = min(xi_logmax - xi_logmin, self.abs_order_mag[i] * stepsize)
+            if order_mag <= 1.:
+                new_xi = self.linear_step(xi, i, xi_min, xi_max, stepsize, wrap, disp)
+            else:
+                new_xi = self.log10_step(xi, i, xi_logmin, xi_logmax, offset, factor, stepsize, wrap, disp)
         return new_xi
-
-    def order_mag(self, xi_min, xi_max):
-        """
-
-        :param xi_min: float
-        :param xi_max: float
-        :return:
-        """
-        if xi_max == xi_min:
-            return 0., None, None
-        elif xi_min == 0.:
-            if xi_max < 1.:
-                return 0., None, None
-            else:
-                norm_factor = 0.1
-                offset = 1.
-        elif xi_max == 0.:
-            if xi_min > -1.:
-                return 0., None, None
-            else:
-                norm_factor = 0.1
-                offset = 2.
-        else:
-            norm_factor = abs(xi_min)
-            if xi_min > 0.:
-                offset = 0.
-            else:
-                offset = 2.
-        order_mag = self.log_convert(xi_max, norm_factor, offset) - self.log_convert(xi_min, norm_factor, offset)
-        return order_mag, norm_factor, offset
 
     def linear_step(self, xi, i, xi_min, xi_max, stepsize=None, wrap=None, disp=False):
         """
@@ -173,27 +204,25 @@ class RelativeBoundedStep(object):
         linear_steps['steps'][i] += 1
         return new_xi
 
-    def log10_step(self, xi, i, xi_min, xi_max, norm_factor, offset, stepsize=None, wrap=None, disp=False):
+    def log10_step(self, xi, i, xi_logmin, xi_logmax, offset, factor, stepsize=None, wrap=None, disp=False):
         """
         Steps the specified parameter within the bounds according to the current stepsize.
         :param xi: float
         :param i: int
-        :param xi_min: flaot
-        :param xi_max: float
-        :param norm_factor: float
+        :param xi_logmin: float
+        :param xi_logmax: float
         :param offset: float.
+        :param factor: float
         :param stepsize: float in [0., 1.]
         :param wrap: bool
         :return: float
         """
-        xi_logmin = self.log_convert(xi_min, norm_factor, offset)
-        xi_logmax = self.log_convert(xi_max, norm_factor, offset)
         if stepsize is None:
             stepsize = self.stepsize
         if wrap is None:
             wrap = self.wrap
-        xi_log = self.log_convert(xi, norm_factor, offset)
-        step = stepsize * (xi_logmax - xi_logmin) / 2.
+        xi_log = self.logmod(xi, offset, factor)
+        step = stepsize * self.abs_order_mag[i] / 2.
         if disp:
             print 'Before: log_xi: %.4f, step: %.4f, xi_logmin: %.4f, xi_logmax: %.4f' % (xi_log, step, xi_logmin,
                                                                                           xi_logmax)
@@ -202,25 +231,17 @@ class RelativeBoundedStep(object):
             delta = np.random.uniform(-step, step)
             step_xi_log = xi_log + delta
             if xi_logmin > step_xi_log:
-                new_xi_log = max(xi_logmax - (xi_logmin - step_xi_log), xi_logmin)
+                step_xi_log = max(xi_logmax - (xi_logmin - step_xi_log), xi_logmin)
             elif xi_logmax < step_xi_log:
-                new_xi_log = min(xi_logmin + (step_xi_log - xi_logmax), xi_logmax)
-            new_xi = self.log_convert_inv(new_xi_log, norm_factor, offset)
+                step_xi_log = min(xi_logmin + (step_xi_log - xi_logmax), xi_logmax)
+            new_xi = self.logmod_inv(step_xi_log, offset, factor)
             log_steps['steps'][i] += 1
         else:
             step_xi_logmin = max(xi_logmin, xi_log - step)
             step_xi_logmax = min(xi_logmax, xi_log + step)
-            step_xi_min = self.log_convert_inv(step_xi_logmin, norm_factor, offset)
-            step_xi_max = self.log_convert_inv(step_xi_logmax, norm_factor, offset)
-            order_mag, new_norm_factor, new_offset = self.order_mag(step_xi_min, step_xi_max)
-            if order_mag <= 1.:
-                new_xi = self.linear_step(xi, i, xi_min, xi_max, stepsize, wrap, disp)
-            else:
-                new_step_xi_logmin = self.log_convert(step_xi_min, new_norm_factor, new_offset)
-                new_step_xi_logmax = self.log_convert(step_xi_max, new_norm_factor, new_offset)
-                new_xi_log = self.random.uniform(new_step_xi_logmin, new_step_xi_logmax)
-                new_xi = self.log_convert_inv(new_xi_log, new_norm_factor, new_offset)
-                log_steps['steps'][i] += 1
+            new_xi_log = self.random.uniform(step_xi_logmin, step_xi_logmax)
+            new_xi = self.logmod_inv(new_xi_log, offset, factor)
+            log_steps['steps'][i] += 1
         if disp:
             print 'After: xi: %.4f, step: %.4f, xi_logmin: %.4f, xi_logmax: %.4f' % (new_xi, step, xi_logmin,
                                                                                       xi_logmax)
@@ -288,10 +309,10 @@ class RelativeBoundedStep(object):
 
 
 
-"""
+
 param_names = ['dend.gbar_nas min', 'dend.gbar_nas', 'soma.gbar_nas', 'axon.gbar_nax', 'ais.gbar_nax',
                'axon.gkabar', 'soma.gkabar', 'dend.gkabar', 'logrange8', 'logrange9', 'log10', 'log11']
-
+"""
 Rules:
 DEP                 IND
 soma.gbar_nas     > dend.gbar_nas min
@@ -301,21 +322,27 @@ axon.gbar_nax     > soma.gbar_nas
 ais.gbar_nax      > 2. * axon.gbar_nax
 dend.gkabar       > soma.gkabar
 axon.gkabar       < 3. * soma.gkabar
+"""
 
 rel_bounds = [['soma.gbar_nas', ">", 1., 'dend.gbar_nas min'], ['dend.gbar_nas', "<", 1., 'soma.gbar_nas'],
               ['dend.gbar_nas', ">", 1., 'dend.gbar_nas min'], ['axon.gbar_nax', ">", 1., 'soma.gbar_nas'],
               ['ais.gbar_nax', ">", 2., 'axon.gbar_nax'], ['dend.gkabar', ">", 1., 'soma.gkabar'],
               ['axon.gkabar', "<", 3., 'soma.gkabar'], ['logrange8', "<=", 1., 'logrange9'], ['log10', ">=", 2., 'log11']]
+
+#rel_bounds = []
 bounds = [(0., 0.), (0.01, 0.05), (0.01, 0.05), (0.02, 0.1), (0.02, 0.5), (0.01, 0.18), (0.01, 0.05), (0.01, 0.25),
-          (0.01, 100.), (0.01, 100.), (0.01, 1000.), (0.001, 500.)]
+          (0.01, 100.), (0.01, 100.), (0.01, 500.), (0.001, 100.)]
 x0 = np.array([0., 0.03, 0.03, 0.06, 0.1681, 0.05266, 0.02108, 0.04, 0.05, 0.05, 0.2, 0.12])
+
+"""
+param_names = ['log0', 'log1']
+rel_bounds = [['log0', "<=", -2., 'log1']]
+#rel_bounds = []
+bounds = [(-20000., 100.), (-10., 100.)]
+#x0 = np.array([0.2, 0.12])
+x0 = np.array([-100., 100.])
 """
 
-param_names = ['log10', 'log11']
-rel_bounds = [['log10', ">=", 2., 'log11']]
-bounds = [(0.01, 1.), (0.005, 0.5)]
-#x0 = np.array([0.2, 0.12])
-x0 = np.array([0.2, 0.012])
 linear_steps = {'order_mag': [], 'steps': [0 for key in param_names]}
 log_steps = {'order_mag': [], 'steps': [0 for key in param_names]}
 
@@ -358,14 +385,17 @@ def check_rel_bounds(x, rel_bounds, param_indexes):
             return False
     return True
 
+num = 20000
+this_step_size = 0.1
+param_history = lambda i: np.array([this_p[i] for this_p in x_history])
 
 
-step = RelativeBoundedStep(x0, param_names, bounds, rel_bounds, stepsize=0.5, wrap=False)
+step = RelativeBoundedStep(x0, param_names, bounds, rel_bounds, stepsize=this_step_size, wrap=False)
 prev_x = x0
 x_history = []
 abs_bounds_failed = 0
 rel_bounds_failed = 0
-for i in range(20000):
+for i in range(num):
     new_x = step(prev_x)
     if not check_abs_bounds(new_x, bounds):
         print 'Absolute bounds failed for x: %s' % str(new_x)
@@ -378,11 +408,12 @@ for i in range(20000):
 print 'Relative bound test (no wrap) ended after %i iterations with %i abs failures and %i rel failures.' % \
       ((i + 1), abs_bounds_failed, rel_bounds_failed)
 
-step2 = RelativeBoundedStep(x0, param_names, bounds, rel_bounds, stepsize=0.05, wrap=True)
+
+step2 = RelativeBoundedStep(x0, param_names, bounds, rel_bounds, stepsize=this_step_size, wrap=True)
 prev_x = x0
 x_history_wrap = []
 failed = 0
-for i in range(200):
+for i in range(num):
     new_x = step2(prev_x)
     if not check_abs_bounds(new_x, bounds):
         print 'Absolute bounds failed for x: %s' % str(new_x)
@@ -394,3 +425,9 @@ for i in range(200):
     x_history_wrap.append(prev_x)
 print 'Relative bound test (wrap) ended after %i iterations with %i abs failures and %i rel failures.' % \
       ((i + 1), abs_bounds_failed, rel_bounds_failed)
+
+
+p0 = param_history(0)
+p1 = param_history(1)
+
+get_num_samples = lambda p, low, high: len(np.where((p >= low) & (p < high))[0])
