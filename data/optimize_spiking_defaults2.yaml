@@ -122,6 +122,10 @@ param_names:
 - soma.gkmbar
 - ais.gkmbar
 rel_bounds:
+- - soma.gbar_nas
+  - '>'
+  - 1.0
+  - dend.gbar_nas min
 - - dend.gbar_nas
   - <
   - 1.0

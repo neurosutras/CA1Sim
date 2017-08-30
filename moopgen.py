@@ -362,7 +362,8 @@ class RelativeBoundedStep(object):
     approximation that tolerates ranges that span zero. If bounds are not provided for some parameters, the default is
     (0.1 * x0, 10. * x0).
     """
-    def __init__(self, x0, param_names, bounds=None, rel_bounds=None, stepsize=0.5, wrap=False, random=None, **kwargs):
+    def __init__(self, x0, param_names, bounds=None, rel_bounds=None, stepsize=0.5, wrap=False, random=None, disp=False,
+                 **kwargs):
         """
 
         :param x0: array
@@ -372,7 +373,9 @@ class RelativeBoundedStep(object):
         :param stepsize: float in [0., 1.]
         :param wrap: bool  # whether or not to wrap around bounds
         :param random: int or :class:'np.random.RandomState'
+        :param disp: bool
         """
+        self.disp = disp
         self.wrap = wrap
         self.stepsize = stepsize
         if x0 is None and bounds is None:
@@ -415,11 +418,12 @@ class RelativeBoundedStep(object):
         self.xmin = np.array(xmin)
         self.xmax = np.array(xmax)
         self.x_range = np.subtract(self.xmax, self.xmin)
-        self.logmod = lambda x: np.sign(x) * np.log10(np.add(np.abs(x), 1.))
-        self.logmod_inv = lambda x: np.sign(x) * ((10. ** np.abs(x)) - 1.)
-        self.logmod_xmin = self.logmod(self.xmin)
-        self.logmod_xmax = self.logmod(self.xmax)
-        self.logmod_range = np.subtract(self.logmod_xmax, self.logmod_xmin)
+        self.logmod = lambda x, offset, factor: np.log10(x * factor + offset)
+        self.logmod_inv = lambda logmod_x, offset, factor: ((10. ** logmod_x) - offset) / factor
+        self.abs_order_mag = []
+        for i in xrange(len(xmin)):
+            xi_logmin, xi_logmax, offset, factor = self.logmod_bounds(xmin[i], xmax[i])
+            self.abs_order_mag.append(xi_logmax - xi_logmin)
         self.rel_bounds = rel_bounds
 
     def __call__(self, current_x, stepsize=None, wrap=None):
@@ -436,11 +440,64 @@ class RelativeBoundedStep(object):
             wrap = self.wrap
         x = np.array(current_x)
         for i in xrange(len(x)):
-            new_xi = self.generate_param(x[i], i, self.xmin[i], self.xmax[i], stepsize, wrap)
+            if not self.xmax[i] >= self.xmin[i]:
+                raise Exception('Bounds for paramter %d: max is not >= to min.') %i
+            new_xi = self.generate_param(x[i], i, self.xmin[i], self.xmax[i], stepsize, wrap, self.disp)
             x[i] = new_xi
         if self.rel_bounds is not None:
             x = self.apply_rel_bounds(x, stepsize, wrap, self.rel_bounds)
         return x
+
+    def logmod_bounds(self, xi_min, xi_max):
+        """
+
+        :param xi_min: float
+        :param xi_max: float
+        :return: xi_logmin, xi_logmax, offset, factor
+        """
+        if xi_min < 0.:
+            if xi_max < 0.:
+                offset = 0.
+                factor = -1.
+            elif xi_max == 0.:
+                offset = 0.1
+                factor = -1.
+            else:
+                #If xi_min and xi_max are opposite signs, do not sample in log space; do linear sampling
+                return 0., 0., None, None
+            xi_logmin = self.logmod(xi_max, offset, factor)  # When the sign is flipped, the max and min will reverse
+            xi_logmax = self.logmod(xi_min, offset, factor)
+        elif xi_min == 0.:
+            if xi_max == 0.:
+                return 0., 0., None, None
+            else:
+                offset = 0.1
+                factor = 1.
+                xi_logmin = self.logmod(xi_min, offset, factor)
+                xi_logmax = self.logmod(xi_max, offset, factor)
+        else:
+            offset = 0.
+            factor = 1.
+            xi_logmin = self.logmod(xi_min, offset, factor)
+            xi_logmax = self.logmod(xi_max, offset, factor)
+        return xi_logmin, xi_logmax, offset, factor
+
+    def logmod_inv_bounds(self, xi_logmin, xi_logmax, offset, factor):
+        """
+
+        :param xi_logmin: float
+        :param xi_logmax: float
+        :param offset: float
+        :param factor: float
+        :return: xi_min, xi_max
+        """
+        if factor < 0.:
+            xi_min = self.logmod_inv(xi_logmax, offset, factor)
+            xi_max = self.logmod_inv(xi_logmin, offset, factor)
+        else:
+            xi_min = self.logmod_inv(xi_logmin, offset, factor)
+            xi_max = self.logmod_inv(xi_logmax, offset, factor)
+        return xi_min, xi_max
 
     def generate_param(self, xi, i, xi_min, xi_max, stepsize, wrap, disp=False):
         """
@@ -453,31 +510,18 @@ class RelativeBoundedStep(object):
         :param wrap: bool
         :return:
         """
-        step = stepsize * self.x_range[i] / 2.
-        if self.order_mag(xi, xi_min, xi_max, step) > 1.:
-            new_xi = self.log10_step(xi, i, xi_min, xi_max, stepsize, wrap, disp)
-        else:
+        if xi_min == xi_max:
+            return xi_min
+        if self.abs_order_mag[i] <= 1.:
             new_xi = self.linear_step(xi, i, xi_min, xi_max, stepsize, wrap, disp)
-        return new_xi
-
-    def order_mag(self, xi, xi_min, xi_max, step):
-        """
-
-        :param xi_min: float
-        :param xi_max: float
-        :return:
-        """
-        xi_min = max(xi_min, xi - step)
-        xi_max = min(xi_max, xi + step)
-        if xi_min == 0. and xi_max != 0.:
-            order_mag = abs(np.log10(abs(xi_max)))
-        elif xi_max == 0. and xi_min != 0.:
-            order_mag = abs(np.log10(abs(xi_min)))
-        elif xi_max == xi_min:
-            order_mag = 0.
         else:
-            order_mag = abs(np.log10(abs(xi_max / xi_min)))
-        return order_mag
+            xi_logmin, xi_logmax, offset, factor = self.logmod_bounds(xi_min, xi_max)
+            order_mag = min(xi_logmax - xi_logmin, self.abs_order_mag[i] * stepsize)
+            if order_mag <= 1.:
+                new_xi = self.linear_step(xi, i, xi_min, xi_max, stepsize, wrap, disp)
+            else:
+                new_xi = self.log10_step(xi, i, xi_logmin, xi_logmax, offset, factor, stepsize, wrap, disp)
+        return new_xi
 
     def linear_step(self, xi, i, xi_min, xi_max, stepsize=None, wrap=None, disp=False):
         """
@@ -511,42 +555,45 @@ class RelativeBoundedStep(object):
             print 'After: xi: %.4f, step: %.4f, xi_min: %.4f, xi_max: %.4f' % (new_xi, step, xi_min, xi_max)
         return new_xi
 
-    def log10_step(self, xi, i, xi_min, xi_max, stepsize=None, wrap=None, disp=False):
+    def log10_step(self, xi, i, xi_logmin, xi_logmax, offset, factor, stepsize=None, wrap=None, disp=False):
         """
         Steps the specified parameter within the bounds according to the current stepsize.
         :param xi: float
         :param i: int
+        :param xi_logmin: float
+        :param xi_logmax: float
+        :param offset: float.
+        :param factor: float
         :param stepsize: float in [0., 1.]
         :param wrap: bool
         :return: float
         """
-        xi_logmin = self.logmod(xi_min)
-        xi_logmax = self.logmod(xi_max)
         if stepsize is None:
             stepsize = self.stepsize
         if wrap is None:
             wrap = self.wrap
-        step = stepsize * self.logmod_range[i] / 2.
-        logmod_xi = self.logmod(xi)
+        xi_log = self.logmod(xi, offset, factor)
+        step = stepsize * self.abs_order_mag[i] / 2.
         if disp:
-            print 'Before: log_xi: %.4f, step: %.4f, xi_logmin: %.4f, xi_logmax: %.4f' % (logmod_xi, step, xi_logmin,
-                                                                                      xi_logmax)
+            print 'Before: log_xi: %.4f, step: %.4f, xi_logmin: %.4f, xi_logmax: %.4f' % (xi_log, step, xi_logmin,
+                                                                                          xi_logmax)
         if wrap:
             step = min(step, xi_logmax - xi_logmin)
             delta = np.random.uniform(-step, step)
-            new_logmod_xi = logmod_xi + delta
-            if xi_logmin > new_logmod_xi:
-                new_logmod_xi = max(xi_logmax - (xi_logmin - new_logmod_xi), xi_logmin)
-            elif xi_logmax < new_logmod_xi:
-                new_logmod_xi = min(xi_logmin + (new_logmod_xi - xi_logmax), xi_logmax)
+            step_xi_log = xi_log + delta
+            if xi_logmin > step_xi_log:
+                step_xi_log = max(xi_logmax - (xi_logmin - step_xi_log), xi_logmin)
+            elif xi_logmax < step_xi_log:
+                step_xi_log = min(xi_logmin + (step_xi_log - xi_logmax), xi_logmax)
+            new_xi = self.logmod_inv(step_xi_log, offset, factor)
         else:
-            logmod_xi_min = max(xi_logmin, logmod_xi - step)
-            logmod_xi_max = min(xi_logmax, logmod_xi + step)
-            new_logmod_xi = self.random.uniform(logmod_xi_min, logmod_xi_max)
+            step_xi_logmin = max(xi_logmin, xi_log - step)
+            step_xi_logmax = min(xi_logmax, xi_log + step)
+            new_xi_log = self.random.uniform(step_xi_logmin, step_xi_logmax)
+            new_xi = self.logmod_inv(new_xi_log, offset, factor)
         if disp:
-            print 'After: log_xi: %.4f, step: %.4f, xi_logmin: %.4f, xi_logmax: %.4f' % (logmod_xi, step, xi_logmin,
+            print 'After: xi: %.4f, step: %.4f, xi_logmin: %.4f, xi_logmax: %.4f' % (new_xi, step, xi_logmin,
                                                                                       xi_logmax)
-        new_xi = self.logmod_inv(new_logmod_xi)
         return new_xi
 
     def apply_rel_bounds(self, x, stepsize, wrap, rel_bounds=None, disp=False):
@@ -606,7 +653,7 @@ class RelativeBoundedStep(object):
                                                                                            new_min[dep_param_ind],
                                                                                            new_max[dep_param_ind])
                     new_x[dep_param_ind] = self.generate_param(new_xi, dep_param_ind, new_min[dep_param_ind],
-                                                               new_max[dep_param_ind], stepsize, wrap, disp=disp)
+                                                               new_max[dep_param_ind], stepsize, wrap=False, disp=disp)
         return new_x
 
 
@@ -1219,9 +1266,9 @@ class EGen(object):
     """
 
     def __init__(self, param_names=None, feature_names=None, objective_names=None, pop_size=None, x0=None,
-                 bounds=None, rel_bounds=None, wrap_bounds=False, take_step=None, m0=20, c0=20, p_m=0.5, delta_m=0,
-                 delta_c=0, mutate_survivors=False, evaluate=None, seed=None, max_iter=None, survival_rate=0.1,
-                 disp=False, hot_start=None, **kwargs):
+                 bounds=None, rel_bounds=None, wrap_bounds=False, take_step=None, initial_step_size=1., m0=20, c0=20,
+                 p_m=0.5, delta_m=0, delta_c=0, mutate_survivors=False, evaluate=None, seed=None, max_iter=None,
+                 survival_rate=0.1,  disp=False, hot_start=None, **kwargs):
         """
         :param param_names: list of str
         :param feature_names: list of str
@@ -1280,17 +1327,21 @@ class EGen(object):
             self.objectives_stored = False
         self.pop_size = pop_size
         if take_step is None:
-            self.take_step = RelativeBoundedStep(self.x0, param_names, bounds, rel_bounds, stepsize=1.,
-                                                 wrap = wrap_bounds, random = self.random)
+            self.take_step = RelativeBoundedStep(self.x0, param_names=param_names, bounds=bounds, rel_bounds=rel_bounds,
+                                                 stepsize=initial_step_size, wrap=wrap_bounds, random=self.random)
             self.x0 = np.array(self.take_step.x0)
             self.xmin = np.array(self.take_step.xmin)
             self.xmax = np.array(self.take_step.xmax)
-        elif isinstance(take_step, collections.Callable):  # must accept the above named keyword arguments
-            self.take_step = take_step
-            self.xmin = np.array(self.take_step.xmin)
-            self.xmax = np.array(self.take_step.xmax)
         else:
-            raise TypeError("EGen: take_step must be callable.")
+            if take_step in globals() and callable(globals()[take_step]):
+                self.take_step = globals()[take_step](self.x0, param_names=param_names, bounds=bounds,
+                                                      rel_bounds=rel_bounds, stepsize=initial_step_size,
+                                                      wrap=wrap_bounds, random=self.random)
+                self.x0 = np.array(self.take_step.x0)
+                self.xmin = np.array(self.take_step.xmin)
+                self.xmax = np.array(self.take_step.xmax)
+            else:
+                raise TypeError('BGen: provided take_step: %s is not callable.' % take_step)
         if max_iter is None:
             self.max_gens = 30.
         else:
@@ -1334,6 +1385,7 @@ class EGen(object):
         """
         p = np.minimum(p, self.param_max)
         p = np.maximum(p, self.param_min)
+        p = self.take_step.apply_rel_bounds(self, p, stepsize, wrap, rel_bounds=None, disp=False)
         return p
 
     def evolve(self, maxgen=200):

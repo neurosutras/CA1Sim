@@ -23,6 +23,9 @@ bounds:
   NMDA.kin_scale: !!python/tuple
   - 1.
   - 4.
+  soma.gbar_nas: !!python/tuple
+  - 0.01
+  - 0.05
   dend.gbar_nas: !!python/tuple
   - 0.01
   - 0.05
@@ -35,10 +38,15 @@ bounds:
   dend.gbar_nas bo: !!python/tuple
   - 2
   - 6
+  soma.gkabar: !!python/tuple
+  - 0.01
+  - 0.05
   dend.gkabar: !!python/tuple
   - 0.01
   - 0.25
 default_params:
+  soma.gbar_nas: 0.03
+  soma.gkabar: 0.02108
 feature_names:
 - dend_AP_amp
 - soma_EPSP_AP5
@@ -89,16 +97,26 @@ param_names:
 - NMDA.gamma
 - NMDA.Kd
 - NMDA.kin_scale
+- soma.gbar_nas
 - dend.gbar_nas
 - dend.gbar_nas slope
 - dend.gbar_nas min
 - dend.gbar_nas bo
+- soma.gkabar
 - dend.gkabar
 rel_bounds:
+- - dend.gbar_nas
+  - <
+  - 1.0
+  - soma.gbar_nas
 - - dend.gbar_nas
   - '>'
   - 1.0
   - dend.gbar_nas min
+- - dend.gkabar
+  - '>'
+  - 1.0
+  - soma.gkabar
 target_range:
   dend_AP_amp: 0.005
   soma_EPSP_control: 0.01
@@ -128,8 +146,10 @@ x0:
   NMDA.gamma: 0.100
   NMDA.Kd: 7.51
   NMDA.kin_scale: 1.81
+  soma.gbar_nas: 0.03
   dend.gbar_nas: 0.03
   dend.gbar_nas slope: -0.0001
   dend.gbar_nas min: 0.
   dend.gbar_nas bo: 4
+  soma.gkabar: 0.02108
   dend.gkabar: 0.05
