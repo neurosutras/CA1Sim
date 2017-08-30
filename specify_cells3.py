@@ -22,13 +22,13 @@ class HocCell(object):
     type to create rules for synaptic mechanisms.
     """
 
-    def __init__(self, morph_file_path=None, mech_file_path=None, gid=0, existing_hoc_cell=None, neurotree_dict=None):
+    def __init__(self, morph_file_path=None, mech_file_path=None, gid=0, existing_hoc_cell=None, neuroH5_dict=None):
         """
         :param morph_file_path: str : path to .swc file containing morphology
         :param mech_file_path: str : path to .pkl file specifying cable parameters and membrane mechanisms
         :param gid: int
         :param existing_hoc_cell: :class: 'h.hocObject' : instance of a cell template class already built in hoc
-        :param neurotree_dict: dict : read from a parallelized .hdf5 file
+        :param neuroH5_dict: dict : read from a parallelized .hdf5 file
         """
         self._gid = gid
         self.tree = btmorph.STree2()  # Builds a simple tree to store nodes of type 'SHocNode'
@@ -40,7 +40,7 @@ class HocCell(object):
         self.mech_dict = self.load_mech_dict(mech_file_path)
         self.morph_file_path = morph_file_path
         self.existing_hoc_cell = existing_hoc_cell
-        self.neurotree_dict = neurotree_dict
+        self.neuroH5_dict = neuroH5_dict
         self.random = np.random.RandomState()
         self.spike_detector = None
 
@@ -53,13 +53,10 @@ class HocCell(object):
             self.load_morphology_from_swc(preserve_3d)
             # Membrane mechanisms must be reinitialized whenever cable properties (Ra, cm) or spatial resolution (nseg)
             # changes.
-            self.reinit_mechanisms()
         elif not self.existing_hoc_cell is None:
             self.load_morphology_from_hoc()
-            self.reinit_mechanisms()
-        elif not self.neurotree_dict is None:
-            self.load_morphology_from_neurotree(preserve_3d)
-            self.reinit_mechanisms()
+        elif not self.neuroH5_dict is None:
+            self.load_morphology_from_neuroH5(preserve_3d)
         if self.axon:
             self.init_spike_detector()
 
@@ -117,14 +114,14 @@ class HocCell(object):
             else:
                 self.make_skeleton(child, self.tree.root)
 
-    def load_morphology_from_neurotree(self, preserve_3d=False):
+    def load_morphology_from_neuroH5(self, preserve_3d=False):
         """
         This method reads from a dictionary (extracted from a parallelized .hdf5 file) to build an STree2 comprised of
         SHocNode nodes associated with hoc sections, connects the hoc sections, and initializes various parameters: Ra,
         cm, L, diam, nseg
         :param preserve_3d: bool
         """
-        raw_tree = self.read_neurotree_from_dict()
+        raw_tree = self.read_neuroH5_from_dict()
         self.clean_swc_diams(raw_tree.root)
         for child in raw_tree.root.children:
             if preserve_3d:
@@ -132,28 +129,28 @@ class HocCell(object):
             else:
                 self.make_skeleton(child, self.tree.root)
 
-    def read_neurotree_from_dict(self):
+    def read_neuroH5_from_dict(self):
         """
         Populate a 'btmorph.STree2' object with 'btmorph.SNode2' objects containing standard swc content, as well as
-        additional metadata from a dictionary read from neurotree.
+        additional metadata from a dictionary read from neuroH5.
         :return: :class:'STree2'
         """
         raw_tree = btmorph.STree2()
-        for i in range(len(self.neurotree_dict['x'])):
-            swc_type = self.neurotree_dict['swc_type'][i]
-            x = self.neurotree_dict['x'][i]
-            y = self.neurotree_dict['y'][i]
-            z = self.neurotree_dict['z'][i]
-            radius = self.neurotree_dict['radius'][i]
-            parent_index = self.neurotree_dict['parent'][i]
+        for i in range(len(self.neuroH5_dict['x'])):
+            swc_type = self.neuroH5_dict['swc_type'][i]
+            x = self.neuroH5_dict['x'][i]
+            y = self.neuroH5_dict['y'][i]
+            z = self.neuroH5_dict['z'][i]
+            radius = self.neuroH5_dict['radius'][i]
+            parent_index = self.neuroH5_dict['parent'][i]
             swc_point = btmorph.P3D2(np.array([x, y, z]), radius, swc_type)
             raw_node = btmorph.SNode2(i)
             raw_node.content = {'p3d': swc_point}
-            if 'layer' in self.neurotree_dict:
-                layer = self.neurotree_dict['layer'][i]
+            if 'layer' in self.neuroH5_dict:
+                layer = self.neuroH5_dict['layer'][i]
                 raw_node.content['layer'] = layer
-            if 'section' in self.neurotree_dict:
-                sec_index = self.neurotree_dict['section'][i]
+            if 'section' in self.neuroH5_dict:
+                sec_index = self.neuroH5_dict['section'][i]
                 raw_node.content['section'] = sec_index
             if parent_index == -1:
                 raw_tree.root = raw_node
@@ -162,16 +159,16 @@ class HocCell(object):
 
         return raw_tree
 
-    def get_mismatched_neurotree_sections(self):
+    def get_mismatched_neuroH5_sections(self):
         """
-        Sanity check that the section indexes contained in the morphology specified in a neurotree_dict are the same
+        Sanity check that the section indexes contained in the morphology specified in a neuroH5_dict are the same
         indexes in the section lists of this cell object. Either returns a dictionary of the number of points in each
         section, to compare imported and exported, or returns None.
 
         :return: dict
         """
         mismatched = {'imported': np.array([len(section) for section in
-                                            self.neurotree_dict['section_topology']['nodes'].itervalues()]),
+                                            self.neuroH5_dict['section_topology']['nodes'].itervalues()]),
                       'exported': np.array([node.sec.n3d() for node in self.apical])}
         if not np.all(mismatched['imported'] == mismatched['exported']):
             return mismatched
@@ -288,7 +285,7 @@ class HocCell(object):
             leaves = len(raw_node.children)
             # create a new node when encountering 1) branch points, 2) terminal ends, 3) change in swc_type,
             # 4) a duplicate node, which is used in some SWC files to indicate a change in layer, or
-            # 5) a change in the layer property of a neurotree/SNode2 content dictionary
+            # 5) a change in the layer property of a neuroH5/SNode2 content dictionary
             if (leaves > 1 or leaves == 0 or
                     (leaves == 1 and not raw_node.children[0].content['p3d'].type == swc_type) or
                     (leaves == 1 and np.all(raw_node.children[0].content['p3d'].xyz == swc.xyz)) or
@@ -385,7 +382,7 @@ class HocCell(object):
             if current_node is None:
                 if 'section' in raw_node.content and len(self._node_dict[sec_type]) != raw_node.content['section'] and \
                         verbose:
-                    print 'HocCell section index %i does not match neurotree section index %i' % \
+                    print 'HocCell section index %i does not match neuroH5 section index %i' % \
                           (len(self._node_dict[sec_type]), raw_node.content['section'])
                 current_node = self.make_section(sec_type)
                 current_node.sec.push()
@@ -429,9 +426,9 @@ class HocCell(object):
             for child in raw_node.children:
                 self.make_3d(child, parent)
 
-    def export_neurotree_synapse_attributes(self):
+    def export_synapse_attributes_to_neuroH5(self):
         """
-        Output a python dictionary in the format expected by neurotrees.io.write_trees_attributes()
+        Output a python dictionary in the format expected by neuroH5.io.write_trees_attributes()
         For all putative synapses and/or spines, specifies section indexes (relative to swc_type), swc_type,
         synapse locations (relative to section), synapse types, layer indexes, and unique synapse identifiers (relative
         to cell).
@@ -523,14 +520,15 @@ class HocCell(object):
             node.init_nseg()
             node.reinit_diam()
 
-    def reinit_mechanisms(self, reset_cable=0, from_file=False):
+    def reinit_mechanisms(self, reset_cable=False, from_file=False):
         """
         Once a mechanism dictionary has been loaded, and a morphology has been specified, this method traverses through
         the tree of SHocNode nodes following order of inheritance and properly sets membrane mechanism parameters,
         including gradients and inheritance of parameters from nodes along the path from root. Since cable parameters
         are set during specification of morphology, it is not necessary to immediately reinitialize these parameters
         again. However, they can be manually reinitialized with the reset_cable flag.
-        :param reset_cable: boolean
+        :param reset_cable: bool
+        :param from_file: bool
         """
         if from_file:
             self.mech_dict = self.load_mech_dict(self.mech_file_path)
@@ -580,22 +578,22 @@ class HocCell(object):
                 return True
         return False
 
-    def _reinit_mech(self, nodes, reset_cable=0):
+    def _reinit_mech(self, nodes, reset_cable=False):
         """
         Given a list of nodes, this method loops through all the mechanisms specified in the mechanism dictionary for
-        the hoc section type of each node and updates their associated parameters. If the reset_cable flag is set to 1,
+        the hoc section type of each node and updates their associated parameters. If the reset_cable flag is True,
         cable parameters are modified first, then the parameters for all other mechanisms are reinitialized.
         Parameters for synaptic point processes can also be specified in the mechanism dictionary, so one must use the
         method init_synaptic_mechanisms() after inserting synapses.
         :param nodes: list of :class:'SHocNode'
-        :param reset_cable: int or boolean
+        :param reset_cable: bool
         """
         for node in nodes:
             sec_type = node.type
             if sec_type in self.mech_dict:
-                if ('cable' in self.mech_dict[sec_type]) and reset_cable:  # cable properties must be set first, as they
-                    # can change nseg, which will affect insertion
-                    # of membrane mechanism gradients
+                # cable properties must be set first, as they can change nseg, which will affect insertion of membrane
+                # mechanism gradients
+                if ('cable' in self.mech_dict[sec_type]) and reset_cable:
                     self._init_cable(node)
                 for mech_name in (mech_name for mech_name in self.mech_dict[sec_type]
                                   if not mech_name in ['cable', 'ions']):
@@ -1162,7 +1160,7 @@ class HocCell(object):
             if mech_name == 'cable':  # all membrane mechanisms in sections of type sec_type must be reinitialized after
                 # changing cable properties
                 if param_name in ['Ra', 'cm', 'spatial_res']:
-                    self._reinit_mech(nodes, reset_cable=1)
+                    self._reinit_mech(nodes, reset_cable=True)
                 else:
                     print 'Exception: Unknown cable property: {}'.format(param_name)
                     raise KeyError
@@ -1492,7 +1490,7 @@ class HocCell(object):
         head.sec.diam = 0.5
         self._init_cable(head)
 
-    def insert_synapses_in_spines(self, sec_type_list=None, syn_types=None, stochastic=0):
+    def insert_synapses_in_spines(self, sec_type_list=None, syn_types=None, stochastic=False):
         """
         Inserts synapse of the specified type(s) in spines attached to nodes of the specified sec_types.
         :param sec_type_list: str
@@ -1508,7 +1506,7 @@ class HocCell(object):
                 for spine in node.spines:
                     syn = Synapse(self, spine, type_list=syn_types, stochastic=stochastic, loc=1.)
 
-    def insert_synapses(self, syn_category=None, syn_types=None, sec_type_list=None, stochastic=0):
+    def insert_synapses(self, syn_category=None, syn_types=None, sec_type_list=None, stochastic=False):
         """
         Inserts synapses of specified type(s) in nodes of the specified sec_types at the pre-determined putative
         synapse locations.
@@ -1548,7 +1546,6 @@ class HocCell(object):
                         node.reinit_diam()
             if loop == 0:
                 self.reinit_mechanisms()
-
 
     @property
     def gid(self):
@@ -1626,8 +1623,6 @@ class SHocNode(btmorph.btstructs2.SNode2):
         Must be re-initialized whenever basic cable properties Ra or cm are changed. If the node is a tapered cylinder,
         it should contain at least 3 segments. The spatial resolution parameter increases the number of segments per
         section by a factor of an exponent of 3.
-        If a section's nseg has been manually increased beyond the suggestion of the mechanism dictionary, this method
-        does not decrease it.
         :param spatial_res: int
         """
         sugg_nseg = d_lambda_nseg(self.sec)
@@ -1635,7 +1630,7 @@ class SHocNode(btmorph.btstructs2.SNode2):
             sugg_nseg = max(sugg_nseg, 3)
         sugg_nseg *= 3 ** spatial_res
         # if self.sec.nseg < sugg_nseg:
-        #    self.sec.nseg = sugg_nseg
+        self.sec.nseg = int(sugg_nseg)
 
     def reinit_diam(self):
         """
@@ -2442,6 +2437,7 @@ class CA1_Pyr(HocCell):
         self.load_morphology(preserve_3d=preserve_3d)
         self.generate_excitatory_synapse_locs()
         self.generate_inhibitory_synapse_locs()
+        self.reinit_mechanisms()
         if full_spines:
             self.insert_spines()
         else:
@@ -2615,7 +2611,7 @@ class DG_GC(HocCell):
 
     """
 
-    def __init__(self, morph_file_path=None, mech_file_path=None, gid=0, existing_hoc_cell=None, neurotree_dict=None,
+    def __init__(self, morph_file_path=None, mech_file_path=None, gid=0, existing_hoc_cell=None, neuroH5_dict=None,
                  full_spines=True, preserve_3d=True):
         """
 
@@ -2626,13 +2622,14 @@ class DG_GC(HocCell):
         :param full_spines:
         :param preserve_3d:
         """
-        HocCell.__init__(self, morph_file_path, mech_file_path, gid, existing_hoc_cell, neurotree_dict)
+        HocCell.__init__(self, morph_file_path, mech_file_path, gid, existing_hoc_cell, neuroH5_dict)
         self.random.seed(self.gid)  # This cell will always have the same spine and GABA_A synapse locations as long as
         # they are inserted in the same order
         self.make_standard_soma_and_axon(soma_length=18.6, soma_diam=10.3, ais_length=20., axon_length=1000.)
         self.load_morphology(preserve_3d=preserve_3d)
         self.generate_excitatory_synapse_locs()
         self.generate_inhibitory_synapse_locs()
+        self.reinit_mechanisms()
         if full_spines:
             self.insert_spines(sec_type_list=['apical'])
         else:
