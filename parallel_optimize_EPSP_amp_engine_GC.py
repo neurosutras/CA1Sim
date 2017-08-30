@@ -160,7 +160,7 @@ local_random = random.Random()
 
 syn_list = []
 cell = DG_GC(neurotree_dict=neurotree_dict[0], mech_filename=mech_filename, full_spines=spines)
-if spines is False:
+if not spines:
     cell.correct_for_spines()
 
 cell.zero_na()

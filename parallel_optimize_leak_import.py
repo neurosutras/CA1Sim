@@ -69,7 +69,7 @@ def config_controller(export_file_path, **kwargs):
 
 
 def config_engine(update_params_funcs, param_names, default_params, rec_file_path, export_file_path, output_dur, disp,
-                  mech_file_path, neurotree_file_path, neurotree_index, spines, **kwargs):
+                  mech_file_path, neuroH5_file_path, neuroH5_index, spines, **kwargs):
     """
     :param update_params_funcs: list of function references
     :param param_names: list of str
@@ -79,11 +79,11 @@ def config_engine(update_params_funcs, param_names, default_params, rec_file_pat
     :param output_dur: str (dir path)
     :param disp: bool
     :param mech_file_path: str
-    :param neurotree_file_path: str
-    :param neurotree_index: int
+    :param neuroH5_file_path: str
+    :param neuroH5_index: int
     :param spines: bool
     """
-    neurotree_dict = read_from_pkl(neurotree_file_path)[neurotree_index]
+    neuroH5_dict = read_from_pkl(neuroH5_file_path)[neuroH5_index]
     param_indexes = {param_name: i for i, param_name in enumerate(param_names)}
     context.update(locals())
     context.update(kwargs)
@@ -113,7 +113,8 @@ def setup_cell(verbose=False, cvode=False, daspk=False, **kwargs):
     :param cvode: bool
     :param daspk: bool
     """
-    cell = DG_GC(neurotree_dict=context.neurotree_dict, mech_file_path=context.mech_file_path, full_spines=context.spines)
+    cell = DG_GC(neuroH5_dict=context.neuroH5_dict, mech_file_path=context.mech_file_path,
+                 full_spines=context.spines)
     context.cell = cell
 
     # get the thickest apical dendrite ~200 um from the soma
@@ -167,7 +168,12 @@ def setup_cell(verbose=False, cvode=False, daspk=False, **kwargs):
     cell.spike_detector.record(context.spike_output_vec)
 
 
-def update_mech_dict(x, update_function, mech_file_path):
+def update_mech_dict(x, mech_file_path):
+    """
+
+    :param x: array
+    :param mech_file_path: str (path)
+    """
     for update_func in context.update_params_funcs:
         update_func(x, context)
     context.cell.export_mech_dict(mech_file_path)
@@ -219,6 +225,8 @@ def compute_Rinp_features(section, x, export=False):
     """
     start_time = time.time()
     context.cell.reinit_mechanisms(reset_cable=True, from_file=True)
+    if not context.spines:
+        context.cell.correct_for_spines()
     for update_func in context.update_params_funcs:
         update_func(x, context)
     context.cell.zero_na()
@@ -317,15 +325,14 @@ def update_pas_exp(x, local_context=None):
         local_context = context
     cell = local_context.cell
     param_indexes = local_context.param_indexes
-    default_params = local_context.default_params
-    if local_context.spines is False:
+    if not local_context.spines:
         cell.reinit_mechanisms(reset_cable=True)
     cell.modify_mech_param('soma', 'pas', 'g', x[param_indexes['soma.g_pas']])
     cell.modify_mech_param('apical', 'pas', 'g', origin='soma', slope=x[param_indexes['dend.g_pas slope']],
                            tau=x[param_indexes['dend.g_pas tau']])
     for sec_type in ['axon_hill', 'axon', 'ais', 'apical', 'spine_neck', 'spine_head']:
         cell.reinitialize_subset_mechanisms(sec_type, 'pas')
-    if local_context.spines is False:
+    if not local_context.spines:
         cell.correct_for_spines()
 
 

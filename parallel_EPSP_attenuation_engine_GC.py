@@ -10,8 +10,8 @@ Builds a cell locally so each engine is ready to receive jobs one at a time, spe
 which synapse to stimulate (coarse sampling of the full set of spines).
 """
 
-neurotree_filename = '121516_DGC_trees.pkl'
-neurotree_dict = read_from_pkl(morph_dir+neurotree_filename)
+neuroH5_filename = '121516_DGC_trees.pkl'
+neuroH5_dict = read_from_pkl(morph_dir+neuroH5_filename)
 
 rec_filename = 'output'+datetime.datetime.today().strftime('%m%d%Y%H%M')+'-pid'+str(os.getpid())
 
@@ -103,8 +103,8 @@ local_random = random.Random()
 i_holding = 0.
 
 syn_list = []
-cell = DG_GC(neurotree_dict=neurotree_dict[0], mech_filename=mech_filename, full_spines=spines)
-if spines is False:
+cell = DG_GC(neuroH5_dict=neuroH5_dict[0], mech_filename=mech_filename, full_spines=spines)
+if not spines:
     cell.correct_for_spines()
 
 cell.zero_na()
