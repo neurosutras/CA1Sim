@@ -1,5 +1,4 @@
 __author__ = 'Aaron D. Milstein'
-
 from function_lib import *
 import collections
 from scipy._lib._util import check_random_state
@@ -12,27 +11,6 @@ framework for multi-objective parameter optimization with bounds. Rather than pr
 array at a time, these classes contain iterators and evaluation methods to process many parameter arrays in parallel,
 and to store a complete history for later inspection .
 """
-
-
-def param_array_to_dict(x, param_names):
-    """
-
-    :param x: arr
-    :param param_names: list
-    :return:
-    """
-    return {param_name: x[ind] for ind, param_name in enumerate(param_names)}
-
-
-def param_dict_to_array(x_dict, param_names):
-    """
-
-    :param x_dict: dict
-    :param param_names: list
-    :return:
-    """
-    return np.array([x_dict[param_name] for param_name in param_names])
-
 
 class Individual(object):
     """

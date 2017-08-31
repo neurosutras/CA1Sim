@@ -351,9 +351,9 @@ def compute_stability_features(x, export=False, plot=False):
     """
     start_time = time.time()
 
-    context.cell.reinit_mechanisms(reset_cable=True, from_file=True)
+    context.cell.reinit_mechanisms(from_file=True)
     if not context.spines:
-        context.cell.correct_for_spines()
+        context.cell.correct_g_pas_for_spines()
     for update_func in context.update_params_funcs:
         update_func(x, context)
 
@@ -448,9 +448,9 @@ def compute_fI_features(amp, x, extend_dur=False, export=False, plot=False):
     :param plot: bool
     :return: dict
     """
-    context.cell.reinit_mechanisms(reset_cable=True, from_file=True)
+    context.cell.reinit_mechanisms(from_file=True)
     if not context.spines:
-        context.cell.correct_for_spines()
+        context.cell.correct_g_pas_for_spines()
     for update_func in context.update_params_funcs:
         update_func(x, context)
 
