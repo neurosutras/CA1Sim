@@ -101,7 +101,7 @@ class PopulationStorage(object):
         Return the n best.
         If modify is True, allow changes to the rankings of Individuals stored in history, otherwise operate on and
         discard copies.
-        :param n: int
+        :param n: int or 'all'
         :param iterations: str or int
         :param offset: int
         :param evaluate: callable
@@ -139,8 +139,10 @@ class PopulationStorage(object):
         rank = [individual.rank for individual in group]
         indexes.sort(key=rank.__getitem__)
         group = map(group.__getitem__, indexes)
-        n = min(len(group), n)
-        return group[:n]
+        if n == 'all':
+            return group
+        else:
+            return group[:n]
 
     def plot(self):
         """
@@ -424,7 +426,7 @@ class RelativeBoundedStep(object):
             new_xi = self.generate_param(x[i], i, self.xmin[i], self.xmax[i], stepsize, wrap, self.disp)
             x[i] = new_xi
         if self.rel_bounds is not None:
-            x = self.apply_rel_bounds(x, stepsize, wrap, self.rel_bounds)
+            x = self.apply_rel_bounds(x, stepsize, self.rel_bounds, self.disp)
         return x
 
     def logmod_bounds(self, xi_min, xi_max):
@@ -575,12 +577,13 @@ class RelativeBoundedStep(object):
                                                                                       xi_logmax)
         return new_xi
 
-    def apply_rel_bounds(self, x, stepsize, wrap, rel_bounds=None, disp=False):
+    def apply_rel_bounds(self, x, stepsize, rel_bounds=None, disp=False):
         """
 
         :param x: array
-        :param rel_bounds: list of lists
-        :return:
+        :param stepsize: float
+        :param rel_bounds: list
+        :param disp: bool
         """
         if disp:
             print 'orig x: %s' % str(x)
@@ -1254,9 +1257,7 @@ class BGen(object):
         Consider the highest ranked Individuals of the previous interval of generations to be the survivors. Seed the
         next generation with steps taken from the surviving set of parameters.
         """
-        candidate_survivors = self.storage.get_best(n=self.pop_size,
-                                               iterations=1, evaluate=self._evaluate,
-                                               modify=True)
+        candidate_survivors = self.storage.get_best(n='all', iterations=1, evaluate=self._evaluate, modify=True)
         self.survivors = []
         for candidate in candidate_survivors:
             if self.take_step.check_bounds(candidate.x):
@@ -1276,9 +1277,9 @@ class BGen(object):
         for individual in self.survivors:
             individual.survivor = True
         new_population = []
-        if (len(self.survivors) < 1) or (not survivor for survivor in self.survivors):
+        if not self.survivors:
             self.init_population()
-        if len(self.survivors) > 0:
+        else:
             for i in xrange(self.pop_size):
                 individual = Individual(self.take_step(self.survivors[i % self.num_survivors].x))
                 new_population.append(individual)
@@ -1381,7 +1382,7 @@ class EGen(object):
                 self.xmin = np.array(self.take_step.xmin)
                 self.xmax = np.array(self.take_step.xmax)
             else:
-                raise TypeError('BGen: provided take_step: %s is not callable.' % take_step)
+                raise TypeError('EGen: provided take_step: %s is not callable.' % take_step)
         if max_iter is None:
             self.max_gens = 30.
         else:
@@ -1425,7 +1426,7 @@ class EGen(object):
         """
         p = np.minimum(p, self.param_max)
         p = np.maximum(p, self.param_min)
-        p = self.take_step.apply_rel_bounds(self, p, stepsize, wrap, rel_bounds=None, disp=False)
+        p = self.take_step.apply_rel_bounds(self, p, stepsize, rel_bounds=None, disp=False)
         return p
 
     def evolve(self, maxgen=200):

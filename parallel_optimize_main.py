@@ -492,7 +492,6 @@ def export_traces(x, export_file_path=None, discard=True):
     :param export_file_path: str
     :param discard: bool
     """
-    group_sizes = main_ctxt.group_sizes
     if export_file_path is not None:
         main_ctxt.export_file_path = export_file_path
     else:
