@@ -1532,15 +1532,24 @@ class HocCell(object):
                     syn = Synapse(self, node, type_list=syn_types, stochastic=stochastic, loc=loc)
                     node.synapse_locs[syn_category].remove(loc)
 
-    def correct_for_spines(self):
+    def correct_g_pas_for_spines(self):
         """
-        If not explicitly modeling spine compartments for excitatory synapses, this method scales cm and g_pas in all
+        If not explicitly modeling spine compartments for excitatory synapses, this method scales g_pas in all
+        dendritic sections proportional to the number of excitatory synapses contained in each section.
+        """
+        for sec_type in ['basal', 'trunk', 'apical', 'tuft']:
+            for node in self.get_nodes_of_subtype(sec_type):
+                node.correct_g_pas_for_spines()
+
+    def correct_cm_for_spines(self):
+        """
+        If not explicitly modeling spine compartments for excitatory synapses, this method scales cm in all
         dendritic sections proportional to the number of excitatory synapses contained in each section.
         """
         for loop in range(2):
             for sec_type in ['basal', 'trunk', 'apical', 'tuft']:
                 for node in self.get_nodes_of_subtype(sec_type):
-                    node.correct_for_spines()
+                    node.correct_cm_for_spines()
                     if loop == 0:
                         node.init_nseg()
                         node.reinit_diam()
@@ -1642,9 +1651,9 @@ class SHocNode(btmorph.btstructs2.SNode2):
             [diam1, diam2] = self.get_diam_bounds()
             h('diam(0:1)={}:{}'.format(diam1, diam2), sec=self.sec)
 
-    def correct_for_spines(self):
+    def correct_cm_for_spines(self):
         """
-        If not explicitly modeling spine compartments for excitatory synapses, this method scales cm and g_pas in this
+        If not explicitly modeling spine compartments for excitatory synapses, this method scales cm in this
         dendritic section proportional to the number of excitatory synapses contained in the section.
         """
         cm_fraction = 0.40  # arrived at via optimization. spine neck appears to shield dendrite from spine head
@@ -1654,17 +1663,29 @@ class SHocNode(btmorph.btstructs2.SNode2):
             these_synapse_locs = np.array(self.synapse_locs['excitatory'])
             seg_width = 1. / self.sec.nseg
             for i, segment in enumerate(self.sec):
-                self.sec.push()
-                SA_seg = h.area(segment.x)
-                h.pop_section()
+                SA_seg = segment.area()
                 num_spines = len(np.where((these_synapse_locs >= i * seg_width) &
                                           (these_synapse_locs < (i + 1) * seg_width))[0])
                 cm_correction_factor = (SA_seg + cm_fraction * num_spines * SA_spine) / SA_seg
+                self.sec(segment.x).cm *= cm_correction_factor
+
+    def correct_g_pas_for_spines(self):
+        """
+        If not explicitly modeling spine compartments for excitatory synapses, this method scales g_pas in this
+        dendritic section proportional to the number of excitatory synapses contained in the section.
+        """
+        SA_spine = math.pi * (1.58 * 0.077 + 0.5 * 0.5)
+        if 'excitatory' in self.synapse_locs:
+            these_synapse_locs = np.array(self.synapse_locs['excitatory'])
+            seg_width = 1. / self.sec.nseg
+            for i, segment in enumerate(self.sec):
+                SA_seg = segment.area()
+                num_spines = len(np.where((these_synapse_locs >= i * seg_width) &
+                                          (these_synapse_locs < (i + 1) * seg_width))[0])
                 soma_g_pas = self.sec.cell().mech_dict['soma']['pas']['g']['value']
                 gpas_correction_factor = (SA_seg * self.sec(segment.x).g_pas + num_spines * SA_spine * soma_g_pas) \
                                          / (SA_seg * self.sec(segment.x).g_pas)
                 self.sec(segment.x).g_pas *= gpas_correction_factor
-                self.sec(segment.x).cm *= cm_correction_factor
 
     def get_diam_bounds(self):
         """
@@ -2441,7 +2462,8 @@ class CA1_Pyr(HocCell):
         if full_spines:
             self.insert_spines()
         else:
-            self.correct_for_spines()
+            self.correct_cm_for_spines()
+            self.correct_g_pas_for_spines()
 
     def generate_excitatory_synapse_locs(self, sec_type_list=None):
         """
@@ -2633,7 +2655,8 @@ class DG_GC(HocCell):
         if full_spines:
             self.insert_spines(sec_type_list=['apical'])
         else:
-            self.correct_for_spines()
+            self.correct_cm_for_spines()
+            self.correct_g_pas_for_spines()
 
     def generate_synapse_locs_by_layer(self, node, syn_type, density_dict):
         """

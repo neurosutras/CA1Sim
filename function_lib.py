@@ -2598,3 +2598,23 @@ def find_param_value(param_name, x, param_indexes, default_params):
         return float(x[param_indexes[param_name]])
     else:
         return float(default_params[param_name])
+
+
+def param_array_to_dict(x, param_names):
+    """
+
+    :param x: arr
+    :param param_names: list
+    :return:
+    """
+    return {param_name: x[ind] for ind, param_name in enumerate(param_names)}
+
+
+def param_dict_to_array(x_dict, param_names):
+    """
+
+    :param x_dict: dict
+    :param param_names: list
+    :return:
+    """
+    return np.array([x_dict[param_name] for param_name in param_names])

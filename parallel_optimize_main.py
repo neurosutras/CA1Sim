@@ -181,8 +181,7 @@ def process_params(cluster_id, profile, param_file_path, param_gen, update_param
         x0 = params_dict['x0']
 
         for param in default_params:
-            params_dict['bounds'][param] = (default_params[param], np.nextafter(default_params[param],
-                                                                                default_params[param] + 1))
+            params_dict['bounds'][param] = (default_params[param], default_params[param])
         bounds = [params_dict['bounds'][key] for key in param_names]
         if 'rel_bounds' in params_dict:
             rel_bounds = params_dict['rel_bounds']
@@ -427,11 +426,6 @@ def get_all_features(generation, export=False):
                 results.extend(map(feature_function, [indivs.pop(0) for i in range(num_groups)],
                                    [main_ctxt.c] * num_groups, [client_ranges.pop(0) for i in range(num_groups)],
                                    [export] * num_groups))
-                if disp:
-                    for this_result in results:
-                        print 'Client_ids %s processing %s for individual %i' % (str(this_result['client_range']),
-                                                                                       main_ctxt.get_features[ind],
-                                                                                       this_result['pop_id'])
             ready_results_list = [this_result for this_result in results if this_result['async_result'].ready()]
             if len(ready_results_list) > 0:
                 for this_result in ready_results_list:

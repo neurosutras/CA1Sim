@@ -17,7 +17,7 @@ bounds:
   dend.gbar_nas: !!python/tuple
   - 0.01
   - 0.05
-  dend.gbar_nas bo:
+  dend.gbar_nas bo: !!python/tuple
   - 3
   - 6
   dend.gbar_nas min: !!python/tuple

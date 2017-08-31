@@ -224,9 +224,9 @@ def compute_Rinp_features(section, x, export=False):
     :return: dict: {str: float}
     """
     start_time = time.time()
-    context.cell.reinit_mechanisms(reset_cable=True, from_file=True)
+    context.cell.reinit_mechanisms(from_file=True)
     if not context.spines:
-        context.cell.correct_for_spines()
+        context.cell.correct_g_pas_for_spines()
     for update_func in context.update_params_funcs:
         update_func(x, context)
     context.cell.zero_na()
@@ -325,15 +325,13 @@ def update_pas_exp(x, local_context=None):
         local_context = context
     cell = local_context.cell
     param_indexes = local_context.param_indexes
-    if not local_context.spines:
-        cell.reinit_mechanisms(reset_cable=True)
     cell.modify_mech_param('soma', 'pas', 'g', x[param_indexes['soma.g_pas']])
     cell.modify_mech_param('apical', 'pas', 'g', origin='soma', slope=x[param_indexes['dend.g_pas slope']],
                            tau=x[param_indexes['dend.g_pas tau']])
     for sec_type in ['axon_hill', 'axon', 'ais', 'apical', 'spine_neck', 'spine_head']:
         cell.reinitialize_subset_mechanisms(sec_type, 'pas')
     if not local_context.spines:
-        cell.correct_for_spines()
+        cell.correct_g_pas_for_spines()
 
 
 def export_sim_results():
