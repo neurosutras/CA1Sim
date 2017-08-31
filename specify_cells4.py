@@ -677,26 +677,33 @@ class HocCell(object):
             elif rules['origin'] in sec_types:
                 donor = self._get_node_along_path_to_root(node, rules['origin'])
             else:
-                raise Exception('Mechanism: {} parameter: {} cannot reference unknown sec_type: {}'.
-                                format(mech_name, param_name, rules['origin']))
+                if 'synapse' in mech_name:
+                    raise Exception('%s mechanism: %s parameter: %s cannot reference unknown sec_type: %s' %
+                                    (mech_name, syn_type, param_name, rules['origin']))
+                else:
+                    raise Exception('Mechanism: {} parameter: {} cannot reference unknown sec_type: {}'.format(
+                        mech_name, param_name, rules['origin']))
         else:
             donor = None
         if 'value' in rules:
             baseline = rules['value']
         elif donor is None:
-            raise Exception('Cannot set mechanism: {} parameter: {} without a specified origin or value'.format(
-                mech_name, param_name))
+            if 'synapse' in mech_name:
+                raise Exception('Cannot set %s mechanism: %s parameter: %s without a specified origin or value' %
+                                (mech_name, syn_type, param_name))
+            else:
+                raise Exception('Cannot set mechanism: {} parameter: {} without a specified origin or value'.format(
+                    mech_name, param_name))
         else:
             if (mech_name == 'cable') and (param_name == 'spatial_res'):
                 baseline = self._get_spatial_res(donor)
             elif 'synapse' in mech_name:
-                if self.sec_type_has_synapses(donor.type, syn_type):
-                    baseline = self._inherit_mech_param(node, donor, mech_name, param_name, syn_type)
-                else:
+                baseline = self._inherit_mech_param(donor, mech_name, param_name, syn_type)
+                if baseline is None:
                     raise Exception('Cannot inherit %s mechanism: %s parameter: %s from sec_type: %s' %
                                     (mech_name, syn_type, param_name, donor.type))
             else:
-                baseline = self._inherit_mech_param(node, donor, mech_name, param_name)
+                baseline = self._inherit_mech_param(donor, mech_name, param_name)
         if mech_name == 'cable':  # cable properties can be inherited, but cannot be specified as gradients
             if param_name == 'spatial_res':
                 node.init_nseg(baseline)
@@ -788,20 +795,17 @@ class HocCell(object):
 
     def _specify_synaptic_parameter(self, node, mech_name, param_name, baseline, rules, syn_type, donor=None):
         """
-        This method interprets an entry from the mechanism dictionary to set parameters associated with a synaptic
-        point_process mechanism that has been inserted either into a spine attached to this node, or inserted directly
-        in this node. Appropriately implements slopes and inheritances.
+        This method interprets an entry from the mechanism dictionary to set parameters for synapse_attributes
+        contained in this node. Appropriately implements slopes and inheritances.
         :param node: :class:'SHocNode'
+        :param mech_name: str
         :param param_name: str
         :param baseline: float
         :param rules: dict
         :param syn_type: str
         :param donor: :class:'SHocNode' or None
         """
-        syn_list = []
-        syn_list.extend(node.synapses)
-        for spine in node.spines:
-            syn_list.extend(spine.synapses)
+        syn_category = mech_name.split(' ')[0]
         if 'min_loc' in rules:
             min_distance = rules['min_loc']
         else:
@@ -814,6 +818,8 @@ class HocCell(object):
             normal = True
         else:
             normal = False
+        if syn_type is not None and syn_type in node.synapse_attributes[syn_category]['targets']:
+        # stopped here
         for syn in syn_list:
             if syn_type in syn._syn:  # not all synapses contain every synaptic mechanism
                 target = syn.target(syn_type)
@@ -1024,14 +1030,13 @@ class HocCell(object):
             else:
                 return node, None
 
-    def _inherit_mech_param(self, node, donor, mech_name, param_name, syn_type=None):
+    def _inherit_mech_param(self, donor, mech_name, param_name, syn_type=None):
         """
         When the mechanism dictionary specifies that a node inherit a parameter value from a donor node, this method
         returns the value of that parameter found in the section or final segment of the donor node. For synaptic
-        mechanism parameters, searches for the closest synapse in the donor node. If the donor node does not contain
-        synapses due to location constraints, this method searches first child branches, then parent nodes of the same
-        sec_type as the donor node.
-        :param node: :class:'SHocNode'
+        mechanism parameters, searches for the closest synapse_attribute in the donor node. If the donor node does not
+        contain synapse_attributes due to location constraints, this method searches first child nodes, then nodes
+        along the path to root.
         :param donor: :class:'SHocNode'
         :param mech_name: str
         :param param_name: str
