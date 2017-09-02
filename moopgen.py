@@ -12,6 +12,7 @@ array at a time, these classes contain iterators and evaluation methods to proce
 and to store a complete history for later inspection .
 """
 
+
 class Individual(object):
     """
 
@@ -441,7 +442,7 @@ class RelativeBoundedStep(object):
                 offset = 0.1
                 factor = -1.
             else:
-                #If xi_min and xi_max are opposite signs, do not sample in log space; do linear sampling
+                # If xi_min and xi_max are opposite signs, do not sample in log space; do linear sampling
                 return 0., 0., None, None
             xi_logmin = self.logmod(xi_max, offset, factor)  # When the sign is flipped, the max and min will reverse
             xi_logmax = self.logmod(xi_min, offset, factor)
@@ -623,7 +624,7 @@ class RelativeBoundedStep(object):
                     rel_min = factor * new_x[ind_param_ind]
                     new_min[dep_param_ind] = min(max(new_min[dep_param_ind], np.nextafter(rel_min, rel_min + 1)),
                                                  new_max[dep_param_ind])
-                if not (new_x[dep_param_ind] >= new_min[dep_param_ind] and new_x[dep_param_ind] < new_max[dep_param_ind]):
+                if not (new_min[dep_param_ind] <= new_x[dep_param_ind] < new_max[dep_param_ind]):
                     new_xi = max(new_x[dep_param_ind], new_min[dep_param_ind])
                     new_xi = min(new_xi, new_max[dep_param_ind])
                     if disp:

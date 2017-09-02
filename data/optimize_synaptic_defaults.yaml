@@ -113,10 +113,6 @@ rel_bounds:
   - '>'
   - 1.0
   - dend.gbar_nas min
-- - dend.gkabar
-  - '>'
-  - 1.0
-  - soma.gkabar
 target_range:
   dend_AP_amp: 0.005
   soma_EPSP_control: 0.01

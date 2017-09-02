@@ -65,7 +65,7 @@ apical:
     gbar:
     - value: 0.03
     - custom:
-        branch_order: 4.0
+        branch_order: 5
         method: custom_gradient_by_branch_ord
       min: 0.0
       origin: parent

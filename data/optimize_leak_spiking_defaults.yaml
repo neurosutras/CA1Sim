@@ -60,7 +60,7 @@ bounds:
   - 0.1
   - 6.0
 default_params:
-  dend.gbar_nas bo: 4
+  dend.gbar_nas bo: 5
   dend.gbar_nas min: 0.
 feature_names:
 - dend R_inp

@@ -65,8 +65,8 @@ apical:
     gbar:
     - value: 0.03
     - custom:
-        branch_order: 4.0
-        method: custom_gradient_by_branch_ord
+        branch_order: 5
+        method: custom_gradient_by_branch_order
       min: 0.0
       origin: parent
       slope: -0.0001
@@ -86,7 +86,7 @@ apical:
       origin: soma
       slope: 3.6138351e-07
       tau: 60.6900347
-  synapse:
+  excitatory synapse:
     AMPA_KIN:
       gmax:
       - origin: soma
