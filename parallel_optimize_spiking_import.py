@@ -11,7 +11,7 @@ Requires use of an ipyparallel client.
 context = Context()
 
 
-def setup_module_from_file(param_file_path='data/optimize_spiking_defaults.yaml', output_dir='data', rec_file_path=None,
+def setup_module_from_file(param_file_path='data/optimize_spiking_defaults2.yaml', output_dir='data', rec_file_path=None,
                            export_file_path=None, verbose=True, disp=True):
     """
 
@@ -26,8 +26,13 @@ def setup_module_from_file(param_file_path='data/optimize_spiking_defaults.yaml'
     param_names = params_dict['param_names']
     default_params = params_dict['default_params']
     x0 = params_dict['x0']
+    for param in default_params:
+        params_dict['bounds'][param] = (default_params[param], default_params[param])
     bounds = [params_dict['bounds'][key] for key in param_names]
-    rel_bounds = params_dict['rel_bounds']
+    if 'rel_bounds' in params_dict:
+        rel_bounds = params_dict['rel_bounds']
+    else:
+        rel_bounds = None
     feature_names = params_dict['feature_names']
     objective_names = params_dict['objective_names']
     target_val = params_dict['target_val']

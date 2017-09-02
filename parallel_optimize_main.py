@@ -27,7 +27,7 @@ main_ctxt = Context()
 @click.option("--cluster-id", type=str, default=None)
 @click.option("--profile", type=str, default='default')
 @click.option("--param-file-path", type=click.Path(exists=True, file_okay=True, dir_okay=False),
-              default='data/optimize_spiking_defaults.yaml')
+              default='data/optimize_spiking_defaults2.yaml')
 @click.option("--param-gen", type=str, default=None)
 @click.option("--update-params", "-up", multiple=True, type=str, default=None)
 @click.option("--update-modules", "-um", multiple=True, type=str, default=None)
@@ -148,7 +148,7 @@ def main(cluster_id, profile, param_file_path, param_gen, update_params, update_
             print 'Multi-Objective Optimization: Loaded params: %s' % str(x)
     sys.stdout.flush()
     if export:
-        return export_traces(x, main_ctxt.group_sizes, export_file_path=main_ctxt.export_file_path, disp=disp)
+        return export_traces(x, export_file_path=main_ctxt.export_file_path, disp=disp)
 
 
 def process_params(cluster_id, profile, param_file_path, param_gen, update_params, update_modules, get_features,
@@ -179,7 +179,6 @@ def process_params(cluster_id, profile, param_file_path, param_gen, update_param
         param_names = params_dict['param_names']
         default_params = params_dict['default_params']
         x0 = params_dict['x0']
-
         for param in default_params:
             params_dict['bounds'][param] = (default_params[param], default_params[param])
         bounds = [params_dict['bounds'][key] for key in param_names]
@@ -493,11 +492,10 @@ def export_traces(x, export_file_path=None, discard=True):
     :param export_file_path: str
     :param discard: bool
     """
-    group_sizes = main_ctxt.group_sizes
     if export_file_path is not None:
         main_ctxt.export_file_path = export_file_path
-    export_file_path = main_ctxt.export_file_path
-    disp = main_ctxt.disp
+    else:
+        export_file_path = main_ctxt.export_file_path
     x_arr = param_dict_to_array(x, main_ctxt.param_names)
     exported_features, exported_objectives = get_all_features([x_arr], export=True)
     rec_file_path_list = [filepath for filepath in main_ctxt.c[:]['rec_file_path'] if os.path.isfile(filepath)]

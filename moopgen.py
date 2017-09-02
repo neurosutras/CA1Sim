@@ -102,7 +102,7 @@ class PopulationStorage(object):
         Return the n best.
         If modify is True, allow changes to the rankings of Individuals stored in history, otherwise operate on and
         discard copies.
-        :param n: int
+        :param n: int or 'all'
         :param iterations: str or int
         :param offset: int
         :param evaluate: callable
@@ -140,7 +140,10 @@ class PopulationStorage(object):
         rank = [individual.rank for individual in group]
         indexes.sort(key=rank.__getitem__)
         group = map(group.__getitem__, indexes)
-        return group[:n]
+        if n == 'all':
+            return group
+        else:
+            return group[:n]
 
     def plot(self):
         """
@@ -424,7 +427,7 @@ class RelativeBoundedStep(object):
             new_xi = self.generate_param(x[i], i, self.xmin[i], self.xmax[i], stepsize, wrap, self.disp)
             x[i] = new_xi
         if self.rel_bounds is not None:
-            x = self.apply_rel_bounds(x, stepsize, wrap, self.rel_bounds)
+            x = self.apply_rel_bounds(x, stepsize, self.rel_bounds, self.disp)
         return x
 
     def logmod_bounds(self, xi_min, xi_max):
@@ -575,12 +578,13 @@ class RelativeBoundedStep(object):
                                                                                       xi_logmax)
         return new_xi
 
-    def apply_rel_bounds(self, x, stepsize, wrap, rel_bounds=None, disp=False):
+    def apply_rel_bounds(self, x, stepsize, rel_bounds=None, disp=False):
         """
 
         :param x: array
-        :param rel_bounds: list of lists
-        :return:
+        :param stepsize: float
+        :param rel_bounds: list
+        :param disp: bool
         """
         if disp:
             print 'orig x: %s' % str(x)
@@ -635,6 +639,45 @@ class RelativeBoundedStep(object):
                                                                new_max[dep_param_ind], stepsize, wrap=False, disp=disp)
         return new_x
 
+    def check_bounds(self, x):
+        """
+
+        :param x: array
+        :return: bool
+        """
+        #check absolute bounds first
+        for i, xi in enumerate(x):
+            if not (xi == self.xmin[i] and xi == self.xmax[i]):
+                if (xi < self.xmin[i]):
+                    return False
+                if (xi >= self.xmax[i]):
+                    return False
+        if self.rel_bounds is not None:
+            for r, rule in enumerate(self.rel_bounds):
+                dep_param_ind = self.param_indexes[rule[0]]  # Dependent param. index: index of the parameter that may be modified
+                if dep_param_ind >= len(x):
+                    raise Exception('Dependent parameter index is out of bounds for rule %d.' % r)
+                factor = rule[2]
+                ind_param_ind = self.param_indexes[rule[3]]  # Independent param. index: index of the parameter that sets the bounds
+                if ind_param_ind >= len(x):
+                    raise Exception('Independent parameter index is out of bounds for rule %d.' % r)
+                if rule[1] == "=":
+                    operator = lambda x, y: x == y
+                elif rule[1] == "<":
+                    operator = lambda x, y: x < y
+                elif rule[1] == "<=":
+                    operator = lambda x, y: x <= y
+                elif rule[1] == ">=":
+                    operator = lambda x, y: x >= y
+                elif rule[1] == ">":
+                    operator = lambda x, y: x > y
+                if not operator(x[dep_param_ind], factor * x[ind_param_ind]):
+                    print 'Parameter %d: value %.3f did not meet relative bound in rule %d.' % \
+                          (dep_param_ind, x[dep_param_ind], r)
+                    return False
+        return True
+
+
 
 class BoundedStep(object):
     """
@@ -643,10 +686,11 @@ class BoundedStep(object):
     approximation that tolerates ranges that span zero. If bounds are not provided for some parameters, the default is
     (0.1 * x0, 10. * x0).
     """
-    def __init__(self, x0, bounds=None, stepsize=0.5, wrap=False, random=None, **kwargs):
+    def __init__(self, x0, param_names=None, bounds=None, stepsize=0.5, wrap=False, random=None, **kwargs):
         """
 
         :param x0: array
+        :param param_names: list of str
         :param bounds: list of tuple
         :param stepsize: float in [0., 1.]
         :param wrap: bool  # whether or not to wrap around bounds
@@ -783,6 +827,21 @@ class BoundedStep(object):
             new_logmod_xi = self.random.uniform(logmod_xi_min, logmod_xi_max)
         new_xi = self.logmod_inv(new_logmod_xi)
         return new_xi
+
+    def check_bounds(self, x):
+        """
+
+        :param x: array
+        :return: bool
+        """
+        #check absolute bounds first
+        for i, xi in enumerate(x):
+            if not (xi == self.xmin[i] and xi == self.xmax[i]):
+                if (xi < self.xmin[i]):
+                    return False
+                if (xi >= self.xmax[i]):
+                    return False
+        return True
 
 
 def sort_by_crowding_distance(population):
@@ -1199,9 +1258,13 @@ class BGen(object):
         Consider the highest ranked Individuals of the previous interval of generations to be the survivors. Seed the
         next generation with steps taken from the surviving set of parameters.
         """
-        self.survivors = self.storage.get_best(n=self.num_survivors,
-                                               iterations=1, evaluate=self._evaluate,
-                                               modify=True)
+        candidate_survivors = self.storage.get_best(n='all', iterations=1, evaluate=self._evaluate, modify=True)
+        self.survivors = []
+        for candidate in candidate_survivors:
+            if self.take_step.check_bounds(candidate.x):
+                self.survivors.append(candidate)
+            if len(self.survivors) == self.num_survivors:
+                break
         self.evaluated = True
         if self.disp:
             print 'BGen: Gen %i, evaluating iteration took %.2f s' % (self.num_gen - 1,
@@ -1215,9 +1278,9 @@ class BGen(object):
         for individual in self.survivors:
             individual.survivor = True
         new_population = []
-        if (len(self.survivors) < 1) or (not survivor for survivor in self.survivors):
+        if not self.survivors:
             self.init_population()
-        if len(self.survivors) > 0:
+        else:
             for i in xrange(self.pop_size):
                 individual = Individual(self.take_step(self.survivors[i % self.num_survivors].x))
                 new_population.append(individual)
@@ -1320,7 +1383,7 @@ class EGen(object):
                 self.xmin = np.array(self.take_step.xmin)
                 self.xmax = np.array(self.take_step.xmax)
             else:
-                raise TypeError('BGen: provided take_step: %s is not callable.' % take_step)
+                raise TypeError('EGen: provided take_step: %s is not callable.' % take_step)
         if max_iter is None:
             self.max_gens = 30.
         else:
@@ -1364,7 +1427,7 @@ class EGen(object):
         """
         p = np.minimum(p, self.param_max)
         p = np.maximum(p, self.param_min)
-        p = self.take_step.apply_rel_bounds(self, p, stepsize, wrap, rel_bounds=None, disp=False)
+        p = self.take_step.apply_rel_bounds(self, p, stepsize, rel_bounds=None, disp=False)
         return p
 
     def evolve(self, maxgen=200):
