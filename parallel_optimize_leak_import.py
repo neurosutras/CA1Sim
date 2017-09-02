@@ -1,5 +1,5 @@
 __author__ = 'Grace Ng'
-from specify_cells3 import *
+from specify_cells4 import *
 from plot_results import *
 
 """
@@ -59,6 +59,7 @@ def setup_module_from_file(param_file_path='data/optimize_leak_defaults.yaml', o
     if export_file_path is None:
         export_file_path = output_dir + '/%s_%s_%s_optimization_exported_traces.hdf5' % \
                            (datetime.datetime.today().strftime('%m%d%Y%H%M'), optimization_title, param_gen)
+    x_array = param_dict_to_array(x0, param_names)
     context.update(locals())
     context.update(kwargs)
     config_engine(update_params_funcs, param_names, default_params, rec_file_path, export_file_path, output_dir, disp,

@@ -17,9 +17,15 @@ bounds:
   dend.gbar_nas: !!python/tuple
   - 0.01
   - 0.05
+  dend.gbar_nas bo: !!python/tuple
+  - 3
+  - 6
+  dend.gbar_nas min: !!python/tuple
+  - 0.0
+  - 0.015
   dend.gbar_nas slope: !!python/tuple
   - -0.0004
-  - 0.
+  - 0.0
   dend.gkabar: !!python/tuple
   - 0.01
   - 0.25
@@ -45,8 +51,8 @@ bounds:
   - 0.1
   - 6.0
 default_params:
-  dend.gbar_nas bo: 4
-  dend.gbar_nas min: 0.
+  dend.gbar_nas bo: 5
+  dend.gbar_nas min: 0.0
 feature_names:
 - v_th
 - ADP
@@ -76,8 +82,8 @@ kwargs:
   neuroH5_file_path: morphologies/121516_DGC_trees.pkl
   neuroH5_index: 0
   spines: False
-  cvode: False
   verbose: False
+  cvode: False
   daspk: True
 objective_names:
 - v_th
@@ -100,6 +106,8 @@ param_gen: BGen
 param_names:
 - soma.gbar_nas
 - dend.gbar_nas
+- dend.gbar_nas bo
+- dend.gbar_nas min
 - dend.gbar_nas slope
 - axon.gbar_nax
 - ais.gbar_nax
@@ -113,16 +121,45 @@ param_names:
 - soma.gCadepK factor
 - soma.gkmbar
 - ais.gkmbar
+rel_bounds:
+- - soma.gbar_nas
+  - '>'
+  - 1.0
+  - dend.gbar_nas min
+- - dend.gbar_nas
+  - <
+  - 1.0
+  - soma.gbar_nas
+- - dend.gbar_nas
+  - '>'
+  - 1.0
+  - dend.gbar_nas min
+- - axon.gbar_nax
+  - '>'
+  - 1.0
+  - soma.gbar_nas
+- - ais.gbar_nax
+  - '>'
+  - 2.0
+  - axon.gbar_nax
+#- - dend.gkabar
+#  - '>'
+#  - 1.0
+#  - soma.gkabar
+- - axon.gkabar
+  - <
+  - 3.0
+  - soma.gkabar
 target_range:
   ADP: 0.01
   AHP: 0.005
   ais_delay: 0.0005
   dend_amp: 0.0002
-  rebound_firing: .002
+  rebound_firing: 0.002
   slow_depo: 0.1
   soma_peak: 2.0
-  spont_firing: .002
-  th_count: .002
+  spont_firing: 0.002
+  th_count: 0.002
   v_th: 0.01
   vm_stability: 0.1
 target_val:
@@ -137,10 +174,10 @@ target_val:
   th_count: 1
   v_th: -48.0
   vm_stability: 0.0
-update_params: !!python/tuple
-- update_na_ka_stability
 update_modules: !!python/tuple
 - parallel_optimize_spiking_import
+update_params: !!python/tuple
+- update_na_ka_stability
 x0:
   ais.gbar_nax: 0.1681
   ais.gkmbar: 0.01286
@@ -148,6 +185,8 @@ x0:
   axon.gbar_nax: 0.06
   axon.gkabar: 0.05266
   dend.gbar_nas: 0.03
+  dend.gbar_nas bo: 4
+  dend.gbar_nas min: 0.0
   dend.gbar_nas slope: -0.0001
   dend.gkabar: 0.04
   soma.gCa factor: 0.3364

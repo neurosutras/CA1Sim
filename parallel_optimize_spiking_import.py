@@ -1,5 +1,5 @@
 __author__ = 'Grace Ng'
-from specify_cells3 import *
+from specify_cells4 import *
 from plot_results import *
 
 """
@@ -11,7 +11,7 @@ Requires use of an ipyparallel client.
 context = Context()
 
 
-def setup_module_from_file(param_file_path='data/optimize_spiking_defaults2.yaml', output_dir='data', rec_file_path=None,
+def setup_module_from_file(param_file_path='data/optimize_spiking_defaults.yaml', output_dir='data', rec_file_path=None,
                            export_file_path=None, verbose=True, disp=True):
     """
 
@@ -54,6 +54,7 @@ def setup_module_from_file(param_file_path='data/optimize_spiking_defaults2.yaml
     if export_file_path is None:
         export_file_path = output_dir + '%s_%s_%s_optimization_exported_traces.hdf5' % \
                            (datetime.datetime.today().strftime('%m%d%Y%H%M'), optimization_title, param_gen)
+    x_array = param_dict_to_array(x0, param_names)
     context.update(locals())
     context.update(kwargs)
     config_engine(update_params_funcs, param_names, default_params, rec_file_path, export_file_path, output_dir, disp,
@@ -633,7 +634,7 @@ def update_na_ka_stability(x, local_context=None):
                                x[param_indexes['dend.gbar_nas']])
         cell.modify_mech_param(sec_type, 'nas', 'gbar', origin='parent', slope=x[param_indexes['dend.gbar_nas slope']],
                                min=x[param_indexes['dend.gbar_nas min']],
-                               custom={'method': 'custom_gradient_by_branch_ord',
+                               custom={'method': 'custom_gradient_by_branch_order',
                                        'branch_order': x[param_indexes['dend.gbar_nas bo']]}, replace=False)
         cell.modify_mech_param(sec_type, 'nas', 'gbar', origin='parent',
                                slope=x[param_indexes['dend.gbar_nas slope']], min=x[param_indexes['dend.gbar_nas min']],

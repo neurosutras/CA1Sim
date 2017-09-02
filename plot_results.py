@@ -5312,6 +5312,7 @@ def plot_traces(export_file_path):
         plt.close()
     mpl.rcParams['font.size'] = orig_fontsize
 
+
 def plot_na_gradient_params(x_dict):
     """
 

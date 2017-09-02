@@ -8,7 +8,7 @@ bounds:
   soma.g_pas: !!python/tuple
   - 1.0E-18
   - 1.0E-6
-default_params:
+default_params: {}
 feature_names:
 - dend R_inp
 - distal_dend R_inp

@@ -51,7 +51,7 @@ bounds:
   - 0.1
   - 6.0
 default_params:
-  dend.gbar_nas bo: 4
+  dend.gbar_nas bo: 5
   dend.gbar_nas min: 0.0
 feature_names:
 - v_th
@@ -142,10 +142,10 @@ rel_bounds:
   - '>'
   - 2.0
   - axon.gbar_nax
-- - dend.gkabar
-  - '>'
-  - 1.0
-  - soma.gkabar
+#- - dend.gkabar
+#  - '>'
+#  - 1.0
+#  - soma.gkabar
 - - axon.gkabar
   - <
   - 3.0

@@ -148,7 +148,7 @@ def main(cluster_id, profile, param_file_path, param_gen, update_params, update_
             print 'Multi-Objective Optimization: Loaded params: %s' % str(x)
     sys.stdout.flush()
     if export:
-        return export_traces(x, export_file_path=main_ctxt.export_file_path, disp=disp)
+        return export_traces(x, export_file_path=main_ctxt.export_file_path)
 
 
 def process_params(cluster_id, profile, param_file_path, param_gen, update_params, update_modules, get_features,
