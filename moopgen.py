@@ -344,8 +344,8 @@ class RelativeBoundedStep(object):
     approximation that tolerates ranges that span zero. If bounds are not provided for some parameters, the default is
     (0.1 * x0, 10. * x0).
     """
-    def __init__(self, x0, param_names, bounds=None, rel_bounds=None, stepsize=0.5, wrap=False, random=None, disp=False,
-                 **kwargs):
+    def __init__(self, x0=None, param_names=None, bounds=None, rel_bounds=None, stepsize=0.5, wrap=False, random=None,
+                 disp=False, **kwargs):
         """
 
         :param x0: array
@@ -366,6 +366,10 @@ class RelativeBoundedStep(object):
             self.random = np.random
         else:
             self.random = random
+        if param_names is None and rel_bounds is not None:
+            raise ValueError('RelativeBoundedStep: Parameter names must be specified to parse relative bounds.')
+        self.param_names = param_names
+        self.param_indexes = {param: i for i, param in enumerate(param_names)}
         if bounds is None:
             xmin = [None for xi in x0]
             xmax = [None for xi in x0]
@@ -395,8 +399,7 @@ class RelativeBoundedStep(object):
                 else:
                     xmax[i] = 0.1 * x0[i]
         self.x0 = np.array(x0)
-        self.param_names = param_names
-        self.param_indexes = {param: i for i, param in enumerate(param_names)}
+
         self.xmin = np.array(xmin)
         self.xmax = np.array(xmax)
         self.x_range = np.subtract(self.xmax, self.xmin)
@@ -423,7 +426,7 @@ class RelativeBoundedStep(object):
         x = np.array(current_x)
         for i in xrange(len(x)):
             if not self.xmax[i] >= self.xmin[i]:
-                raise Exception('Bounds for paramter %d: max is not >= to min.') %i
+                raise ValueError('RelativeBoundedStep: Misspecified bounds: xmin[%i] is not <= to xmax[%i].' % i)
             new_xi = self.generate_param(x[i], i, self.xmin[i], self.xmax[i], stepsize, wrap, self.disp)
             x[i] = new_xi
         if self.rel_bounds is not None:
@@ -442,8 +445,14 @@ class RelativeBoundedStep(object):
                 offset = 0.
                 factor = -1.
             elif xi_max == 0.:
-                offset = 0.1
                 factor = -1.
+                this_order_mag = np.log10(xi_min * factor)
+                if this_order_mag > 0.:
+                    this_order_mag = math.ceil(this_order_mag)
+                else:
+                    this_order_mag = math.floor(this_order_mag)
+                offset = 10.**(this_order_mag - 2)
+
             else:
                 # If xi_min and xi_max are opposite signs, do not sample in log space; do linear sampling
                 return 0., 0., None, None
@@ -453,8 +462,13 @@ class RelativeBoundedStep(object):
             if xi_max == 0.:
                 return 0., 0., None, None
             else:
-                offset = 0.1
                 factor = 1.
+                this_order_mag = np.log10(xi_max * factor)
+                if this_order_mag > 0.:
+                    this_order_mag = math.ceil(this_order_mag)
+                else:
+                    this_order_mag = math.floor(this_order_mag)
+                offset = 10. ** (this_order_mag - 2)
                 xi_logmin = self.logmod(xi_min, offset, factor)
                 xi_logmax = self.logmod(xi_max, offset, factor)
         else:
@@ -678,7 +692,6 @@ class RelativeBoundedStep(object):
         return True
 
 
-
 class BoundedStep(object):
     """
     Step-taking method for use with BGen. Steps each parameter within specified bounds. Explores the range in log10
@@ -686,11 +699,10 @@ class BoundedStep(object):
     approximation that tolerates ranges that span zero. If bounds are not provided for some parameters, the default is
     (0.1 * x0, 10. * x0).
     """
-    def __init__(self, x0, param_names=None, bounds=None, stepsize=0.5, wrap=False, random=None, **kwargs):
+    def __init__(self, x0, bounds=None, stepsize=0.5, wrap=False, random=None, **kwargs):
         """
 
         :param x0: array
-        :param param_names: list of str
         :param bounds: list of tuple
         :param stepsize: float in [0., 1.]
         :param wrap: bool  # whether or not to wrap around bounds
