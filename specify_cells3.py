@@ -2742,8 +2742,8 @@ class DG_GC(HocCell):
                 densities[sec_type] = {'default': 0.83}  # uniform density across layers matches experimental
                 # distribution of synapses per layer due to variable dendritic
                 # length
-            for node in self.get_nodes_of_subtype(sec_type):
-                node.synapse_locs['inhibitory'] = self.generate_synapse_locs_every(node, densities[sec_type]['default'])
+        for node in self.get_nodes_of_subtype(sec_type):
+            node.synapse_locs['inhibitory'] = self.generate_synapse_locs_every(node, densities[sec_type]['default'])
 
     def zero_na(self):
         """

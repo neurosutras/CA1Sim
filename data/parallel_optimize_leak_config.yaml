@@ -14,13 +14,13 @@ feature_names:
 - distal_dend R_inp
 - soma R_inp
 features_modules: !!python/tuple
-- parallel_optimize_leak_import
+- parallel_optimize_leak
 get_features: !!python/tuple
 - get_Rinp_features
 group_sizes: !!python/tuple
 - 3
 kwargs:
-  mech_file_path: data/082217 GC optimizing spiking.yaml
+  mech_file_path: data/090717 GC optimizing spiking.yaml
   neuroH5_file_path: morphologies/121516_DGC_trees.pkl
   neuroH5_index: 0
   spines: False
@@ -32,7 +32,7 @@ objective_names:
 - distal_dend R_inp
 - soma R_inp
 objectives_modules: !!python/tuple
-- parallel_optimize_leak_import
+- parallel_optimize_leak
 optimization_title: leak
 param_gen: BGen
 param_names:
@@ -48,7 +48,7 @@ target_val:
 update_params: !!python/tuple
 - update_pas_exp
 update_modules: !!python/tuple
-- parallel_optimize_leak_import
+- parallel_optimize_leak
 x0:
   dend.g_pas slope: 1.058E-08
   dend.g_pas tau: 3.886E+01

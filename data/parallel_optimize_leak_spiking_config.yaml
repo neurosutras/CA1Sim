@@ -81,9 +81,9 @@ feature_names:
 - f_I_slope
 - f_I_residuals
 features_modules: !!python/tuple
-- parallel_optimize_leak_import
-- parallel_optimize_spiking_import
-- parallel_optimize_spiking_import
+- parallel_optimize_leak
+- parallel_optimize_spiking
+- parallel_optimize_spiking
 get_features: !!python/tuple
 - get_Rinp_features
 - get_stability_features
@@ -93,7 +93,7 @@ group_sizes: !!python/tuple
 - 1
 - 10
 kwargs:
-  mech_file_path: data/082217 GC optimizing spiking.yaml
+  mech_file_path: data/090717 GC optimizing spiking.yaml
   neuroH5_file_path: morphologies/121516_DGC_trees.pkl
   neuroH5_index: 0
   spines: False
@@ -118,8 +118,8 @@ objective_names:
 - adi
 - f_I_slope
 objectives_modules: !!python/tuple
-- parallel_optimize_leak_import
-- parallel_optimize_spiking_import
+- parallel_optimize_leak
+- parallel_optimize_spiking
 optimization_title: leak_spiking
 param_gen: BGen
 param_names:
@@ -186,6 +186,7 @@ target_range:
   th_count: .002
   v_th: 0.01
   vm_stability: 0.1
+  f_I_slope: 0.5
 target_val:
   ADP: 0.0
   AHP: 4.0
@@ -200,12 +201,13 @@ target_val:
   th_count: 1
   v_th: -48.0
   vm_stability: 0.0
+  f_I_slope: 53.0
 update_params: !!python/tuple
 - update_pas_exp
 - update_na_ka_stability
 update_modules: !!python/tuple
-- parallel_optimize_leak_import
-- parallel_optimize_spiking_import
+- parallel_optimize_leak
+- parallel_optimize_spiking
 x0:
   ais.gbar_nax: 0.1681
   ais.gkmbar: 0.01286

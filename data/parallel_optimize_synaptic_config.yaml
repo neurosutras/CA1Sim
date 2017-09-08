@@ -1,18 +1,18 @@
 bounds:
   AMPA.tau: !!python/tuple
-  - 0.
-  - 200.
+  - 50.
+  - 400.
   AMPA.slope: !!python/tuple
-  - 0.
-  - 0.015
+  - 1.0e-7
+  - 0.01
   AMPA.g0: !!python/tuple
-  - 0.
-  - 0.5
+  - 1.0e-4
+  - 0.01
   AMPA.gmax bo: !!python/tuple
   - 4
   - 6
   NMDA.gmax: !!python/tuple
-  - 5.0e-4
+  - 1.0e-4
   - 5.0e-3
   NMDA.gamma: !!python/tuple
   - 0.05
@@ -45,8 +45,8 @@ bounds:
   - 0.01
   - 0.25
 default_params:
-  soma.gbar_nas: 0.03
-  soma.gkabar: 0.02108
+  soma.gbar_nas: 0.030821815154669967
+  soma.gkabar: 0.033171536167129576
 feature_names:
 - dend_AP_amp
 - soma_EPSP_AP5
@@ -57,9 +57,9 @@ feature_names:
 - initial_gain_AP5
 - initial_gain_control
 features_modules: !!python/tuple
-- parallel_optimize_synaptic_import
-- parallel_optimize_synaptic_import
-- parallel_optimize_synaptic_import
+- parallel_optimize_synaptic_integration
+- parallel_optimize_synaptic_integration
+- parallel_optimize_synaptic_integration
 get_features: !!python/tuple
 - get_unitary_EPSP_features
 - get_compound_EPSP_features
@@ -69,12 +69,12 @@ group_sizes: !!python/tuple
 - 80
 - 1
 kwargs:
-  mech_file_path: data/082417 GC optimizing synaptic.yaml
+  mech_file_path: data/090717 GC optimizing synaptic.yaml
   neuroH5_file_path: morphologies/121516_DGC_trees.pkl
   neuroH5_index: 0
   spines: False
   verbose: True
-  cvode: True
+  cvode: False
   daspk: True
 objective_names:
 - dend_AP_amp
@@ -85,7 +85,7 @@ objective_names:
 - initial_gain_AP5
 - initial_gain_control
 objectives_modules: !!python/tuple
-- parallel_optimize_synaptic_import
+- parallel_optimize_synaptic_integration
 optimization_title: synaptic
 param_gen: BGen
 param_names:
@@ -105,6 +105,10 @@ param_names:
 - soma.gkabar
 - dend.gkabar
 rel_bounds:
+- - dend.gbar_nas min
+  - '<'
+  - 1.0
+  - soma.gbar_nas
 - - dend.gbar_nas
   - <
   - 1.0
@@ -132,7 +136,7 @@ target_val:
 update_params: !!python/tuple
 - update_AMPA_NMDA
 update_modules: !!python/tuple
-- parallel_optimize_synaptic_import
+- parallel_optimize_synaptic_integration
 x0:
   AMPA.tau: 7.90793466e+01
   AMPA.slope: 6.65158925e-05
@@ -142,10 +146,10 @@ x0:
   NMDA.gamma: 0.100
   NMDA.Kd: 7.51
   NMDA.kin_scale: 1.81
-  soma.gbar_nas: 0.03
+  soma.gbar_nas: 0.030821815154669967
   dend.gbar_nas: 0.03
   dend.gbar_nas slope: -0.0001
   dend.gbar_nas min: 0.
-  dend.gbar_nas bo: 4
-  soma.gkabar: 0.02108
+  dend.gbar_nas bo: 5
+  soma.gkabar: 0.033171536167129576
   dend.gkabar: 0.05

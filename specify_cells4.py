@@ -9,6 +9,8 @@ from neuron import h  # must be found in system $PYTHONPATH
 # SWC files must use this nonstandard convention to exploit trunk and tuft categorization
 swc_types = [soma_type, axon_type, basal_type, apical_type, trunk_type, tuft_type] = [1, 2, 3, 4, 5, 6]
 sec_types = ['soma', 'axon_hill', 'ais', 'axon', 'basal', 'trunk', 'apical', 'tuft', 'spine_neck', 'spine_head']
+swc_type_enumerator = {'soma': 1, 'axon': 2, 'basal': 3, 'apical': 4, 'trunk': 5, 'tuft': 6}
+syn_category_enumerator = {'excitatory': 0, 'inhibitory': 1, 'neuromodulatory': 2}
 
 verbose = False  # Turn on for text reporting during model initialization and simulation
 
@@ -74,7 +76,7 @@ class HocCell(object):
         :param ais_length: float
         :param axon_length: float
         """
-        for index in range(2):
+        for index in xrange(2):
             node = self.make_section('soma')
             node.sec.L = soma_length / 2.
             node.sec.diam = soma_diam
@@ -82,7 +84,7 @@ class HocCell(object):
             self._init_cable(node)  # consults the mech_dict to initialize Ra, cm, and nseg
         self.tree.root = self.soma[0]
         self.soma[1].connect(self.soma[0], 0, 0)
-        for index in range(3):
+        for index in xrange(3):
             self.make_section('axon')
             self.axon[index].append_layer(0)
         self.axon[0].type = 'axon_hill'
@@ -136,7 +138,7 @@ class HocCell(object):
         :return: :class:'STree2'
         """
         raw_tree = btmorph.STree2()
-        for i in range(len(self.neuroH5_dict['x'])):
+        for i in xrange(len(self.neuroH5_dict['x'])):
             swc_type = self.neuroH5_dict['swc_type'][i]
             x = self.neuroH5_dict['x'][i]
             y = self.neuroH5_dict['y'][i]
@@ -434,29 +436,24 @@ class HocCell(object):
         to cell).
         :return: dict
         """
-        swc_type_enumerator = {'soma': 1, 'axon': 2, 'basal': 3, 'apical': 4, 'trunk': 5, 'tuft': 6}
-        syn_category_enumerator = {'excitatory': 0, 'inhibitory': 1, 'neuromodulatory': 2}
         syn_locs = []
         section = []
         layer = []
         syn_category = []
         swc_type = []
         syn_id = []
-        this_syn_id = 0
-        for this_syn_category in syn_category_enumerator:
-            for sec_type in [sec_type for sec_type in swc_type_enumerator if sec_type in self._node_dict]:
-                for i, node in enumerate(self._node_dict[sec_type]):
-                    if this_syn_category in node.synapse_attributes and \
-                            node.synapse_attributes[this_syn_category]['locs']:
-                        for this_syn_loc in node.synapse_attributes[this_syn_category]['locs']:
-                            syn_locs.append(this_syn_loc)
-                            section.append(i)
-                            layer.append(node.get_layer(this_syn_loc))
-                            syn_category.append(syn_category_enumerator[this_syn_category])
-                            swc_type.append(swc_type_enumerator[sec_type])
-                            syn_id.append(this_syn_id)
-                            this_syn_id += 1
-
+        for sec_type in [sec_type for sec_type in swc_type_enumerator if sec_type in self._node_dict]:
+            for section_id, node in enumerate(self._node_dict[sec_type]):
+                for i in xrange(len(node.synapse_attributes['syn_locs'])):
+                    this_syn_category = node.synapse_attributes['syn_category'][i]
+                    syn_category.append(this_syn_category)
+                    this_syn_loc = node.synapse_attributes['syn_locs'][i]
+                    syn_locs.append(this_syn_loc)
+                    section.append(section_id)
+                    layer.append(node.get_layer(this_syn_loc))
+                    swc_type.append(swc_type_enumerator[sec_type])
+                    this_syn_id = node.synapse_attributes['syn_id'][i]
+                    syn_id.append(this_syn_id)
         return {'syn_locs': np.array(syn_locs, dtype='float32'),
                 'section': np.array(section, dtype='uint32'),
                 'layer': np.array(layer, dtype='uint32'),
@@ -531,33 +528,38 @@ class HocCell(object):
 
     def init_synaptic_mechanisms(self):
         """
-        Spines and synapses are inserted after loading a morphology and specifying membrane mechanisms. This method can
-        be executed after inserting synapses. It traverses the dendritic tree in order of inheritance and just sets
-        synaptic mechanism parameters specified in the mechanism dictionary.
+        Attributes of potential synapses are stored in the synapse_mechanism_attributes dictionary within each node. Any
+        time that synapse attributes are modified, this method can be called to synchronize those attributes with any
+        synaptic point processes contained either within a parent section, or child spines.
         """
-        for dend_type in ['soma', 'ais', 'basal', 'trunk', 'apical', 'tuft']:
-            if dend_type in self.mech_dict and 'synapse' in self.mech_dict[dend_type] and \
-                    self.sec_type_has_synapses(dend_type):
-                for node in self.get_nodes_of_subtype(dend_type):
-                    for syn_category in node.synapse_attributes:
-                        mech_name = syn_category+' synapse'
-                        self._modify_mechanism(node, mech_name, self.mech_dict[dend_type][mech_name])
+        for sec_type in ['soma', 'ais', 'basal', 'trunk', 'apical', 'tuft']:
+            for node in self.get_nodes_of_subtype(sec_type):
+                for syn in self.get_synapses(node):
+                    if syn.id is not None and syn.id in node.synapse_mechanism_attributes:
+                        for mech_name in (mech_name for mech_name in node.synapse_mechanism_attributes[syn.id]
+                                          if mech_name in syn.targets):
+                            for param_name, param_val in \
+                                    node.synapse_mechanism_attributes[syn.id][mech_name].iteritems():
+                                if hasattr(syn.target(mech_name), param_name):
+                                    setattr(syn.target(mech_name), param_name, param_val)
+                                elif hasattr(syn.netcon(mech_name), param_name):
+                                    if param_name == 'weight':
+                                        syn.netcon(mech_name).weight[0] = param_val
+                                    else:
+                                        setattr(syn.netcon(mech_name), param_name, param_val)
 
-    def node_has_synapses(self, node, syn_type=None):
+    def get_synapses(self, node, syn_type=None):
         """
-        Checks if a given node contains synapses, or spines with synapses. Can also check for a synaptic point process
-        of a specific type.
+        Returns a list of all synapse objects contained either directly in the specified node, or in attached spines.
+        Can also filter by type of synaptic point process mechanism.
         :param node: :class:'SHocNode'
         :param syn_type: str
-        :return: boolean
+        :return: list of :class:'Synapse'
         """
-        if [syn for syn in node.synapses if syn_type is None or syn_type in syn._syn]:
-            return True
-        else:
-            for spine in node.spines:
-                if [syn for syn in spine.synapses if syn_type is None or syn_type in syn._syn]:
-                    return True
-        return False
+        synapses = [syn for syn in node.synapses if syn_type is None or syn_type in syn.targets]
+        for spine in node.spines:
+            synapses.extend([syn for syn in spine.synapses if syn_type is None or syn_type in syn.targets])
+        return synapses
 
     def sec_type_has_synapses(self, sec_type, syn_type=None):
         """
@@ -577,8 +579,9 @@ class HocCell(object):
         Given a list of nodes, this method loops through all the mechanisms specified in the mechanism dictionary for
         the hoc section type of each node and updates their associated parameters. If the reset_cable flag is True,
         cable parameters are modified first, then the parameters for all other mechanisms are reinitialized.
-        Parameters for synaptic point processes can also be specified in the mechanism dictionary, so one must use the
-        method init_synaptic_mechanisms() after inserting synapses.
+        Synapse attributes are also specified in the mechanism dictionary, but one must use the method
+        init_synaptic_mechanisms() after inserting synapses to synchronize the parameters of inserted synaptic point
+        processes.
         :param nodes: list of :class:'SHocNode'
         :param reset_cable: bool
         """
@@ -617,14 +620,12 @@ class HocCell(object):
         :param mech_name: str
         :param mech_content: dict
         """
-        if not mech_content is None:
+        if mech_content is not None:
             if 'synapse' in mech_name:
                 syn_category = mech_name.split(' ')[0]
                 # Only specify synapse attributes if this category of synapses has been specified in this node
-                if syn_category in node.synapse_attributes and node.synapse_attributes[syn_category]['locs']:
+                if node.get_filtered_synapse_attributes(syn_category=syn_category)['syn_locs']:
                     for syn_type in mech_content:
-                        if syn_type not in node.synapse_attributes[syn_category]['targets']:
-                            node.synapse_attributes[syn_category]['targets'][syn_type] = {}
                         if mech_content[syn_type] is not None:
                             for param_name in mech_content[syn_type]:
                                 # accommodate multiple dict entries with different location constraints for a single
@@ -810,7 +811,7 @@ class HocCell(object):
 
     def _specify_synaptic_parameter(self, node, mech_name, param_name, baseline, rules, syn_type, donor=None):
         """
-        This method interprets an entry from the mechanism dictionary to set parameters for synapse_attributes
+        This method interprets an entry from the mechanism dictionary to set parameters for synapse_mechanism_attributes
         contained in this node. Appropriately implements slopes and inheritances.
         :param node: :class:'SHocNode'
         :param mech_name: str
@@ -833,10 +834,14 @@ class HocCell(object):
             normal = True
         else:
             normal = False
-        if syn_type not in node.synapse_attributes[syn_category]['targets']:
-            node.synapse_attributes[syn_category]['targets'][syn_type] = {}
-        attribute_list = []
-        for loc in node.synapse_attributes[syn_category]['locs']:
+        this_synapse_attributes = node.get_filtered_synapse_attributes(syn_category=syn_category)
+        for i in xrange(len(this_synapse_attributes['syn_locs'])):
+            loc = this_synapse_attributes['syn_locs'][i]
+            this_syn_id = this_synapse_attributes['syn_id'][i]
+            if this_syn_id not in node.synapse_mechanism_attributes:
+                node.synapse_mechanism_attributes[this_syn_id] = {}
+            if syn_type not in node.synapse_mechanism_attributes[this_syn_id]:
+                node.synapse_mechanism_attributes[this_syn_id][syn_type] = {}
             if donor is None:
                 value = baseline
             else:
@@ -865,8 +870,7 @@ class HocCell(object):
                         value = baseline
             if normal:
                 value = self.random.normal(value, value / 6.)
-            attribute_list.append(value)
-        node.synapse_attributes[syn_category]['targets'][syn_type][param_name] = list(attribute_list)
+            node.synapse_mechanism_attributes[this_syn_id][syn_type][param_name] = value
 
     def init_spike_detector(self, node=None, loc=1., param='_ref_v', delay=None, weight=None, threshold=None,
                             target=None):
@@ -986,26 +990,26 @@ class HocCell(object):
 
     def _get_closest_synapse_attribute(self, node, loc, syn_category, syn_type=None, downstream=True):
         """
-        This method finds the closest synapse to the specified location within or downstream of the provided node. Used
-        for inheritance of synaptic mechanism parameters. Can also look upstream instead. Can also find the closest
-        synapse containing a synaptic point_process of a specific type.
+        This method finds the closest synapse_attribute to the specified location within or downstream of the specified
+        node. Used for inheritance of synaptic mechanism parameters. Can also look upstream instead. Can also find the
+        closest synapse_attribute specifying parameters of a synaptic point_process of a specific type.
         :param node: :class:'SHocNode'
         :param loc: float
         :param syn_category: str
         :param syn_type: str
         :param downstream: bool
-        :return: tuple: (:class:'SHocNode', int) : node containing synapse, index of synapse_attributes[syn_category]
+        :return: tuple: (:class:'SHocNode', int) : node containing synapse, syn_id
         """
-        if (syn_category in node.synapse_attributes and
-                (syn_type is None or syn_type in node.synapse_attributes[syn_category]['targets'])):
-            syn_locs = node.synapse_attributes[syn_category]['locs']
-            min_distance = 1.
-            target_index = None
-            for i, this_loc in enumerate(syn_locs):
-                distance = abs(loc - this_loc)
+        min_distance = 1.
+        target_index = None
+        this_synapse_attributes = node.get_filtered_synapse_attributes(syn_category=syn_category, syn_type=syn_type)
+        if this_synapse_attributes['syn_locs']:
+            for i in xrange(len(this_synapse_attributes['syn_locs'])):
+                this_syn_loc = this_synapse_attributes['syn_locs'][i]
+                distance = abs(loc - this_syn_loc)
                 if distance < min_distance:
                     min_distance = distance
-                    target_index = i
+                    target_index = this_synapse_attributes['syn_id'][i]
             return node, target_index
         else:
             if downstream:
@@ -1024,8 +1028,8 @@ class HocCell(object):
         When the mechanism dictionary specifies that a node inherit a parameter value from a donor node, this method
         returns the value of that parameter found in the section or final segment of the donor node. For synaptic
         mechanism parameters, searches for the closest synapse_attribute in the donor node. If the donor node does not
-        contain synapse_attributes due to location constraints, this method searches first child nodes, then nodes
-        along the path to root.
+        contain synapse_mechanism_attributes due to location constraints, this method searches first child nodes, then
+        nodes along the path to root.
         :param donor: :class:'SHocNode'
         :param mech_name: str
         :param param_name: str
@@ -1048,10 +1052,11 @@ class HocCell(object):
                 if target_index is None and donor.parent is not None:
                     target_node, target_index = self._get_closest_synapse_attribute(donor.parent, 1., syn_category,
                                                                                     syn_type, downstream=False)
-                if target_index is None:
-                    return None
+                if target_index is not None \
+                        and param_name in target_node.synapse_mechanism_attributes[target_index][syn_type]:
+                    return target_node.synapse_mechanism_attributes[target_index][syn_type][param_name]
                 else:
-                    return target_node.synapse_attributes[syn_category]['targets'][syn_type][param_name][target_index]
+                    return None
             else:
                 return getattr(getattr(donor.sec(loc), mech_name), param_name)
         except (AttributeError, NameError, KeyError):
@@ -1216,14 +1221,14 @@ class HocCell(object):
                 raise Exception('Problem specifying mechanism: %s in node: %s' %
                                 (mech_name, node.name))
 
-    def _modify_synaptic_mech_param(self, sec_type, mech_name=None, param_name=None, value=None, origin=None, slope=None,
-                                    tau=None, xhalf=None, min=None, max=None, min_loc=None, max_loc=None, outside=None,
-                                    syn_type=None, variance=None, replace=True, custom=None):
+    def _modify_synaptic_mech_param(self, sec_type, mech_name=None, param_name=None, value=None, origin=None,
+                                    slope=None, tau=None, xhalf=None, min=None, max=None, min_loc=None, max_loc=None,
+                                    outside=None, syn_type=None, variance=None, replace=True, custom=None):
 
         """
-        Attributes of synapses are stored in the synapse_attributes dictionary of each node. This method irst updates
-        the mechanism dictionary, then replaces or creates synapse_attributes in nodes of type sec_type.  Handles
-        special nested dictionary specification for synaptic parameters.
+        Attributes of synaptic point processes are stored in the synapse_mechanism_attributes dictionary of each node.
+        This method first updates the mechanism dictionary, then replaces or creates synapse_mechanism_attributes in
+        nodes of type sec_type. Handles special nested dictionary specification for synaptic parameters.
         :param sec_type: str
         :param mech_name: str
         :param param_name: str
@@ -1331,7 +1336,6 @@ class HocCell(object):
                     raise Exception('Problem specifying %s mechanism: %s in node: %s' %
                                     (mech_name, syn_type, node.name))
 
-
     def export_mech_dict(self, mech_file_path=None):
         """
         Following modifications to the mechanism dictionary either during model specification or parameter optimization,
@@ -1409,7 +1413,7 @@ class HocCell(object):
         :return: int or float
         """
         distance = 0.
-        for i in range(len(path) - 1):
+        for i in xrange(len(path) - 1):
             distance += np.sqrt(np.sum((path[i].content['p3d'].xyz - path[i + 1].content['p3d'].xyz) ** 2.))
         return distance
 
@@ -1483,39 +1487,71 @@ class HocCell(object):
                 for syn in node.synapses:
                     syn.stochastic = value
 
-    def insert_spines(self, syn_category=None, sec_type_list=None):
+    def insert_spines(self, sec_type_list=None):
         """
         This method inserts explicit 'spine_head' and 'spine_neck' compartments at every pre-specified excitatory
-        synapse location, and removes the location from the list of putative synapse locations for each node.
+        synapse location.
         :param syn_category: str
         :param sec_type_list: list of str
         """
-        if syn_category is None:
-            syn_category = 'excitatory'
+        syn_category = 'excitatory'
         if sec_type_list is None:
             sec_type_list = ['basal', 'trunk', 'apical', 'tuft']
         for sec_type in sec_type_list:
             for node in self.get_nodes_of_subtype(sec_type):
-                for loc in list(node.synapse_attributes[syn_category]['locs']):
+                for loc in node.get_filtered_synapse_attributes(syn_category=syn_category)['syn_locs']:
                     self.insert_spine(node, loc)
-                    # node.synapse_attributes[syn_category]['locs'].remove(loc)
         self._reinit_mech(self.spine)
 
-    def generate_synapse_locs_every(self, node, density):
+    def append_synapse_attributes_by_density(self, node, density, syn_category):
         """
         Given a mean synapse density in /um, return a list of synapse locations at the specified density.
         :param node: :class:'SHocNode'
         :param density: float: mean density in /um
-        :return list of float
+        :param syn_category: str
         """
         L = node.sec.L
         beta = 1. / density
-        locations = []
         interval = self.random.exponential(beta)
         while interval < L:
-            locations.append(interval / L)
+            loc = interval / L
+            node.append_synapse_attribute(syn_category, loc)
             interval += self.random.exponential(beta)
-        return locations
+
+    def append_synapse_attributes_by_layer(self, node, density_dict, syn_category):
+        """
+        This method populates a node with putative synapse locations of the specified type following layer-specific
+        rules for synapse density.
+        TODO: Create a consistent way to specify and interpret rules and gradients in the density_dict.
+        :param node: :class:'SHocNode'
+        :param density_dict: dict
+        :param syn_category: str
+        """
+        if node.get_layer() is None:
+            raise Exception('Cannot specify synapse density by layer without first specifying dendritic layers.')
+        distance = 0.
+        x = 0.
+        L = node.sec.L
+        point_index = 0
+        while distance <= L:
+            layer = node.get_layer(x)
+            while layer not in density_dict:
+                while point_index < node.sec.n3d() and node.sec.arc3d(point_index) <= distance:
+                    point_index += 1
+                if point_index >= node.sec.n3d():
+                    break
+                distance = node.sec.arc3d(point_index)
+                x = distance / L
+                layer = node.get_layer(x)
+            if layer not in density_dict:
+                break
+            density = density_dict[layer]
+            interval = self.random.exponential(1. / density)
+            distance += interval
+            if distance > L:
+                break
+            x = distance / L
+            node.append_synapse_attribute(syn_category, x)
 
     def insert_spine(self, node, parent_loc, child_loc=0):
         """
@@ -1543,20 +1579,24 @@ class HocCell(object):
         :param syn_types: list of str
         :param stochastic: int
         """
+        syn_category = 'excitatory'
         if sec_type_list is None:
             sec_type_list = ['basal', 'trunk', 'apical', 'tuft']
         if syn_types is None:
             syn_types = ['AMPA_KIN', 'NMDA_KIN5']
         for sec_type in sec_type_list:
             for node in self.get_nodes_of_subtype(sec_type):
-                for spine in node.spines:
-                    syn = Synapse(self, spine, type_list=syn_types, stochastic=stochastic, loc=1.)
+                for i, syn_id in enumerate(node.get_filtered_synapse_attributes(syn_category=syn_category)['syn_id']):
+                    spine = node.spines[i]
+                    syn = Synapse(self, spine, type_list=syn_types, stochastic=stochastic, loc=0.5, id=syn_id)
+        self.init_synaptic_mechanisms()
 
     def insert_synapses(self, syn_category=None, syn_types=None, sec_type_list=None, stochastic=False):
         """
         Inserts synapses of specified type(s) in nodes of the specified sec_types at the pre-determined putative
         synapse locations.
         :param syn_category: str
+        :param syn_types: list of str
         :param sec_type_list: list of str
         :param stochastic: int
         """
@@ -1574,9 +1614,10 @@ class HocCell(object):
                 syn_types = ['GABA_A_KIN']
         for sec_type in sec_type_list:
             for node in self.get_nodes_of_subtype(sec_type):
-                for loc in list(node.synapse_attributes[syn_category]['locs']):
-                    syn = Synapse(self, node, type_list=syn_types, stochastic=stochastic, loc=loc)
-                    # node.synapse_attributes[syn_category]['locs'].remove(loc)
+                this_synapse_attribute = node.get_filtered_synapse_attributes(syn_category=syn_category)
+                for syn_id  in this_synapse_attribute['syn_id']:
+                    syn = Synapse(self, node, type_list=syn_types, stochastic=stochastic, id=syn_id)
+        self.init_synaptic_mechanisms()
 
     def correct_g_pas_for_spines(self):
         """
@@ -1586,13 +1627,13 @@ class HocCell(object):
         for sec_type in ['basal', 'trunk', 'apical', 'tuft']:
             for node in self.get_nodes_of_subtype(sec_type):
                 node.correct_g_pas_for_spines()
-	
+
     def correct_cm_for_spines(self):
         """
         If not explicitly modeling spine compartments for excitatory synapses, this method scales cm in all
         dendritic sections proportional to the number of excitatory synapses contained in each section.
         """
-        for loop in range(2):
+        for loop in xrange(2):
             for sec_type in ['basal', 'trunk', 'apical', 'tuft']:
                 for node in self.get_nodes_of_subtype(sec_type):
                     node.correct_cm_for_spines()
@@ -1651,8 +1692,10 @@ class SHocNode(btmorph.btstructs2.SNode2):
         btmorph.btstructs2.SNode2.__init__(self, index)
         self.content['spines'] = []
         self.content['synapses'] = []
-        self.content['synapse_attributes'] = {syn_category: {'locs': [], 'targets': {}}
-                                              for syn_category in ['excitatory', 'inhibitory']}
+        self.content['synapse_attributes'] = {'syn_locs': [],
+                                              'syn_category': [],
+                                              'syn_id': []}
+        self.content['synapse_mechanism_attributes'] = {}
 
     def get_sec(self):
         """
@@ -1698,21 +1741,68 @@ class SHocNode(btmorph.btstructs2.SNode2):
             [diam1, diam2] = self.get_diam_bounds()
             h('diam(0:1)={}:{}'.format(diam1, diam2), sec=self.sec)
 
+    def append_synapse_attribute(self, syn_category, loc):
+        """
+
+        :param syn_category: str
+        :param loc: float
+        """
+        self.synapse_attributes['syn_locs'].append(loc)
+        self.synapse_attributes['syn_category'].append(syn_category_enumerator[syn_category])
+        self.synapse_attributes['syn_id'].append(len(self.synapse_attributes['syn_id']))
+
+    def get_filtered_synapse_attributes(self, syn_category=None, syn_type=None, layer=None):
+        """
+        Return dictionary containing attributes for all potential synapses that meet the query criterion. syn_category
+        and layer can be specified as lists for a broad search.
+        :param syn_category: str or list of str
+        :param syn_type: str
+        :param layer: int or list of int
+        :return: dict
+        """
+        if type(syn_category) is list:
+            syn_category_set = {syn_category_enumerator[item] for item in syn_category}
+        elif syn_category is not None:
+            syn_category_set = {syn_category_enumerator[syn_category]}
+        if type(layer) is list:
+            layer_set = set(layer)
+        elif layer is not None:
+            layer_set = {layer}
+        filtered_attributes = {'syn_locs': [], 'syn_category': [], 'layer': [], 'syn_id': []}
+        for i in xrange(len(self.synapse_attributes['syn_locs'])):
+            this_syn_id = self.synapse_attributes['syn_id'][i]
+            this_syn_loc = self.synapse_attributes['syn_locs'][i]
+            this_syn_category = self.synapse_attributes['syn_category'][i]
+            if not (syn_category is None or this_syn_category in syn_category_set):
+                continue
+            this_layer = self.get_layer(this_syn_loc)
+            if not (layer is None or this_layer in layer_set):
+                continue
+            if not (syn_type is None or (this_syn_id in self.synapse_mechanism_attributes
+                                         and syn_type in self.synapse_mechanism_attributes[this_syn_id])):
+                continue
+            filtered_attributes['syn_locs'].append(this_syn_loc)
+            filtered_attributes['syn_category'].append(this_syn_category)
+            filtered_attributes['layer'].append(this_layer)
+            filtered_attributes['syn_id'].append(this_syn_id)
+        return filtered_attributes
+
     def correct_cm_for_spines(self):
         """
         If not explicitly modeling spine compartments for excitatory synapses, this method scales cm in this
         dendritic section proportional to the number of excitatory synapses contained in the section.
         """
-        cm_fraction = 0.40  # arrived at via optimization. spine neck appears to shield dendrite from spine head
-        # contribution to membrane capacitance and time constant
+        # arrived at via optimization. spine neck appears to shield dendrite from spine head contribution to membrane
+        # capacitance and time constant
+        cm_fraction = 0.40
         SA_spine = math.pi * (1.58 * 0.077 + 0.5 * 0.5)
-        if 'excitatory' in self.synapse_attributes and self.synapse_attributes['excitatory']['locs']:
-            these_synapse_locs = np.array(self.synapse_attributes['excitatory']['locs'])
+        this_syn_locs = self.get_filtered_synapse_attributes(syn_category='excitatory')['syn_locs']
+        if this_syn_locs:
+            this_syn_locs = np.array(this_syn_locs)
             seg_width = 1. / self.sec.nseg
             for i, segment in enumerate(self.sec):
                 SA_seg = segment.area()
-                num_spines = len(np.where((these_synapse_locs >= i * seg_width) &
-                                          (these_synapse_locs < (i + 1) * seg_width))[0])
+                num_spines = len(np.where((this_syn_locs >= i * seg_width) & (this_syn_locs < (i + 1) * seg_width))[0])
                 cm_correction_factor = (SA_seg + cm_fraction * num_spines * SA_spine) / SA_seg
                 self.sec(segment.x).cm *= cm_correction_factor
 
@@ -1722,13 +1812,13 @@ class SHocNode(btmorph.btstructs2.SNode2):
         dendritic section proportional to the number of excitatory synapses contained in the section.
         """
         SA_spine = math.pi * (1.58 * 0.077 + 0.5 * 0.5)
-        if 'excitatory' in self.synapse_attributes and self.synapse_attributes['excitatory']['locs']:
-            these_synapse_locs = np.array(self.synapse_attributes['excitatory']['locs'])
+        this_syn_locs = self.get_filtered_synapse_attributes(syn_category='excitatory')['syn_locs']
+        if this_syn_locs:
+            this_syn_locs = np.array(this_syn_locs)
             seg_width = 1. / self.sec.nseg
             for i, segment in enumerate(self.sec):
                 SA_seg = segment.area()
-                num_spines = len(np.where((these_synapse_locs >= i * seg_width) &
-                                          (these_synapse_locs < (i + 1) * seg_width))[0])
+                num_spines = len(np.where((this_syn_locs >= i * seg_width) & (this_syn_locs < (i + 1) * seg_width))[0])
                 soma_g_pas = self.sec.cell().mech_dict['soma']['pas']['g']['value']
                 gpas_correction_factor = (SA_seg * self.sec(segment.x).g_pas + num_spines * SA_spine * soma_g_pas) / \
                                          (SA_seg * self.sec(segment.x).g_pas)
@@ -1794,7 +1884,7 @@ class SHocNode(btmorph.btstructs2.SNode2):
             elif self.sec.n3d() == 0:
                 return self.content['layer'][0]
             else:
-                for i in range(self.sec.n3d()):
+                for i in xrange(self.sec.n3d()):
                     if self.sec.arc3d(i) / self.sec.L >= x:
                         return self.content['layer'][i]
         else:
@@ -1855,13 +1945,22 @@ class SHocNode(btmorph.btstructs2.SNode2):
     @property
     def synapse_attributes(self):
         """
-        For each category of synapses (e.g. 'excitatory' or 'inhibitory'), synapse_attributes contains nested dict of
-        lists specifying attributes like 'locs', and parameters of synaptic point processes and netcon objects.
-        e.g. {'targets': {'AMPA_KIN': {'gmax': [list of float]}},
-              'netcon': {'weight': [list of float]}}
-        :return: nested dict of list of float
+        synapse_attributes is a dict specifying attributes of potential synapses, including 'syn_category'
+        (e.g. 'excitatory' or 'inhibitory'), 'syn_locs', and 'syn_id' (unique index within each node).
+        :return: dict of list
         """
         return self.content['synapse_attributes']
+
+    @property
+    def synapse_mechanism_attributes(self):
+        """
+        synapse_mechanism_attributes is a nested dict specifying parameters of synaptic point processes and netcon
+        objects, indexed by syn_id.
+        e.g. {syn_id: {'AMPA_KIN': {'gmax': float},
+                                   {'weight': float}}}
+        :return: dict of dict
+        """
+        return self.content['synapse_mechanism_attributes']
 
     @property
     def connection_loc(self):
@@ -1888,19 +1987,19 @@ class Synapse(object):
     they are initialized.
     """
 
-    def __init__(self, cell, node, type_list=None, stochastic=1, loc=0.5, delay=0., weight=1., threshold=-30.,
+    def __init__(self, cell, node, syn_types=None, stochastic=1, loc=None, id=None, delay=0., weight=1., threshold=-30.,
                  stochastic_type=None, source=None, source_node=None, source_param=None, source_loc=0.5):
         """
-        Design goals: A source (like a spike detector in a presynaptic neuron) can be specified. If not, a VecStim
-        object is used a source, which can be played events at specified times using its .play method. If stochastic,
-        all spikes are intercepted by a point process with release probability dynamics and its own unique and
-        independent random variable from a uniform distribution. If not, the specified synaptic mechanisms are connected
-        directly to the source of spikes.
+        A source (like a spike detector in a pre-synaptic neuron) can be specified. If not, a VecStim object is used a
+        source, which can be played events at specified times using its .play method. If stochastic, all spikes are
+        intercepted by a point process with release probability dynamics and its own unique and independent random
+        uniform variable. If not, the specified synaptic mechanisms are connected directly to the source of spikes.
         :param cell: :class:'HocCell'
         :param node: :class:'SHoCNode'
-        :param type_list: list of str
-        :param stochastic: int in [0, 1]
+        :param syn_types: list of str
+        :param stochastic: bool
         :param loc: float
+        :param id: int
         :param delay: float
         :param weight: float
         :param threshold: float
@@ -1913,11 +2012,10 @@ class Synapse(object):
         self._cell = cell
         self._node = node
         self._stochastic = stochastic
-        self._loc = loc
         self._delay = delay
         self._weight = weight
         self._threshold = threshold
-        self._syn = {}
+        self._targets = {}
         self.randObj = None
         self._node.synapses.append(self)
         if source_param is None:
@@ -1932,22 +2030,28 @@ class Synapse(object):
             self._source = {'object': getattr(source_node.sec(source_loc), source_param), 'node': source_node}
         else:
             self._source = {'object': h.VecStim()}
-        if type_list is None:
-            type_list = ['AMPA_KIN']
-        elif type(type_list) is not list:
-            type_list = [type_list]
+        if syn_types is None:
+            syn_types = ['AMPA_KIN']
+        elif type(syn_types) is not list:
+            syn_types = [syn_types]
         if self.stochastic:
             self._init_stochastic()
-        for target in type_list:
-            syn = getattr(h, target)(self.node.sec(self._loc))
-            self._syn[target] = {'target': syn}
+        self._id = id
+        if self.id is not None and loc is None:
+            loc = self.branch.synapse_attributes['syn_locs'][self.id]
+        if loc is None:
+            loc = 0.5
+        self._loc = loc
+        for syn_type in syn_types:
+            syn = getattr(h, syn_type)(self.node.sec(self._loc))
+            self._targets[syn_type] = {'target': syn}
             if self.stochastic:
-                self._syn[target]['netcon'] = h.NetCon(self.target(self._stochastic_type), syn)
-                self.netcon(target).delay = delay
-                self.netcon(target).weight[0] = weight
-                self.netcon(target).threshold = threshold
+                self._targets[syn_type]['netcon'] = h.NetCon(self.target(self._stochastic_type), syn)
+                self.netcon(syn_type).delay = delay
+                self.netcon(syn_type).weight[0] = weight
+                self.netcon(syn_type).threshold = threshold
             else:
-                self._init_netcon(target)
+                self._init_netcon(syn_type)
 
     def _init_stochastic(self):
         """
@@ -1963,60 +2067,60 @@ class Synapse(object):
         else:  # if this synapse has already been stochastic before, this restarts its random number generator
             self.randObj.seq(self.cell.gid * 1e4 + 1)
         syn = getattr(h, self._stochastic_type)(self.node.sec(self._loc))
-        self._syn[self._stochastic_type] = {'target': syn}
+        self._targets[self._stochastic_type] = {'target': syn}
         self._init_netcon(self._stochastic_type, delay=0.)
         self.target(self._stochastic_type).setRandObjRef(self.randObj)
 
-    def target(self, target):
+    def target(self, syn_type):
         """
-        Returns the hoc object for the synaptic mechanism of the specified type
+        Returns the hoc object for the synaptic point process of the specified type.
         :param target: str
         :return: :class:'h.HocObject'
         """
-        if target in self._syn:
-            return self._syn[target]['target']
+        if syn_type in self.targets:
+            return self._targets[syn_type]['target']
         else:
-            raise KeyError('Synapse type: {} not found at a synapse in {}'.format(target, self._node.name))
+            raise KeyError('Synapse type: {} not found at a synapse in {}'.format(syn_type, self._node.name))
 
-    def _init_netcon(self, target, delay=None, weight=None, threshold=None):
+    def _init_netcon(self, syn_type, delay=None, weight=None, threshold=None):
         """
         Appropriately initializes new netcon object, depending on whether the current source dictionary specifies a
         hocObject without a section, or a reference variable contained within a section.
-        :param target: str
+        :param syn_type: str
         :param delay = float
         :param weight = float
         :param threshold = float
         """
-        if target in self._syn:
+        if syn_type in self.targets:
             source = self._source['object']
-            syn = self._syn[target]
             if weight is None:
-                weight = self.weight
+                weight = self._weight
             if threshold is None:
                 threshold = self.threshold
             if delay is None:
                 delay = self.delay
             if 'node' in self._source:
                 node = self._source['node']
-                syn['netcon'] = h.NetCon(source, syn['target'], sec=node.sec)
+                self._targets[syn_type]['netcon'] = h.NetCon(source, self.target(syn_type), sec=node.sec)
             else:
-                syn['netcon'] = h.NetCon(source, syn['target'])
-            syn['netcon'].delay = delay
-            syn['netcon'].weight[0] = weight
-            syn['netcon'].threshold = threshold
+                self._targets[syn_type]['netcon'] = h.NetCon(source, self.target(syn_type))
+            this_netcon = self._targets[syn_type]['netcon']
+            this_netcon.delay = delay
+            this_netcon.weight[0] = weight
+            this_netcon.threshold = threshold
         else:
-            raise KeyError('Synapse type: {} not found at a synapse in {}'.format(target, self._node.name))
+            raise KeyError('Synapse type: {} not found at a synapse in {}'.format(syn_type, self._node.name))
 
-    def netcon(self, target):
+    def netcon(self, syn_type):
         """
         Returns the hoc network connection linking the synaptic mechanism of the specified type to a source of spikes.
-        :param target: str
+        :param syn_type: str
         :return: :class:'h.NetCon'
         """
-        if target in self._syn:
-            return self._syn[target]['netcon']
+        if syn_type in self.targets:
+            return self._targets[syn_type]['netcon']
         else:
-            raise KeyError('Synapse type: {} not found at a synapse in {}'.format(target, self._node.name))
+            raise KeyError('Synapse type: {} not found at a synapse in {}'.format(syn_type, self._node.name))
 
     def change_source(self, source=None, node=None, param=None, loc=0.5):
         """
@@ -2031,11 +2135,6 @@ class Synapse(object):
         netcon_dict = {}
         if param is None:
             param = '_ref_v'
-        for target in self._syn:
-            netcon_dict[target] = {}
-            netcon_dict[target]['delay'] = self.netcon(target).delay
-            netcon_dict[target]['weight'] = self.netcon(target).weight[0]
-            netcon_dict[target]['threshold'] = self.netcon(target).threshold
         if source is None:
             if node is None:
                 raise Exception('A source or reference node must be provided to establish a new synaptic connection.')
@@ -2046,23 +2145,41 @@ class Synapse(object):
             del self._source
             self._source = {'object': source}
         if self._stochastic:
-            del self._syn[self._stochastic_type]['netcon']
+            del self._targets[self._stochastic_type]['netcon']
             delay = netcon_dict[self._stochastic_type]['delay']
             weight = netcon_dict[self._stochastic_type]['weight']
             threshold = netcon_dict[self._stochastic_type]['threshold']
             self._init_netcon(self._stochastic_type, delay=delay, weight=weight, threshold=threshold)
         else:
-            for target in (target for target in self._syn if not target == self._stochastic_type):
-                del self._syn[target]['netcon']
-                delay = netcon_dict[target]['delay']
-                weight = netcon_dict[target]['weight']
-                threshold = netcon_dict[target]['threshold']
-                self._init_netcon(target, delay=delay, weight=weight, threshold=threshold)
+            for syn_type in (syn_type for syn_type in self.targets if syn_type != self._stochastic_type):
+                delay = self.netcon(syn_type).delay
+                weight = self.netcon(syn_type).weight[0]
+                threshold = self.netcon(syn_type).threshold
+                del self._targets[syn_type]['netcon']
+                self._init_netcon(syn_type, delay=delay, weight=weight, threshold=threshold)
+
+    def load_synapse_mechanism_attributes(self):
+        """
+        This method synchronizes this synapse with the parameters specified in the synapse_attributes and
+        synapse_mechanism_attributes dictionaries contained in the parent branch.
+        """
+        if self.id is not None and self.id in self.branch.synapse_mechanism_attributes:
+            for syn_type in self.targets:
+                if syn_type in self.branch.synapse_mechanism_attributes[self.id]:
+                    for param_name in self.branch.synapse_mechanism_attributes[self.id][syn_type]:
+                        value = self.branch.synapse_mechanism_attributes[self.id][syn_type][param_name]
+                        if hasattr(self.target(syn_type), param_name):
+                            setattr(self.target(syn_type), param_name, value)
+                        elif hasattr(self.netcon(syn_type), param_name):
+                            if param_name == 'weight':
+                                self.netcon(syn_type).weight[0] = value
+                            else:
+                                setattr(self.netcon(syn_type), param_name, value)
 
     def get_stochastic(self):
         """
         Returns the value of an internal variable indicating if this synapse has a stochastic filter for spikes.
-        :return: int in [0, 1]
+        :return: bool
         """
         return self._stochastic
 
@@ -2070,31 +2187,40 @@ class Synapse(object):
         """
         Turns on or off stochastic filtering of spikes, preserving delay, weight, and threshold for all synaptic
         mechanisms associated with this synapse.
-        :param value: int in [0, 1]
+        :param value: bool
         """
         if not (value == self._stochastic):
             self._stochastic = value
             if value:
                 self._init_stochastic()
-                for target in (target for target in self._syn if not target == self._stochastic_type):
-                    delay = self.netcon(target).delay
-                    weight = self.netcon(target).weight[0]
-                    threshold = self.netcon(target).threshold
-                    del self._syn[target]['netcon']
-                    self._syn[target]['netcon'] = h.NetCon(self.target(self._stochastic_type), self.target(target))
-                    self.netcon(target).delay = delay
-                    self.netcon(target).weight[0] = weight
-                    self.netcon(target).threshold = threshold
+                for syn_type in (syn_type for syn_type in self.targets if syn_type != self._stochastic_type):
+                    delay = self.netcon(syn_type).delay
+                    weight = self.netcon(syn_type).weight[0]
+                    threshold = self.netcon(syn_type).threshold
+                    del self._targets[syn_type]['netcon']
+                    self._targets[syn_type]['netcon'] = h.NetCon(self.target(self._stochastic_type),
+                                                                 self.target(syn_type))
+                    self.netcon(syn_type).delay = delay
+                    self.netcon(syn_type).weight[0] = weight
+                    self.netcon(syn_type).threshold = threshold
             else:
-                for target in (target for target in self._syn if not target == self._stochastic_type):
-                    delay = self.netcon(target).delay
-                    weight = self.netcon(target).weight[0]
-                    threshold = self.netcon(target).threshold
-                    del self._syn[target]['netcon']
-                    self._init_netcon(target, delay=delay, weight=weight, threshold=threshold)
-                del self._syn[self._stochastic_type]
+                for syn_type in (syn_type for syn_type in self.targets if syn_type != self._stochastic_type):
+                    delay = self.netcon(syn_type).delay
+                    weight = self.netcon(syn_type).weight[0]
+                    threshold = self.netcon(syn_type).threshold
+                    del self._targets[syn_type]['netcon']
+                    self._init_netcon(syn_type, delay=delay, weight=weight, threshold=threshold)
+                del self._targets[self._stochastic_type]
 
     stochastic = property(get_stochastic, set_stochastic)
+
+    @property
+    def targets(self):
+        """
+        Returns the list of synaptic point processes inserted at this synapse.
+        :return: list of str
+        """
+        return self._targets.keys()
 
     def get_delay(self):
         """
@@ -2110,28 +2236,42 @@ class Synapse(object):
         :param value: int or float
         """
         self._delay = value
-        for target in (target for target in self._syn if not target == self._stochastic_type):
-            self.netcon(target).delay = value
+        for syn_type in (syn_type for syn_type in self.targets if syn_type != self._stochastic_type):
+            self.netcon(syn_type).delay = value
 
     delay = property(get_delay, set_delay)
 
-    def get_weight(self):
+    def get_weight(self, syn_type=None):
         """
-        Returns the default value of the activation weight for this synapse.
+        Returns the value of the activation weight for the specific synaptic point processes inserted at this synapse.
+        If no syn_type is specified, the default value is returned.
+        :param syn_type: str
         :return: float
         """
-        return self._weight
+        if syn_type is not None and syn_type in self.targets:
+            return self.netcon(syn_type).weight[0]
+        elif syn_type is None:
+            return self._weight
+        else:
+            return None
 
-    def set_weight(self, value):
+    def set_weight(self, value, syn_type=None):
         """
-        Changes the value of the activation weight for all synaptic mechanisms associated with this synapse.
+        Changes the value of the activation weight for the specific synaptic point processes inserted at this synapse.
+        If no syn_type is specified, the default value is set, and the value is changed to default for all inserted
+        synaptic point processes inserted at this synapse.
         :param value: float
+        :param syn_type: str
         """
-        self._weight = value
-        for target in (target for target in self._syn):
-            self.netcon(target).weight[0] = value
-
-    weight = property(get_weight, set_weight)
+        if syn_type is not None and syn_type in self.targets:
+            self.netcon(syn_type).weight[0] = value
+        elif syn_type is None:
+            self._weight = value
+            if self._stochastic:
+                self.netcon(self._stochastic_type).weight[0] = self._weight
+            else:
+                for syn_type in (syn_type for syn_type in self.targets if syn_type != self._stochastic_type):
+                    self.netcon(syn_type).weight[0] = value
 
     def get_threshold(self):
         """
@@ -2146,8 +2286,8 @@ class Synapse(object):
         :param value: float
         """
         self._threshold = value
-        for target in (target for target in self._syn):
-            self.netcon(target).threshold = value
+        for syn_type in self.targets:
+            self.netcon(syn_type).threshold = value
 
     threshold = property(get_threshold, set_threshold)
 
@@ -2176,6 +2316,17 @@ class Synapse(object):
         return self._node
 
     @property
+    def branch(self):
+        """
+        Returns the branch containing this synapse.
+        :return: :class:'SHocNode'
+        """
+        if self._node.type == 'spine_head':
+            return self._node.parent.parent
+        else:
+            return self._node
+
+    @property
     def loc(self):
         """
         Returns the location along the hoc section containing this synapse. For convenience, if the synapse is
@@ -2190,6 +2341,14 @@ class Synapse(object):
             return loc
         else:
             return self._loc
+
+    @property
+    def id(self):
+        """
+
+        :return: int
+        """
+        return self._id
 
 
 class QuickSim(object):
@@ -2301,7 +2460,18 @@ class QuickSim(object):
         for rec in self.rec_list:
             if rec['description'] == description:
                 return rec
-        raise Exception('No recording of that description')
+        raise Exception('No recording with description %s' % description)
+
+    def get_rec_index(self, description):
+        """
+        Return the index of the item in the rec_dict list with the specified description.
+        :param description: str
+        :return: dict
+        """
+        for i, rec in enumerate(self.rec_list):
+            if rec['description'] == description:
+                return i
+        raise Exception('No recording with description %s' % description)
 
     def append_stim(self, cell, node, loc, amp, delay, dur, description='IClamp'):
         """
@@ -2349,6 +2519,17 @@ class QuickSim(object):
             stim_dict['stim'].dur = dur
         if not description is None:
             stim_dict['description'] = description
+
+    def get_stim_index(self, description):
+        """
+        Return the index of the item in the stim_dict list with the specified description.
+        :param description: str
+        :return: dict
+        """
+        for i, stim in enumerate(self.stim_list):
+            if stim['description'] == description:
+                return i
+        raise Exception('No IClamp object with description: %s' % description)
 
     def modify_rec(self, index=0, node=None, loc=None, object=None, param='_ref_v', ylabel=None, units=None,
                    description=None):
@@ -2524,6 +2705,7 @@ class CA1_Pyr(HocCell):
         density than their parents.
         :param sec_type_list: list of str
         """
+        syn_category = 'excitatory'
         if sec_type_list is None:
             sec_type_list = ['basal', 'trunk', 'apical', 'tuft']
         densities = {'trunk': {'min': 0.2418, 'max': 3.8,
@@ -2543,11 +2725,9 @@ class CA1_Pyr(HocCell):
             for node in self.basal:
                 order = self.get_branch_order(node)
                 if order == 2:
-                    node.synapse_attributes['excitatory']['locs'] = \
-                        self.generate_synapse_locs_every(node, densities['basal']['2'])
+                    self.append_synapse_attributes_by_density(node, densities['basal']['2'], syn_category)
                 elif order > 2:
-                    node.synapse_attributes['excitatory']['locs'] = \
-                        self.generate_synapse_locs_every(node, densities['basal']['>2'])
+                    self.append_synapse_attributes_by_density(node, densities['basal']['>2'], syn_category)
         if 'trunk' in sec_type_list:
             for node in self.trunk:
                 distance = self.get_distance_to_node(self.tree.root, node)
@@ -2555,28 +2735,27 @@ class CA1_Pyr(HocCell):
                     slope = (densities['trunk']['max'] - densities['trunk']['min']) / \
                             (densities['trunk']['end'] - densities['trunk']['start'])
                     density = densities['trunk']['min'] + slope * (distance - densities['trunk']['start'])
-                    node.synapse_attributes['excitatory']['locs'] = self.generate_synapse_locs_every(node, density)
+                    self.append_synapse_attributes_by_density(node, density, syn_category)
         if 'apical' in sec_type_list:
             for node in self.apical:
                 distance = self.get_distance_to_node(self.tree.root, self.get_dendrite_origin(node), loc=1.)
                 slope = (densities['apical']['max'] - densities['apical']['min']) / \
                         (densities['apical']['end'] - densities['apical']['start'])
                 density = densities['apical']['min'] + slope * (distance - densities['apical']['start'])
-                node.synapse_attributes['excitatory']['locs'] = self.generate_synapse_locs_every(node, density)
+                self.append_synapse_attributes_by_density(node, density, syn_category)
         if 'tuft' in sec_type_list:
             for node in self.tuft:
                 if self.is_terminal(node):
-                    node.synapse_attributes['excitatory']['locs'] = \
-                        self.generate_synapse_locs_every(node, densities['tuft']['terminal'])
+                    self.append_synapse_attributes_by_density(node, densities['tuft']['terminal'], syn_category)
                 else:
-                    node.synapse_attributes['excitatory']['locs'] = \
-                        self.generate_synapse_locs_every(node, densities['tuft']['parent'])
+                    self.append_synapse_attributes_by_density(node, densities['tuft']['parent'], syn_category)
 
     def generate_inhibitory_synapse_locs(self, sec_type_list=None):
         """
 
         :param sec_type_list: str
         """
+        syn_category = 'inhibitory'
         if sec_type_list is None:
             sec_type_list = ['soma', 'ais', 'basal', 'trunk', 'apical', 'tuft']
         densities = {'soma': 4.375,  # 2.857,  # 4.285,
@@ -2595,24 +2774,20 @@ class CA1_Pyr(HocCell):
                      }
         if 'soma' in sec_type_list:
             for node in self.soma:
-                node.synapse_attributes['inhibitory']['locs'] = \
-                    self.generate_synapse_locs_every(node, densities['soma'])
+                self.append_synapse_attributes_by_density(node, densities['soma'], syn_category)
         if 'ais' in sec_type_list:
             for node in self.get_nodes_of_subtype('ais'):
-                node.synapse_attributes['inhibitory']['locs'] = self.generate_synapse_locs_every(node, densities['ais'])
+                self.append_synapse_attributes_by_density(node, densities['ais'], syn_category)
         if 'basal' in sec_type_list:
             for node in self.basal:
                 if self.is_terminal(node):
-                    node.synapse_attributes['inhibitory']['locs'] = \
-                        self.generate_synapse_locs_every(node, densities['basal']['terminal'])
+                    self.append_synapse_attributes_by_density(node, densities['basal']['terminal'], syn_category)
                 else:
                     order = self.get_branch_order(node)
                     if order == 1:
-                        node.synapse_attributes['inhibitory']['locs'] = \
-                            self.generate_synapse_locs_every(node, densities['basal']['primary'])
+                        self.append_synapse_attributes_by_density(node, densities['basal']['primary'], syn_category)
                     else:
-                        node.synapse_attributes['inhibitory']['locs'] = \
-                            self.generate_synapse_locs_every(node, densities['basal']['intermediate'])
+                        self.append_synapse_attributes_by_density(node, densities['basal']['intermediate'], syn_category)
         if 'trunk' in sec_type_list:
             for node in self.trunk:
                 distance = self.get_distance_to_node(self.tree.root, node)
@@ -2620,22 +2795,20 @@ class CA1_Pyr(HocCell):
                     slope = (densities['trunk']['max'] - densities['trunk']['min']) / \
                             (densities['trunk']['end'] - densities['trunk']['start'])
                     density = densities['trunk']['min'] + slope * (distance - densities['trunk']['start'])
-                    node.synapse_attributes['inhibitory']['locs'] = self.generate_synapse_locs_every(node, density)
+                    self.append_synapse_attributes_by_density(node, density, syn_category)
         if 'apical' in sec_type_list:
             for node in self.apical:
                 distance = self.get_distance_to_node(self.tree.root, self.get_dendrite_origin(node), loc=1.)
                 slope = (densities['apical']['max'] - densities['apical']['min']) / \
                         (densities['apical']['end'] - densities['apical']['start'])
                 density = densities['apical']['min'] + slope * (distance - densities['apical']['start'])
-                node.synapse_attributes['inhibitory']['locs'] = self.generate_synapse_locs_every(node, density)
+                self.append_synapse_attributes_by_density(node, density, syn_category)
         if 'tuft' in sec_type_list:
             for node in self.tuft:
                 if self.is_terminal(node):
-                    node.synapse_attributes['inhibitory']['locs'] = \
-                        self.generate_synapse_locs_every(node, densities['tuft']['terminal'])
+                    self.append_synapse_attributes_by_density(node, densities['tuft']['terminal'], syn_category)
                 else:
-                    node.synapse_attributes['inhibitory']['locs'] = \
-                        self.generate_synapse_locs_every(node, densities['tuft']['parent'])
+                    self.append_synapse_attributes_by_density(node, densities['tuft']['parent'], syn_category)
 
     def zero_na(self):
         """
@@ -2698,58 +2871,13 @@ class DG_GC(HocCell):
             self.correct_cm_for_spines()
             self.correct_g_pas_for_spines()
 
-    def generate_synapse_locs_by_layer(self, node, syn_category, density_dict):
-        """
-        This method populates a node with putative synapse locations of the specified type following layer-specific
-        rules for synapse density.
-        TODO: Create a consistent way to specify and interpret rules and gradients in the density_dict.
-        :param node: :class:'SHocNode'
-        :param syn_category: str
-        :param density_dict: dict
-        """
-        if node.get_layer() is None:
-            raise Exception('Cannot specify synapse density by layer without first specifying dendritic layers.')
-        if syn_category not in node.synapse_attributes:
-            node.synapse_attributes[syn_category] = {'locs': [], 'targets': {}}
-        locations = []
-        distance = 0.
-        x = 0.
-        L = node.sec.L
-        point_index = 0
-        while distance <= L:
-            layer = node.get_layer(x)
-            while layer not in density_dict:
-                while point_index < node.sec.n3d() and node.sec.arc3d(point_index) <= distance:
-                    point_index += 1
-                if point_index >= node.sec.n3d():
-                    break
-                distance = node.sec.arc3d(point_index)
-                x = distance / L
-                layer = node.get_layer(x)
-            if layer not in density_dict:
-                break
-            density = density_dict[layer]
-            interval = self.random.exponential(1. / density)
-            # adjusting the interval of the first synapse_loc relative to the last parent synapse loc
-            if syn_category in node.parent.synapse_attributes and node.parent.synapse_attributes[syn_category]['locs'] \
-                    and not node.synapse_attributes[syn_category]['locs']:
-                last_distance = (1. - node.parent.synapse_attributes[syn_category]['locs'][-1]) / node.parent.sec.L
-                while interval < last_distance:
-                    interval = self.random.exponential(1. / density)
-                interval -= last_distance
-            distance += interval
-            if distance > L:
-                break
-            x = distance / L
-            locations.append(x)
-        return locations
-
     def generate_excitatory_synapse_locs(self, sec_type_list=None):
         """
         This method populates the cell tree with putative synapse locations following type and\or layer-specific rules
         for synapse density.
         :param sec_type_list: list of str
         """
+        syn_category = 'excitatory'
         if sec_type_list is None:
             sec_type_list = ['apical']
         densities = {}
@@ -2760,11 +2888,9 @@ class DG_GC(HocCell):
         if 'apical' in sec_type_list:
             for node in self.apical:
                 if node.get_layer() is not None:
-                    node.synapse_attributes['excitatory']['locs'] = \
-                        self.generate_synapse_locs_by_layer(node, 'excitatory', densities['apical']['layer'])
+                    self.append_synapse_attributes_by_layer(node, densities['apical']['layer'], syn_category)
                 else:
-                    node.synapse_attributes['excitatory']['locs'] = \
-                        self.generate_synapse_locs_every(node, densities['apical']['default'])
+                    self.append_synapse_attributes_by_density(node, densities['apical']['default'], syn_category)
 
     def generate_inhibitory_synapse_locs(self, sec_type_list=None):
         """
@@ -2773,21 +2899,18 @@ class DG_GC(HocCell):
         Thind et al...Buckmaster, J. Comp. Neurol. 2010
         :param sec_type_list: list of str
         """
+        syn_category = 'inhibitory'
         if sec_type_list is None:
             sec_type_list = ['soma', 'ais', 'apical']
         densities = {}  # units: synapses / um length
-        for sec_type in (sec_type for sec_type in sec_type_list if self.get_nodes_of_subtype(sec_type)):
-            if sec_type == 'soma':
-                densities[sec_type] = {'default': 10.22}
-            if sec_type == 'ais':
-                densities[sec_type] = {'default': 0.6}
-            if sec_type == 'apical':
-                densities[sec_type] = {'default': 0.83}  # uniform density across layers matches experimental
-                                                         # distribution of synapses per layer due to variable dendritic
-                                                         # length
+        densities['soma'] = {'default': 10.22}
+        densities['ais'] = {'default': 0.6}
+        densities['apical'] = {'default': 0.83}  # uniform density across layers matches experimental
+                                                 # distribution of synapses per layer due to variable dendritic
+                                                 # length
+        for sec_type in sec_type_list:
             for node in self.get_nodes_of_subtype(sec_type):
-                node.synapse_attributes['inhibitory']['locs'] = \
-                    self.generate_synapse_locs_every(node, densities[sec_type]['default'])
+                self.append_synapse_attributes_by_density(node, densities[sec_type]['default'], syn_category)
 
     def zero_na(self):
         """
