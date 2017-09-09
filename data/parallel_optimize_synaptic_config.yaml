@@ -49,8 +49,7 @@ default_params:
   soma.gkabar: 0.033171536167129576
 feature_names:
 - dend_AP_amp
-- soma_EPSP_AP5
-- soma_EPSP_control
+- soma_EPSP_amp
 - NMDA_contribution
 - integration_gain_control
 - integration_gain_AP5
@@ -78,7 +77,7 @@ kwargs:
   daspk: True
 objective_names:
 - dend_AP_amp
-- soma_EPSP_control
+- soma_EPSP_amp
 - NMDA_contribution
 - integration_gain_control
 - integration_gain_AP5
@@ -119,7 +118,7 @@ rel_bounds:
   - dend.gbar_nas min
 target_range:
   dend_AP_amp: 0.005
-  soma_EPSP_control: 0.01
+  soma_EPSP_amp: 0.01
   NMDA_contribution: 0.05
   integration_gain_control: 0.05
   integration_gain_AP5: 0.05
@@ -127,7 +126,7 @@ target_range:
   initial_gain_control: 0.1
 target_val:
   dend_AP_amp: 0.3
-  soma_EPSP_control: 0.5
+  soma_EPSP_amp: 0.5
   NMDA_contribution: 0.
   integration_gain_control: 1.38
   integration_gain_AP5: 0.8

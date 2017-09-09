@@ -323,32 +323,35 @@ def setup_client_interface():
     global_context.num_procs = num_procs
 
     new_group_sizes = []
-    blocks = []
+    num_blocks = []
     for ind, orig_group_size in enumerate(group_sizes):
-        if orig_group_size > num_procs:
+        indivs_per_block = min(num_procs / orig_group_size, pop_size)
+        if indivs_per_block > 0:
+            new_group_size = orig_group_size
+            un_utilized = num_procs - (indivs_per_block * new_group_size)
+            this_num_blocks = int(math.ceil(float(pop_size) / float(indivs_per_block)))
+        else:
             new_group_size = num_procs
             if disp:
                 print 'Multi-Objective Optimization: stage %i (%s) adjusted group_size to not exceed num_processes: ' \
                       '%i' % (ind, get_features[ind], num_procs)
-        else:
-            new_group_size = orig_group_size
-        new_group_sizes.append(new_group_size)
-        un_utilized = num_procs - (min(num_procs / new_group_sizes[ind], pop_size) * new_group_sizes[ind])
+            blocks_per_indiv = int(math.ceil(float(orig_group_size) / float(num_procs)))
+            un_utilized = num_procs - (orig_group_size % num_procs)
+            this_num_blocks = blocks_per_indiv * pop_size
         if un_utilized > 0 and disp:
-            print 'Multi-Objective Optimization: stage %i (%s) has %i unutilized processes' % \
+            print 'Multi-Objective Optimization: stage %i (%s) has up to %i unutilized processes per block' % \
                   (ind, get_features[ind], un_utilized)
-        blocks[ind] = pop_size / (num_procs / new_group_sizes[ind]) * (len(get_features) / new_group_sizes[ind])
-        if blocks[ind] * (num_procs / new_group_sizes[ind]) < pop_size:
-            blocks[ind] += 1
+        new_group_sizes.append(new_group_size)
+        num_blocks.append(this_num_blocks)
     group_sizes = new_group_sizes
-    global_context.group_sizes = new_group_sizes
+    global_context.group_sizes = group_sizes
     print 'Multi-Objective Optimization %s: Generator: %s; Total processes: %i; Population size: %i; Group sizes: %s;' \
           ' Update functions: %s; Feature calculator: %s; Objective calculator: %s; Blocks / generation: %s' % \
           (global_context.optimization_title, param_gen, num_procs, pop_size, (', '.join(str(x) for x in group_sizes)),
            (', '.join(func for func in update_params)), (', '.join(func for func in get_features)),
-           (', '.join(obj for obj in objectives_modules)), (', '.join(str(x) for x in blocks)))
+           (', '.join(obj for obj in objectives_modules)), (', '.join(str(x) for x in num_blocks)))
 
-    global_context.c[:].execute('from parallel_optimize_main import *', block=True)
+    global_context.c[:].execute('from parallel_optimize import *', block=True)
     if sleep:
         time.sleep(120.)
     global_context.c[:].apply_sync(init_engine, module_set, update_params_funcs, param_names, default_params,
