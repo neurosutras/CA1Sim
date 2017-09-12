@@ -64,7 +64,7 @@ get_features: !!python/tuple
 - get_compound_EPSP_features
 - get_stability_features
 group_sizes: !!python/tuple
-- 28
+- 20
 - 80
 - 1
 kwargs:
