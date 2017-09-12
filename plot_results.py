@@ -2109,15 +2109,16 @@ def plot_sum_mech_param_distribution(cell, mech_param_list, scale_factor=10000.,
                 if this_distance is not None:
                     distances.append(this_distance)
                     param_vals.append(this_param_val)
-        axes.scatter(distances, param_vals, color=colors[i], label=sec_type)
-        if maxval is None:
-            maxval = max(param_vals)
-        else:
-            maxval = max(maxval, max(param_vals))
-        if minval is None:
-            minval = min(param_vals)
-        else:
-            minval = min(minval, min(param_vals))
+        if param_vals:
+            axes.scatter(distances, param_vals, color=colors[i], label=sec_type)
+            if maxval is None:
+                maxval = max(param_vals)
+            else:
+                maxval = max(maxval, max(param_vals))
+            if minval is None:
+                minval = min(param_vals)
+            else:
+                minval = min(minval, min(param_vals))
     axes.set_xlabel('Distance to soma (um)')
     axes.set_xlim(-200., 525.)
     axes.set_xticks([-150., 0., 150., 300., 450.])
@@ -5166,6 +5167,7 @@ def plot_place_field_i_syn_across_cells(rec_filename_array, groups=None, svg_tit
             i_syn_dict[key][group]['modinh3_out'] = copy.deepcopy(i_syn_dict[key][group]['modinh3'])
             get_i_syn_mean_values(i_syn_dict[key][group], key, ['modinh0', 'modinh3_out', 'modinh3'])
 
+
 def plot_absolute_energy(storage):
     fig, axes = plt.subplots(1)
     colors = list(cm.rainbow(np.linspace(0, 1, len(storage.history))))
@@ -5178,6 +5180,7 @@ def plot_absolute_energy(storage):
                     [np.sum(getattr(indiv, this_attr)) for indiv in storage.survivors[j]], c=colors[j], alpha=0.5)
     axes.set_xlabel('Rank')
     axes.set_ylabel('Summed Objectives')
+
 
 def plot_best_norm_features_boxplot(storage, target_val, target_range):
     """
@@ -5219,6 +5222,7 @@ def plot_best_norm_features_boxplot(storage, target_val, target_range):
     fig.tight_layout()
     plt.show()
     plt.close()
+
 
 def plot_best_norm_features_scatter(storage, target_val, target_range):
     """
@@ -5263,6 +5267,7 @@ def plot_best_norm_features_scatter(storage, target_val, target_range):
     plt.show()
     plt.close()
     mpl.rcParams['font.size'] = orig_fontsize
+
 
 def plot_exported_spiking_features(processed_export_file_path):
     """
