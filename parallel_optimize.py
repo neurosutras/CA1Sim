@@ -100,7 +100,12 @@ def main(cluster_id, profile, param_file_path, param_gen, update_params, update_
                    features_modules, objectives_modules, group_sizes, pop_size, path_length, sleep, storage_file_path,
                    output_dir, export_file_path, disp)
     init_controller()
-    if not analyze or export:
+    if analyze and export:
+        global_context.pop_size = 1
+        global_context.path_length = 1
+        global_context.max_iter = 1
+        setup_client_interface()
+    elif not analyze:
         setup_client_interface()
     global storage
     global x_dict
@@ -161,7 +166,8 @@ def main(cluster_id, profile, param_file_path, param_gen, update_params, update_
             print 'Multi-Objective Optimization: Loaded params: %s' % str(x_dict)
     sys.stdout.flush()
     if export:
-        return export_traces(x_array, export_file_path=global_context.export_file_path)
+        global_context.exported_features, global_context.exported_objectives = \
+            export_traces(x_array, export_file_path=global_context.export_file_path)
 
 
 def process_params(cluster_id, profile, param_file_path, param_gen, update_params, update_modules, get_features,
@@ -269,7 +275,7 @@ def init_controller():
         func = getattr(module, update_params[i])
         if not callable(func):
             raise Exception('Multi-Objective Optimization: update_params: %s for module %s is not a callable function.'
-                            % (update_params[i], module))
+                            % (update_params[i], module_name))
         update_params_funcs.append(func)
     global_context.update_params_funcs = update_params_funcs
     get_features_funcs = []
@@ -278,7 +284,7 @@ def init_controller():
         func = getattr(module, get_features[i])
         if not callable(func):
             raise Exception('Multi-Objective Optimization: get_features: %s for module %s is not a callable function.'
-                            % (get_features[i], module))
+                            % (get_features[i], module_name))
         get_features_funcs.append(func)
     global_context.get_features_funcs = get_features_funcs
     get_objectives_funcs = []
@@ -287,7 +293,7 @@ def init_controller():
         func = getattr(module, 'get_objectives')
         if not callable(func):
             raise Exception('Multi-Objective Optimization: get_objectives for module %s is not a callable function.'
-                            % (module))
+                            % module_name)
         get_objectives_funcs.append(func)
     global_context.get_objectives_funcs = get_objectives_funcs
     sys.stdout.flush()
@@ -336,7 +342,9 @@ def setup_client_interface():
                 print 'Multi-Objective Optimization: stage %i (%s) adjusted group_size to not exceed num_processes: ' \
                       '%i' % (ind, get_features[ind], num_procs)
             blocks_per_indiv = int(math.ceil(float(orig_group_size) / float(num_procs)))
-            un_utilized = num_procs - (orig_group_size % num_procs)
+            un_utilized = orig_group_size % new_group_size
+            if un_utilized > 0:
+                un_utilized = num_procs - un_utilized
             this_num_blocks = blocks_per_indiv * pop_size
         if un_utilized > 0 and disp:
             print 'Multi-Objective Optimization: stage %i (%s) has up to %i unutilized processes per block' % \

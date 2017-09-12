@@ -85,7 +85,7 @@ objective_names:
 - initial_gain_control
 objectives_modules: !!python/tuple
 - parallel_optimize_synaptic_integration
-optimization_title: synaptic
+optimization_title: synaptic_integration
 param_gen: BGen
 param_names:
 - AMPA.tau

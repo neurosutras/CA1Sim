@@ -1,7 +1,6 @@
 __author__ = 'Grace Ng'
 from specify_cells4 import *
 from plot_results import *
-from numpy.polynomial import Polynomial
 from moopgen import *
 
 """
@@ -105,15 +104,15 @@ def set_constants():
     """
     seed_offset = 7. * 2e6
     # for clustered inputs, num_syns corresponds to number of clustered inputs per branch
-    num_syns = {'random': 5, 'clustered': 5}  # {'random': 30, 'clustered': 20}
+    num_syns = {'random': 30, 'clustered': 20}  # {'random': 30, 'clustered': 20}
     # number of branches to test temporal integration of clustered inputs
-    num_clustered_branches = 1  # 2
+    num_clustered_branches = 2
     clustered_branch_names = ['clustered%i' % i for i in xrange(num_clustered_branches)]
     synapse_indexes = {'random': range(num_syns['random'])}
     for i, branch in enumerate(clustered_branch_names):
         synapse_indexes[branch] = range(num_syns['random'] + i * num_syns['clustered'],
                                         num_syns['random'] + (i + 1) * num_syns['clustered'])
-    syn_conditions = ['con', 'AP5']
+    syn_conditions = ['control', 'AP5']
     ISI = {'units': 150., 'clustered': 1.1}  # inter-stimulus interval for synaptic stim (ms)
     units_per_sim = 5
     equilibrate = 250.  # time to steady-state
@@ -284,7 +283,7 @@ def get_unitary_EPSP_features(indiv, c=None, client_range=None, export=False):
         num_sims = len(this_syn_index_list)
         syn_index_list.extend(this_syn_index_list)
         syn_group_list.extend([syn_group] * num_sims)
-        syn_condition_list.extend(['con'] * num_sims)
+        syn_condition_list.extend(['control'] * num_sims)
         if syn_group == 'random':
             syn_index_list.extend(this_syn_index_list)
             syn_group_list.extend([syn_group] * num_sims)
@@ -322,23 +321,30 @@ def filter_unitary_EPSP_features(computed_result_list, current_features, target_
                             this_result_dict[syn_group][syn_condition][syn_id]['soma_EPSP_amp']
                     traces[syn_group][syn_condition][syn_id] = \
                         this_result_dict[syn_group][syn_condition][syn_id]['traces']
-    NMDA_contribution_list = [(soma_EPSP_amp_dict['con'][syn_id] - soma_EPSP_amp_dict['AP5'][syn_id]) / 
-                              soma_EPSP_amp_dict['con'][syn_id] for syn_id in soma_EPSP_amp_dict['con']]
-    new_features = {'soma_EPSP_amp': np.mean(soma_EPSP_amp_dict['con'].values()),
+    NMDA_contribution_list = [(soma_EPSP_amp_dict['control'][syn_id] - soma_EPSP_amp_dict['AP5'][syn_id]) /
+                              soma_EPSP_amp_dict['control'][syn_id] for syn_id in soma_EPSP_amp_dict['control']]
+    new_features = {'soma_EPSP_amp': np.mean(soma_EPSP_amp_dict['control'].values()),
                     'NMDA_contribution': np.mean(NMDA_contribution_list),
                     'unitary_EPSP_traces': traces}
     if export:
         processed_export_file_path = context.export_file_path.replace('.hdf5', '_processed.hdf5')
+        t = np.arange(-context.trace_baseline, context.ISI['units'], context.dt)
+        rec_names = traces['random']['control'].itervalues().next().keys()
         with h5py.File(processed_export_file_path, 'a') as f:
-            trace_group = f.create_group('mean_unitary_EPSP_traces')
-            rec_names = traces['random']['con'].itervalues().next()['traces'].keys()
+            if 'time' not in f:
+                f.create_group('time')
+            f['time'].create_dataset('unitary_EPSP', compression='gzip', compression_opts=9, data=t)
+            if 'random' not in f:
+                f.create_group('random')
             for syn_condition in traces['random']:
-                condition_group = trace_group.create_group(syn_condition)
+                if syn_condition not in f['random']:
+                    f['random'].create_group(syn_condition)
+                f['random'][syn_condition].create_group('mean_unitary_EPSP_traces')
                 for rec in rec_names:
-                    data = [traces['random'][syn_condition][syn_id][rec] for syn_id in
-                            traces['random'][syn_condition]]
-                    condition_group.create_dataset(rec, compression='gzip', compression_opts=9,
-                                                   data=np.mean(data, axis=0))
+                    this_mean_trace = np.mean([traces['random'][syn_condition][syn_id][rec]
+                                               for syn_id in traces['random'][syn_condition]], axis=0)
+                    f['random'][syn_condition]['mean_unitary_EPSP_traces'].create_dataset(
+                        rec, compression='gzip', compression_opts=9, data=this_mean_trace)
     return new_features
 
 
@@ -388,19 +394,25 @@ def filter_compound_EPSP_features(computed_result_list, current_features, target
     """
     soma_EPSP_amp_dict = {}
     traces = {}
+    syn_indexes = {}
     for this_result_dict in computed_result_list:
         for syn_group in this_result_dict:
             if syn_group not in traces:
                 traces[syn_group] = {}
+                syn_indexes[syn_group] = {}
             for syn_condition in this_result_dict[syn_group]:
                 if syn_condition not in traces[syn_group]:
                     traces[syn_group][syn_condition] = {}
                 for num_syns in this_result_dict[syn_group][syn_condition]:
                     traces[syn_group][syn_condition][num_syns] = \
                         this_result_dict[syn_group][syn_condition][num_syns]['traces']
-    expected_traces = get_expected_compound_EPSP_traces(current_features)
+                    if syn_condition == 'control':
+                        syn_indexes[syn_group][num_syns] = \
+                            this_result_dict[syn_group][syn_condition][num_syns]['syn_indexes']
+    expected_traces = get_expected_compound_EPSP_traces(current_features, syn_indexes)
+    # only need expected for syn_condition == 'control'
     for syn_group in expected_traces:
-        traces[syn_group]['expected'] = expected_traces
+        traces[syn_group]['expected'] = expected_traces[syn_group]
     for syn_group in traces:
         if syn_group not in soma_EPSP_amp_dict:
             soma_EPSP_amp_dict[syn_group] = {}
@@ -410,54 +422,54 @@ def filter_compound_EPSP_features(computed_result_list, current_features, target
             for num_syns in traces[syn_group][syn_condition]:
                 soma_EPSP_amp_dict[syn_group][syn_condition][num_syns] = \
                     np.max(traces[syn_group][syn_condition][num_syns]['soma'])
-
-    # stopped here 090817
-
     integration_gain = {}
     initial_gain = {}
-    for AP5_cond in context.syn_conditions:
-        integration_gain[AP5_cond] = []
-        initial_gain[AP5_cond] = []
-    for group_type in context.clustered_branch_names:
-        for AP5_condition in context.syn_conditions:
-            actual = np.array(actual_compound_EPSP_amp[group_type][AP5_condition])
-            expected = np.array(expected_compound_EPSP_amp[group_type][AP5_condition])
-            ratio = np.divide(actual, expected)
-            this_initial_gain = np.mean(ratio[:2])  # The ratio should be close to 1 for the first few synapses.
-            fit = Polynomial.fit(expected, actual, 1, domain=(-1, 1))
-            this_integration_gain = fit.coef[1]
-            integration_gain[AP5_condition].append(this_integration_gain)
-            initial_gain[AP5_condition].append(this_initial_gain)
-    new_features = {'integration_gain_AP5': np.mean(integration_gain['AP5']),
-                    'integration_gain_con': np.mean(integration_gain['con']),
-                    'initial_gain_AP5': np.mean(initial_gain['AP5']),
-                    'initial_gain_con': np.mean(initial_gain['con'])}
+    soma_EPSP_amp_array = {}
+    for syn_group in soma_EPSP_amp_dict:
+        soma_EPSP_amp_array[syn_group] = {}
+        num_syns_list = np.arange(1, len(soma_EPSP_amp_dict[syn_group]['control']) + 1)
+        this_expected = np.array([soma_EPSP_amp_dict[syn_group]['expected'][num_syns] for num_syns in num_syns_list])
+        soma_EPSP_amp_array[syn_group]['expected'] = this_expected
+        for syn_condition in context.syn_conditions:
+            if syn_condition not in integration_gain:
+                integration_gain[syn_condition] = {}
+                initial_gain[syn_condition] = {}
+            this_actual = np.array([soma_EPSP_amp_dict[syn_group][syn_condition][num_syns]
+                                    for num_syns in num_syns_list])
+            soma_EPSP_amp_array[syn_group][syn_condition] = this_actual
+            this_ratio = np.divide(this_actual, this_expected)
+            # Integration should be close to linear without gain for the first few synapses.
+            initial_gain[syn_condition][syn_group] = np.mean(this_ratio[:2])
+            slope, intercept, r_value, p_value, std_err = stats.linregress(this_expected, this_actual)
+            integration_gain[syn_condition][syn_group] = slope
+    new_features = {'integration_gain_control': np.mean(integration_gain['control'].values()),
+                    'integration_gain_AP5': np.mean(integration_gain['AP5'].values()),
+                    'initial_gain_control': np.mean(initial_gain['control'].values()),
+                    'initial_gain_AP5': np.mean(initial_gain['AP5'].values())}
     if export:
-        new_export_file_path = context.export_file_path.replace('.hdf5', '_processed.hdf5')
-        with h5py.File(new_export_file_path, 'a') as f:
-            for trace_dict, trace_group_label in zip([actual_compound_traces, expected_compound_traces],
-                                                     ['actual_compound_traces', 'expected_compound_traces']):
-                trace_group = f.create_group(trace_group_label)
-                for group_type in trace_dict:
-                    group = trace_group.create_group(group_type)
-                    for AP5_condition in trace_dict[group_type]:
-                        AP5_group = group.create_group(AP5_condition)
-                        for syn_group_id in trace_dict[group_type][AP5_condition]:
-                            syn_group = AP5_group.create_group(str(syn_group_id))
-                            syn_group.create_group('rec')
-                            syn_group.create_dataset('tvec', compression='gzip', compression_opts=9,
-                                                     data=trace_dict[group_type][AP5_condition][syn_group_id]['tvec'])
-                            for rec_loc in trace_dict[group_type][AP5_condition][syn_group_id]['rec']:
-                                syn_group['rec'].create_dataset(rec_loc, compression='gzip', compression_opts=9, data=
-                                    trace_dict[group_type][AP5_condition][syn_group_id]['rec'][rec_loc])
-            for EPSP_amp_dict, group_label in zip([actual_compound_EPSP_amp, expected_compound_EPSP_amp],
-                                               ['actual_compound_EPSP_amp', 'expected_compound_EPSP_amp']):
-                EPSP_amp_group = f.create_group(group_label)
-                for group_type in trace_dict:
-                    group = EPSP_amp_group.create_group(group_type)
-                    for AP5_condition in trace_dict[group_type]:
-                        group.create_dataset(AP5_condition, compression='gzip', compression_opts=9,
-                                                 data=EPSP_amp_dict[group_type][AP5_condition])
+        processed_export_file_path = context.export_file_path.replace('.hdf5', '_processed.hdf5')
+        t = np.arange(-context.trace_baseline, context.sim_duration['clustered'] - context.equilibrate, context.dt)
+        with h5py.File(processed_export_file_path, 'a') as f:
+            if 'time' not in f:
+                f.create_group('time')
+            f['time'].create_dataset('compound_EPSP', compression='gzip', compression_opts=9, data=t)
+            for syn_group_key in traces:
+                if syn_group_key not in f:
+                    f.create_group(syn_group_key)
+                syn_group = f[syn_group_key]
+                for syn_condition_key in traces[syn_group_key]:
+                    if syn_condition_key not in syn_group:
+                        syn_group.create_group(syn_condition_key)
+                    syn_condition = syn_group[syn_condition_key]
+                    traces_group = syn_condition.create_group('compound_EPSP_traces')
+                    for num_syns_key in traces[syn_group_key][syn_condition_key]:
+                        num_syns_group = traces_group.create_group(str(num_syns_key))
+                        for rec_key in traces[syn_group_key][syn_condition_key][num_syns_key]:
+                            num_syns_group.create_dataset(rec_key, compression='gzip', compression_opts=9,
+                                                          data=traces[syn_group_key][syn_condition_key][num_syns_key]
+                                                          [rec_key])
+                    syn_condition.create_dataset('compound_EPSP_amp', compression='gzip', compression_opts=9,
+                                                 data=soma_EPSP_amp_array[syn_group_key][syn_condition_key])
     return new_features
 
 
@@ -684,43 +696,36 @@ def compute_stability_features(x, export=False, plot=False):
     return result
 
 
-def get_expected_compound_EPSP_traces(current_features):
+def get_expected_compound_EPSP_traces(current_features, syn_indexes, syn_condition=None):
     """
 
     :param current_features: dict
-    :return: dict
+    :param syn_indexes: dict
+    :param syn_condition: str
+    :param rec_description: str
+    :return:
     """
+    if syn_condition is None:
+        syn_condition = 'control'
     traces = {}
-    """
-    syn_group_id_list = {}
     baseline_len = int(context.trace_baseline / context.dt)
     unitary_len = int(context.ISI['units'] / context.dt)
-    ISI['clustered']_len = int(context.ISI['clustered'] / context.dt)
-    actual_trace_len = int((context.sim_duration['clustered'] - context.equilibrate) / context.dt) + baseline_len
-    for AP5_condition in context.syn_conditions:
-        expected_compound_traces[AP5_condition] = {}
-        expected_compound_EPSP_amp[AP5_condition] = []
-        syn_group_id_list[AP5_condition] = []
-        summed_traces = {}
-        start_ind = baseline_len
-        for num_syn, syn_id in enumerate(unitary_branch_results[AP5_condition]):
-            syn_result = unitary_branch_results[AP5_condition][syn_id]
-            for rec_loc in unitary_branch_results[AP5_condition][syn_id]['rec']:
-                if rec_loc not in summed_traces:
-                    summed_traces[rec_loc] = np.zeros(actual_trace_len)
-                summed_traces[rec_loc][start_ind:start_ind+unitary_len] += syn_result['rec'][rec_loc][baseline_len:]
-            expected_compound_traces[AP5_condition][syn_id] = {}
-            expected_compound_traces[AP5_condition][syn_id]['rec'] = copy.deepcopy(summed_traces) # This stores the summed traces of
-                                                                                    # all the synapses up to and including
-                                                                                    # the synapse with this syn_id
-            expected_compound_EPSP_amp[AP5_condition].append(np.max(summed_traces['soma']))
-            syn_group_id_list[AP5_condition].append(syn_id)
-            start_ind += ISI['clustered']_len
-        expected_compound_EPSP_amp[AP5_condition].sort(key=dict(zip(expected_compound_EPSP_amp[AP5_condition],
-                                                                syn_group_id_list[AP5_condition])).get)
-    """
+    trace_len = int((context.sim_duration['clustered'] - context.equilibrate) / context.dt) + baseline_len
+    for syn_group in syn_indexes:
+        if syn_group not in traces:
+            traces[syn_group] = {}
+        for num_syns in syn_indexes[syn_group]:
+            if num_syns not in traces[syn_group]:
+                traces[syn_group][num_syns] = {}
+            for count, syn_id in enumerate(syn_indexes[syn_group][num_syns]):
+                start = baseline_len + int(count * context.ISI['clustered'] / context.dt)
+                end = start + unitary_len
+                for rec_name, this_trace in \
+                        current_features['unitary_EPSP_traces'][syn_group][syn_condition][syn_id].iteritems():
+                    if rec_name not in traces[syn_group][num_syns]:
+                        traces[syn_group][num_syns][rec_name] = np.zeros(trace_len)
+                    traces[syn_group][num_syns][rec_name][start:end] += this_trace[baseline_len:]
     return traces
-
 
 
 def offset_vm(description, vm_target=None):
@@ -884,34 +889,57 @@ def plot_exported_synaptic_features(processed_export_file_path):
     :param processed_export_file_path: str
     :return:
     """
+    from matplotlib import cm
     with h5py.File(processed_export_file_path, 'r') as f:
-        trace_type_list = ['actual_compound_traces', 'expected_compound_traces']
-        trace_group_list = [f[trace_type] for trace_type in trace_type_list]
-        num_colors = context.num_syns['clustered'] * len(trace_type_list) * len(context.clustered_branch_names) * len(context.syn_conditions)
-        colors = list(cm.rainbow(np.linspace(0, 1, num_colors)))
-        for branch in context.clustered_branch_names:
-            for AP5_cond in context.syn_conditions:
-                fig, axes = plt.subplots(1, len(trace_group_list))
-                for g, trace_group in enumerate(trace_group_list):
-                    for syn_group_id in trace_group[branch][AP5_cond].keys():
-                        axes[g].scatter(trace_group[branch][AP5_cond][syn_group_id]['tvec'],
-                                           trace_group[branch][AP5_cond][syn_group_id]['rec']['soma'],
-                                           label='Syn %d' %int(syn_group_id))
-                    axes[g].set_xlabel('Time (ms)')
-                    axes[g].set_ylabel('Vm (mv)')
-                    axes[g].set_title('%s %s %s' %(branch, AP5_cond, trace_type_list[g].split('_')[0]))
-                    axes[g].legend(loc='best', frameon=False, framealpha=0.5)
+        clustered_branch_names = [key for key in f if key not in ['random', 'time']]
+        syn_conditions = f[clustered_branch_names[0]].keys()
+        rec_names = [key for key in
+                     f[clustered_branch_names[0]][syn_conditions[0]]['compound_EPSP_traces'].itervalues().next()]
+        colors = list(cm.Paired(np.linspace(0, 1, len(syn_conditions))))
+        for branch in clustered_branch_names:
+            for rec in rec_names:
+                fig, axes = plt.subplots(1, len(syn_conditions), sharey=True)
+                fig.suptitle('Branch: %s, Rec: %s' % (branch, rec))
+                for i, syn_condition in enumerate(syn_conditions):
+                    for num_syns in f[branch][syn_condition]['compound_EPSP_traces']:
+                        axes[i].plot(f['time']['compound_EPSP'],
+                                     f[branch][syn_condition]['compound_EPSP_traces'][num_syns][rec], c='k')
+                    axes[i].set_xlabel('Time (ms)')
+                    axes[i].set_title(syn_condition)
+                axes[0].set_ylabel('Compound EPSP amplitude (mV)')
                 clean_axes(axes)
                 fig.tight_layout()
-        for branch in context.clustered_branch_names:
-            for AP5_cond in context.syn_conditions:
-                fig, axes = plt.subplots(1)
-                axes.scatter(f['expected_compound_EPSP_amp'][branch][AP5_cond],
-                             f['actual_compound_EPSP_amp'][branch][AP5_cond])
-                axes.set_xlabel('Expected Compound EPSP Amp')
-                axes.set_ylabel('Actual Compound EPSP Amp')
-                axes.set_title('%s %s EPSPs' %(branch, AP5_cond))
-                clean_axes(axes)
-                fig.tight_layout()
-        plt.show()
-        plt.close()
+                fig.subplots_adjust(top=0.85)
+
+        fig, axes = plt.subplots(1, len(clustered_branch_names), sharey=True)
+        if len(clustered_branch_names) == 1:
+            axes = [axes]
+        fig.suptitle('Rec: soma')
+        for i, branch in enumerate(clustered_branch_names):
+            for j, syn_condition in enumerate((syn_condition for syn_condition in syn_conditions if
+                                               syn_condition != 'expected')):
+                axes[i].plot(f[branch]['expected']['compound_EPSP_amp'], f[branch][syn_condition]['compound_EPSP_amp'],
+                             c=colors[j], label=syn_condition)
+                axes[i].set_title('Branch: %s' % branch)
+                axes[i].set_xlabel('Expected EPSP amp (mV)')
+        axes[0].set_ylabel('Actual EPSP amp (mV)')
+        axes[0].legend(loc='best', frameon=False, framealpha=0.5)
+        clean_axes(axes)
+        fig.tight_layout()
+        fig.subplots_adjust(top=0.85)
+
+        fig, axes = plt.subplots(1, len(rec_names))
+        if len(rec_names) == 1:
+            axes = [axes]
+        for i, rec in enumerate(rec_names):
+            for j, syn_condition in enumerate(f['random']):
+                axes[i].plot(f['time']['unitary_EPSP'], f['random'][syn_condition]['mean_unitary_EPSP_traces'][rec],
+                             c=colors[j], label=syn_condition)
+                axes[i].set_xlabel('Time (ms)')
+                axes[i].set_title(rec)
+        axes[0].set_ylabel('Unitary EPSP amplitude (mV)')
+        axes[0].legend(loc='best', frameon=False, framealpha=0.5)
+        clean_axes(axes)
+        fig.tight_layout()
+    plt.show()
+    plt.close()
