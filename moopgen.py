@@ -254,42 +254,45 @@ class PopulationStorage(object):
                 n = len(self.history)
             elif not type(n) == int:
                 n = 1
-                print 'PopulationStorage: defaulting to exporting last generation to file'
+                print 'PopulationStorage: defaulting to exporting last generation to file.'
             gen_index = len(self.history) - n
             j = n
             while n > 0:
-                f.create_group(str(gen_index))
-                for key in self.attributes:
-                    f[str(gen_index)].attrs[key] = self.attributes[key][gen_index]
-                for group_name, population in zip(['population', 'survivors', 'failed'],
-                                                  [self.history[gen_index], self.survivors[gen_index],
-                                                   self.failed[gen_index]]):
-                    f[str(gen_index)].create_group(group_name)
-                    for i, individual in enumerate(population):
-                        f[str(gen_index)][group_name].create_group(str(i))
-                        if group_name is not 'failed':
-                            f[str(gen_index)][group_name][str(i)].attrs['energy'] = self.None2nan(individual.energy)
-                            f[str(gen_index)][group_name][str(i)].attrs['rank'] = self.None2nan(individual.rank)
-                            f[str(gen_index)][group_name][str(i)].attrs['distance'] = \
-                                self.None2nan(individual.distance)
-                            f[str(gen_index)][group_name][str(i)].attrs['fitness'] = \
-                                self.None2nan(individual.fitness)
-                            f[str(gen_index)][group_name][str(i)].attrs['survivor'] = \
-                                self.None2nan(individual.survivor)
-                            f[str(gen_index)][group_name][str(i)].create_dataset('features',
-                                                                                   data=[self.None2nan(val) for val in
-                                                                                         individual.features],
-                                                                                   compression='gzip',
-                                                                                   compression_opts=9)
-                            f[str(gen_index)][group_name][str(i)].create_dataset('objectives',
-                                                                                   data=[self.None2nan(val) for val in
-                                                                                         individual.objectives],
-                                                                                   compression='gzip',
-                                                                                   compression_opts=9)
-                        f[str(gen_index)][group_name][str(i)].create_dataset('x',
-                                                                               data=[self.None2nan(val) for val in
-                                                                                     individual.x],
-                                                                               compression='gzip', compression_opts=9)
+                if str(gen_index) in f:
+                    print 'PopulationStorage: generation %s already exported to file.'
+                else:
+                    f.create_group(str(gen_index))
+                    for key in self.attributes:
+                        f[str(gen_index)].attrs[key] = self.attributes[key][gen_index]
+                    for group_name, population in zip(['population', 'survivors', 'failed'],
+                                                      [self.history[gen_index], self.survivors[gen_index],
+                                                       self.failed[gen_index]]):
+                        f[str(gen_index)].create_group(group_name)
+                        for i, individual in enumerate(population):
+                            f[str(gen_index)][group_name].create_group(str(i))
+                            if group_name is not 'failed':
+                                f[str(gen_index)][group_name][str(i)].attrs['energy'] = self.None2nan(individual.energy)
+                                f[str(gen_index)][group_name][str(i)].attrs['rank'] = self.None2nan(individual.rank)
+                                f[str(gen_index)][group_name][str(i)].attrs['distance'] = \
+                                    self.None2nan(individual.distance)
+                                f[str(gen_index)][group_name][str(i)].attrs['fitness'] = \
+                                    self.None2nan(individual.fitness)
+                                f[str(gen_index)][group_name][str(i)].attrs['survivor'] = \
+                                    self.None2nan(individual.survivor)
+                                f[str(gen_index)][group_name][str(i)].create_dataset('features',
+                                                                                     data=[self.None2nan(val) for val in
+                                                                                           individual.features],
+                                                                                     compression='gzip',
+                                                                                     compression_opts=9)
+                                f[str(gen_index)][group_name][str(i)].create_dataset('objectives',
+                                                                                     data=[self.None2nan(val) for val in
+                                                                                           individual.objectives],
+                                                                                     compression='gzip',
+                                                                                     compression_opts=9)
+                            f[str(gen_index)][group_name][str(i)].create_dataset('x',
+                                                                                 data=[self.None2nan(val) for val in
+                                                                                       individual.x],
+                                                                                 compression='gzip', compression_opts=9)
                 n -= 1
                 gen_index += 1
         print 'PopulationStorage: saved %i generations (up to generation %i) to file: %s' % (j, gen_index-1, file_path)
@@ -1086,8 +1089,8 @@ class BGen(object):
     parameter arrays for parallel evaluation. Features fitness-based pruning and adaptive reduction of step_size every
     iteration. Each iteration consists of path_length number of generations without pruning.
     """
-    def __init__(self, param_names=None, feature_names=None, objective_names=None, pop_size=None, x0=None,
-                 bounds=None, rel_bounds=None, wrap_bounds=False, take_step=None, evaluate=None, seed=None, max_iter=None,
+    def __init__(self, param_names=None, feature_names=None, objective_names=None, pop_size=None, x0=None, bounds=None,
+                 rel_bounds=None, wrap_bounds=False, take_step=None, evaluate=None, seed=None, max_iter=None,
                  path_length=1, initial_step_size=0.5, adaptive_step_factor=0.9, survival_rate=0.1, disp=False,
                  hot_start=None, **kwargs):
         """
@@ -1129,8 +1132,12 @@ class BGen(object):
                 raise IOError('BGen: invalid file path. Cannot hot start from stored history: %s' % hot_start)
             else:
                 self.storage = PopulationStorage(file_path=hot_start)
+                param_names = self.storage.param_names
                 self.path_length = self.storage.path_length
-                current_step_size = self.storage.step_size[-1]
+                if 'step_size' in self.storage.attributes:
+                    current_step_size = self.storage.attributes['step_size'][-1]
+                else:
+                    current_step_size = None
                 if current_step_size is not None:
                     initial_step_size = current_step_size
                 self.num_gen = len(self.storage.history)
