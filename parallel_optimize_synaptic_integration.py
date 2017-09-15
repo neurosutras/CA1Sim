@@ -413,6 +413,7 @@ def filter_compound_EPSP_features(computed_result_list, current_features, target
     # only need expected for syn_condition == 'control'
     for syn_group in expected_traces:
         traces[syn_group]['expected'] = expected_traces[syn_group]
+    t = np.arange(-context.trace_baseline, context.sim_duration['clustered'] - context.equilibrate, context.dt)
     for syn_group in traces:
         if syn_group not in soma_EPSP_amp_dict:
             soma_EPSP_amp_dict[syn_group] = {}
@@ -420,8 +421,13 @@ def filter_compound_EPSP_features(computed_result_list, current_features, target
             if syn_condition not in soma_EPSP_amp_dict[syn_group]:
                 soma_EPSP_amp_dict[syn_group][syn_condition] = {}
             for num_syns in traces[syn_group][syn_condition]:
-                soma_EPSP_amp_dict[syn_group][syn_condition][num_syns] = \
-                    np.max(traces[syn_group][syn_condition][num_syns]['soma'])
+                if syn_condition == 'expected':
+                    soma_EPSP_amp_dict[syn_group][syn_condition][num_syns] = \
+                        np.max(traces[syn_group][syn_condition][num_syns]['soma'])
+                else:
+                    spikes_removed = remove_spikes_from_array(traces[syn_group][syn_condition][num_syns]['soma'], t,
+                                                              dt=context.dt)
+                    soma_EPSP_amp_dict[syn_group][syn_condition][num_syns] = np.max(spikes_removed)
     integration_gain = {}
     initial_gain = {}
     soma_EPSP_amp_array = {}
@@ -448,7 +454,6 @@ def filter_compound_EPSP_features(computed_result_list, current_features, target
                     'initial_gain_AP5': np.mean(initial_gain['AP5'].values())}
     if export:
         processed_export_file_path = context.export_file_path.replace('.hdf5', '_processed.hdf5')
-        t = np.arange(-context.trace_baseline, context.sim_duration['clustered'] - context.equilibrate, context.dt)
         with h5py.File(processed_export_file_path, 'a') as f:
             if 'time' not in f:
                 f.create_group('time')
@@ -500,8 +505,11 @@ def get_objectives(features, target_val, target_range):
     objective_names = ['dend_AP_amp', 'soma_EPSP_amp', 'NMDA_contribution', 'integration_gain_control',
                        'integration_gain_AP5', 'initial_gain_AP5', 'initial_gain_control']
     for objective_name in objective_names:
-        objectives[objective_name] = ((target_val[objective_name] - features[objective_name]) /
-                                                  target_range[objective_name]) ** 2.
+        if objective_name == 'NMDA_contribution' and features[objective_name] < target_val[objective_name]:
+            objectives[objective_name] = 0.
+        else:
+            objectives[objective_name] = ((target_val[objective_name] - features[objective_name]) /
+                                          target_range[objective_name]) ** 2.
     return features, objectives
 
 

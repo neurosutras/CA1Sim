@@ -1046,7 +1046,7 @@ def get_removed_spikes_alt(rec_filename, before=1.6, after=6., dt=0.02, th=10., 
     return removed
 
 
-def get_removed_spikes_live(vm, t, before=1.6, after=6., dt=0.02, th=10., plot=1):
+def remove_spikes_from_array(vm, t, before=1.6, after=6., dt=0.02, th=10., plot=False):
     """
 
     :param vm: array
@@ -1055,7 +1055,7 @@ def get_removed_spikes_live(vm, t, before=1.6, after=6., dt=0.02, th=10., plot=1
     :param after: float : time to remove after spike in case where trough or voltage recovery cannot be used
     :param dt: float : temporal resolution for interpolation and dvdt
     :param th: float : slope threshold
-    :param plot: int
+    :param plot: bool
     :return: array
     """
     temp_vm = np.array(vm)
@@ -1372,7 +1372,7 @@ def get_phase_precession_live(t, vm, spikes=None, time_offset=0., theta_duration
     rec_t = np.arange(t[0], t[-1]+dt, dt)
     vm = np.interp(rec_t, t, vm)
     if spikes is not None:
-        spikes_removed = get_removed_spikes_live(vm, rec_t, plot=0)
+        spikes_removed = remove_spikes_from_array(vm, rec_t, plot=0)
     else:
         spikes_removed = np.array(vm)
     # down_sample traces to 2 kHz after clipping spikes for theta filtering
