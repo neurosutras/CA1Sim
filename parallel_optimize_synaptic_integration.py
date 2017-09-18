@@ -112,7 +112,7 @@ def set_constants():
     for i, branch in enumerate(clustered_branch_names):
         synapse_indexes[branch] = range(num_syns['random'] + i * num_syns['clustered'],
                                         num_syns['random'] + (i + 1) * num_syns['clustered'])
-    syn_conditions = ['control', 'AP5']
+    syn_conditions = ['control', 'AP5', 'TTX']
     ISI = {'units': 150., 'clustered': 1.1}  # inter-stimulus interval for synaptic stim (ms)
     units_per_sim = 5
     equilibrate = 250.  # time to steady-state
@@ -448,10 +448,10 @@ def filter_compound_EPSP_features(computed_result_list, current_features, target
             initial_gain[syn_condition][syn_group] = np.mean(this_ratio[:2])
             slope, intercept, r_value, p_value, std_err = stats.linregress(this_expected, this_actual)
             integration_gain[syn_condition][syn_group] = slope
-    new_features = {'integration_gain_control': np.mean(integration_gain['control'].values()),
-                    'integration_gain_AP5': np.mean(integration_gain['AP5'].values()),
-                    'initial_gain_control': np.mean(initial_gain['control'].values()),
-                    'initial_gain_AP5': np.mean(initial_gain['AP5'].values())}
+    new_features = {}
+    for syn_condition in context.syn_conditions:
+        new_features['initial_gain_' + syn_condition] = np.mean(initial_gain[syn_condition].values())
+        new_features['integration_gain_'+syn_condition] = np.mean(integration_gain[syn_condition].values()) 
     if export:
         processed_export_file_path = context.export_file_path.replace('.hdf5', '_processed.hdf5')
         with h5py.File(processed_export_file_path, 'a') as f:
@@ -503,7 +503,8 @@ def get_objectives(features, target_val, target_range):
     """
     objectives = {}
     objective_names = ['dend_AP_amp', 'soma_EPSP_amp', 'NMDA_contribution', 'integration_gain_control',
-                       'integration_gain_AP5', 'initial_gain_AP5', 'initial_gain_control']
+                       'integration_gain_TTX', 'integration_gain_AP5', 'initial_gain_control', 'initial_gain_TTX',
+                       'initial_gain_AP5']
     for objective_name in objective_names:
         if objective_name == 'NMDA_contribution' and features[objective_name] < target_val[objective_name]:
             objectives[objective_name] = 0.
@@ -595,6 +596,8 @@ def compute_branch_cooperativity_features(x, syn_indexes, syn_condition, syn_gro
     """
     start_time = time.time()
     update_submodule_params(x, context)
+    if syn_condition == 'TTX':
+        context.cell.zero_na()
 
     soma_vm = offset_vm('soma', context.v_init)
     synapses = [context.syn_list[syn_index] for syn_index in syn_indexes]
@@ -906,15 +909,19 @@ def plot_exported_synaptic_features(processed_export_file_path):
         colors = list(cm.Paired(np.linspace(0, 1, len(syn_conditions))))
         for branch in clustered_branch_names:
             for rec in rec_names:
-                fig, axes = plt.subplots(1, len(syn_conditions), sharey=True)
+                fig, axes = plt.subplots(2, 2, sharey=True)
                 fig.suptitle('Branch: %s, Rec: %s' % (branch, rec))
-                for i, syn_condition in enumerate(syn_conditions):
+                ordered_syn_conditions = ['expected', 'control'] + [syn_condition for syn_condition in syn_conditions if
+                                                                    syn_condition not in ['expected', 'control']]
+                for i, syn_condition in enumerate(ordered_syn_conditions):
+                    col = i / 2
+                    row = i % 2
                     for num_syns in f[branch][syn_condition]['compound_EPSP_traces']:
-                        axes[i].plot(f['time']['compound_EPSP'],
+                        axes[col][row].plot(f['time']['compound_EPSP'],
                                      f[branch][syn_condition]['compound_EPSP_traces'][num_syns][rec], c='k')
-                    axes[i].set_xlabel('Time (ms)')
-                    axes[i].set_title(syn_condition)
-                axes[0].set_ylabel('Compound EPSP amplitude (mV)')
+                    axes[col][row].set_xlabel('Time (ms)')
+                    axes[col][row].set_title(syn_condition)
+                axes[0][0].set_ylabel('Compound EPSP amplitude (mV)')
                 clean_axes(axes)
                 fig.tight_layout()
                 fig.subplots_adjust(top=0.85)
@@ -923,6 +930,7 @@ def plot_exported_synaptic_features(processed_export_file_path):
         if len(clustered_branch_names) == 1:
             axes = [axes]
         fig.suptitle('Rec: soma')
+        diagonal = np.linspace(0., np.max(f[branch]['expected']['compound_EPSP_amp']), 10)
         for i, branch in enumerate(clustered_branch_names):
             for j, syn_condition in enumerate((syn_condition for syn_condition in syn_conditions if
                                                syn_condition != 'expected')):
@@ -930,6 +938,7 @@ def plot_exported_synaptic_features(processed_export_file_path):
                              c=colors[j], label=syn_condition)
                 axes[i].set_title('Branch: %s' % branch)
                 axes[i].set_xlabel('Expected EPSP amp (mV)')
+            axes[i].plot(diagonal, diagonal, c='lightgrey', linestyle='--')
         axes[0].set_ylabel('Actual EPSP amp (mV)')
         axes[0].legend(loc='best', frameon=False, framealpha=0.5)
         clean_axes(axes)
