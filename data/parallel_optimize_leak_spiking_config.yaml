@@ -5,7 +5,7 @@ bounds:
   ais.gkmbar: !!python/tuple
   - 0.0005
   - 0.015
-  ais.sha_nas: !!python/tuple
+  ais.sha_nax: !!python/tuple
   - -5.0
   - -1.0
   axon.gbar_nax: !!python/tuple
@@ -138,7 +138,7 @@ param_names:
 - soma.gkdrbar
 - axon.gkabar
 - soma.sh_nas/x
-- ais.sha_nas
+- ais.sha_nax
 - soma.gCa factor
 - soma.gCadepK factor
 - soma.gkmbar
@@ -211,7 +211,7 @@ update_modules: !!python/tuple
 x0:
   ais.gbar_nax: 0.1681
   ais.gkmbar: 0.01286
-  ais.sha_nas: -2.659
+  ais.sha_nax: -2.659
   axon.gbar_nax: 0.06
   axon.gkabar: 0.05266
   dend.g_pas slope: 1.058E-08

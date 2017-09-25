@@ -14,6 +14,12 @@ bounds:
   axon.gkabar: !!python/tuple
   - 0.01
   - 0.18
+  dend.g_pas slope: !!python/tuple
+  - 1.0E-12
+  - 1.0E-4
+  dend.g_pas tau: !!python/tuple
+  - 25.
+  - 400.
   dend.gbar_nas: !!python/tuple
   - 0.01
   - 0.05
@@ -25,10 +31,13 @@ bounds:
   - 0.015
   dend.gbar_nas slope: !!python/tuple
   - -0.0004
-  - 0.0
+  - 0.
   dend.gkabar: !!python/tuple
   - 0.01
   - 0.25
+  soma.g_pas: !!python/tuple
+  - 1.0E-18
+  - 1.0E-6
   soma.gCa factor: !!python/tuple
   - 0.1
   - 5.0
@@ -50,33 +59,26 @@ bounds:
   soma.sh_nas/x: !!python/tuple
   - 0.1
   - 6.0
+  soma.sha_nas/x: !!python/tuple
+  - -6.0
+  - -0.1
 default_params:
   dend.gbar_nas bo: 5
-  dend.gbar_nas min: 0.0
+  dend.gbar_nas min: 0.
 feature_names:
-- v_th
-- ADP
-- AHP
-- spont_firing
-- rebound_firing
-- vm_stability
-- ais_delay
-- slow_depo
-- dend_amp
-- rheobase
-- soma_peak
-- adi
-- f_I_slope
-- f_I_residuals
+- EPSC_attenuation_long_ISI
+- EPSC_attenuation_short_ISI
+- EPSC_amplification_soma
+- EPSC_amplification_dend
 features_modules: !!python/tuple
-- parallel_optimize_spiking
-- parallel_optimize_spiking
+- parallel_optimize_EPSC_attenuation
+- parallel_optimize_EPSC_attenuation
 get_features: !!python/tuple
-- get_stability_features
-- get_fI_features
+- get_iEPSP_features_long_ISI
+- get_iEPSP_features_short_ISI
 group_sizes: !!python/tuple
-- 1
-- 10
+- 2
+- 2
 kwargs:
   mech_file_path: data/090717 GC optimizing spiking.yaml
   neuroH5_file_path: morphologies/121516_DGC_trees.pkl
@@ -86,24 +88,18 @@ kwargs:
   cvode: False
   daspk: True
 objective_names:
-- v_th
-- ADP
-- AHP
-- spont_firing
-- rebound_firing
-- vm_stability
-- ais_delay
-- slow_depo
-- dend_amp
-- soma_peak
-- th_count
-- adi
-- f_I_slope
+- EPSC_attenuation_long_ISI
+- EPSC_attenuation_short_ISI
+- EPSC_amplification_soma
+- EPSC_amplification_dend
 objectives_modules: !!python/tuple
-- parallel_optimize_spiking
-optimization_title: spiking
+- parallel_optimize_EPSC_attenuation
+optimization_title: EPSC_attenuation
 param_gen: BGen
 param_names:
+- dend.g_pas slope
+- dend.g_pas tau
+- soma.g_pas
 - soma.gbar_nas
 - dend.gbar_nas
 - dend.gbar_nas bo
@@ -116,6 +112,7 @@ param_names:
 - soma.gkdrbar
 - axon.gkabar
 - soma.sh_nas/x
+- soma.sha_nas/x
 - ais.sha_nax
 - soma.gCa factor
 - soma.gCadepK factor
@@ -151,41 +148,30 @@ rel_bounds:
   - 3.0
   - soma.gkabar
 target_range:
-  ADP: 0.01
-  AHP: 0.005
-  ais_delay: 0.0005
-  dend_amp: 0.0002
-  rebound_firing: 0.002
-  slow_depo: 0.1
-  soma_peak: 2.0
-  spont_firing: 0.002
-  th_count: 0.002
-  v_th: 0.01
-  vm_stability: 0.1
-  f_I_slope: 0.5
+  EPSC_attenuation_long_ISI: 0.001
+  EPSC_attenuation_short_ISI: 0.001
+  EPSC_amplification_soma: 0.01
+  EPSC_amplification_dend: 0.01
 target_val:
-  ADP: 0.0
-  AHP: 4.0
-  ais_delay: 0.0
-  dend_amp: 0.3
-  rebound_firing: 0
-  slow_depo: 10.0
-  soma_peak: 40.0
-  spont_firing: 0
-  th_count: 1
-  v_th: -48.0
-  vm_stability: 0.0
-  f_I_slope: 53.0
-update_modules: !!python/tuple
-- parallel_optimize_spiking
+  EPSC_attenuation_long_ISI: 0.15
+  EPSC_attenuation_short_ISI: 0.22
+  EPSC_amplification_soma: 2.5
+  EPSC_amplification_dend: 2.
 update_params: !!python/tuple
-- update_na_ka_stability
+- update_spike_shape_params
+- update_nap_params
+update_modules: !!python/tuple
+- parallel_optimize_EPSC_attenuation
+- parallel_optimize_EPSC_attenuation
 x0:
   ais.gbar_nax: 0.1681
   ais.gkmbar: 0.01286
   ais.sha_nax: -2.659
   axon.gbar_nax: 0.06
   axon.gkabar: 0.05266
+  dend.g_pas slope: 1.058E-08
+  dend.g_pas tau: 3.886E+01
+  soma.g_pas: 1.050E-10
   dend.gbar_nas: 0.03
   dend.gbar_nas bo: 4
   dend.gbar_nas min: 0.0
@@ -198,3 +184,4 @@ x0:
   soma.gkdrbar: 0.04299
   soma.gkmbar: 0.004286
   soma.sh_nas/x: 1.219
+  soma.sha_nas/x: -2.

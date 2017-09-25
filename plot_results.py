@@ -1811,6 +1811,62 @@ def plot_synaptic_param_distribution(cell, syn_type, param_name, scale_factor=1.
         mpl.rcParams['font.size'] = remember_font_size
 
 
+def plot_synaptic_attribute_distribution(cell, syn_category, syn_type, param_name, scale_factor=1., param_label=None,
+                                         ylabel='Peak conductance', yunits='uS'):
+    """
+    
+    :param cell: :class:'SHocCell' 
+    :param syn_category: str
+    :param syn_type: str
+    :param param_name: str
+    :param scale_factor: float
+    :param param_label: str
+    :param ylabel: str
+    :param yunits: str
+    """
+    distance = []
+    attribute = []
+    distance_syns = []
+    attribute_syns = []
+    mismatched = 0
+    for sec_type in ['apical']:
+        for node in cell._node_dict[sec_type]:
+            this_synapse_attributes = node.get_filtered_synapse_attributes(syn_category=syn_category, syn_type=syn_type)
+            for i in xrange(len(this_synapse_attributes['syn_locs'])):
+                this_syn_id = this_synapse_attributes['syn_id'][i]
+                if (this_syn_id in node.synapse_mechanism_attributes and
+                            syn_type in node.synapse_mechanism_attributes[this_syn_id] and
+                            param_name in node.synapse_mechanism_attributes[this_syn_id][syn_type]):
+                    loc = this_synapse_attributes['syn_locs'][i]
+                    distance.append(cell.get_distance_to_node(cell.tree.root, node, loc=loc))
+                    attribute.append(node.synapse_mechanism_attributes[this_syn_id][syn_type][param_name])
+            for syn in cell.get_synapses(node):
+                distance_syns.append(cell.get_distance_to_node(cell.tree.root, syn.branch, loc=syn.loc))
+                if hasattr(syn.target(syn_type), param_name):
+                    this_attribute = getattr(syn.target(syn_type), param_name)
+                elif hasattr(syn.netcon(syn_type), param_name):
+                    this_attribute = getattr(syn.netcon(syn_type), param_name)
+                else:
+                    this_attribute = None
+                attribute_syns.append(this_attribute)
+                if this_attribute != node.synapse_mechanism_attributes[syn.id][syn_type][param_name]:
+                    # print 'Mismatch:', node.name, syn.id, syn_type, param_name
+                    mismatched += 1
+    # print 'Mismatched synapse_mechanism %s: parameter: %s; count: %i' % (syn_type, param_name, mismatched)
+    if param_label is None:
+        param_label = '%s.%s' % (syn_type, param_name)
+    fig, axes = plt.subplots(1)
+    axes.scatter(distance, attribute, c='lightgrey')
+    axes.scatter(distance_syns, attribute_syns, c='r')
+    axes.set_xlabel('Distance from soma (um)')
+    axes.set_ylabel(ylabel + ' (' + yunits + ')')
+    axes.set_title(param_label)
+    clean_axes(axes)
+    fig.tight_layout()
+    plt.show()
+    plt.close()
+
+
 def plot_mech_param_distribution_old(cell, mech_name, param_name, scale_factor=10000., param_label=None,
                                  ylabel='Conductance density', yunits='pS/um2', svg_title=None):
     """

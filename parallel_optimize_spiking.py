@@ -607,11 +607,11 @@ def get_spike_shape(vm, spike_times):
     return v_peak, th_v, ADP, AHP
 
 
-def update_na_ka_stability(x, local_context=None):
+def update_spike_shape_params(x, local_context=None):
     """
     :param x: array ['soma.gbar_nas', 'dend.gbar_nas', 'dend.gbar_nas slope', 'dend.gbar_nas min', 'dend.gbar_nas bo',
                     'axon.gbar_nax', 'ais.gbar_nax', 'soma.gkabar', 'dend.gkabar', 'soma.gkdrbar', 'axon.gkabar',
-                    'soma.sh_nas/x', 'ais.sha_nas', 'soma.gCa factor', 'soma.gCadepK factor', 'soma.gkmbar',
+                    'soma.sh_nas/x', 'ais.sha_nax', 'soma.gCa factor', 'soma.gCadepK factor', 'soma.gkmbar',
                     'ais.gkmbar']
     """
     if local_context is None:
@@ -660,7 +660,7 @@ def update_na_ka_stability(x, local_context=None):
     cell.modify_mech_param('ais', 'km3', 'gkmbar', x[param_indexes['ais.gkmbar']])
     cell.modify_mech_param('axon_hill', 'km3', 'gkmbar', origin='soma')
     cell.modify_mech_param('axon', 'km3', 'gkmbar', origin='ais')
-    cell.modify_mech_param('ais', 'nax', 'sha', x[param_indexes['ais.sha_nas']])
+    cell.modify_mech_param('ais', 'nax', 'sha', x[param_indexes['ais.sha_nax']])
     cell.modify_mech_param('ais', 'nax', 'gbar', x[param_indexes['ais.gbar_nax']])
 
 

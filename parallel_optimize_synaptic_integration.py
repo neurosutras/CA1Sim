@@ -451,7 +451,7 @@ def filter_compound_EPSP_features(computed_result_list, current_features, target
     new_features = {}
     for syn_condition in context.syn_conditions:
         new_features['initial_gain_' + syn_condition] = np.mean(initial_gain[syn_condition].values())
-        new_features['integration_gain_'+syn_condition] = np.mean(integration_gain[syn_condition].values()) 
+        new_features['integration_gain_'+syn_condition] = np.mean(integration_gain[syn_condition].values())
     if export:
         processed_export_file_path = context.export_file_path.replace('.hdf5', '_processed.hdf5')
         with h5py.File(processed_export_file_path, 'a') as f:
@@ -506,11 +506,8 @@ def get_objectives(features, target_val, target_range):
                        'integration_gain_TTX', 'integration_gain_AP5', 'initial_gain_control', 'initial_gain_TTX',
                        'initial_gain_AP5']
     for objective_name in objective_names:
-        if objective_name == 'NMDA_contribution' and features[objective_name] < target_val[objective_name]:
-            objectives[objective_name] = 0.
-        else:
-            objectives[objective_name] = ((target_val[objective_name] - features[objective_name]) /
-                                          target_range[objective_name]) ** 2.
+        objectives[objective_name] = ((target_val[objective_name] - features[objective_name]) /
+                                      target_range[objective_name]) ** 2.
     return features, objectives
 
 

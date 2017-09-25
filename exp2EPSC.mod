@@ -38,8 +38,8 @@ UNITS {
 }
 
 PARAMETER {
-	tau1 = 0.1   (ms)    <1e-9,1e9>
-	tau2 = 3.0    (ms)   <1e-9,1e9>
+	tau1 = 0.2   (ms)    <1e-9,1e9>
+	tau2 = 5.0    (ms)   <1e-9,1e9>
     inward = -1.0                     : for inward currents
     imax = 1.0           <0,1>        : to scale amplitude
 }
