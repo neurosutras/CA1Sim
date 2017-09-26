@@ -260,9 +260,9 @@ def get_iEPSP_features_short_ISI(indiv, c=None, client_range=None, export=False)
     if 'features' in indiv and 'imax' in indiv['features'] and len(indiv['features']['imax']) > 0:
         imax = [indiv['features']['imax'][syn_index] for syn_index in xrange(len(indiv['features']['imax']))]
     else:
-        imax = [None for i in xrange(len(context.syn_list))]
-    result = map_func(compute_iEPSP_amp_features, [x] * len(context.syn_list), range(len(context.syn_list)),
-                      [ISI_key] * len(context.syn_list), imax, [export] * len(context.syn_list))
+        imax = [None for i in xrange(context.num_branches)]
+    result = map_func(compute_iEPSP_amp_features, [x] * context.num_branches, range(context.num_branches),
+                      [ISI_key] * context.num_branches, imax, [export] * context.num_branches)
     return {'pop_id': indiv['pop_id'], 'client_range': client_range, 'async_result': result,
             'filter_features': filter_iEPSP_features}
 
