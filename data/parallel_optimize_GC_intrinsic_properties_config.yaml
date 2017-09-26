@@ -15,8 +15,8 @@ bounds:
   - 0.01
   - 0.18
   dend.g_pas slope: !!python/tuple
-  - 1.0E-12
-  - 1.0E-4
+  - 1.0E-10
+  - 1.0E-6
   dend.g_pas tau: !!python/tuple
   - 25.
   - 400.
@@ -36,8 +36,8 @@ bounds:
   - 0.01
   - 0.25
   soma.g_pas: !!python/tuple
-  - 1.0E-18
-  - 1.0E-6
+  - 1.0E-12
+  - 1.0E-8
   soma.gCa factor: !!python/tuple
   - 0.1
   - 5.0
