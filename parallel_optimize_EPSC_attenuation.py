@@ -147,7 +147,7 @@ def setup_cell(verbose=False, cvode=False, daspk=False, **kwargs):
 
     syn_list = []
     i = 0
-    while len(syn_list) < 2 and i < len(candidate_branches):
+    while len(syn_list) < context.num_branches and i < len(candidate_branches):
         branch = candidate_branches[i]
         parents = [syn.branch.parent for syn in syn_list]
         if branch.parent not in parents:
@@ -233,9 +233,8 @@ def get_iEPSP_features_long_ISI(indiv, c=None, client_range=None, export=False):
         map_func = map
     x = indiv['x']
     ISI_key = 'long'
-    result = map_func(compute_iEPSP_amp_features, [x] * len(context.syn_list), range(len(context.syn_list)),
-                      [ISI_key] * len(context.syn_list), [None] * len(context.syn_list),
-                      [export] * len(context.syn_list))
+    result = map_func(compute_iEPSP_amp_features, [x] * context.num_branches, range(context.num_branches),
+                      [ISI_key] * context.num_branches, [None] * context.num_branches, [export] * context.num_branches)
     return {'pop_id': indiv['pop_id'], 'client_range': client_range, 'async_result': result,
             'filter_features': filter_iEPSP_features}
 
