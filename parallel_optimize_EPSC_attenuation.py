@@ -346,6 +346,7 @@ def iEPSP_amp_error(x, syn_index):
     :param syn_index: int
     :return: float
     """
+    start_time = time.time()
     syn = context.syn_list[syn_index]
     syn.target(context.syn_types[0]).imax = x[0]
     syn.source.play(h.Vector([context.equilibrate]))
@@ -360,7 +361,8 @@ def iEPSP_amp_error(x, syn_index):
     iEPSP_amp = np.max(vm[int(context.equilibrate / context.dt):])
     Err = ((iEPSP_amp - context.target_iEPSP_amp) / 0.01) ** 2.
     if context.disp:
-        print '%s.imax: %.4f, soma iEPSP amp: %.3f' % (context.syn_types[0], x[0], iEPSP_amp)
+        print '%s.imax: %.4f, soma iEPSP amp: %.3f, simulation took %.1f s' % (context.syn_types[0], x[0], iEPSP_amp,
+                                                                               time.time() - start_time)
     return Err
 
 
@@ -383,8 +385,8 @@ def compute_iEPSP_amp_features(x, syn_index, ISI_key, imax=None, export=False, p
     if imax is None:
         imax = 0.05
         result = optimize.minimize(iEPSP_amp_error, [imax], args=(syn_index,), method='L-BFGS-B',
-                                   bounds=[(imax / 10., imax * 10.)],
-                                   options={'ftol': 1e-3, 'xtol': 1e-3, 'disp': True, 'maxfun': 10})
+                                   bounds=[(imax / 2., imax * 2.)],
+                                   options={'ftol': 1e-3, 'disp': True, 'maxfun': 5})
         imax = result.x[0]
 
     syn = context.syn_list[syn_index]
