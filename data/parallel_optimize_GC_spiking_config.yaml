@@ -52,7 +52,6 @@ bounds:
   - 6.0
 default_params:
   dend.gbar_nas bo: 5
-  dend.gbar_nas min: 0.0
 feature_names:
 - v_th
 - ADP
@@ -69,10 +68,10 @@ feature_names:
 - f_I_slope
 - f_I_residuals
 features_modules: !!python/tuple
-- parallel_optimize_spiking
-- parallel_optimize_spiking
+- parallel_optimize_GC_spiking
+- parallel_optimize_GC_spiking
 get_features: !!python/tuple
-- get_stability_features
+- get_spike_shape_features
 - get_fI_features
 group_sizes: !!python/tuple
 - 1
@@ -100,8 +99,8 @@ objective_names:
 - adi
 - f_I_slope
 objectives_modules: !!python/tuple
-- parallel_optimize_spiking
-optimization_title: spiking
+- parallel_optimize_GC_spiking
+optimization_title: GC_spiking
 param_gen: BGen
 param_names:
 - soma.gbar_nas
@@ -122,10 +121,10 @@ param_names:
 - soma.gkmbar
 - ais.gkmbar
 rel_bounds:
-- - soma.gbar_nas
-  - '>'
+- - dend.gbar_nas min
+  - '<'
   - 1.0
-  - dend.gbar_nas min
+  - soma.gbar_nas
 - - dend.gbar_nas
   - <
   - 1.0
@@ -177,9 +176,9 @@ target_val:
   vm_stability: 0.0
   f_I_slope: 53.0
 update_modules: !!python/tuple
-- parallel_optimize_spiking
+- parallel_optimize_GC_spiking
 update_params: !!python/tuple
-- update_na_ka_stability
+- update_spike_shape_params
 x0:
   ais.gbar_nax: 0.1681
   ais.gkmbar: 0.01286

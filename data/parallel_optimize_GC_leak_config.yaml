@@ -1,20 +1,19 @@
 bounds:
   dend.g_pas slope: !!python/tuple
-  - 1.0E-12
-  - 1.0E-4
+  - 1.0E-10
+  - 1.0E-5
   dend.g_pas tau: !!python/tuple
   - 25.
   - 400.
   soma.g_pas: !!python/tuple
-  - 1.0E-18
-  - 1.0E-6
-default_params: {}
+  - 1.0E-12
+  - 1.0E-7
 feature_names:
 - dend R_inp
 - distal_dend R_inp
 - soma R_inp
 features_modules: !!python/tuple
-- parallel_optimize_leak
+- parallel_optimize_GC_leak
 get_features: !!python/tuple
 - get_Rinp_features
 group_sizes: !!python/tuple
@@ -32,8 +31,8 @@ objective_names:
 - distal_dend R_inp
 - soma R_inp
 objectives_modules: !!python/tuple
-- parallel_optimize_leak
-optimization_title: leak
+- parallel_optimize_GC_leak
+optimization_title: GC_leak
 param_gen: BGen
 param_names:
 - dend.g_pas slope
@@ -48,7 +47,7 @@ target_val:
 update_params: !!python/tuple
 - update_pas_exp
 update_modules: !!python/tuple
-- parallel_optimize_leak
+- parallel_optimize_GC_leak
 x0:
   dend.g_pas slope: 1.058E-08
   dend.g_pas tau: 3.886E+01

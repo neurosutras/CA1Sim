@@ -11,13 +11,13 @@ at bifurcation of trunk and tuft.
 Optimize g_pas for target rinp at soma, trunk bifurcation, and tuft bifurcation [without h].
 
 Modify a YAML file to include parameters necessary for this script. Then, set up ipcluster and run parallel_optimize.py
-Current YAML filepath: data/parallel_optimize_leak_config.yaml
+Current YAML filepath: data/parallel_optimize_GC_leak_config.yaml
 """
 
 context = Context()
 
 
-def setup_module_from_file(param_file_path='data/parallel_optimize_leak_config.yaml', output_dir='data', rec_file_path=None,
+def setup_module_from_file(param_file_path='data/parallel_optimize_GC_leak_config.yaml', output_dir='data', rec_file_path=None,
                            export_file_path=None, verbose=True, disp=True):
     """
 
@@ -30,15 +30,18 @@ def setup_module_from_file(param_file_path='data/parallel_optimize_leak_config.y
     params_dict = read_from_yaml(param_file_path)
     param_gen = params_dict['param_gen']
     param_names = params_dict['param_names']
-    default_params = params_dict['default_params']
+    if 'default_params' not in params_dict or params_dict['default_params'] is None:
+        default_params = {}
+    else:
+        default_params = params_dict['default_params']
     x0 = params_dict['x0']
     for param in default_params:
         params_dict['bounds'][param] = (default_params[param], default_params[param])
     bounds = [params_dict['bounds'][key] for key in param_names]
-    if 'rel_bounds' in params_dict:
-        rel_bounds = params_dict['rel_bounds']
-    else:
+    if 'rel_bounds' not in params_dict or params_dict['rel_bounds'] is None:
         rel_bounds = None
+    else:
+        rel_bounds = params_dict['rel_bounds']
     feature_names = params_dict['feature_names']
     objective_names = params_dict['objective_names']
     target_val = params_dict['target_val']
@@ -72,8 +75,9 @@ def config_controller(export_file_path, **kwargs):
 
     :param export_file_path: str (path)
     """
+    processed_export_file_path = export_file_path.replace('.hdf5', '_processed.hdf5')
     context.update(locals())
-    set_constants()
+    init_context()
 
 
 def config_engine(update_params_funcs, param_names, default_params, rec_file_path, export_file_path, output_dur, disp,
@@ -93,13 +97,17 @@ def config_engine(update_params_funcs, param_names, default_params, rec_file_pat
     """
     neuroH5_dict = read_from_pkl(neuroH5_file_path)[neuroH5_index]
     param_indexes = {param_name: i for i, param_name in enumerate(param_names)}
+    processed_export_file_path = export_file_path.replace('.hdf5', '_processed.hdf5')
     context.update(locals())
     context.update(kwargs)
-    set_constants()
+    init_context()
     setup_cell(**kwargs)
 
 
-def set_constants():
+def init_context():
+    """
+
+    """
     equilibrate = 250.  # time to steady-state
     stim_dur = 500.
     duration = equilibrate + stim_dur
@@ -244,10 +252,12 @@ def compute_Rinp_features(section, x, export=False):
     stim_dur = context.stim_dur
     equilibrate = context.equilibrate
     v_init = context.v_init
+    title = 'Rinp_features'
+    description = 'step current: %s' % section
     context.sim.tstop = duration
     context.sim.parameters['section'] = section
-    context.sim.parameters['target'] = 'Rinp'
-    context.sim.parameters['description'] = 'Rinp_' + section
+    context.sim.parameters['title'] = title
+    context.sim.parameters['description'] = description
     context.sim.parameters['duration'] = duration
     amp = -0.05
     context.sim.parameters['amp'] = amp
@@ -261,7 +271,7 @@ def compute_Rinp_features(section, x, export=False):
     Rinp = get_Rinp(np.array(context.sim.tvec), np.array(rec['vec']), equilibrate, duration, amp)[2]
     result = {}
     result[section+' R_inp'] = Rinp
-    print 'Process:', os.getpid(), 'calculated Rinp for %s in %.1f s, Rinp: %.1f' % (section, time.time() - start_time,
+    print 'Process: %i: %s: %s took %.1f s, Rinp: %.1f' % (os.getpid(), title, description, time.time() - start_time,
                                                                                     Rinp)
     if export:
         export_sim_results()

@@ -12,7 +12,7 @@ Requires use of an ipyparallel client.
 context = Context()
 
 
-def setup_module_from_file(param_file_path='data/parallel_optimize_spiking_config.yaml', output_dir='data',
+def setup_module_from_file(param_file_path='data/parallel_optimize_GC_spiking_config.yaml', output_dir='data',
                            rec_file_path=None, export_file_path=None, verbose=True, disp=True):
     """
 
@@ -25,15 +25,18 @@ def setup_module_from_file(param_file_path='data/parallel_optimize_spiking_confi
     params_dict = read_from_yaml(param_file_path)
     param_gen = params_dict['param_gen']
     param_names = params_dict['param_names']
-    default_params = params_dict['default_params']
+    if 'default_params' not in params_dict or params_dict['default_params'] is None:
+        default_params = {}
+    else:
+        default_params = params_dict['default_params']
     x0 = params_dict['x0']
     for param in default_params:
         params_dict['bounds'][param] = (default_params[param], default_params[param])
     bounds = [params_dict['bounds'][key] for key in param_names]
-    if 'rel_bounds' in params_dict:
-        rel_bounds = params_dict['rel_bounds']
-    else:
+    if 'rel_bounds' not in params_dict or params_dict['rel_bounds'] is None:
         rel_bounds = None
+    else:
+        rel_bounds = params_dict['rel_bounds']
     feature_names = params_dict['feature_names']
     objective_names = params_dict['objective_names']
     target_val = params_dict['target_val']
@@ -67,8 +70,9 @@ def config_controller(export_file_path, **kwargs):
 
     :param export_file_path: str
     """
+    processed_export_file_path = export_file_path.replace('.hdf5', '_processed.hdf5')
     context.update(locals())
-    set_constants()
+    init_context()
 
 
 def config_engine(update_params_funcs, param_names, default_params, rec_file_path, export_file_path, output_dur, disp,
@@ -88,13 +92,14 @@ def config_engine(update_params_funcs, param_names, default_params, rec_file_pat
     """
     neuroH5_dict = read_from_pkl(neuroH5_file_path)[neuroH5_index]
     param_indexes = {param_name: i for i, param_name in enumerate(param_names)}
+    processed_export_file_path = export_file_path.replace('.hdf5', '_processed.hdf5')
     context.update(locals())
     context.update(kwargs)
-    set_constants()
+    init_context()
     setup_cell(**kwargs)
 
 
-def set_constants():
+def init_context():
     """
 
     """
@@ -208,7 +213,7 @@ def update_submodule_params(x, local_context=None):
         update_func(x, local_context)
 
 
-def get_stability_features(indiv, c, client_range, export=False):
+def get_spike_shape_features(indiv, c, client_range, export=False):
     """
     Distribute simulations across available engines for testing spike stability.
     :param indiv: dict {'pop_id': pop_id, 'x': x arr, 'features': features dict}
@@ -219,8 +224,102 @@ def get_stability_features(indiv, c, client_range, export=False):
     """
     dv = c[client_range]
     x = indiv['x']
-    result = dv.map_async(compute_stability_features, [x], [export])
+    result = dv.map_async(compute_spike_shape_features, [x], [export])
     return {'pop_id': indiv['pop_id'], 'client_range': client_range, 'async_result': result}
+
+
+def compute_spike_shape_features(x, export=False, plot=False):
+    """
+    :param x: array
+    :param export: bool
+    :param plot: bool
+    :return: float
+    """
+    start_time = time.time()
+    update_submodule_params(x, context)
+    result = {}
+    v_active = context.v_active
+    equilibrate = context.equilibrate
+    dt = context.dt
+    i_th = context.i_th
+
+    soma_vm = offset_vm('soma', v_active)
+    result['v_rest'] = soma_vm
+    stim_dur = 150.
+    step_stim_index = context.sim.get_stim_index('step')
+    context.sim.modify_stim(step_stim_index, node=context.cell.tree.root, loc=0., dur=stim_dur)
+    duration = equilibrate + stim_dur
+    context.sim.tstop = duration
+    t = np.arange(0., duration, dt)
+    spike = False
+    d_amp = 0.01
+    amp = max(0., i_th['soma'] - 0.02)
+    while not spike:
+        context.sim.modify_stim(step_stim_index, amp=amp)
+        context.sim.run(v_active)
+        vm = np.interp(t, context.sim.tvec, context.sim.get_rec('soma')['vec'])
+        if np.any(vm[:int(equilibrate/dt)] > -30.):
+            if context.disp:
+                print 'Process %i: Aborting - spontaneous firing' % (os.getpid())
+            return None
+        if np.any(vm[int(equilibrate/dt):int((equilibrate+50.)/dt)] > -30.):
+            spike = True
+        elif amp >= 0.4:
+            if context.disp:
+                print 'Process %i: Aborting - rheobase outside target range' % (os.getpid())
+            return None
+        else:
+            amp += d_amp
+            if context.sim.verbose:
+                print 'increasing amp to %.3f' % amp
+    title = 'spike_shape_features'
+    description = 'rheobase: %.3f' % amp
+    context.sim.parameters['amp'] = amp
+    context.sim.parameters['title'] = title
+    context.sim.parameters['description'] = description
+    context.sim.parameters['duration'] = duration
+    i_th['soma'] = amp
+    spike_times = context.cell.spike_detector.get_recordvec().to_python()
+    peak, threshold, ADP, AHP = get_spike_shape(vm, spike_times)
+    result['v_th'] = threshold
+    result['ADP'] = ADP
+    result['AHP'] = AHP
+    result['rheobase'] = amp
+    result['spont_firing'] = len(np.where(spike_times < equilibrate)[0])
+    result['th_count'] = len(spike_times)
+    dend_vm = np.interp(t, context.sim.tvec, context.sim.get_rec('dend')['vec'])
+    th_x = np.where(vm[int(equilibrate / dt):] >= threshold)[0][0] + int(equilibrate / dt)
+    if len(spike_times) > 1:
+        end = min(th_x + int(10. / dt), int((spike_times[1] - 5.)/dt))
+    else:
+        end = th_x + int(10. / dt)
+    result['soma_peak'] = peak
+    dend_peak = np.max(dend_vm[th_x:end])
+    dend_pre = np.mean(dend_vm[int((equilibrate - 3.) / dt):int((equilibrate - 1.) / dt)])
+    result['dend_amp'] = (dend_peak - dend_pre) / (peak - soma_vm)
+
+    # calculate AIS delay
+    soma_dvdt = np.gradient(vm, dt)
+    ais_vm = np.interp(t, context.sim.tvec, context.sim.get_rec('ais')['vec'])
+    ais_dvdt = np.gradient(ais_vm, dt)
+    axon_vm = np.interp(t, context.sim.tvec, context.sim.get_rec('axon')['vec'])
+    axon_dvdt = np.gradient(axon_vm, dt)
+    left = th_x - int(2. / dt)
+    right = th_x + int(5. / dt)
+    soma_peak = np.max(soma_dvdt[left:right])
+    soma_peak_t = np.where(soma_dvdt[left:right] == soma_peak)[0][0] * dt
+    ais_peak = np.max(ais_dvdt[left:right])
+    ais_peak_t = np.where(ais_dvdt[left:right] == ais_peak)[0][0] * dt
+    axon_peak = np.max(axon_dvdt[left:right])
+    axon_peak_t = np.where(axon_dvdt[left:right] == axon_peak)[0][0] * dt
+    result['ais_delay'] = max(0., ais_peak_t + dt - soma_peak_t) + max(0., ais_peak_t + dt - axon_peak_t)
+    if context.disp:
+        print 'Process: %i: %s: %s took %.1f s' % (os.getpid(), title, description, time.time() - start_time)
+    if plot:
+        context.sim.plot()
+    if export:
+        export_sim_results()
+    return result
 
 
 def get_fI_features(indiv, c, client_range, export=False):
@@ -241,6 +340,67 @@ def get_fI_features(indiv, c, client_range, export=False):
                           [x] * num_incr, [False] * (num_incr-1) + [True], [export] * num_incr)
     return {'pop_id': indiv['pop_id'], 'client_range': client_range, 'async_result': result,
             'filter_features': filter_fI_features}
+
+
+def compute_fI_features(amp, x, extend_dur=False, export=False, plot=False):
+    """
+
+    :param amp: float
+    :param x: array
+    :param extend_dur: bool
+    :param export: bool
+    :param plot: bool
+    :return: dict
+    """
+    start_time = time.time()
+    update_submodule_params(x, context)
+
+    soma_vm = offset_vm('soma', context.v_active)
+    context.sim.parameters['amp'] = amp
+    context.sim.parameters['description'] = 'f_I'
+
+    stim_dur = context.stim_dur
+    equilibrate = context.equilibrate
+    v_active = context.v_active
+    dt = context.dt
+
+    step_stim_index = context.sim.get_stim_index('step')
+    context.sim.modify_stim(step_stim_index, node=context.cell.tree.root, loc=0., dur=stim_dur, amp=amp)
+    if extend_dur:
+        # extend duration of simulation to examine rebound
+        duration = equilibrate + stim_dur + 100.
+    else:
+        duration = equilibrate + stim_dur
+
+    title = 'f_I_features'
+    description = 'step current amp: %.3f' % amp
+    context.sim.tstop = duration
+    context.sim.parameters['duration'] = duration
+    context.sim.parameters['title'] = title
+    context.sim.parameters['description'] = description
+    context.sim.run(v_active)
+    if plot:
+        context.sim.plot()
+    spike_times = np.subtract(context.cell.spike_detector.get_recordvec().to_python(), equilibrate)
+    t = np.arange(0., duration, dt)
+    result = {}
+    result['spike_times'] = spike_times
+    result['amp'] = amp
+    if extend_dur:
+        vm = np.interp(t, context.sim.tvec, context.sim.get_rec('soma')['vec'])
+        v_min_late = np.min(vm[int((equilibrate + stim_dur - 20.) / dt):int((equilibrate + stim_dur - 1.) / dt)])
+        result['v_min_late'] = v_min_late
+        v_rest = np.mean(vm[int((equilibrate - 3.) / dt):int((equilibrate - 1.) / dt)])
+        v_after = np.max(vm[-int(50. / dt):-1])
+        vm_stability = abs(v_after - v_rest)
+        result['vm_stability'] = vm_stability
+        result['rebound_firing'] = len(np.where(spike_times > stim_dur)[0])
+    if context.disp:
+        print 'Process: %i: %s: %s took %.1f s' % (os.getpid(), title, description, time.time() - start_time)
+        sys.stdout.flush()
+    if export:
+        export_sim_results()
+    return result
 
 
 def filter_fI_features(computed_result_list, current_features, target_val, target_range, export=False):
@@ -291,9 +451,11 @@ def filter_fI_features(computed_result_list, current_features, target_val, targe
     amps = map(amps.__getitem__, adapt_ind)
     experimental_f_I_slope = target_val['f_I_slope']  # Hz/ln(pA); rate = slope * ln(current - rheobase)
     if export:
-        context.processed_export_file_path = context.export_file_path.replace('.hdf5', '_processed.hdf5')
+        description = 'f_I_features'
         with h5py.File(context.processed_export_file_path, 'a') as f:
-            group = f.create_group(str(len(f)))
+            if description not in f:
+                f.create_group(description)
+            group = f[description]
             group.create_dataset('amps', compression='gzip', compression_opts=9, data=amps)
             group.create_dataset('adi', compression='gzip', compression_opts=9, data=new_features['adi'])
             group.create_dataset('exp_adi', compression='gzip', compression_opts=9, data=new_features['exp_adi'])
@@ -352,156 +514,6 @@ def get_objectives(features, target_val, target_range):
         features['f_I_slope'] = slope
         features.pop('f_I')
     return features, objectives
-
-
-def compute_stability_features(x, export=False, plot=False):
-    """
-    :param x: array
-    :param export: bool
-    :param plot: bool
-    :return: float
-    """
-    start_time = time.time()
-    update_submodule_params(x, context)
-    result = {}
-    v_active = context.v_active
-    equilibrate = context.equilibrate
-    dt = context.dt
-    i_th = context.i_th
-
-    soma_vm = offset_vm('soma', v_active)
-    result['v_rest'] = soma_vm
-    stim_dur = 150.
-    step_stim_index = context.sim.get_stim_index('step')
-    context.sim.modify_stim(step_stim_index, node=context.cell.tree.root, loc=0., dur=stim_dur)
-    duration = equilibrate + stim_dur
-    context.sim.tstop = duration
-    t = np.arange(0., duration, dt)
-    spike = False
-    d_amp = 0.01
-    amp = max(0., i_th['soma'] - 0.02)
-    while not spike:
-        context.sim.modify_stim(step_stim_index, amp=amp)
-        context.sim.run(v_active)
-        vm = np.interp(t, context.sim.tvec, context.sim.get_rec('soma')['vec'])
-        if np.any(vm[:int(equilibrate/dt)] > -30.):
-            if context.disp:
-                print 'Process %i: Aborting - spontaneous firing' % (os.getpid())
-            return None
-        if np.any(vm[int(equilibrate/dt):int((equilibrate+50.)/dt)] > -30.):
-            spike = True
-        elif amp >= 0.4:
-            if context.disp:
-                print 'Process %i: Aborting - rheobase outside target range' % (os.getpid())
-            return None
-        else:
-            amp += d_amp
-            if context.sim.verbose:
-                print 'increasing amp to %.3f' % amp
-    context.sim.parameters['amp'] = amp
-    context.sim.parameters['description'] = 'spike_shape'
-    context.sim.parameters['duration'] = duration
-    i_th['soma'] = amp
-    spike_times = context.cell.spike_detector.get_recordvec().to_python()
-    peak, threshold, ADP, AHP = get_spike_shape(vm, spike_times)
-    result['v_th'] = threshold
-    result['ADP'] = ADP
-    result['AHP'] = AHP
-    result['rheobase'] = amp
-    result['spont_firing'] = len(np.where(spike_times < equilibrate)[0])
-    result['th_count'] = len(spike_times)
-    dend_vm = np.interp(t, context.sim.tvec, context.sim.get_rec('dend')['vec'])
-    th_x = np.where(vm[int(equilibrate / dt):] >= threshold)[0][0] + int(equilibrate / dt)
-    if len(spike_times) > 1:
-        end = min(th_x + int(10. / dt), int((spike_times[1] - 5.)/dt))
-    else:
-        end = th_x + int(10. / dt)
-    result['soma_peak'] = peak
-    dend_peak = np.max(dend_vm[th_x:end])
-    dend_pre = np.mean(dend_vm[int((equilibrate - 3.) / dt):int((equilibrate - 1.) / dt)])
-    result['dend_amp'] = (dend_peak - dend_pre) / (peak - soma_vm)
-
-    # calculate AIS delay
-    soma_dvdt = np.gradient(vm, dt)
-    ais_vm = np.interp(t, context.sim.tvec, context.sim.get_rec('ais')['vec'])
-    ais_dvdt = np.gradient(ais_vm, dt)
-    axon_vm = np.interp(t, context.sim.tvec, context.sim.get_rec('axon')['vec'])
-    axon_dvdt = np.gradient(axon_vm, dt)
-    left = th_x - int(2. / dt)
-    right = th_x + int(5. / dt)
-    soma_peak = np.max(soma_dvdt[left:right])
-    soma_peak_t = np.where(soma_dvdt[left:right] == soma_peak)[0][0] * dt
-    ais_peak = np.max(ais_dvdt[left:right])
-    ais_peak_t = np.where(ais_dvdt[left:right] == ais_peak)[0][0] * dt
-    axon_peak = np.max(axon_dvdt[left:right])
-    axon_peak_t = np.where(axon_dvdt[left:right] == axon_peak)[0][0] * dt
-    result['ais_delay'] = max(0., ais_peak_t + dt - soma_peak_t) + max(0., ais_peak_t + dt - axon_peak_t)
-    if context.disp:
-        print 'Process %i took %.1f s to find spike rheobase at amp: %.3f' % (os.getpid(), time.time() - start_time,
-                                                                              amp)
-    if plot:
-        context.sim.plot()
-    if export:
-        export_sim_results()
-    return result
-
-
-def compute_fI_features(amp, x, extend_dur=False, export=False, plot=False):
-    """
-
-    :param amp: float
-    :param x: array
-    :param extend_dur: bool
-    :param export: bool
-    :param plot: bool
-    :return: dict
-    """
-    start_time = time.time()
-    update_submodule_params(x, context)
-
-    soma_vm = offset_vm('soma', context.v_active)
-    context.sim.parameters['amp'] = amp
-    context.sim.parameters['description'] = 'f_I'
-
-    stim_dur = context.stim_dur
-    equilibrate = context.equilibrate
-    v_active = context.v_active
-    dt = context.dt
-
-    step_stim_index = context.sim.get_stim_index('step')
-    context.sim.modify_stim(step_stim_index, node=context.cell.tree.root, loc=0., dur=stim_dur, amp=amp)
-    if extend_dur:
-        # extend duration of simulation to examine rebound
-        duration = equilibrate + stim_dur + 100.
-    else:
-        duration = equilibrate + stim_dur
-    context.sim.tstop = duration
-    context.sim.parameters['duration'] = duration
-    context.sim.parameters['description'] = 'f_I'
-    context.sim.run(v_active)
-    if plot:
-        context.sim.plot()
-    spike_times = np.subtract(context.cell.spike_detector.get_recordvec().to_python(), equilibrate)
-    t = np.arange(0., duration, dt)
-    result = {}
-    result['spike_times'] = spike_times
-    result['amp'] = amp
-    if extend_dur:
-        vm = np.interp(t, context.sim.tvec, context.sim.get_rec('soma')['vec'])
-        v_min_late = np.min(vm[int((equilibrate + stim_dur - 20.) / dt):int((equilibrate + stim_dur - 1.) / dt)])
-        result['v_min_late'] = v_min_late
-        v_rest = np.mean(vm[int((equilibrate - 3.) / dt):int((equilibrate - 1.) / dt)])
-        v_after = np.max(vm[-int(50. / dt):-1])
-        vm_stability = abs(v_after - v_rest)
-        result['vm_stability'] = vm_stability
-        result['rebound_firing'] = len(np.where(spike_times > stim_dur)[0])
-    if context.disp:
-        print 'Process %i took %.1f s to run simulation with I_inj amp: %.3f' % (os.getpid(), time.time() - start_time,
-                                                                                 amp)
-        sys.stdout.flush()
-    if export:
-        export_sim_results()
-    return result
 
 
 def offset_vm(description, vm_target=None):

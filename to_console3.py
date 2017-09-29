@@ -9,13 +9,13 @@ Varies properties of synaptic AMPA- and NMDA-type glutamate receptors at excitat
 of spatiotemporal synaptic integration in dendrites. 
 
 Optimization configurables specified in a YAML file.
-Current YAML file_path: data/parallel_optimize_synaptic_config.yaml
+Current YAML file_path: data/parallel_optimize_GC_synaptic_integration_config.yaml
 """
 
 context = Context()
 
 
-def setup_module_from_file(param_file_path='data/parallel_optimize_synaptic_config.yaml', output_dir='data',
+def setup_module_from_file(param_file_path='data/parallel_optimize_GC_synaptic_integration_config.yaml', output_dir='data',
                            rec_file_path=None, export_file_path=None, verbose=True, disp=True):
     """
     :param param_file_path: str (.yaml file path)

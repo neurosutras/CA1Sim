@@ -58,13 +58,13 @@ feature_names:
 - initial_gain_TTX
 - initial_gain_AP5
 features_modules: !!python/tuple
-- parallel_optimize_synaptic_integration
-- parallel_optimize_synaptic_integration
-- parallel_optimize_synaptic_integration
+- parallel_optimize_GC_synaptic_integration
+- parallel_optimize_GC_synaptic_integration
+- parallel_optimize_GC_synaptic_integration
 get_features: !!python/tuple
 - get_unitary_EPSP_features
 - get_compound_EPSP_features
-- get_stability_features
+- get_spike_shape_features
 group_sizes: !!python/tuple
 - 20
 - 120
@@ -88,8 +88,8 @@ objective_names:
 - initial_gain_TTX
 - initial_gain_AP5
 objectives_modules: !!python/tuple
-- parallel_optimize_synaptic_integration
-optimization_title: synaptic_integration
+- parallel_optimize_GC_synaptic_integration
+optimization_title: GC_synaptic_integration
 param_gen: BGen
 param_names:
 - AMPA.tau
@@ -143,7 +143,7 @@ target_val:
 update_params: !!python/tuple
 - update_AMPA_NMDA
 update_modules: !!python/tuple
-- parallel_optimize_synaptic_integration
+- parallel_optimize_GC_synaptic_integration
 x0:
   AMPA.g0: 0.000531417018
   AMPA.gmax bo: 5.79487545

@@ -24,4 +24,4 @@ sleep 60
 ibrun -n 1680 ipengine --mpi=mpi4py --cluster-id=$cluster_id &
 sleep 1
 sleep 180
-ibrun -n 1 python parallel_optimize.py --param-file-path='data/parallel_optimize_synaptic_config.yaml' --cluster-id=$cluster_id --pop-size=200 --max-iter=50 --path-length=3 --disp --export --output-dir=$SCRATCH --hot-start --storage-file-path=$SCRATCH/091220171311_synaptic_integration_BGen_optimization_history.hdf5
+ibrun -n 1 python parallel_optimize.py --param-file-path='data/parallel_optimize_GC_synaptic_integration_config.yaml' --cluster-id=$cluster_id --pop-size=200 --max-iter=50 --path-length=3 --disp --export --output-dir=$SCRATCH --hot-start --storage-file-path=$SCRATCH/091220171311_synaptic_integration_BGen_optimization_history.hdf5

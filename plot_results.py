@@ -5325,52 +5325,56 @@ def plot_best_norm_features_scatter(storage, target_val, target_range):
     mpl.rcParams['font.size'] = orig_fontsize
 
 
-def plot_exported_spiking_features(processed_export_file_path):
+def plot_parallel_optimize_exported_f_I_features(processed_export_file_path):
     """
 
-    :param processed_export_file_path: str
-    :return:
+    :param processed_export_file_path: str (path)
     """
     orig_fontsize = mpl.rcParams['font.size']
-    mpl.rcParams['font.size'] = 20.
+    # mpl.rcParams['font.size'] = 20.
+    description = 'f_I_features'
     with h5py.File(processed_export_file_path, 'r') as f:
-        for group in f.itervalues():
-            amps = group['amps']
-            colors = ['k', 'r', 'c', 'y', 'm', 'g', 'b']
-            plt.figure(1)
-            plt.scatter(amps, group['adi'], label='Simulation', c='m', alpha = 0.6)
-            plt.scatter(amps, group['exp_adi'], label='Experiment', c='g', alpha = 0.6)
-            plt.legend(loc='best', frameon=False, framealpha=0.5)
-            plt.xlabel('Current injection amp (nA)')
-            plt.ylabel('Adaptation index')
-            plt.figure(2)
-            plt.scatter(amps, group['f_I'], label='Simulation', c='m', alpha = 0.6)
-            plt.scatter(amps, group['exp_f_I'], label='Experiment', c='g', alpha = 0.6)
-            plt.legend(loc='best', frameon=False, framealpha=0.5)
-            plt.xlabel('Current injection amp (nA)')
-            plt.ylabel('Firing Rate (Hz)')
-        plt.show()
-        plt.close()
+        group  = f[description]
+        amps = group['amps']
+        fig, axes = plt.subplots(1, 2)
+        axes[0].scatter(amps, group['adi'], label='Simulation', c='r', alpha=0.6)
+        axes[0].scatter(amps, group['exp_adi'], label='Experiment', c='k', alpha=0.6)
+        axes[0].legend(loc='best', frameon=False, framealpha=0.5)
+        axes[0].set_xlabel('Current injection amp (nA)')
+        axes[0].set_ylabel('Adaptation index')
+        axes[1].scatter(amps, group['f_I'], label='Simulation', c='r', alpha=0.6)
+        axes[1].scatter(amps, group['exp_f_I'], label='Experiment', c='k', alpha=0.6)
+        axes[1].legend(loc='best', frameon=False, framealpha=0.5)
+        axes[1].set_xlabel('Current injection amp (nA)')
+        axes[1].set_ylabel('Firing Rate (Hz)')
+    clean_axes(axes)
+    fig.tight_layout()
+    plt.show()
+    plt.close()
     mpl.rcParams['font.size'] = orig_fontsize
 
 
-def plot_traces(export_file_path):
+def plot_parallel_optimize_exported_traces(export_file_path):
+    """
+
+    :param export_file_path: str (path)
+    """
     orig_fontsize = mpl.rcParams['font.size']
-    mpl.rcParams['font.size'] = 20.
+    # mpl.rcParams['font.size'] = 20.
     with h5py.File(export_file_path, 'r') as f:
         for trial in f.itervalues():
-            amplitude = trial.attrs['amp']
+            # amplitude = trial.attrs['amp']
             fig, axes = plt.subplots(1)
             for rec in trial['rec'].itervalues():
                 axes.plot(trial['time'], rec, label=rec.attrs['description'])
             axes.legend(loc='best', frameon=False, framealpha=0.5)
             axes.set_xlabel('Time (ms)')
             axes.set_ylabel('Vm (mV)')
-            axes.set_title('Optimize %s: I_inj amplitude %.2f' % (trial.attrs['description'], amplitude))
+            axes.set_title('%s: %s' % (trial.attrs['title'], trial.attrs['description']))
             clean_axes(axes)
             fig.tight_layout()
-        plt.show()
-        plt.close()
+    plt.show()
+    plt.close()
     mpl.rcParams['font.size'] = orig_fontsize
 
 

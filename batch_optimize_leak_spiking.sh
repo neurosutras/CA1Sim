@@ -24,4 +24,4 @@ sleep 60
 ibrun -n 1000 ipengine --mpi=mpi4py --cluster-id=$cluster_id &
 sleep 1
 sleep 180
-ibrun -n 1 python parallel_optimize.py --param-file-path='data/parallel_optimize_leak_spiking_config.yaml' --cluster-id=$cluster_id --pop-size=200 --max-iter=50 --path-length=3 --disp --export --output-dir=$SCRATCH
+ibrun -n 1 python parallel_optimize.py --param-file-path='data/parallel_optimize_GC_leak_spiking_config.yaml' --cluster-id=$cluster_id --pop-size=200 --max-iter=50 --path-length=3 --disp --export --output-dir=$SCRATCH

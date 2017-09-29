@@ -8,14 +8,14 @@ Varies properties of synaptic AMPA- and NMDA-type glutamate receptors at excitat
 of spatiotemporal synaptic integration in dendrites. 
 
 Optimization configurables specified in a YAML file.
-Current YAML file_path: data/optimize_synaptic_defaults.yaml
+Current YAML file_path: data/parallel_optimize_GC_synaptic_integration_config.yaml
 """
 
 context = Context()
 
 
-def setup_module_from_file(param_file_path='data/parallel_optimize_synaptic_config.yaml', output_dir='data',
-                           rec_file_path=None, export_file_path=None, verbose=True, disp=True):
+def setup_module_from_file(param_file_path='data/parallel_optimize_GC_synaptic_integration_config.yaml',
+                           output_dir='data', rec_file_path=None, export_file_path=None, verbose=True, disp=True):
     """
     :param param_file_path: str (.yaml file path)
     :param output_dir: str (dir path)
@@ -27,15 +27,18 @@ def setup_module_from_file(param_file_path='data/parallel_optimize_synaptic_conf
     params_dict = read_from_yaml(param_file_path)
     param_gen = params_dict['param_gen']
     param_names = params_dict['param_names']
-    default_params = params_dict['default_params']
+    if 'default_params' not in params_dict or params_dict['default_params'] is None:
+        default_params = {}
+    else:
+        default_params = params_dict['default_params']
     x0 = params_dict['x0']
     for param in default_params:
         params_dict['bounds'][param] = (default_params[param], default_params[param])
     bounds = [params_dict['bounds'][key] for key in param_names]
-    if 'rel_bounds' in params_dict:
-        rel_bounds = params_dict['rel_bounds']
-    else:
+    if 'rel_bounds' not in params_dict or params_dict['rel_bounds'] is None:
         rel_bounds = None
+    else:
+        rel_bounds = params_dict['rel_bounds']
     feature_names = params_dict['feature_names']
     objective_names = params_dict['objective_names']
     target_val = params_dict['target_val']
@@ -70,8 +73,9 @@ def config_controller(export_file_path, **kwargs):
 
     :param export_file_path: str
     """
+    processed_export_file_path = export_file_path.replace('.hdf5', '_processed.hdf5')
     context.update(locals())
-    set_constants()
+    init_context()
 
 
 def config_engine(update_params_funcs, param_names, default_params, rec_file_path, export_file_path, output_dur, disp,
@@ -91,13 +95,14 @@ def config_engine(update_params_funcs, param_names, default_params, rec_file_pat
     """
     neuroH5_dict = read_from_pkl(neuroH5_file_path)[neuroH5_index]
     param_indexes = {param_name: i for i, param_name in enumerate(param_names)}
+    processed_export_file_path = export_file_path.replace('.hdf5', '_processed.hdf5')
     context.update(locals())
     context.update(kwargs)
-    set_constants()
+    init_context()
     setup_cell(**kwargs)
 
 
-def set_constants():
+def init_context():
     """
 
     :return:
@@ -105,6 +110,7 @@ def set_constants():
     seed_offset = 7. * 2e6
     # for clustered inputs, num_syns corresponds to number of clustered inputs per branch
     num_syns = {'random': 30, 'clustered': 20}  # {'random': 30, 'clustered': 20}
+    # num_syns = {'random': 5, 'clustered': 5}  # {'random': 30, 'clustered': 20}
     # number of branches to test temporal integration of clustered inputs
     num_clustered_branches = 2
     clustered_branch_names = ['clustered%i' % i for i in xrange(num_clustered_branches)]
@@ -172,8 +178,9 @@ def setup_cell(verbose=False, cvode=False, daspk=False, **kwargs):
                           apical.sec.L > 80.]
     context.local_random.shuffle(candidate_branches)
 
+    parents = []
     success_branches = 0
-    for branch in candidate_branches:
+    for branch in (branch for branch in candidate_branches if branch.parent not in parents):
         this_synapse_attributes = branch.get_filtered_synapse_attributes(syn_category='excitatory')
         if this_synapse_attributes['syn_locs']:
             candidates = [(branch.index, syn_id, exc_syn_index)
@@ -182,6 +189,7 @@ def setup_cell(verbose=False, cvode=False, daspk=False, **kwargs):
             if len(candidates) >= context.num_syns['clustered']:
                 syn_pointer_list.extend(context.local_random.sample(candidates, context.num_syns['clustered']))
                 success_branches += 1
+                parents.append(branch.parent)
         if success_branches > 1:
             break
     if success_branches < 2:
@@ -294,6 +302,76 @@ def get_unitary_EPSP_features(indiv, c=None, client_range=None, export=False):
             'filter_features': filter_unitary_EPSP_features}
 
 
+def compute_EPSP_amp_features(x, syn_indexes, syn_condition, syn_group, export=False, plot=False):
+    """
+
+    :param x: arr
+    :param syn_indexes: list of int
+    :param syn_condition: str
+    :param syn_group: str
+    :param export: bool
+    :param plot: bool
+    :return: dict
+    """
+    start_time = time.time()
+    update_submodule_params(x, context)
+
+    soma_vm = offset_vm('soma', context.v_init)
+    synapses = [context.syn_list[syn_index] for syn_index in syn_indexes]
+    for i, syn in enumerate(synapses):
+        syn.source.play(h.Vector([context.equilibrate + i * context.ISI['units']]))
+        if i == 0:
+            context.sim.parameters['input_loc'] = syn.branch.type
+            context.sim.modify_rec(context.sim.get_rec_index('local_branch'), node=syn.branch)
+        if syn_condition == 'AP5':
+            syn.target(context.NMDA_type).gmax = 0.
+    description = 'condition: %s, group: %s, syn_indexes: %i:%i' % (syn_condition, syn_group, syn_indexes[0],
+                                                                    syn_indexes[-1])
+    title = 'EPSP_amp_features'
+    duration = context.sim_duration['units']
+    context.sim.tstop = duration
+    context.sim.parameters['duration'] = duration
+    context.sim.parameters['description'] = description
+    context.sim.parameters['title'] = title
+    context.sim.run(context.v_init)
+    dt = context.dt
+    equilibrate = context.equilibrate
+    interp_t = np.arange(0., duration, dt)
+    trace_baseline = context.trace_baseline
+
+    result = {}
+    for i, syn in enumerate(synapses):
+        start = int((equilibrate + i * context.ISI['units']) / dt)
+        end = start + int(context.ISI['units'] / dt)
+        trace_start = start - int(trace_baseline / dt)
+        baseline_start, baseline_end = int(start - 3. / dt), int(start - 1. / dt)
+        syn_id = syn_indexes[i]
+        if syn_id not in result:
+            result[syn_id] = {'traces': {}}
+        for rec in context.sim.rec_list:
+            interp_vm = np.interp(interp_t, context.sim.tvec, rec['vec'])
+            baseline = np.mean(interp_vm[baseline_start:baseline_end])
+            corrected_vm = interp_vm[trace_start:end] - baseline
+            peak = np.max(corrected_vm)
+            peak_index = np.where(corrected_vm == peak)[0][0]
+            zero_index = np.where(corrected_vm[peak_index:] <= 0.)[0]
+            if np.any(zero_index):
+                corrected_vm[peak_index+zero_index[0]:] = 0.
+            if rec['description'] == 'soma':
+                result[syn_id]['soma_EPSP_amp'] = peak
+            result[syn_id]['traces'][rec['description']] = np.array(corrected_vm)
+        syn.source.play(h.Vector())
+
+    result = {syn_group: {syn_condition: result}}
+    if context.disp:
+        print 'Process: %i: %s: %s took %.3f s' % (os.getpid(), title, description, time.time() - start_time)
+    if plot:
+        context.sim.plot()
+    if export:
+        export_sim_results()
+    return result
+
+
 def filter_unitary_EPSP_features(computed_result_list, current_features, target_val, target_range, export=False):
     """
 
@@ -327,24 +405,26 @@ def filter_unitary_EPSP_features(computed_result_list, current_features, target_
                     'NMDA_contribution': np.mean(NMDA_contribution_list),
                     'unitary_EPSP_traces': traces}
     if export:
-        processed_export_file_path = context.export_file_path.replace('.hdf5', '_processed.hdf5')
         t = np.arange(-context.trace_baseline, context.ISI['units'], context.dt)
         rec_names = traces['random']['control'].itervalues().next().keys()
-        with h5py.File(processed_export_file_path, 'a') as f:
-            if 'time' not in f:
-                f.create_group('time')
-            f['time'].create_dataset('unitary_EPSP', compression='gzip', compression_opts=9, data=t)
-            if 'random' not in f:
-                f.create_group('random')
+        description = 'unitary_EPSP_features'
+        with h5py.File(context.processed_export_file_path, 'a') as f:
+            if description not in f:
+                f.create_group(description)
+            if 'time' not in f[description]:
+                f[description].create_dataset('time', compression='gzip', compression_opts=9, data=t)
+            if 'data' not in f[description]:
+                f[description].create_group('data')
             for syn_condition in traces['random']:
-                if syn_condition not in f['random']:
-                    f['random'].create_group(syn_condition)
-                f['random'][syn_condition].create_group('mean_unitary_EPSP_traces')
+                if syn_condition not in f[description]['data']:
+                    f[description]['data'].create_group(syn_condition)
+                f[description]['data'][syn_condition].create_group('mean_traces')
                 for rec in rec_names:
                     this_mean_trace = np.mean([traces['random'][syn_condition][syn_id][rec]
                                                for syn_id in traces['random'][syn_condition]], axis=0)
-                    f['random'][syn_condition]['mean_unitary_EPSP_traces'].create_dataset(
-                        rec, compression='gzip', compression_opts=9, data=this_mean_trace)
+                    f[description]['data'][syn_condition]['mean_traces'].create_dataset(rec, compression='gzip',
+                                                                                        compression_opts=9,
+                                                                                        data=this_mean_trace)
     return new_features
 
 
@@ -380,6 +460,68 @@ def get_compound_EPSP_features(indiv, c=None, client_range=None, export=False):
                       syn_condition_list, syn_group_list, [export] * len(syn_index_list))
     return {'pop_id': indiv['pop_id'], 'client_range': client_range, 'async_result': result,
             'filter_features': filter_compound_EPSP_features}
+
+
+def compute_branch_cooperativity_features(x, syn_indexes, syn_condition, syn_group, export=False, plot=False):
+    """
+    The specified synapses are stimulated quasi-synchronously to measure synaptic cooperativity (spatiotemporal
+    integration).
+    :param x: arr
+    :param syn_indexes: list of int
+    :param syn_condition: str
+    :param syn_group: str
+    :param export: bool
+    :param plot: bool
+    :return: dict
+    """
+    start_time = time.time()
+    update_submodule_params(x, context)
+    if syn_condition == 'TTX':
+        context.cell.zero_na()
+
+    soma_vm = offset_vm('soma', context.v_init)
+    synapses = [context.syn_list[syn_index] for syn_index in syn_indexes]
+    for i, syn in enumerate(synapses):
+        syn.source.play(h.Vector([context.equilibrate + i * context.ISI['clustered']]))
+        if i == 0:
+            context.sim.parameters['input_loc'] = syn.branch.type
+            context.sim.modify_rec(context.sim.get_rec_index('local_branch'), node=syn.branch)
+        if syn_condition == 'AP5':
+            syn.target(context.NMDA_type).gmax = 0.
+    num_syns = len(syn_indexes)
+    description = 'condition: %s, group: %s, num_syns: %i' % (syn_condition, syn_group, num_syns)
+    title = 'branch_cooperativity_features'
+    duration = context.sim_duration['clustered']
+    context.sim.tstop = duration
+    context.sim.parameters['duration'] = duration
+    context.sim.parameters['description'] = description
+    context.sim.parameters['title'] = title
+    context.sim.run(context.v_init)
+    dt = context.dt
+    equilibrate = context.equilibrate
+    interp_t = np.arange(0., duration, dt)
+    trace_baseline = context.trace_baseline
+    start = int(equilibrate / dt)
+    trace_start = start - int(trace_baseline / dt)
+    baseline_start, baseline_end = int(start - 3. / dt), int(start - 1. / dt)
+
+    result = {'syn_indexes': syn_indexes, 'traces': {}}
+    for rec in context.sim.rec_list:
+        interp_vm = np.interp(interp_t, context.sim.tvec, rec['vec'])
+        baseline = np.mean(interp_vm[baseline_start:baseline_end])
+        corrected_vm = interp_vm[trace_start:] - baseline
+        result['traces'][rec['description']] = np.array(corrected_vm)
+    for i, syn in enumerate(synapses):
+        syn.source.play(h.Vector())
+
+    result = {syn_group: {syn_condition: {num_syns: result}}}
+    if context.disp:
+        print 'Process: %i: %s: %s took %.3f s' % (os.getpid(), title, description, time.time() - start_time)
+    if plot:
+        context.sim.plot()
+    if export:
+        export_sim_results()
+    return result
 
 
 def filter_compound_EPSP_features(computed_result_list, current_features, target_val, target_range, export=False):
@@ -453,32 +595,37 @@ def filter_compound_EPSP_features(computed_result_list, current_features, target
         new_features['initial_gain_' + syn_condition] = np.mean(initial_gain[syn_condition].values())
         new_features['integration_gain_'+syn_condition] = np.mean(integration_gain[syn_condition].values())
     if export:
-        processed_export_file_path = context.export_file_path.replace('.hdf5', '_processed.hdf5')
-        with h5py.File(processed_export_file_path, 'a') as f:
-            if 'time' not in f:
-                f.create_group('time')
-            f['time'].create_dataset('compound_EPSP', compression='gzip', compression_opts=9, data=t)
-            for syn_group_key in traces:
-                if syn_group_key not in f:
-                    f.create_group(syn_group_key)
-                syn_group = f[syn_group_key]
-                for syn_condition_key in traces[syn_group_key]:
-                    if syn_condition_key not in syn_group:
-                        syn_group.create_group(syn_condition_key)
-                    syn_condition = syn_group[syn_condition_key]
-                    traces_group = syn_condition.create_group('compound_EPSP_traces')
-                    for num_syns_key in traces[syn_group_key][syn_condition_key]:
-                        num_syns_group = traces_group.create_group(str(num_syns_key))
-                        for rec_key in traces[syn_group_key][syn_condition_key][num_syns_key]:
-                            num_syns_group.create_dataset(rec_key, compression='gzip', compression_opts=9,
-                                                          data=traces[syn_group_key][syn_condition_key][num_syns_key]
-                                                          [rec_key])
-                    syn_condition.create_dataset('compound_EPSP_amp', compression='gzip', compression_opts=9,
-                                                 data=soma_EPSP_amp_array[syn_group_key][syn_condition_key])
+        description = 'compound_EPSP_features'
+        with h5py.File(context.processed_export_file_path, 'a') as f:
+            if description not in f:
+                f.create_group(description)
+            if 'time' not in f[description]:
+                f[description].create_dataset('time', compression='gzip', compression_opts=9, data=t)
+            if 'data' not in f[description]:
+                f[description].create_group('data')
+            for syn_group in traces:
+                if syn_group not in f[description]['data']:
+                    f[description]['data'].create_group(syn_group)
+                for syn_condition in traces[syn_group]:
+                    if syn_condition not in f[description]['data'][syn_group]:
+                        f[description]['data'][syn_group].create_group(syn_condition)
+                    if 'traces' not in f[description]['data'][syn_group][syn_condition]:
+                        f[description]['data'][syn_group][syn_condition].create_group('traces')
+                    for num_syns in traces[syn_group][syn_condition]:
+                        num_syns_key = str(num_syns)
+                        if num_syns_key not in f[description]['data'][syn_group][syn_condition]['traces']:
+                            num_syns_group = f[description]['data'][syn_group][syn_condition]['traces'].create_group(
+                                num_syns_key)
+                        for rec in traces[syn_group][syn_condition][num_syns]:
+                            num_syns_group.create_dataset(rec, compression='gzip', compression_opts=9,
+                                                          data=traces[syn_group][syn_condition][num_syns][rec])
+                    f[description]['data'][syn_group][syn_condition].create_dataset(
+                        'EPSP_amp', compression='gzip', compression_opts=9,
+                        data=soma_EPSP_amp_array[syn_group][syn_condition])
     return new_features
 
 
-def get_stability_features(indiv, c, client_range, export=False):
+def get_spike_shape_features(indiv, c, client_range, export=False):
     """
     Distribute simulations across available engines for testing spike stability.
     :param indiv: dict {'pop_id': pop_id, 'x': x arr, 'features': features dict}
@@ -489,158 +636,11 @@ def get_stability_features(indiv, c, client_range, export=False):
     """
     dv = c[client_range]
     x = indiv['x']
-    result = dv.map_async(compute_stability_features, [x], [export])
+    result = dv.map_async(compute_spike_shape_features, [x], [export])
     return {'pop_id': indiv['pop_id'], 'client_range': client_range, 'async_result': result}
 
 
-def get_objectives(features, target_val, target_range):
-    """
-
-    :param features: dict
-    :param target_val: dict of float
-    :param target_range: dict of float
-    :return: tuple of dict
-    """
-    objectives = {}
-    objective_names = ['dend_AP_amp', 'soma_EPSP_amp', 'NMDA_contribution', 'integration_gain_control',
-                       'integration_gain_TTX', 'integration_gain_AP5', 'initial_gain_control', 'initial_gain_TTX',
-                       'initial_gain_AP5']
-    for objective_name in objective_names:
-        objectives[objective_name] = ((target_val[objective_name] - features[objective_name]) /
-                                      target_range[objective_name]) ** 2.
-    return features, objectives
-
-
-def compute_EPSP_amp_features(x, syn_indexes, syn_condition, syn_group, export=False, plot=False):
-    """
-
-    :param x: arr
-    :param syn_indexes: list of int
-    :param syn_condition: str
-    :param syn_group: str
-    :param export: bool
-    :param plot: bool
-    :return: dict
-    """
-    start_time = time.time()
-    update_submodule_params(x, context)
-
-    soma_vm = offset_vm('soma', context.v_init)
-    synapses = [context.syn_list[syn_index] for syn_index in syn_indexes]
-    for i, syn in enumerate(synapses):
-        syn.source.play(h.Vector([context.equilibrate + i * context.ISI['units']]))
-        if i == 0:
-            context.sim.parameters['input_loc'] = syn.branch.type
-            context.sim.modify_rec(context.sim.get_rec_index('local_branch'), node=syn.branch)
-        if syn_condition == 'AP5':
-            syn.target(context.NMDA_type).gmax = 0.
-    description = 'compute_EPSP_amp_features: condition: %s, group: %s, syn_indexes: %i:%i' % \
-                  (syn_condition, syn_group, syn_indexes[0], syn_indexes[-1])
-    duration = context.sim_duration['units']
-    context.sim.tstop = duration
-    context.sim.parameters['duration'] = duration
-    context.sim.parameters['description'] = 'compute_EPSP_amp_features'
-    context.sim.run(context.v_init)
-    dt = context.dt
-    equilibrate = context.equilibrate
-    interp_t = np.arange(0., duration, dt)
-    trace_baseline = context.trace_baseline
-
-    result = {}
-    for i, syn in enumerate(synapses):
-        start = int((equilibrate + i * context.ISI['units']) / dt)
-        end = start + int(context.ISI['units'] / dt)
-        trace_start = start - int(trace_baseline / dt)
-        baseline_start, baseline_end = int(start - 3. / dt), int(start - 1. / dt)
-        syn_id = syn_indexes[i]
-        if syn_id not in result:
-            result[syn_id] = {'traces': {}}
-        for rec in context.sim.rec_list:
-            interp_vm = np.interp(interp_t, context.sim.tvec, rec['vec'])
-            baseline = np.mean(interp_vm[baseline_start:baseline_end])
-            corrected_vm = interp_vm[trace_start:end] - baseline
-            peak = np.max(corrected_vm)
-            peak_index = np.where(corrected_vm == peak)[0][0]
-            zero_index = np.where(corrected_vm[peak_index:] <= 0.)[0]
-            if np.any(zero_index):
-                corrected_vm[peak_index+zero_index[0]:] = 0.
-            if rec['description'] == 'soma':
-                result[syn_id]['soma_EPSP_amp'] = peak
-            result[syn_id]['traces'][rec['description']] = np.array(corrected_vm)
-        syn.source.play(h.Vector())
-
-    result = {syn_group: {syn_condition: result}}
-    if context.disp:
-        print 'Process: %i: %s took %.3f s' % (os.getpid(), description, time.time() - start_time)
-    if plot:
-        context.sim.plot()
-    if export:
-        export_sim_results()
-    return result
-
-
-def compute_branch_cooperativity_features(x, syn_indexes, syn_condition, syn_group, export=False, plot=False):
-    """
-    The specified synapses are stimulated quasi-synchronously to measure synaptic cooperativity (spatiotemporal
-    integration).
-    :param x: arr
-    :param syn_indexes: list of int
-    :param syn_condition: str
-    :param syn_group: str
-    :param export: bool
-    :param plot: bool
-    :return: dict
-    """
-    start_time = time.time()
-    update_submodule_params(x, context)
-    if syn_condition == 'TTX':
-        context.cell.zero_na()
-
-    soma_vm = offset_vm('soma', context.v_init)
-    synapses = [context.syn_list[syn_index] for syn_index in syn_indexes]
-    for i, syn in enumerate(synapses):
-        syn.source.play(h.Vector([context.equilibrate + i * context.ISI['clustered']]))
-        if i == 0:
-            context.sim.parameters['input_loc'] = syn.branch.type
-            context.sim.modify_rec(context.sim.get_rec_index('local_branch'), node=syn.branch)
-        if syn_condition == 'AP5':
-            syn.target(context.NMDA_type).gmax = 0.
-    num_syns = len(syn_indexes)
-    description = 'compute_branch_cooperativity_features: condition: %s, group: %s, num_syns: %i' % \
-                  (syn_condition, syn_group, num_syns)
-    duration = context.sim_duration['clustered']
-    context.sim.tstop = duration
-    context.sim.parameters['duration'] = duration
-    context.sim.parameters['description'] = 'compute_branch_cooperativity_features'
-    context.sim.run(context.v_init)
-    dt = context.dt
-    equilibrate = context.equilibrate
-    interp_t = np.arange(0., duration, dt)
-    trace_baseline = context.trace_baseline
-    start = int(equilibrate / dt)
-    trace_start = start - int(trace_baseline / dt)
-    baseline_start, baseline_end = int(start - 3. / dt), int(start - 1. / dt)
-
-    result = {'syn_indexes': syn_indexes, 'traces': {}}
-    for rec in context.sim.rec_list:
-        interp_vm = np.interp(interp_t, context.sim.tvec, rec['vec'])
-        baseline = np.mean(interp_vm[baseline_start:baseline_end])
-        corrected_vm = interp_vm[trace_start:] - baseline
-        result['traces'][rec['description']] = np.array(corrected_vm)
-    for i, syn in enumerate(synapses):
-        syn.source.play(h.Vector())
-
-    result = {syn_group: {syn_condition: {num_syns: result}}}
-    if context.disp:
-        print 'Process: %i: %s took %.3f s' % (os.getpid(), description, time.time() - start_time)
-    if plot:
-        context.sim.plot()
-    if export:
-        export_sim_results()
-    return result
-
-
-def compute_stability_features(x, export=False, plot=False):
+def compute_spike_shape_features(x, export=False, plot=False):
     """
     :param x: array
     :param export: bool
@@ -681,8 +681,10 @@ def compute_stability_features(x, export=False, plot=False):
             amp += d_amp
             if context.sim.verbose:
                 print 'increasing amp to %.3f' % amp
-    context.sim.parameters['amp'] = amp
-    context.sim.parameters['description'] = 'spike_shape'
+    title = 'spike_shape_features'
+    description = 'step current amp: %.3f' % amp
+    context.sim.parameters['description'] = description
+    context.sim.parameters['title'] = title
     context.sim.parameters['duration'] = duration
     i_th['soma'] = amp
     spike_times = context.cell.spike_detector.get_recordvec().to_python()
@@ -696,12 +698,30 @@ def compute_stability_features(x, export=False, plot=False):
     dend_peak = np.max(dend_vm[th_x:end])
     dend_pre = np.mean(dend_vm[int((equilibrate - 3.) / dt):int((equilibrate - 1.) / dt)])
     result = {'dend_AP_amp': (dend_peak - dend_pre) / (peak - soma_vm)}
-    print 'Process %i took %.1f s to find spike rheobase at amp: %.3f' % (os.getpid(), time.time() - start_time, amp)
+    print 'Process %i: %s: %s took %.1f s' % (os.getpid(), title, description, time.time() - start_time)
     if plot:
         context.sim.plot()
     if export:
         export_sim_results()
     return result
+
+
+def get_objectives(features, target_val, target_range):
+    """
+
+    :param features: dict
+    :param target_val: dict of float
+    :param target_range: dict of float
+    :return: tuple of dict
+    """
+    objectives = {}
+    objective_names = ['dend_AP_amp', 'soma_EPSP_amp', 'NMDA_contribution', 'integration_gain_control',
+                       'integration_gain_TTX', 'integration_gain_AP5', 'initial_gain_control', 'initial_gain_TTX',
+                       'initial_gain_AP5']
+    for objective_name in objective_names:
+        objectives[objective_name] = ((target_val[objective_name] - features[objective_name]) /
+                                      target_range[objective_name]) ** 2.
+    return features, objectives
 
 
 def get_expected_compound_EPSP_traces(current_features, syn_indexes, syn_condition=None):
@@ -891,18 +911,21 @@ def export_sim_results():
         context.sim.export_to_file(f)
 
 
-def plot_exported_synaptic_features(processed_export_file_path):
+def plot_GC_synaptic_integration_features(processed_export_file_path=None):
     """
 
     :param processed_export_file_path: str
-    :return:
     """
+    if processed_export_file_path is None:
+        processed_export_file_path = context.processed_export_file_path
     from matplotlib import cm
+
     with h5py.File(processed_export_file_path, 'r') as f:
-        clustered_branch_names = [key for key in f if key not in ['random', 'time']]
-        syn_conditions = f[clustered_branch_names[0]].keys()
+        description = 'compound_EPSP_features'
+        clustered_branch_names = [key for key in f[description]['data']]
+        syn_conditions = f[description]['data'][clustered_branch_names[0]].keys()
         rec_names = [key for key in
-                     f[clustered_branch_names[0]][syn_conditions[0]]['compound_EPSP_traces'].itervalues().next()]
+                     f[description]['data'][clustered_branch_names[0]][syn_conditions[0]]['traces'].itervalues().next()]
         colors = list(cm.Paired(np.linspace(0, 1, len(syn_conditions))))
         for branch in clustered_branch_names:
             for rec in rec_names:
@@ -913,9 +936,10 @@ def plot_exported_synaptic_features(processed_export_file_path):
                 for i, syn_condition in enumerate(ordered_syn_conditions):
                     col = i / 2
                     row = i % 2
-                    for num_syns in f[branch][syn_condition]['compound_EPSP_traces']:
-                        axes[col][row].plot(f['time']['compound_EPSP'],
-                                     f[branch][syn_condition]['compound_EPSP_traces'][num_syns][rec], c='k')
+                    for num_syns in f[description]['data'][branch][syn_condition]['traces']:
+                        axes[col][row].plot(f[description]['time'],
+                                            f[description]['data'][branch][syn_condition]['traces'][num_syns][rec],
+                                            c='k')
                     axes[col][row].set_xlabel('Time (ms)')
                     axes[col][row].set_title(syn_condition)
                 axes[0][0].set_ylabel('Compound EPSP amplitude (mV)')
@@ -927,11 +951,12 @@ def plot_exported_synaptic_features(processed_export_file_path):
         if len(clustered_branch_names) == 1:
             axes = [axes]
         fig.suptitle('Rec: soma')
-        diagonal = np.linspace(0., np.max(f[branch]['expected']['compound_EPSP_amp']), 10)
+        diagonal = np.linspace(0., np.max(f[description]['data'][branch]['expected']['EPSP_amp']), 10)
         for i, branch in enumerate(clustered_branch_names):
             for j, syn_condition in enumerate((syn_condition for syn_condition in syn_conditions if
                                                syn_condition != 'expected')):
-                axes[i].plot(f[branch]['expected']['compound_EPSP_amp'], f[branch][syn_condition]['compound_EPSP_amp'],
+                axes[i].plot(f[description]['data'][branch]['expected']['EPSP_amp'],
+                             f[description]['data'][branch][syn_condition]['EPSP_amp'],
                              c=colors[j], label=syn_condition)
                 axes[i].set_title('Branch: %s' % branch)
                 axes[i].set_xlabel('Expected EPSP amp (mV)')
@@ -942,12 +967,13 @@ def plot_exported_synaptic_features(processed_export_file_path):
         fig.tight_layout()
         fig.subplots_adjust(top=0.85)
 
+        description = 'unitary_EPSP_features'
         fig, axes = plt.subplots(1, len(rec_names))
         if len(rec_names) == 1:
             axes = [axes]
         for i, rec in enumerate(rec_names):
-            for j, syn_condition in enumerate(f['random']):
-                axes[i].plot(f['time']['unitary_EPSP'], f['random'][syn_condition]['mean_unitary_EPSP_traces'][rec],
+            for j, syn_condition in enumerate(f[description]['data']):
+                axes[i].plot(f[description]['time'], f[description]['data'][syn_condition]['mean_traces'][rec],
                              c=colors[j], label=syn_condition)
                 axes[i].set_xlabel('Time (ms)')
                 axes[i].set_title(rec)

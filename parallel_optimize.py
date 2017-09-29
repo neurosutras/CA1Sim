@@ -27,7 +27,7 @@ global_context = Context()
 @click.option("--cluster-id", type=str, default=None)
 @click.option("--profile", type=str, default='default')
 @click.option("--param-file-path", type=click.Path(exists=True, file_okay=True, dir_okay=False),
-              default='data/parallel_optimize_leak_spiking_config.yaml')
+              default='data/parallel_optimize_GC_leak_spiking_config.yaml')
 @click.option("--param-gen", type=str, default=None)
 @click.option("--update-params", "-up", multiple=True, type=str, default=None)
 @click.option("--update-modules", "-um", multiple=True, type=str, default=None)
@@ -196,15 +196,18 @@ def process_params(cluster_id, profile, param_file_path, param_gen, update_param
     if param_file_path is not None:
         params_dict = read_from_yaml(param_file_path)
         param_names = params_dict['param_names']
-        default_params = params_dict['default_params']
+        if 'default_params' not in params_dict or params_dict['default_params'] is None:
+            default_params = {}
+        else:
+            default_params = params_dict['default_params']
         x0 = params_dict['x0']
         for param in default_params:
             params_dict['bounds'][param] = (default_params[param], default_params[param])
         bounds = [params_dict['bounds'][key] for key in param_names]
-        if 'rel_bounds' in params_dict:
-            rel_bounds = params_dict['rel_bounds']
-        else:
+        if 'rel_bounds' not in params_dict or params_dict['rel_bounds'] is None:
             rel_bounds = None
+        else:
+            rel_bounds = params_dict['rel_bounds']
         feature_names = params_dict['feature_names']
         objective_names = params_dict['objective_names']
         target_val = params_dict['target_val']
@@ -412,13 +415,13 @@ def init_engine(module_set, update_params_funcs, param_names, default_params, ex
     :param kwargs: dict
     """
     global rec_file_path
-    rec_file_path = output_dir + '/sim_output' + datetime.datetime.today().strftime('%m%d%Y%H%M') + '_pid' + \
-                    str(os.getpid()) + '.hdf5'
+    rec_file_path = output_dir + '/parallel_optimize_output' + datetime.datetime.today().strftime('%m%d%Y%H%M') + \
+                    '_pid' + str(os.getpid()) + '.hdf5'
     for module_name in module_set:
         m = importlib.import_module(module_name)
         config_func = getattr(m, 'config_engine')
         if not callable(config_func):
-            raise Exception('config_engine: %s.config engine is not callable' % (module_name))
+            raise Exception('init_engine: %s.config engine is not callable' % (module_name))
         else:
             config_func(update_params_funcs, param_names, default_params, rec_file_path, export_file_path, output_dir,
                         disp, **kwargs)

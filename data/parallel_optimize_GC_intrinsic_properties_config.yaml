@@ -16,7 +16,7 @@ bounds:
   - 0.18
   dend.g_pas slope: !!python/tuple
   - 1.0E-10
-  - 1.0E-6
+  - 1.0E-5
   dend.g_pas tau: !!python/tuple
   - 25.
   - 400.
@@ -37,7 +37,7 @@ bounds:
   - 0.25
   soma.g_pas: !!python/tuple
   - 1.0E-12
-  - 1.0E-8
+  - 1.0E-7
   soma.gCa factor: !!python/tuple
   - 0.1
   - 5.0
@@ -55,16 +55,15 @@ bounds:
   - 0.06
   soma.gkmbar: !!python/tuple
   - 0.0005
-  - 0.005
+  - 0.0075
   soma.sh_nas/x: !!python/tuple
   - 0.1
-  - 6.0
+  - 10.0
   soma.sha_nas/x: !!python/tuple
   - -6.0
   - -0.1
 default_params:
   dend.gbar_nas bo: 5
-  dend.gbar_nas min: 0.
 feature_names:
 - dend R_inp
 - distal_dend R_inp
@@ -87,15 +86,16 @@ feature_names:
 - EPSC_attenuation_short_ISI
 - EPSC_amplification_soma
 - EPSC_amplification_dend
+- EPSC_attenuation_TTX
 features_modules: !!python/tuple
-- parallel_optimize_leak
-- parallel_optimize_spiking
-- parallel_optimize_spiking
-- parallel_optimize_EPSC_attenuation
-- parallel_optimize_EPSC_attenuation
+- parallel_optimize_GC_leak
+- parallel_optimize_GC_spiking
+- parallel_optimize_GC_spiking
+- parallel_optimize_GC_EPSC_attenuation
+- parallel_optimize_GC_EPSC_attenuation
 get_features: !!python/tuple
 - get_Rinp_features
-- get_stability_features
+- get_spike_shape_features
 - get_fI_features
 - get_iEPSP_features_long_ISI
 - get_iEPSP_features_short_ISI
@@ -104,7 +104,7 @@ group_sizes: !!python/tuple
 - 1
 - 10
 - 2
-- 2
+- 4
 kwargs:
   mech_file_path: data/090717 GC optimizing spiking.yaml
   neuroH5_file_path: morphologies/121516_DGC_trees.pkl
@@ -134,10 +134,11 @@ objective_names:
 - EPSC_attenuation_short_ISI
 - EPSC_amplification_soma
 - EPSC_amplification_dend
+- EPSC_attenuation_TTX
 objectives_modules: !!python/tuple
-- parallel_optimize_leak
-- parallel_optimize_spiking
-- parallel_optimize_EPSC_attenuation
+- parallel_optimize_GC_leak
+- parallel_optimize_GC_spiking
+- parallel_optimize_GC_EPSC_attenuation
 optimization_title: GC_intrinsic_properties
 param_gen: BGen
 param_names:
@@ -163,10 +164,10 @@ param_names:
 - soma.gkmbar
 - ais.gkmbar
 rel_bounds:
-- - soma.gbar_nas
-  - '>'
+- - dend.gbar_nas min
+  - '<'
   - 1.0
-  - dend.gbar_nas min
+  - soma.gbar_nas
 - - dend.gbar_nas
   - <
   - 1.0
@@ -210,6 +211,7 @@ target_range:
   EPSC_attenuation_short_ISI: 0.001
   EPSC_amplification_soma: 0.01
   EPSC_amplification_dend: 0.01
+  EPSC_attenuation_TTX: 0.001
 target_val:
   ADP: 0.0
   AHP: 4.0
@@ -225,18 +227,19 @@ target_val:
   v_th: -48.0
   vm_stability: 0.0
   f_I_slope: 53.0
-  EPSC_attenuation_long_ISI: 0.15
+  EPSC_attenuation_long_ISI: 0.18
   EPSC_attenuation_short_ISI: 0.22
   EPSC_amplification_soma: 2.5
-  EPSC_amplification_dend: 2.
+  EPSC_amplification_dend: 1.8
+  EPSC_attenuation_TTX: 0.8
 update_params: !!python/tuple
 - update_pas_exp
 - update_spike_shape_params
 - update_nap_params
 update_modules: !!python/tuple
-- parallel_optimize_leak
-- parallel_optimize_spiking
-- parallel_optimize_EPSC_attenuation
+- parallel_optimize_GC_leak
+- parallel_optimize_GC_spiking
+- parallel_optimize_GC_EPSC_attenuation
 x0:
   ais.gbar_nax: 0.1681
   ais.gkmbar: 0.01286
