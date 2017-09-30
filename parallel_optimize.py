@@ -413,8 +413,8 @@ def init_engine(module_set, update_params_funcs, param_names, default_params, ex
     :param disp: bool
     :param kwargs: dict
     """
-    global rec_file_path
-    rec_file_path = '%s/parallel_optimize_output_%s_pid%i.hdf5' % \
+    global temp_output_path
+    temp_output_path = '%s/parallel_optimize_temp_output_%s_pid%i.hdf5' % \
                     (output_dir, datetime.datetime.today().strftime('%m%d%Y%H%M'), os.getpid())
     for module_name in module_set:
         m = importlib.import_module(module_name)
@@ -423,7 +423,7 @@ def init_engine(module_set, update_params_funcs, param_names, default_params, ex
             raise Exception('parallel_optimize: init_engine: submodule: %s does not contain required callable: '
                             'config_engine' % module_name)
         else:
-            config_func(update_params_funcs, param_names, default_params, rec_file_path, export_file_path, output_dir,
+            config_func(update_params_funcs, param_names, default_params, temp_output_path, export_file_path, output_dir,
                         disp, **kwargs)
     sys.stdout.flush()
 
@@ -541,12 +541,12 @@ def export_traces(x, export_file_path=None, discard=True):
     else:
         export_file_path = global_context.export_file_path
     exported_features, exported_objectives = get_all_features([x], export=True)
-    rec_file_path_list = [rec_file_path for rec_file_path in global_context.c[:]['rec_file_path'] if 
-                          os.path.isfile(rec_file_path)]
-    combine_hdf5_file_paths(rec_file_path_list, export_file_path)
+    temp_output_path_list = [temp_output_path for temp_output_path in global_context.c[:]['temp_output_path'] if
+                          os.path.isfile(temp_output_path)]
+    combine_hdf5_file_paths(temp_output_path_list, export_file_path)
     if discard:
-        for rec_file_path in rec_file_path_list:
-            os.remove(rec_file_path)
+        for temp_output_path in temp_output_path_list:
+            os.remove(temp_output_path)
     print 'parallel_optimize: exported output to %s' % export_file_path
     sys.stdout.flush()
     return exported_features, exported_objectives

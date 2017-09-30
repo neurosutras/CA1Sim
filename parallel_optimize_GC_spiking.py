@@ -1,10 +1,10 @@
-__author__ = 'Grace Ng'
+__author__ = 'Grace Ng and Aaron D. Milstein'
 from specify_cells4 import *
 from plot_results import *
 from moopgen import *
 
 """
-Submodule used by parallel_optimize to tune spike shape, f-I curve, and spike adaptation.
+Submodule used by parallel_optimize to tune spike shape, f-I curve, and spike adaptation in dentate granule cells.
 Requires a YAML file to specify required configuration parameters. 
 Requires use of an ipyparallel client.
 """
@@ -12,57 +12,69 @@ Requires use of an ipyparallel client.
 context = Context()
 
 
-def setup_module_from_file(param_file_path='data/parallel_optimize_GC_spiking_config.yaml', output_dir='data',
-                           rec_file_path=None, export_file_path=None, verbose=True, disp=True):
+def config_interactive(config_file_path='data/parallel_optimize_GC_spiking_config.yaml', output_dir='data',
+                       temp_output_path=None, export_file_path=None, verbose=True, disp=True):
     """
 
-    :param param_file_path: str (.yaml file path)
+    :param config_file_path: str (.yaml file path)
     :param output_dir: str (dir path)
-    :param rec_file_path: str (.hdf5 file path)
+    :param temp_output_path: str (.hdf5 file path)
     :param export_file_path: str (.hdf5 file path)
     :param verbose: bool
     """
-    params_dict = read_from_yaml(param_file_path)
-    param_gen = params_dict['param_gen']
-    param_names = params_dict['param_names']
-    if 'default_params' not in params_dict or params_dict['default_params'] is None:
+    config_dict = read_from_yaml(config_file_path)
+    if 'param_gen' in config_dict and config_dict['param_gen'] is not None:
+        param_gen_name = config_dict['param_gen']
+    else:
+        param_gen_name = 'BGen'
+    param_names = config_dict['param_names']
+    if 'default_params' not in config_dict or config_dict['default_params'] is None:
         default_params = {}
     else:
-        default_params = params_dict['default_params']
-    x0 = params_dict['x0']
+        default_params = config_dict['default_params']
     for param in default_params:
-        params_dict['bounds'][param] = (default_params[param], default_params[param])
-    bounds = [params_dict['bounds'][key] for key in param_names]
-    if 'rel_bounds' not in params_dict or params_dict['rel_bounds'] is None:
+        config_dict['bounds'][param] = (default_params[param], default_params[param])
+    bounds = [config_dict['bounds'][key] for key in param_names]
+    if 'rel_bounds' not in config_dict or config_dict['rel_bounds'] is None:
         rel_bounds = None
     else:
-        rel_bounds = params_dict['rel_bounds']
-    feature_names = params_dict['feature_names']
-    objective_names = params_dict['objective_names']
-    target_val = params_dict['target_val']
-    target_range = params_dict['target_range']
-    optimization_title = params_dict['optimization_title']
-    kwargs = params_dict['kwargs']  # Extra arguments
-    kwargs['verbose'] = verbose
-    update_params = params_dict['update_params']
+        rel_bounds = config_dict['rel_bounds']
+    if 'x0' not in config_dict or config_dict['x0'] is None:
+        x0 = None
+    else:
+        x0 = config_dict['x0']
+    feature_names = config_dict['feature_names']
+    objective_names = config_dict['objective_names']
+    target_val = config_dict['target_val']
+    target_range = config_dict['target_range']
+    optimization_title = config_dict['optimization_title']
+    kwargs = config_dict['kwargs']  # Extra arguments to be passed to imported submodules
+
+    if 'update_params' not in config_dict or config_dict['update_params'] is None:
+        update_params = []
+    else:
+        update_params = config_dict['update_params']
     update_params_funcs = []
     for update_params_func_name in update_params:
         func = globals().get(update_params_func_name)
         if not callable(func):
-            raise Exception('Multi-Objective Optimization: update_params: %s is not a callable function.'
+            raise Exception('parallel_optimize: update_params: %s is not a callable function.'
                             % update_params_func_name)
         update_params_funcs.append(func)
-    if rec_file_path is None:
-        rec_file_path = output_dir + '/sim_output' + datetime.datetime.today().strftime('%m%d%Y%H%M') + \
-                   '_pid' + str(os.getpid()) + '.hdf5'
+
+    if temp_output_path is None:
+        temp_output_path = '%s/parallel_optimize_temp_output_%s_pid%i.hdf5' % \
+                        (output_dir, datetime.datetime.today().strftime('%m%d%Y%H%M'), os.getpid())
     if export_file_path is None:
-        export_file_path = output_dir + '%s_%s_%s_optimization_exported_traces.hdf5' % \
-                           (datetime.datetime.today().strftime('%m%d%Y%H%M'), optimization_title, param_gen)
-    x_array = param_dict_to_array(x0, param_names)
+        export_file_path = '%s/%s_%s_%s_optimization_exported_output.hdf5' % \
+                           (output_dir, datetime.datetime.today().strftime('%m%d%Y%H%M'), optimization_title,
+                            param_gen_name)
+    x0_array = param_dict_to_array(x0, param_names)
     context.update(locals())
     context.update(kwargs)
-    config_engine(update_params_funcs, param_names, default_params, rec_file_path, export_file_path, output_dir, disp,
+    config_engine(update_params_funcs, param_names, default_params, temp_output_path, export_file_path, output_dir, disp,
                   **kwargs)
+    update_submodule_params(x0_array)
 
 
 def config_controller(export_file_path, **kwargs):
@@ -75,13 +87,13 @@ def config_controller(export_file_path, **kwargs):
     init_context()
 
 
-def config_engine(update_params_funcs, param_names, default_params, rec_file_path, export_file_path, output_dur, disp,
+def config_engine(update_params_funcs, param_names, default_params, temp_output_path, export_file_path, output_dur, disp,
                   mech_file_path, neuroH5_file_path, neuroH5_index, spines, **kwargs):
     """
     :param update_params_funcs: list of function references
     :param param_names: list of str
     :param default_params: dict
-    :param rec_file_path: str
+    :param temp_output_path: str
     :param export_file_path: str
     :param output_dur: str (dir path)
     :param disp: bool
@@ -680,5 +692,5 @@ def export_sim_results():
     """
     Export the most recent time and recorded waveforms from the QuickSim object.
     """
-    with h5py.File(context.rec_file_path, 'a') as f:
+    with h5py.File(context.temp_output_path, 'a') as f:
         context.sim.export_to_file(f)
