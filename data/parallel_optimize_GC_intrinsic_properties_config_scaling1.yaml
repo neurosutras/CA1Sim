@@ -100,11 +100,11 @@ get_features: !!python/tuple
 - get_iEPSP_features_long_ISI
 - get_iEPSP_features_short_ISI
 group_sizes: !!python/tuple
-- 3
 - 1
-- 10
-- 2
-- 4
+- 1
+- 1
+- 1
+- 1
 kwargs:
   mech_file_path: data/090717 GC optimizing spiking.yaml
   neuroH5_file_path: morphologies/121516_DGC_trees.pkl

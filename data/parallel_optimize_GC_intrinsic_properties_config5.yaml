@@ -108,7 +108,7 @@ group_sizes: !!python/tuple
 kwargs:
   mech_file_path: data/090717 GC optimizing spiking.yaml
   neuroH5_file_path: morphologies/121516_DGC_trees.pkl
-  neuroH5_index: 0
+  neuroH5_index: 5
   spines: False
   verbose: False
   cvode: False

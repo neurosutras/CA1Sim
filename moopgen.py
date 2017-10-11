@@ -152,61 +152,100 @@ class PopulationStorage(object):
         import matplotlib.pyplot as plt
         from matplotlib.pyplot import cm
         import matplotlib as mpl
+        from mpl_toolkits.axes_grid1 import make_axes_locatable
         mpl.rcParams['svg.fonttype'] = 'none'
         mpl.rcParams['text.usetex'] = False
+        cmap = cm.rainbow
+        norm = mpl.colors.Normalize(vmin=0, vmax=len(self.history))
         colors = list(cm.rainbow(np.linspace(0, 1, len(self.history))))
         for this_attr in ['fitness', 'energy', 'distance', 'survivor']:
-            plt.figure()
+            fig, axes = plt.subplots(1)
             for j, population in enumerate(self.history):
-                plt.scatter([indiv.rank for indiv in population], [getattr(indiv, this_attr) for indiv in population],
+                axes.scatter([indiv.rank for indiv in population], [getattr(indiv, this_attr) for indiv in population],
                             c=colors[j], alpha=0.05)
-                plt.scatter([indiv.rank for indiv in self.survivors[j]],
+                axes.scatter([indiv.rank for indiv in self.survivors[j]],
                             [getattr(indiv, this_attr) for indiv in self.survivors[j]], c=colors[j], alpha=0.5)
+                axes.set_xlabel('Ranked individuals per iteration')
             if this_attr == 'energy':
-                plt.title('relative ' + this_attr)
+                axes.set_title('relative ' + this_attr)
             else:
-                plt.title(this_attr)
-        plt.figure()
+                axes.set_title(this_attr)
+            divider = make_axes_locatable(axes)
+            cax = divider.append_axes('right', size='5%', pad=0.05)
+            cbar = mpl.colorbar.ColorbarBase(cax, cmap=cmap, norm=norm, orientation='vertical')
+            cbar.set_label('Generation')
+            clean_axes(axes)
+        fig, axes = plt.subplots(1)
         this_attr = 'objectives'
         for j, population in enumerate(self.history):
-            plt.scatter([indiv.rank for indiv in population],
+            axes.scatter([indiv.rank for indiv in population],
                         [np.sum(getattr(indiv, this_attr)) for indiv in population],
                         c=colors[j], alpha=0.05)
-            plt.scatter([indiv.rank for indiv in self.survivors[j]],
+            axes.scatter([indiv.rank for indiv in self.survivors[j]],
                         [np.sum(getattr(indiv, this_attr)) for indiv in self.survivors[j]], c=colors[j], alpha=0.5)
-        plt.title('absolute energy')
+        divider = make_axes_locatable(axes)
+        cax = divider.append_axes('right', size='5%', pad=0.05)
+        cbar = mpl.colorbar.ColorbarBase(cax, cmap=cmap, norm=norm, orientation='vertical')
+        cbar.set_label('Generation')
+        clean_axes(axes)
+        axes.set_xlabel('Ranked individuals per iteration')
+        axes.set_title('absolute energy')
+        plt.show()
+        plt.close()
         for i, param_name in enumerate(self.param_names):
             this_attr = 'x'
-            plt.figure()
+            fig, axes = plt.subplots(1)
             for j, population in enumerate(self.history):
-                plt.scatter([indiv.rank for indiv in population],
+                axes.scatter([indiv.rank for indiv in population],
                             [getattr(indiv, this_attr)[i] for indiv in population],
                             c=colors[j], alpha=0.05)
-                plt.scatter([indiv.rank for indiv in self.survivors[j]],
+                axes.scatter([indiv.rank for indiv in self.survivors[j]],
                             [getattr(indiv, this_attr)[i] for indiv in self.survivors[j]], c=colors[j], alpha=0.5)
-                plt.scatter([-1 for indiv in self.failed[j]],
+                axes.scatter([-1 for indiv in self.failed[j]],
                             [getattr(indiv, this_attr)[i] for indiv in self.failed[j]], c='k', alpha=0.5)
-            plt.title(param_name)
+            axes.set_xlabel('Ranked individuals per iteration')
+            axes.set_title(param_name)
+            divider = make_axes_locatable(axes)
+            cax = divider.append_axes('right', size='5%', pad=0.05)
+            cbar = mpl.colorbar.ColorbarBase(cax, cmap=cmap, norm=norm, orientation='vertical')
+            cbar.set_label('Generation')
+            clean_axes(axes)
+        plt.show()
+        plt.close()
         for i, objective_name in enumerate(self.objective_names):
             this_attr = 'objectives'
-            plt.figure()
+            fig, axes = plt.subplots(1)
             for j, population in enumerate(self.history):
-                plt.scatter([indiv.rank for indiv in population],
+                axes.scatter([indiv.rank for indiv in population],
                             [getattr(indiv, this_attr)[i] for indiv in population],
                             c=colors[j], alpha=0.05)
-                plt.scatter([indiv.rank for indiv in self.survivors[j]],
+                axes.scatter([indiv.rank for indiv in self.survivors[j]],
                             [getattr(indiv, this_attr)[i] for indiv in self.survivors[j]], c=colors[j], alpha=0.5)
-            plt.title(this_attr+': '+objective_name)
+            axes.set_title(this_attr+': '+objective_name)
+            axes.set_xlabel('Ranked individuals per iteration')
+            divider = make_axes_locatable(axes)
+            cax = divider.append_axes('right', size='5%', pad=0.05)
+            cbar = mpl.colorbar.ColorbarBase(cax, cmap=cmap, norm=norm, orientation='vertical')
+            cbar.set_label('Generation')
+            clean_axes(axes)
+        plt.show()
+        plt.close()
         for i, feature_name in enumerate(self.feature_names):
             this_attr = 'features'
-            plt.figure()
+            fig, axes = plt.subplots(1)
             for j, population in enumerate(self.history):
-                plt.scatter([indiv.rank for indiv in population],
+                axes.scatter([indiv.rank for indiv in population],
                             [getattr(indiv, this_attr)[i] for indiv in population],
                             c=colors[j], alpha=0.05)
-                plt.scatter([indiv.rank for indiv in self.survivors[j]],
+                axes.scatter([indiv.rank for indiv in self.survivors[j]],
                             [getattr(indiv, this_attr)[i] for indiv in self.survivors[j]], c=colors[j], alpha=0.5)
-            plt.title(this_attr+': '+feature_name)
+            axes.set_title(this_attr+': '+feature_name)
+            axes.set_xlabel('Ranked individuals per iteration')
+            divider = make_axes_locatable(axes)
+            cax = divider.append_axes('right', size='5%', pad=0.05)
+            cbar = mpl.colorbar.ColorbarBase(cax, cmap=cmap, norm=norm, orientation='vertical')
+            cbar.set_label('Generation')
+            clean_axes(axes)
         plt.show()
         plt.close()
 

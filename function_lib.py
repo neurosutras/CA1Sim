@@ -2402,7 +2402,7 @@ class StateMachine(object):
     def get_current_rates(self):
         """
 
-        :return: 
+        :return: dict
         """
         current = {}
         for s0 in self.rates:
@@ -2412,7 +2412,8 @@ class StateMachine(object):
                 r = self.rates[s0][s1]
                 if hasattr(r, '__iter__'):
                     if len(r) - 1 < self.i:
-                        raise Exception('Insufficient array length for nonstationary rate: %s to %s ' % (s0, s1))
+                        raise Exception('StateMachine: Insufficient array length for non-stationary rate: %s to %s ' %
+                                        (s0, s1))
                     this_r = r[self.i]
                 else:
                     this_r = r
@@ -2427,9 +2428,9 @@ class StateMachine(object):
         :param r: float or array
         """
         if s0 not in self.states:
-            raise Exception('Can\'t update transition from invalid state: %s' % s0)
+            raise Exception('StateMachine: Cannot update transition from invalid state: %s' % s0)
         if s1 not in self.states:
-            raise Exception('Can\'t update transition to invalid state: %s' % s1)
+            raise Exception('StateMachine: Cannot update transition to invalid state: %s' % s1)
         if s0 not in self.rates:
             self.rates[s0] = {}
         self.rates[s0][s1] = r
@@ -2446,8 +2447,7 @@ class StateMachine(object):
     def update_states(self, states):
         """
 
-        :param states: dict 
-        :return: 
+        :param states: dict
         """
         for s, v in states.iteritems():
             self.init_states[s] = v
@@ -2461,15 +2461,16 @@ class StateMachine(object):
         :return: float 
         """
         if state not in self.states:
-            raise Exception('Invalid state: %s' % state)
+            raise Exception('StateMachine: Invalid state: %s' % state)
         if state not in self.rates:
-            raise Exception('State: %s has no outgoing transitions' % state)
+            raise Exception('StateMachine: State: %s has no outgoing transitions' % state)
         out_rate = 0.
         for s1 in self.rates[state]:
             r = self.rates[state][s1]
             if hasattr(r, '__iter__'):
                 if len(r) - 1 < self.i:
-                    raise Exception('Insufficient array length for nonstationary rate: %s to %s ' % (state, s1))
+                    raise Exception('StateMachine: Insufficient array length for non-stationary rate: %s to %s ' %
+                                    (state, s1))
                 this_r = r[self.i]
             else:
                 this_r = r
@@ -2493,7 +2494,8 @@ class StateMachine(object):
                     r = self.rates[s0][s1]
                     if hasattr(r, '__iter__'):
                         if len(r) - 1 < self.i:
-                            raise Exception('Insufficient array length for nonstationary rate: %s to %s ' % (s0, s1))
+                            raise Exception('StateMachine: Insufficient array length for non-stationary rate: %s to '
+                                            '%s ' % (s0, s1))
                         this_r = r[self.i]
                     else:
                         this_r = r
@@ -2523,14 +2525,13 @@ class StateMachine(object):
                     else:
                         min_steps = min(min_steps, len(r))
         if min_steps is None:
-            raise Exception('Use step method to specify number of steps for stationary process.')
+            raise Exception('StateMachine: Use step method to specify number of steps for stationary process.')
         self.step(min_steps)
 
     def plot(self, states=None):
         """
 
-        :param states: 
-        :return: 
+        :param states:
         """
         if states is None:
             states = self.states.keys()
@@ -2541,7 +2542,7 @@ class StateMachine(object):
             if state in self.states:
                 axes.plot(self.t_history, self.states_history[state], label=state)
             else:
-                print 'Not including invalid state: %s' % state
+                print 'StateMachine: Not including invalid state: %s' % state
         axes.set_xlabel('Time (ms)')
         axes.set_ylabel('Occupancy')
         axes.legend(loc='best', frameon=False, framealpha=0.5)
