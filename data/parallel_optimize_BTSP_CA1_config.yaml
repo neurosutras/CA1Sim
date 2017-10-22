@@ -1,15 +1,9 @@
 bounds:
-  rUA0: !!python/tuple
-  - 1.0
-  - 200.
-  rAU: !!python/tuple
-  - 0.01
-  - 10.
   rAC0: !!python/tuple
-  - 0.1
-  - 100.
+  - 0.01
+  - 200.
   rCA0: !!python/tuple
-  - 1.
+  - 0.01
   - 200.
   local_signal_rise: !!python/tuple
   - 10.
@@ -17,9 +11,15 @@ bounds:
   local_signal_decay: !!python/tuple
   - 500.
   - 5000.
+  global_signal_rise: !!python/tuple
+  - 10.
+  - 100.
+  global_signal_decay: !!python/tuple
+  - 500.
+  - 5000.
   rCA_scale: !!python/tuple
   - 0.01
-  - 2.
+  - 10.
   rCA_skew: !!python/tuple
   - -10.
   - 10.
@@ -34,16 +34,22 @@ feature_names:
 - spont_delta_width
 - spont_delta_peak_shift
 - spont_delta_asymmetry
+- spont_delta_min_loc
+- spont_delta_min_val
 - exp1_norm_residuals
 - exp1_delta_amp
 - exp1_delta_width
 - exp1_delta_peak_shift
 - exp1_delta_asymmetry
+- exp1_delta_min_loc
+- exp1_delta_min_val
 - exp2_norm_residuals
 - exp2_delta_amp
 - exp2_delta_width
 - exp2_delta_peak_shift
 - exp2_delta_asymmetry
+- exp2_delta_min_loc
+- exp2_delta_min_val
 features_modules: !!python/tuple
 - parallel_optimize_bidirectional_BTSP_CA1
 get_features: !!python/tuple
@@ -66,62 +72,80 @@ objective_names:
 - spont_delta_width
 - spont_delta_peak_shift
 - spont_delta_asymmetry
+- spont_delta_min_loc
+- spont_delta_min_val
 - exp1_norm_residuals
 - exp1_delta_amp
 - exp1_delta_width
 - exp1_delta_peak_shift
 - exp1_delta_asymmetry
+- exp1_delta_min_loc
+- exp1_delta_min_val
 - exp2_norm_residuals
 - exp2_delta_amp
 - exp2_delta_width
 - exp2_delta_peak_shift
 - exp2_delta_asymmetry
+- exp2_delta_min_loc
+- exp2_delta_min_val
 objectives_modules: !!python/tuple
 - parallel_optimize_bidirectional_BTSP_CA1
 optimization_title: bidirectional_BTSP
 param_gen: BGen
 param_names:
-- rUA0
-- rAU
 - rAC0
 - rCA0
 - local_signal_rise
 - local_signal_decay
+- global_signal_rise
+- global_signal_decay
 - rCA_scale
 - rCA_skew
 - peak_delta_weight
 target_range:
-  spont_norm_residuals: 0.1
-  spont_delta_amp: 0.1
+  spont_norm_residuals: 1.
+  spont_delta_amp: 0.01
   spont_delta_width: 0.1
   spont_delta_peak_shift: 0.1
-  spont_delta_asymmetry: 0.1
+  spont_delta_asymmetry: 0.01
+  spont_delta_min_loc: 0.1
+  spont_delta_min_val: 0.01
   exp1_norm_residuals: 0.1
   exp1_delta_amp: 0.1
   exp1_delta_width: 0.1
   exp1_delta_peak_shift: 0.1
   exp1_delta_asymmetry: 0.1
+  exp1_delta__min_loc: 0.1
+  exp1_delta_min_val: 0.01
   exp2_norm_residuals: 0.1
   exp2_delta_amp: 0.1
   exp2_delta_width: 0.1
   exp2_delta_peak_shift: 0.1
   exp2_delta_asymmetry: 0.1
+  exp2_delta__min_loc: 0.1
+  exp2_delta_min_val: 0.01
 target_val:
   spont_norm_residuals: 0.
   spont_delta_amp: 0.
   spont_delta_width: 0.
   spont_delta_peak_shift: 0.
   spont_delta_asymmetry: 0.
+  spont_delta_min_loc: 0.
+  spont_delta_min_val: 0.
   exp1_norm_residuals: 0.
   exp1_delta_amp: 0.
   exp1_delta_width: 0.
   exp1_delta_peak_shift: 0.
   exp1_delta_asymmetry: 0.
+  exp1_delta__min_loc: 0.
+  exp1_delta__min_val: 0.
   exp2_norm_residuals: 0.
   exp2_delta_amp: 0.
   exp2_delta_width: 0.
   exp2_delta_peak_shift: 0.
   exp2_delta_asymmetry: 0.
+  exp2_delta__min_loc: 0.
+  exp2_delta__min_val: 0.
 update_params: !!python/tuple
 - update_model_params
 update_modules: !!python/tuple
@@ -129,10 +153,10 @@ update_modules: !!python/tuple
 x0:
   local_signal_decay: 2104.7610631936654
   local_signal_rise: 29.90771546047854
+  global_signal_decay: 2104.7610631936654
+  global_signal_rise: 29.90771546047854
   peak_delta_weight: 2.688810397940993
   rAC0: 11.084371010499598
-  rAU: 0.8667272960920309
   rCA0: 40.36377564785838
   rCA_scale: 0.45969915143130036
   rCA_skew: 1.625256232439457
-  rUA0: 47.600063585899406
