@@ -84,6 +84,7 @@ def config_controller(export_file_path, **kwargs):
     """
     processed_export_file_path = export_file_path.replace('.hdf5', '_processed.hdf5')
     context.update(locals())
+    context.update(kwargs)
     init_context()
 
 
@@ -503,15 +504,15 @@ def get_objectives(features, target_val, target_range):
             else:
                 objectives[target] = 0.
         objectives['adi'] = 0.
+        all_adi = []
+        all_exp_adi = []
         for i, this_adi in enumerate(features['adi']):
             if this_adi is not None and features['exp_adi'] is not None:
                 objectives['adi'] += ((this_adi - features['exp_adi'][i]) / (0.01 * features['exp_adi'][i])) ** 2.
-        features.pop('exp_adi')
-        all_adi = []
-        for adi in features['adi']:
-            if adi is not None:
-                all_adi.append(adi)
+                all_adi.append(this_adi)
+                all_exp_adi.append(features['exp_adi'][i])
         features['adi'] = np.mean(all_adi)
+        features['exp_adi'] = np.mean(all_exp_adi)
         num_increments = context.num_increments
         i_inj_increment = context.i_inj_increment
         target_f_I = [target_val['f_I_slope'] * np.log((rheobase + i_inj_increment * (i + 1)) / rheobase)

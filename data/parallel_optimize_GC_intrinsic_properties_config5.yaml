@@ -78,7 +78,9 @@ feature_names:
 - slow_depo
 - dend_amp
 - rheobase
+- th_count
 - soma_peak
+- exp_adi
 - adi
 - f_I_slope
 - f_I_residuals

@@ -84,6 +84,7 @@ def config_controller(export_file_path, **kwargs):
     """
     processed_export_file_path = export_file_path.replace('.hdf5', '_processed.hdf5')
     context.update(locals())
+    context.update(kwargs)
     init_context()
 
 
