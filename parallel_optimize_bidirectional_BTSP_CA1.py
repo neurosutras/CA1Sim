@@ -104,32 +104,33 @@ def config_interactive(config_file_path='data/parallel_optimize_BTSP_CA1_config.
     x0_array = param_dict_to_array(x0, param_names)
     context.update(locals())
     context.update(kwargs)
-    config_engine(update_params_funcs, param_names, default_params, temp_output_path, export_file_path, output_dir, disp,
-                  **kwargs)
+    config_engine(update_params_funcs, param_names, default_params, temp_output_path, export_file_path, output_dir,
+                  disp, **kwargs)
     update_submodule_params(x0_array)
 
 
-def config_controller(export_file_path, **kwargs):
+def config_controller(export_file_path, output_dir, **kwargs):
     """
 
     :param export_file_path: str
+    :param output_dir: str
     """
     context.update(locals())
     context.update(kwargs)
     init_context()
 
 
-def config_engine(update_params_funcs, param_names, default_params, temp_output_file_path, export_file_path, output_dur,
-                  disp, data_file_path, **kwargs):
+def config_engine(update_params_funcs, param_names, default_params, temp_output_file_path, export_file_path, output_dir,
+                  disp, data_file_name, **kwargs):
     """
     :param update_params_funcs: list of function references
     :param param_names: list of str
     :param default_params: dict
     :param temp_output_file_path: str
     :param export_file_path: str
-    :param output_dur: str (path)
+    :param output_dir: str (path)
     :param disp: bool
-    :param data_file_path: str (path)
+    :param data_file_name: str (path)
     """
     param_indexes = {param_name: i for i, param_name in enumerate(param_names)}
     context.update(locals())
@@ -141,6 +142,7 @@ def init_context():
     """
 
     """
+    context.data_file_path = context.output_dir + '/' + context.data_file_name
     with h5py.File(context.data_file_path, 'r') as f:
         dt = f['defaults'].attrs['dt']  # ms
         input_field_width = f['defaults'].attrs['input_field_width']  # cm

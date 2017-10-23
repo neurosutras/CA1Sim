@@ -57,7 +57,7 @@ get_features: !!python/tuple
 group_sizes: !!python/tuple
 - 2  # 38
 kwargs:
-  data_file_path: 'data/101017_BTSP_CA1_data.hdf5'
+  data_file_name: '101017_BTSP_CA1_data.hdf5'
   verbose: False
   data_keys:
     - !!python/tuple

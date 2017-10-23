@@ -270,7 +270,7 @@ def init_controller():
     global_context.module_set = module_set
     for module_name in module_set:
         m = importlib.import_module(module_name)
-        m.config_controller(global_context.export_file_path, **global_context.kwargs)
+        m.config_controller(global_context.export_file_path, global_context.output_dir, **global_context.kwargs)
     update_params_funcs = []
     for i, module_name in enumerate(update_modules):
         module = sys.modules[module_name]
@@ -423,8 +423,8 @@ def init_engine(module_set, update_params_funcs, param_names, default_params, ex
             raise Exception('parallel_optimize: init_engine: submodule: %s does not contain required callable: '
                             'config_engine' % module_name)
         else:
-            config_func(update_params_funcs, param_names, default_params, temp_output_path, export_file_path, output_dir,
-                        disp, **kwargs)
+            config_func(update_params_funcs, param_names, default_params, temp_output_path, export_file_path,
+                        output_dir, disp, **kwargs)
     sys.stdout.flush()
 
 
