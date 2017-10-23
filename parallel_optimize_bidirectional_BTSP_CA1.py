@@ -20,21 +20,23 @@ plasticity signals.
 
 Features/assumptions of the mechanistic model:
 1) Synaptic strength is equivalent to the number of AMPA-Rs at a synapse (quantal size). 
-2) Dendritic plateaus result in an increased pool of mobile AMPA-Rs that diffuse laterally in the membrane, available 
-for stable incorporation into synapses.
-3) AMPAR-s can be in 3 states (Markov-style kinetic scheme):
+2) Dendritic plateaus generate a global signal that increases the size of a pool of mobile AMPA-Rs, available for stable
+incorporation into synapses.
+3) Activity at each synapse generates a local signal that increases the number of eligible slots to capture mobile 
+AMPA-Rs.
+4) Both signals interact at already potentiated synapses to destabilize captured AMPA-Rs, returning them to the mobile 
+pool, and reducing the number of eligible slots. 
+5) AMPAR-s can be in 2 states (Markov-style kinetic scheme):
  
-              rUA * global_gate       rAC0 * local_signal
-U (unavailable) <--------> A (available) <--------> C (captured by a synapse)
-                    rAU          rCA0 * global_gate * f(local_signal)
+        rMC0 * global_signal * local_signal
+M (mobile) <----------------------> C (captured by a synapse)
+       rCM0 * global_signal * f(local_signal)
 
-4) At rest 100% of non-synaptic receptors are in state U, unavailable for synaptic capture.
-5) Upon a plateau, a gate is opened that allows receptors to move from U to A with rate rUA.
-6) Upon activation of a synapse, a local plasticity signal is generated, increasing the local number of "slots" eligible
-to capture available AMPA-Rs. Receptors can move from A to C with rate rAC, which is a proportional to the local signal.
-7) When the plateau ends, non-captured receptors remaining in state A move back to U with rate rAU.
-8) During a plateau, AMPA-Rs already captured at potentiated synapses can either be stabilized, or move back to state A
-with rate inversely proportional to the magnitude of the local signal.
+6) At rest 100% of non-synaptic receptors are in state M, mobile and available for synaptic capture.
+7) Global signal gates the transition rate from state M (mobile AMPA-Rs) to state C (captured AMPA-Rs), proportional
+to the amount of local signal.
+8) Global signal also gates return of receptors from state C to state M, depending on a non-monotonic function of local
+signal and current weight (occupancy of state C).
 """
 
 script_filename = 'parallel_optimize_bidirectional_BTSP_CA1.py'
@@ -356,20 +358,26 @@ def plot_data():
     plt.close()
 
 
-def get_indexes_from_ramp_bounds_with_wrap(x, start, peak, end):
+def get_indexes_from_ramp_bounds_with_wrap(x, start, peak, end, min):
     """
 
     :param x: array
     :param start: float
     :param peak: float
     :param end: float
-    :return: tuple of float: (start_index, end_index)
+    :param min: float
+    :return: tuple of float: (start_index, peak_index, end_index, min_index)
     """
     peak_index = np.where(x >= peak)[0]
     if np.any(peak_index):
         peak_index = peak_index[0]
     else:
         peak_index = len(x) - 1
+    min_index = np.where(x <= min)[0]
+    if np.any(min_index):
+        min_index = min_index[0]
+    else:
+        min_index = len(x) - 1
     if start < peak:
         start_index = np.where(x[:peak_index] <= start)[0][-1]
     else:
@@ -386,7 +394,7 @@ def get_indexes_from_ramp_bounds_with_wrap(x, start, peak, end):
             end_index = end_index[0]
         else:
             end_index = len(x) - 1
-    return start_index, peak_index, end_index
+    return start_index, peak_index, end_index, min_index
 
 
 def calculate_ramp_features(ramp, induction_loc, offset=False, smooth=False):
@@ -403,10 +411,10 @@ def calculate_ramp_features(ramp, induction_loc, offset=False, smooth=False):
     default_interp_x = context.default_interp_x
     extended_binned_x = np.concatenate([binned_x - track_length, binned_x, binned_x + track_length])
     if smooth:
-        smoothed_ramp = signal.savgol_filter(ramp, 21, 3, mode='wrap')
+        local_ramp = signal.savgol_filter(ramp, 21, 3, mode='wrap')
     else:
-        smoothed_ramp = np.array(ramp)
-    extended_binned_ramp = np.concatenate([smoothed_ramp] * 3)
+        local_ramp = np.array(ramp)
+    extended_binned_ramp = np.concatenate([local_ramp] * 3)
     extended_interp_x = np.concatenate([default_interp_x - track_length, default_interp_x,
                                         default_interp_x + track_length])
     extended_ramp = np.interp(extended_interp_x, extended_binned_x, extended_binned_ramp)
@@ -426,6 +434,9 @@ def calculate_ramp_features(ramp, induction_loc, offset=False, smooth=False):
     start_loc = float(start_index % len(default_interp_x)) / float(len(default_interp_x)) * track_length
     end_loc = float(end_index % len(default_interp_x)) / float(len(default_interp_x)) * track_length
     peak_loc = float(peak_index % len(default_interp_x)) / float(len(default_interp_x)) * track_length
+    min_index = np.where(interp_ramp == np.min(interp_ramp))[0][0] + len(interp_ramp)
+    min_val = extended_ramp[min_index]
+    min_loc = float(min_index % len(default_interp_x)) / float(len(default_interp_x)) * track_length
     peak_shift = peak_x - induction_loc
     if peak_shift > track_length / 2.:
         peak_shift = -(track_length - peak_shift)
@@ -439,7 +450,7 @@ def calculate_ramp_features(ramp, induction_loc, offset=False, smooth=False):
     if induction_loc > end_loc:
         after_width += track_length
     ratio = before_width / after_width
-    return peak_val, ramp_width, peak_shift, ratio, start_loc, peak_loc, end_loc
+    return peak_val, ramp_width, peak_shift, ratio, start_loc, peak_loc, end_loc, min_val, min_loc 
 
 
 def wrap_around_and_compress(waveform, interp_x):
@@ -510,15 +521,18 @@ def get_complete_rate_maps():
     return complete_rate_maps
 
 
-def get_local_signal_filter(local_signal_rise, local_signal_decay, dt=None, plot=False):
+def get_signal_filters(local_signal_rise, local_signal_decay, global_signal_rise, global_signal_decay, dt=None, 
+                       plot=False):
     """
     :param local_signal_rise: float
     :param local_signal_decay: float
+    :param global_signal_rise: float
+    :param global_signal_decay: float
     :param dt: float
     :param plot: bool
     :return: array, array
     """
-    max_time_scale = local_signal_rise + local_signal_decay
+    max_time_scale = max(local_signal_rise + local_signal_decay, global_signal_rise + global_signal_decay)
     if dt is None:
         dt = context.dt
     filter_t = np.arange(0., 6.*max_time_scale, dt)
@@ -528,19 +542,30 @@ def get_local_signal_filter(local_signal_rise, local_signal_decay, dt=None, plot
     if np.any(decay_indexes):
         local_filter = local_filter[:peak_index+decay_indexes[0]]
     local_filter /= np.sum(local_filter)
-    filter_t = filter_t[:len(local_filter)]
+    local_filter_t = filter_t[:len(local_filter)]
+    global_filter = np.exp(-filter_t / global_signal_decay) - np.exp(-filter_t / global_signal_rise)
+    peak_index = np.where(global_filter == np.max(global_filter))[0][0]
+    decay_indexes = np.where(global_filter[peak_index:] < 0.005 * np.max(global_filter))[0]
+    if np.any(decay_indexes):
+        global_filter = global_filter[:peak_index + decay_indexes[0]]
+    global_filter /= np.sum(global_filter)
+    global_filter_t = filter_t[:len(global_filter)]
     if plot:
         fig, axes = plt.subplots(1)
-        axes.plot(filter_t[:len(local_filter)]/1000., local_filter / np.max(local_filter), color='k')
+        axes.plot(local_filter_t/1000., local_filter / np.max(local_filter), color='k', 
+                  label='Local signal filter')
+        axes.plot(global_filter_t / 1000., global_filter / np.max(global_filter), color='r', 
+                  label='Global signal filter')
         axes.set_xlabel('Time (s)')
         axes.set_ylabel('Normalized filter amplitude')
-        axes.set_title('Local plasticity signal filter')
-        axes.set_xlim(-0.5, max(5000., filter_t[-1]) / 1000.)
+        axes.set_title('Plasticity signal filters')
+        axes.legend(loc='best', frameon=False, framealpha=0.5)
+        axes.set_xlim(-0.5, max(5000., local_filter_t[-1], global_filter_t[-1]) / 1000.)
         clean_axes(axes)
         fig.tight_layout()
         plt.show()
         plt.close()
-    return filter_t, local_filter
+    return local_filter_t, local_filter, global_filter_t, global_filter
 
 
 def get_local_signal(rate_map, local_filter, dt):
@@ -552,6 +577,17 @@ def get_local_signal(rate_map, local_filter, dt):
     :return: array
     """
     return np.convolve(0.001 * dt * rate_map, local_filter)[:len(rate_map)]
+
+
+def get_global_signal(induction_gate, global_filter, dt):
+    """
+    
+    :param induction_gate: array 
+    :param global_filter: array
+    :param dt: float
+    :return: array
+    """
+    return np.convolve(induction_gate, global_filter)[:len(induction_gate)]
 
 
 def get_model_ramp_features(indiv, c=None, client_range=None, export=False):
@@ -595,63 +631,79 @@ def compute_model_ramp_features(x, cell_id=None, induction=None, export=False, p
     print 'Process: %i: computing model_ramp_features for cell_id: %i, induction: %i with x: %s' % \
           (os.getpid(), context.cell_id, context.induction, ', '.join('%.1E' % i for i in x))
     start_time = time.time()
-    final_weights = []
     down_dt = context.down_dt
-    down_filter_t, down_local_filter = get_local_signal_filter(context.local_signal_rise, context.local_signal_decay,
-                                                               down_dt, plot)
-    # down_filter_t = np.arange(filter_t[0], filter_t[-1] + down_dt / 2., down_dt)
-    # down_local_filter = np.interp(down_filter_t, filter_t, local_filter)
-    rCA_f = skewnorm(a=context.rCA_skew, scale=context.rCA_scale)
-    skewnorm_range = np.linspace(rCA_f.ppf(0.001), rCA_f.ppf(0.999), 1000)
-    rCA_loc = -skewnorm_range[0]
-    rCA_f = skewnorm(a=context.rCA_skew, scale=context.rCA_scale, loc=rCA_loc)
-    skewnorm_range = np.linspace(rCA_f.ppf(0.001), rCA_f.ppf(0.999), 1000)
-    rCA_peak = np.max(rCA_f.pdf(skewnorm_range))
+    local_filter_t, local_filter, global_filter_t, global_filter = \
+        get_signal_filters(context.local_signal_rise, context.local_signal_decay, context.global_signal_rise, 
+                           context.global_signal_decay, down_dt, plot)
+    global_signal = get_global_signal(context.down_induction_gate, global_filter, down_dt)
+    rCM_f = skewnorm(a=context.rCM_skew, scale=context.rCM_scale)
+    skewnorm_range = np.linspace(rCM_f.ppf(0.001), rCM_f.ppf(0.999), 1000)
+    rCM_loc = -skewnorm_range[0]
+    rCM_f = skewnorm(a=context.rCM_skew, scale=context.rCM_scale, loc=rCM_loc)
+    skewnorm_range = np.linspace(rCM_f.ppf(0.001), rCM_f.ppf(0.999), 1000)
+    rCM_peak = np.max(rCM_f.pdf(skewnorm_range))
     if plot:
         fig, axes = plt.subplots(1)
-        axes.plot(skewnorm_range, rCA_f.pdf(skewnorm_range) / rCA_peak)
+        axes.plot(skewnorm_range, rCM_f.pdf(skewnorm_range) / rCM_peak)
         axes.set_xlabel('Local signal amplitude (a.u.)')
         axes.set_ylabel('Normalized rate')
         axes.set_title('Depotentiation rate')
         clean_axes(axes)
         fig.tight_layout()
+    weights = []
     for i in xrange(len(context.peak_locs)):
-        initial_delta_weight = context.SVD_weights['before'][i]
-        peak_delta_weight = context.peak_delta_weight - initial_delta_weight
-        context.sm.update_states({'U': peak_delta_weight, 'A': 0., 'C': initial_delta_weight + 1.})
-        down_rate_map = np.interp(context.down_t, context.complete_t, context.complete_rate_maps[i])
-        down_local_signal = get_local_signal(down_rate_map, down_local_filter, down_dt)
-        # local_signal = np.interp(context.complete_t, down_t, down_local_signal)
+        # normalize total number of receptors
+        initial_weight = (context.SVD_weights['before'][i] + 1.) / (context.peak_delta_weight + 1.)
+        peak_weight = 1. - initial_weight
+        context.sm.update_states({'M': peak_weight, 'C': initial_weight})
+        rate_map = np.interp(context.down_t, context.complete_t, context.complete_rate_maps[i])
+        local_signal = get_local_signal(rate_map, local_filter, down_dt)
         context.sm.update_rates(
-            {'U': {'A': context.rUA0 * context.down_induction_gate},
-             'A': {'U': context.rAU,
-                   'C': context.rAC0 * down_local_signal},
-             'C': {'A': context.rCA0 * context.down_induction_gate * rCA_f.pdf(down_local_signal) / rCA_peak}})
+            {'M': {'C': context.rMC0 * global_signal * local_signal},
+             'C': {'M': context.rCM0 * global_signal * rCM_f.pdf(local_signal) / rCM_peak}})
         context.sm.reset()
         context.sm.run()
         if plot and i == 100:
             fig, axes = plt.subplots(1)
-            # axes.plot(context.complete_t/1000., local_signal)
-            axes.plot(context.down_t / 1000., down_local_signal)
+            axes.plot(context.down_t / 1000., local_signal, c='k', label='Local signal')
+            axes.plot(context.down_t / 1000., global_signal, c='r', label='Global signal')
             axes.set_xlabel('Time (s)')
-            axes.set_ylabel('Local plasticity signal (a.u.)')
+            axes.set_ylabel('Plasticity signal amplitude (a.u.)')
+            axes.legend(loc='best', frameon=False, framealpha=0.5)
             clean_axes(axes)
             fig.tight_layout()
             context.sm.plot()
-        final_weights.append(context.sm.states['C'])
+        weights.append(context.sm.states['C'] * (context.peak_delta_weight + 1.))
     
-    delta_weights = np.array(final_weights) - 1.
-    ramp_amp, ramp_width, peak_shift, ratio, start_loc, peak_loc, end_loc = {}, {}, {}, {}, {}, {}, {}
+    delta_weights = np.array(weights) - 1.
+    ramp_amp, ramp_width, peak_shift, ratio, start_loc, peak_loc, end_loc, min_val, min_loc = {}, {}, {}, {}, {}, {}, \
+                                                                                              {}, {}, {}
     target_ramp = context.exp_ramp['after']
     ramp_amp['target'], ramp_width['target'], peak_shift['target'], ratio['target'], start_loc['target'], \
-        peak_loc['target'], end_loc['target'] = calculate_ramp_features(target_ramp, context.mean_induction_loc)
+        peak_loc['target'], end_loc['target'], min_val['target'], min_loc['target'] = \
+        calculate_ramp_features(target_ramp, context.mean_induction_loc)
     model_ramp = get_model_ramp(delta_weights)
     ramp_amp['model'], ramp_width['model'], peak_shift['model'], ratio['model'], start_loc['model'], \
-        peak_loc['model'], end_loc['model'] = calculate_ramp_features(model_ramp, context.mean_induction_loc)
-    result = {'delta_amp': ramp_amp['target'] - ramp_amp['model'],
-              'delta_width': ramp_width['target'] - ramp_width['model'],
-              'delta_peak_shift': peak_shift['target'] - peak_shift['model'],
-              'delta_asymmetry': ratio['target'] - ratio['model']}
+        peak_loc['model'], end_loc['model'], min_val['model'], min_loc['model'] = \
+        calculate_ramp_features(model_ramp, context.mean_induction_loc)
+    
+    result = {'delta_amp': ramp_amp['model'] - ramp_amp['target'],
+              'delta_width': ramp_width['model'] - ramp_width['target'],
+              'delta_peak_shift': peak_shift['model'] - peak_shift['target'],
+              'delta_asymmetry': ratio['model'] - ratio['target'],
+              'delta_min_val': min_val['model'] - min_val['target']}
+    abs_delta_min_loc = abs(min_loc['model'] - min_loc['target'])
+    if min_loc['model'] <= min_loc['target']:
+        if abs_delta_min_loc > context.track_length / 2.:
+            delta_min_loc = context.track_length - abs_delta_min_loc
+        else:
+            delta_min_loc = -abs_delta_min_loc
+    else:
+        if abs_delta_min_loc > context.track_length / 2.:
+            delta_min_loc = -(context.track_length - abs_delta_min_loc)
+        else:
+            delta_min_loc = abs_delta_min_loc
+    result['delta_min_loc'] = delta_min_loc
     if plot:
         fig, axes = plt.subplots(1, 2)
         axes[0].plot(context.peak_locs, delta_weights)
@@ -693,10 +745,13 @@ def filter_model_ramp_features(computed_result_list, current_features, target_va
     :param export: bool
     :return: dict
     """
-    norm_residuals, delta_amp, delta_width, delta_peak_shift, delta_asymmetry, features = {}, {}, {}, {}, {}, {}
+    norm_residuals, delta_amp, delta_width, delta_peak_shift, delta_asymmetry, delta_min_loc, delta_min_val, \
+        features = {}, {}, {}, {}, {}, {}, {}, {}
     groups = ['spont', 'exp1', 'exp2']
-    features_names = ['norm_residuals', 'delta_amp', 'delta_width', 'delta_peak_shift', 'delta_asymmetry']
-    for feature in norm_residuals, delta_amp, delta_width, delta_peak_shift, delta_asymmetry:
+    features_names = ['norm_residuals', 'delta_amp', 'delta_width', 'delta_peak_shift', 'delta_asymmetry',
+                      'delta_min_loc', 'delta_min_val']
+    for feature in norm_residuals, delta_amp, delta_width, delta_peak_shift, delta_asymmetry, delta_min_loc,\
+            delta_min_val:
         for group in groups:
             feature[group] = []
     for this_result_dict in computed_result_list:
@@ -707,11 +762,12 @@ def filter_model_ramp_features(computed_result_list, current_features, target_va
                 else:
                     group = 'exp'+str(induction)
                 for feature, feature_name in \
-                        zip([norm_residuals, delta_amp, delta_width, delta_peak_shift, delta_asymmetry],
-                            features_names):
+                        zip([norm_residuals, delta_amp, delta_width, delta_peak_shift, delta_asymmetry, delta_min_loc,
+                             delta_min_val], features_names):
                     feature[group].append(this_result_dict[cell_id][induction][feature_name])
     for feature, feature_name in \
-            zip([norm_residuals, delta_amp, delta_width, delta_peak_shift, delta_asymmetry], features_names):
+            zip([norm_residuals, delta_amp, delta_width, delta_peak_shift, delta_asymmetry, delta_min_loc,
+                 delta_min_val], features_names):
         for group in groups:
             if len(feature[group]) > 0:
                 features[group + '_' + feature_name] = np.mean(feature[group])
@@ -774,13 +830,13 @@ def get_model_ramp_error(x):
     return Err
 
 
-
+"""
 config_interactive()
 x = context.x0_array
 results = []
 for cell_id, induction in context.data_keys:
     results.append(compute_model_ramp_features(x, cell_id, induction, plot=True, full_output=True))
-"""
+
 # Err = get_model_ramp_error(x)
 
 result = optimize.minimize(get_model_ramp_error, x, method='L-BFGS-B', bounds=context.bounds, 

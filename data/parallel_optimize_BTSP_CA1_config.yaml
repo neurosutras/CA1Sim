@@ -1,8 +1,8 @@
 bounds:
-  rAC0: !!python/tuple
+  rMC0: !!python/tuple
   - 0.01
   - 200.
-  rCA0: !!python/tuple
+  rCM0: !!python/tuple
   - 0.01
   - 200.
   local_signal_rise: !!python/tuple
@@ -17,10 +17,10 @@ bounds:
   global_signal_decay: !!python/tuple
   - 500.
   - 5000.
-  rCA_scale: !!python/tuple
+  rCM_scale: !!python/tuple
   - 0.01
   - 10.
-  rCA_skew: !!python/tuple
+  rCM_skew: !!python/tuple
   - -10.
   - 10.
   peak_delta_weight: !!python/tuple
@@ -93,14 +93,14 @@ objectives_modules: !!python/tuple
 optimization_title: bidirectional_BTSP
 param_gen: BGen
 param_names:
-- rAC0
-- rCA0
+- rMC0
+- rCM0
 - local_signal_rise
 - local_signal_decay
 - global_signal_rise
 - global_signal_decay
-- rCA_scale
-- rCA_skew
+- rCM_scale
+- rCM_skew
 - peak_delta_weight
 target_range:
   spont_norm_residuals: 1.
@@ -115,14 +115,14 @@ target_range:
   exp1_delta_width: 0.1
   exp1_delta_peak_shift: 0.1
   exp1_delta_asymmetry: 0.1
-  exp1_delta__min_loc: 0.1
+  exp1_delta_min_loc: 0.1
   exp1_delta_min_val: 0.01
   exp2_norm_residuals: 0.1
   exp2_delta_amp: 0.1
   exp2_delta_width: 0.1
   exp2_delta_peak_shift: 0.1
   exp2_delta_asymmetry: 0.1
-  exp2_delta__min_loc: 0.1
+  exp2_delta_min_loc: 0.1
   exp2_delta_min_val: 0.01
 target_val:
   spont_norm_residuals: 0.
@@ -137,15 +137,15 @@ target_val:
   exp1_delta_width: 0.
   exp1_delta_peak_shift: 0.
   exp1_delta_asymmetry: 0.
-  exp1_delta__min_loc: 0.
-  exp1_delta__min_val: 0.
+  exp1_delta_min_loc: 0.
+  exp1_delta_min_val: 0.
   exp2_norm_residuals: 0.
   exp2_delta_amp: 0.
   exp2_delta_width: 0.
   exp2_delta_peak_shift: 0.
   exp2_delta_asymmetry: 0.
-  exp2_delta__min_loc: 0.
-  exp2_delta__min_val: 0.
+  exp2_delta_min_loc: 0.
+  exp2_delta_min_val: 0.
 update_params: !!python/tuple
 - update_model_params
 update_modules: !!python/tuple
@@ -156,7 +156,7 @@ x0:
   global_signal_decay: 2104.7610631936654
   global_signal_rise: 29.90771546047854
   peak_delta_weight: 2.688810397940993
-  rAC0: 11.084371010499598
-  rCA0: 40.36377564785838
-  rCA_scale: 0.45969915143130036
-  rCA_skew: 1.625256232439457
+  rMC0: 11.084371010499598
+  rCM0: 40.36377564785838
+  rCM_scale: 0.45969915143130036
+  rCM_skew: 1.625256232439457
