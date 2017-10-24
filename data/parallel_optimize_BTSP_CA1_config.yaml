@@ -1,24 +1,24 @@
 bounds:
   rMC0: !!python/tuple
-  - 0.01
-  - 200.
+  - 0.1
+  - 100.
   rCM0: !!python/tuple
-  - 0.01
-  - 200.
+  - 0.1
+  - 100.
   local_signal_rise: !!python/tuple
-  - 10.
-  - 100.
+  - 5.
+  - 200.
   local_signal_decay: !!python/tuple
-  - 500.
-  - 5000.
+  - 200.
+  - 4000.
   global_signal_rise: !!python/tuple
-  - 10.
-  - 100.
+  - 5.
+  - 200.
   global_signal_decay: !!python/tuple
-  - 500.
-  - 5000.
+  - 200.
+  - 3000.
   rCM_scale: !!python/tuple
-  - 0.01
+  - 0.1
   - 10.
   rCM_skew: !!python/tuple
   - -10.

@@ -1,6 +1,6 @@
 __author__ = 'milsteina'
 from moopgen import *
-from plot_results import *
+from plot_parallel_optimize_results import *
 from scipy.stats import skewnorm
 
 """
@@ -115,6 +115,7 @@ def config_controller(export_file_path, output_dir, **kwargs):
     :param export_file_path: str
     :param output_dir: str
     """
+    processed_export_file_path = export_file_path.replace('.hdf5', '_processed.hdf5')
     context.update(locals())
     context.update(kwargs)
     init_context()
@@ -133,6 +134,7 @@ def config_engine(update_params_funcs, param_names, default_params, temp_output_
     :param data_file_name: str (path)
     """
     param_indexes = {param_name: i for i, param_name in enumerate(param_names)}
+    processed_export_file_path = export_file_path.replace('.hdf5', '_processed.hdf5')
     context.update(locals())
     context.update(kwargs)
     init_context()
@@ -644,9 +646,10 @@ def compute_model_ramp_features(x, cell_id=None, induction=None, export=False, p
     rCM_f = skewnorm(a=context.rCM_skew, scale=context.rCM_scale, loc=rCM_loc)
     skewnorm_range = np.linspace(rCM_f.ppf(0.001), rCM_f.ppf(0.999), 1000)
     rCM_peak = np.max(rCM_f.pdf(skewnorm_range))
+    norm_depot_rate = rCM_f.pdf(skewnorm_range) / rCM_peak
     if plot:
         fig, axes = plt.subplots(1)
-        axes.plot(skewnorm_range, rCM_f.pdf(skewnorm_range) / rCM_peak)
+        axes.plot(skewnorm_range, norm_depot_rate)
         axes.set_xlabel('Local signal amplitude (a.u.)')
         axes.set_ylabel('Normalized rate')
         axes.set_title('Depotentiation rate')
@@ -676,15 +679,16 @@ def compute_model_ramp_features(x, cell_id=None, induction=None, export=False, p
             fig.tight_layout()
             context.sm.plot()
         weights.append(context.sm.states['C'] * (context.peak_delta_weight + 1.))
-    
-    delta_weights = np.array(weights) - 1.
+    initial_weights = context.SVD_weights['before'] + 1.
+    weights = np.array(weights)
+    delta_weights = np.subtract(weights, initial_weights)
     ramp_amp, ramp_width, peak_shift, ratio, start_loc, peak_loc, end_loc, min_val, min_loc = {}, {}, {}, {}, {}, {}, \
                                                                                               {}, {}, {}
     target_ramp = context.exp_ramp['after']
     ramp_amp['target'], ramp_width['target'], peak_shift['target'], ratio['target'], start_loc['target'], \
         peak_loc['target'], end_loc['target'], min_val['target'], min_loc['target'] = \
         calculate_ramp_features(target_ramp, context.mean_induction_loc)
-    model_ramp = get_model_ramp(delta_weights)
+    model_ramp = get_model_ramp(weights - 1.)
     ramp_amp['model'], ramp_width['model'], peak_shift['model'], ratio['model'], start_loc['model'], \
         peak_loc['model'], end_loc['model'], min_val['model'], min_loc['model'] = \
         calculate_ramp_features(model_ramp, context.mean_induction_loc)
@@ -706,24 +710,54 @@ def compute_model_ramp_features(x, cell_id=None, induction=None, export=False, p
         else:
             delta_min_loc = abs_delta_min_loc
     result['delta_min_loc'] = delta_min_loc
+    peak_weight = context.peak_delta_weight + 1.
     if plot:
         fig, axes = plt.subplots(1, 2)
-        axes[0].plot(context.peak_locs, delta_weights)
-        axes[1].plot(context.binned_x, target_ramp, label='Experiment')
-        axes[1].plot(context.binned_x, model_ramp, label='Model')
-        axes[0].set_ylabel('Change in synaptic weight (a.u.)')
-        axes[0].set_xlabel('Location (cm)')
-        axes[1].set_ylabel('Ramp amplitude (mV)')
+        axes[1].plot(context.peak_locs, delta_weights)
+        axes[0].plot(context.binned_x, target_ramp, label='Experiment')
+        axes[0].plot(context.binned_x, model_ramp, label='Model')
+        axes[1].set_ylabel('Change in synaptic weight (a.u.)')
         axes[1].set_xlabel('Location (cm)')
-        axes[1].legend(loc='best', frameon=False, framealpha=0.5)
+        axes[0].set_ylabel('Ramp amplitude (mV)')
+        axes[0].set_xlabel('Location (cm)')
+        axes[0].legend(loc='best', frameon=False, framealpha=0.5)
+        axes[0].set_ylim([min(-1., np.min(model_ramp) - 1., np.min(target_ramp) - 1.),
+                          max(10., np.max(model_ramp) + 1., np.max(target_ramp) + 1.)])
+        axes[1].set_ylim([-peak_weight, peak_weight])
         clean_axes(axes)
         fig.suptitle('Cell_id: %i, Induction: %i' % (context.cell_id, context.induction))
         fig.tight_layout()
         plt.show()
         plt.close()
     if full_output:
-        result['delta_weights'] = delta_weights
+        result['weights'] = weights
+        result['initial_weights'] = initial_weights
         result['model_ramp'] = np.array(model_ramp)
+    if export:
+        with h5py.File(context.processed_export_file_path, 'a') as f:
+            description = 'model_ramp_context'
+            if description not in f:
+                f.create_group(description)
+                group = f[description]
+                group.create_dataset('peak_locs', compression='gzip', compression_opts=9, data=context.peak_locs)
+                group.create_dataset('binned_x', compression='gzip', compression_opts=9, data=context.binned_x)
+                group.create_dataset('skewnorm_range', compression='gzip', compression_opts=9, data=skewnorm_range)
+                group.create_dataset('norm_depot_rate', compression='gzip', compression_opts=9, data=norm_depot_rate)
+                group.attrs['peak_weight'] = peak_weight
+            description = 'model_ramp_features'
+            if description not in f:
+                f.create_group(description)
+            cell_key = str(cell_id)
+            induction_key = str(induction)
+            if cell_key not in f[description]:
+                f[description].create_group(cell_key)
+            if induction_key not in f[description][cell_key]:
+                f[description][cell_key].create_group(induction_key)
+            group = f[description][cell_key][induction_key]
+            group.create_dataset('target_ramp', compression='gzip', compression_opts=9, data=target_ramp)
+            group.create_dataset('model_ramp', compression='gzip', compression_opts=9, data=model_ramp)
+            group.create_dataset('weights', compression='gzip', compression_opts=9, data=weights)
+            group.create_dataset('initial_weights', compression='gzip', compression_opts=9, data=initial_weights)
     model_ramp /= ramp_amp['model']
     model_ramp *= ramp_amp['target']
     residuals = 0.
@@ -732,8 +766,6 @@ def compute_model_ramp_features(x, cell_id=None, induction=None, export=False, p
     result['norm_residuals'] = residuals
     print 'Process: %i: computing model_ramp_features for cell_id: %i, induction: %i took %.1f s' % \
           (os.getpid(), context.cell_id, context.induction, time.time() - start_time)
-    if export:
-        print 'compute_model_ramp_features: need to implement processed_export of delta_weights and model_ramp'
     return {cell_id: {induction: result}}
 
 
@@ -832,16 +864,21 @@ def get_model_ramp_error(x):
     return Err
 
 
-"""
-config_interactive()
-x = context.x0_array
-results = []
-for cell_id, induction in context.data_keys:
-    results.append(compute_model_ramp_features(x, cell_id, induction, plot=True, full_output=True))
-
-# Err = get_model_ramp_error(x)
-
-result = optimize.minimize(get_model_ramp_error, x, method='L-BFGS-B', bounds=context.bounds, 
-                           options={'disp': True, 'maxfun': 200})
-x = result.x
-"""
+if __name__ == '__main__':
+    config_interactive()
+    # x = context.x0_array
+    x = [17.26330989, 58.89765021, 57.32413683, 765.69679806, 10.14063316, 500.60616055, 3.23101249, -5.14206064,
+         2.634794]
+    results = []
+    for cell_id, induction in context.data_keys:
+        results.append(compute_model_ramp_features(x, cell_id, induction, plot=True, full_output=True))
+    for result in results:
+        print result.items()
+    """
+    # Err = get_model_ramp_error(x)
+    
+    result = optimize.minimize(get_model_ramp_error, x, method='L-BFGS-B', bounds=context.bounds, 
+                               options={'disp': True, 'maxfun': 200})
+    x = result.x
+    """
+    context.update(locals())

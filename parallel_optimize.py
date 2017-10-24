@@ -270,7 +270,8 @@ def init_controller():
     global_context.module_set = module_set
     for module_name in module_set:
         m = importlib.import_module(module_name)
-        m.config_controller(global_context.export_file_path, global_context.output_dir, **global_context.kwargs)
+        m.config_controller(global_context.export_file_path, output_dir=global_context.output_dir,
+                            **global_context.kwargs)
     update_params_funcs = []
     for i, module_name in enumerate(update_modules):
         module = sys.modules[module_name]
