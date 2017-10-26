@@ -1,10 +1,10 @@
 #!/bin/bash
 #SBATCH -J parallel_optimize_BTSP_CA1
-#SBATCH -o parallel_optimize_BTSP_CA1_102317.%j.o
-#SBATCH -e parallel_optimize_BTSP_CA1_102317.%j.e
+#SBATCH -o parallel_optimize_BTSP_CA1_102617_cell1.%j.o
+#SBATCH -e parallel_optimize_BTSP_CA1_102617_cell1.%j.e
 #SBATCH --partition=compute
 #SBATCH -N 17 -n 402
-#SBATCH -t 12:00:00
+#SBATCH -t 06:00:00
 ##SBATCH --mail-user=graceyng@stanford.edu
 #SBATCH --mail-user=aaronmil@stanford.edu
 #SBATCH --mail-type=END
