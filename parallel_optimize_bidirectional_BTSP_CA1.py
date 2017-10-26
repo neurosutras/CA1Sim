@@ -862,8 +862,9 @@ if __name__ == '__main__':
     # x = context.x0_array
     # x = [17.26330989, 58.89765021, 57.32413683, 765.69679806, 10.14063316, 500.60616055, 3.23101249, -5.14206064,
     #     2.634794]
-    x = [33.8221927, 55.39154432, 5.27563282, 583.94229261,
-     130.44454687, 268.14671785, 0.1, 2.47425744]
+    # x = [33.8221927, 55.39154432, 5.27563282, 583.94229261,
+    # 130.44454687, 268.14671785, 0.1, 2.47425744]
+    x = [1.0E-01, 1.0E+02, 2.0E+02, 2.01E+02, 5.0E+00, 2.0E+02, 1.0E+01, 1.5E+00]
     """
     results = []
     for cell_id, induction in context.data_keys:
@@ -871,10 +872,11 @@ if __name__ == '__main__':
     
     for result in results:
         print result.items()
-    # Err = get_model_ramp_error(x)
+    """
+    Err = get_model_ramp_error(x)
     """
     result = optimize.minimize(get_model_ramp_error, x, method='L-BFGS-B', bounds=context.bounds, 
                                options={'disp': True, 'maxfun': 200})
     x = result.x
-
+    """
     context.update(locals())
