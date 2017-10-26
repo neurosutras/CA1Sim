@@ -468,7 +468,6 @@ def wrap_around_and_compress(waveform, interp_x):
     after = np.array(waveform[2 * len(interp_x):])
     within = np.array(waveform[len(interp_x):2 * len(interp_x)])
     waveform = within[:len(interp_x)] + before[:len(interp_x)] + after[:len(interp_x)]
-    
     return waveform
 
 
@@ -637,25 +636,22 @@ def compute_model_ramp_features(x, cell_id=None, induction=None, export=False, p
     start_time = time.time()
     down_dt = context.down_dt
     local_filter_t, local_filter, global_filter_t, global_filter = \
-        get_signal_filters(context.local_signal_rise, context.local_signal_decay, context.global_signal_rise, 
+        get_signal_filters(context.local_signal_rise, context.local_signal_decay, context.global_signal_rise,
                            context.global_signal_decay, down_dt, plot)
     global_signal = get_global_signal(context.down_induction_gate, global_filter, down_dt)
-    rCM_f = skewnorm(a=context.rCM_skew, scale=context.rCM_scale)
-    skewnorm_range = np.linspace(rCM_f.ppf(0.001), rCM_f.ppf(0.999), 1000)
-    rCM_loc = -skewnorm_range[0]
-    rCM_f = skewnorm(a=context.rCM_skew, scale=context.rCM_scale, loc=rCM_loc)
-    skewnorm_range = np.linspace(rCM_f.ppf(0.001), rCM_f.ppf(0.999), 1000)
-    rCM_peak = np.max(rCM_f.pdf(skewnorm_range))
-    norm_depot_rate = rCM_f.pdf(skewnorm_range) / rCM_peak
+    local_signal_range = np.linspace(0., 1., 1000)
+    rCM_f = lambda local_signal: (np.exp(local_signal/context.rCM_tau) - 1.) / (np.exp(1./context.rCM_tau) - 1.)
+    norm_depot_rate = rCM_f(local_signal_range)
     if plot:
         fig, axes = plt.subplots(1)
-        axes.plot(skewnorm_range, norm_depot_rate)
+        axes.plot(local_signal_range, norm_depot_rate)
         axes.set_xlabel('Local signal amplitude (a.u.)')
         axes.set_ylabel('Normalized rate')
         axes.set_title('Depotentiation rate')
         clean_axes(axes)
         fig.tight_layout()
     weights = []
+    # peak_local_signal_amp = []
     for i in xrange(len(context.peak_locs)):
         # normalize total number of receptors
         initial_weight = (context.SVD_weights['before'][i] + 1.) / (context.peak_delta_weight + 1.)
@@ -665,7 +661,7 @@ def compute_model_ramp_features(x, cell_id=None, induction=None, export=False, p
         local_signal = get_local_signal(rate_map, local_filter, down_dt)
         context.sm.update_rates(
             {'M': {'C': context.rMC0 * global_signal * local_signal},
-             'C': {'M': context.rCM0 * global_signal * rCM_f.pdf(local_signal) / rCM_peak}})
+             'C': {'M': context.rCM0 * global_signal * rCM_f(local_signal)}})
         context.sm.reset()
         context.sm.run()
         if plot and i == 100:
@@ -678,6 +674,7 @@ def compute_model_ramp_features(x, cell_id=None, induction=None, export=False, p
             clean_axes(axes)
             fig.tight_layout()
             context.sm.plot()
+        # peak_local_signal_amp.append(np.max(local_signal))
         weights.append(context.sm.states['C'] * (context.peak_delta_weight + 1.))
     initial_weights = context.SVD_weights['before'] + 1.
     weights = np.array(weights)
@@ -741,7 +738,8 @@ def compute_model_ramp_features(x, cell_id=None, induction=None, export=False, p
                 group = f[description]
                 group.create_dataset('peak_locs', compression='gzip', compression_opts=9, data=context.peak_locs)
                 group.create_dataset('binned_x', compression='gzip', compression_opts=9, data=context.binned_x)
-                group.create_dataset('skewnorm_range', compression='gzip', compression_opts=9, data=skewnorm_range)
+                group.create_dataset('local_signal_range', compression='gzip', compression_opts=9,
+                                     data=local_signal_range)
                 group.create_dataset('norm_depot_rate', compression='gzip', compression_opts=9, data=norm_depot_rate)
                 group.attrs['peak_weight'] = peak_weight
             description = 'model_ramp_features'
@@ -758,12 +756,8 @@ def compute_model_ramp_features(x, cell_id=None, induction=None, export=False, p
             group.create_dataset('model_ramp', compression='gzip', compression_opts=9, data=model_ramp)
             group.create_dataset('weights', compression='gzip', compression_opts=9, data=weights)
             group.create_dataset('initial_weights', compression='gzip', compression_opts=9, data=initial_weights)
-    model_ramp /= ramp_amp['model']
-    model_ramp *= ramp_amp['target']
-    residuals = 0.
-    for i in xrange(len(target_ramp)):
-        residuals += abs(target_ramp[i] - model_ramp[i])
-    result['norm_residuals'] = residuals
+    residuals = np.sum(np.abs(np.subtract(target_ramp, model_ramp)))
+    result['residuals'] = residuals
     print 'Process: %i: computing model_ramp_features for cell_id: %i, induction: %i took %.1f s' % \
           (os.getpid(), context.cell_id, context.induction, time.time() - start_time)
     return {cell_id: {induction: result}}
@@ -779,12 +773,12 @@ def filter_model_ramp_features(computed_result_list, current_features, target_va
     :param export: bool
     :return: dict
     """
-    norm_residuals, delta_amp, delta_width, delta_peak_shift, delta_asymmetry, delta_min_loc, delta_min_val, \
+    residuals, delta_amp, delta_width, delta_peak_shift, delta_asymmetry, delta_min_loc, delta_min_val, \
         features = {}, {}, {}, {}, {}, {}, {}, {}
     groups = ['spont', 'exp1', 'exp2']
-    features_names = ['norm_residuals', 'delta_amp', 'delta_width', 'delta_peak_shift', 'delta_asymmetry',
+    features_names = ['residuals', 'delta_amp', 'delta_width', 'delta_peak_shift', 'delta_asymmetry',
                       'delta_min_loc', 'delta_min_val']
-    for feature in norm_residuals, delta_amp, delta_width, delta_peak_shift, delta_asymmetry, delta_min_loc,\
+    for feature in residuals, delta_amp, delta_width, delta_peak_shift, delta_asymmetry, delta_min_loc,\
             delta_min_val:
         for group in groups:
             feature[group] = []
@@ -796,11 +790,11 @@ def filter_model_ramp_features(computed_result_list, current_features, target_va
                 else:
                     group = 'exp'+str(induction)
                 for feature, feature_name in \
-                        zip([norm_residuals, delta_amp, delta_width, delta_peak_shift, delta_asymmetry, delta_min_loc,
+                        zip([residuals, delta_amp, delta_width, delta_peak_shift, delta_asymmetry, delta_min_loc,
                              delta_min_val], features_names):
                     feature[group].append(this_result_dict[cell_id][induction][feature_name])
     for feature, feature_name in \
-            zip([norm_residuals, delta_amp, delta_width, delta_peak_shift, delta_asymmetry, delta_min_loc,
+            zip([residuals, delta_amp, delta_width, delta_peak_shift, delta_asymmetry, delta_min_loc,
                  delta_min_val], features_names):
         for group in groups:
             if len(feature[group]) > 0:
@@ -867,18 +861,21 @@ def get_model_ramp_error(x):
 if __name__ == '__main__':
     config_interactive()
     # x = context.x0_array
-    x = [17.26330989, 58.89765021, 57.32413683, 765.69679806, 10.14063316, 500.60616055, 3.23101249, -5.14206064,
-         2.634794]
+    # x = [17.26330989, 58.89765021, 57.32413683, 765.69679806, 10.14063316, 500.60616055, 3.23101249, -5.14206064,
+    #     2.634794]
+    x = [33.8221927, 55.39154432, 5.27563282, 583.94229261,
+     130.44454687, 268.14671785, 0.1, 2.47425744]
+    """
     results = []
     for cell_id, induction in context.data_keys:
         results.append(compute_model_ramp_features(x, cell_id, induction, plot=True, full_output=True))
+    
     for result in results:
         print result.items()
-    """
     # Err = get_model_ramp_error(x)
-    
+    """
     result = optimize.minimize(get_model_ramp_error, x, method='L-BFGS-B', bounds=context.bounds, 
                                options={'disp': True, 'maxfun': 200})
     x = result.x
-    """
+
     context.update(locals())
