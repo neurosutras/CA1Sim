@@ -25,6 +25,14 @@ bounds:
   - 4.
 default_params:
 relative_bounds:
+- - local_signal_decay
+  - '>'
+  - 1.0
+  - local_signal_rise
+- - global_signal_decay
+  - '>'
+  - 1.0
+  - global_signal_rise
 feature_names:
 - spont_residuals
 - spont_delta_amp
