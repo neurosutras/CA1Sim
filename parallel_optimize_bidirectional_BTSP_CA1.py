@@ -582,12 +582,11 @@ def get_local_signal(rate_map, local_filter, dt):
     return np.convolve(0.001 * dt * rate_map, local_filter)[:len(rate_map)]
 
 
-def get_global_signal(induction_gate, global_filter, dt):
+def get_global_signal(induction_gate, global_filter):
     """
     
     :param induction_gate: array 
     :param global_filter: array
-    :param dt: float
     :return: array
     """
     return np.convolve(induction_gate, global_filter)[:len(induction_gate)]
@@ -638,7 +637,7 @@ def compute_model_ramp_features(x, cell_id=None, induction=None, export=False, p
     local_filter_t, local_filter, global_filter_t, global_filter = \
         get_signal_filters(context.local_signal_rise, context.local_signal_decay, context.global_signal_rise,
                            context.global_signal_decay, down_dt, plot)
-    global_signal = get_global_signal(context.down_induction_gate, global_filter, down_dt)
+    global_signal = get_global_signal(context.down_induction_gate, global_filter)
     local_signal_range = np.linspace(0., 1., 1000)
     rCM_f = lambda local_signal: (np.exp(local_signal/context.rCM_tau) - 1.) / (np.exp(1./context.rCM_tau) - 1.)
     norm_depot_rate = rCM_f(local_signal_range)
