@@ -1,0 +1,157 @@
+bounds:
+  rMC0: !!python/tuple
+  - 0.1
+  - 100.
+  rCM0: !!python/tuple
+  - 0.1
+  - 100.
+  local_signal_rise: !!python/tuple
+  - 5.
+  - 200.
+  local_signal_decay: !!python/tuple
+  - 200.
+  - 4000.
+  global_signal_rise: !!python/tuple
+  - 5.
+  - 200.
+  global_signal_decay: !!python/tuple
+  - 200.
+  - 3000.
+  rCM_tau: !!python/tuple
+  - 0.01
+  - 10.
+  peak_delta_weight: !!python/tuple
+  - 1.5
+  - 4.
+default_params:
+relative_bounds:
+feature_names:
+- spont_residuals
+- spont_delta_amp
+- spont_delta_width
+- spont_delta_peak_shift
+- spont_delta_asymmetry
+- spont_delta_min_loc
+- spont_delta_min_val
+- exp1_residuals
+- exp1_delta_amp
+- exp1_delta_width
+- exp1_delta_peak_shift
+- exp1_delta_asymmetry
+- exp1_delta_min_loc
+- exp1_delta_min_val
+- exp2_residuals
+- exp2_delta_amp
+- exp2_delta_width
+- exp2_delta_peak_shift
+- exp2_delta_asymmetry
+- exp2_delta_min_loc
+- exp2_delta_min_val
+features_modules: !!python/tuple
+- parallel_optimize_bidirectional_BTSP_CA1
+get_features: !!python/tuple
+- get_model_ramp_features
+group_sizes: !!python/tuple
+- 2  # 38
+kwargs:
+  data_file_name: '101017_BTSP_CA1_data.hdf5'
+  verbose: False
+  data_keys:
+    - !!python/tuple
+      - 1
+      - 1
+    - !!python/tuple
+      - 1
+      - 2
+objective_names:
+- spont_residuals
+- spont_delta_amp
+- spont_delta_width
+- spont_delta_peak_shift
+- spont_delta_asymmetry
+- spont_delta_min_loc
+- spont_delta_min_val
+- exp1_residuals
+- exp1_delta_amp
+- exp1_delta_width
+- exp1_delta_peak_shift
+- exp1_delta_asymmetry
+- exp1_delta_min_loc
+- exp1_delta_min_val
+- exp2_residuals
+- exp2_delta_amp
+- exp2_delta_width
+- exp2_delta_peak_shift
+- exp2_delta_asymmetry
+- exp2_delta_min_loc
+- exp2_delta_min_val
+objectives_modules: !!python/tuple
+- parallel_optimize_bidirectional_BTSP_CA1
+optimization_title: bidirectional_BTSP
+param_gen: BGen
+param_names:
+- rMC0
+- rCM0
+- local_signal_rise
+- local_signal_decay
+- global_signal_rise
+- global_signal_decay
+- rCM_tau
+- peak_delta_weight
+target_range:
+  spont_residuals: 1.
+  spont_delta_amp: 0.01
+  spont_delta_width: 0.1
+  spont_delta_peak_shift: 0.1
+  spont_delta_asymmetry: 0.01
+  spont_delta_min_loc: 0.1
+  spont_delta_min_val: 0.01
+  exp1_residuals: 0.1
+  exp1_delta_amp: 0.1
+  exp1_delta_width: 0.1
+  exp1_delta_peak_shift: 0.1
+  exp1_delta_asymmetry: 0.1
+  exp1_delta_min_loc: 0.1
+  exp1_delta_min_val: 0.01
+  exp2_residuals: 0.1
+  exp2_delta_amp: 0.1
+  exp2_delta_width: 0.1
+  exp2_delta_peak_shift: 0.1
+  exp2_delta_asymmetry: 0.1
+  exp2_delta_min_loc: 0.1
+  exp2_delta_min_val: 0.01
+target_val:
+  spont_residuals: 0.
+  spont_delta_amp: 0.
+  spont_delta_width: 0.
+  spont_delta_peak_shift: 0.
+  spont_delta_asymmetry: 0.
+  spont_delta_min_loc: 0.
+  spont_delta_min_val: 0.
+  exp1_residuals: 0.
+  exp1_delta_amp: 0.
+  exp1_delta_width: 0.
+  exp1_delta_peak_shift: 0.
+  exp1_delta_asymmetry: 0.
+  exp1_delta_min_loc: 0.
+  exp1_delta_min_val: 0.
+  exp2_residuals: 0.
+  exp2_delta_amp: 0.
+  exp2_delta_width: 0.
+  exp2_delta_peak_shift: 0.
+  exp2_delta_asymmetry: 0.
+  exp2_delta_min_loc: 0.
+  exp2_delta_min_val: 0.
+update_params: !!python/tuple
+- update_model_params
+update_modules: !!python/tuple
+- parallel_optimize_bidirectional_BTSP_CA1
+x0:
+  global_signal_decay: 268.14671785
+  global_signal_rise: 130.44454687
+  local_signal_decay: 583.94229261
+  local_signal_rise: 5.27563282
+  peak_delta_weight: 2.47425744
+  rCM0: 55.39154432
+  rCM_tau: 0.1
+  rMC0: 33.8221927

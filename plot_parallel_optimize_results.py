@@ -36,11 +36,11 @@ def plot_exported_BTSP_model_ramp_features(processed_export_file_path):
         group = f[description]
         peak_locs = group['peak_locs'][:]
         binned_x = group['binned_x'][:]
-        skewnorm_range = group['skewnorm_range'][:]
+        local_signal_range = group['local_signal_range'][:]
         norm_depot_rate = group['norm_depot_rate'][:]
         peak_weight = group.attrs['peak_weight']
         fig, axes = plt.subplots(1)
-        axes.plot(skewnorm_range, norm_depot_rate)
+        axes.plot(local_signal_range, norm_depot_rate)
         axes.set_xlabel('Local signal amplitude (a.u.)')
         axes.set_ylabel('Normalized rate')
         axes.set_title('Depotentiation rate')
