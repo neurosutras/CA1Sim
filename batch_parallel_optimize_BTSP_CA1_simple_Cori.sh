@@ -1,8 +1,8 @@
 #!/bin/bash -l
 
-#SBATCH -J parallel_optimize_BTSP_CA1
-#SBATCH -o parallel_optimize_BTSP_CA1_102717_cell1.%j.o
-#SBATCH -e parallel_optimize_BTSP_CA1_102717_cell1.%j.e
+#SBATCH -J parallel_optimize_BTSP_CA1_simple
+#SBATCH -o parallel_optimize_BTSP_CA1_simple_102717_cell1.%j.o
+#SBATCH -e parallel_optimize_BTSP_CA1_simple_102617_cell1.%j.e
 #SBATCH -p regular
 #SBATCH -N 15
 #SBATCH -L SCRATCH
@@ -25,4 +25,4 @@ sleep 60
 srun -N 13 -n 400 -c 2 --cpu_bind=cores ipengine --mpi=mpi4py --cluster-id=$cluster_id &
 sleep 1
 sleep 300
-srun -N 1 -n 1 -c 2 --cpu_bind=cores python parallel_optimize.py --config-file-path='data/parallel_optimize_BTSP_CA1_config.yaml' --cluster-id=$cluster_id --pop-size=200 --max-iter=50 --path-length=3 --disp --export --output-dir=$SCRATCH/BTSP
+srun -N 1 -n 1 -c 2 --cpu_bind=cores python parallel_optimize.py --config-file-path='data/parallel_optimize_BTSP_CA1_simple_config.yaml' --cluster-id=$cluster_id --pop-size=200 --max-iter=50 --path-length=3 --disp --export --output-dir=$SCRATCH/BTSP
