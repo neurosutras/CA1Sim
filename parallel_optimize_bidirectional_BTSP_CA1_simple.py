@@ -44,7 +44,7 @@ script_filename = 'parallel_optimize_bidirectional_BTSP_CA1.py'
 context = Context()
 
 
-def config_interactive(config_file_path='data/parallel_optimize_BTSP_CA1_config.yaml',
+def config_interactive(config_file_path='data/parallel_optimize_BTSP_CA1_simple_config.yaml',
                        output_dir='data', temp_output_path=None, export_file_path=None, verbose=True, disp=True):
     """
     :param config_file_path: str (.yaml file path)
@@ -638,18 +638,6 @@ def compute_model_ramp_features(x, cell_id=None, induction=None, export=False, p
         get_signal_filters(context.local_signal_rise, context.local_signal_decay, context.global_signal_rise,
                            context.global_signal_decay, down_dt, plot)
     global_signal = get_global_signal(context.down_induction_gate, global_filter)
-    local_signal_range = np.linspace(0., 1., 1000)
-    # rCM_f = lambda local_signal: (np.exp(local_signal/context.rCM_tau) - 1.) / (np.exp(1./context.rCM_tau) - 1.)
-    rCM_f = lambda local_signal: (np.exp(local_signal / context.rCM_tau) - 1.) / (np.exp(1.) - 1.)
-    norm_depot_rate = rCM_f(local_signal_range)
-    if plot:
-        fig, axes = plt.subplots(1)
-        axes.plot(local_signal_range, norm_depot_rate)
-        axes.set_xlabel('Local signal amplitude (a.u.)')
-        axes.set_ylabel('Normalized rate')
-        axes.set_title('Depotentiation rate')
-        clean_axes(axes)
-        fig.tight_layout()
     weights = []
     # peak_local_signal_amp = []
     peak_weight = context.peak_delta_weight + 1.
@@ -663,7 +651,7 @@ def compute_model_ramp_features(x, cell_id=None, induction=None, export=False, p
         local_signal = get_local_signal(rate_map, local_filter, down_dt)
         context.sm.update_rates(
             {'M': {'C': context.rMC0 * global_signal * local_signal},
-             'C': {'M': context.rCM0 * global_signal * rCM_f(local_signal)}})
+             'C': {'M': context.rCM0 * global_signal * local_signal}})
         context.sm.reset()
         context.sm.run()
         if plot and i == 100:
@@ -739,9 +727,6 @@ def compute_model_ramp_features(x, cell_id=None, induction=None, export=False, p
                 group = f[description]
                 group.create_dataset('peak_locs', compression='gzip', compression_opts=9, data=context.peak_locs)
                 group.create_dataset('binned_x', compression='gzip', compression_opts=9, data=context.binned_x)
-                group.create_dataset('local_signal_range', compression='gzip', compression_opts=9,
-                                     data=local_signal_range)
-                group.create_dataset('norm_depot_rate', compression='gzip', compression_opts=9, data=norm_depot_rate)
                 group.attrs['peak_weight'] = peak_weight
             description = 'model_ramp_features'
             if description not in f:
@@ -869,7 +854,7 @@ if __name__ == '__main__':
     #x = [17.26330989, 100., 57.32413683, 765.69679806, 10.14063316, 500.60616055, 1.,
     #          2.634794]
     x = [37.09395918, 105.52255606, 62.95478383, 524.0054589,
-     97.33240168, 158.68052365, 5.43120888, 2.47129701]
+     97.33240168, 158.68052365, 2.47129701]
 
     results = []
     for cell_id, induction in context.data_keys:
