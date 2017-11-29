@@ -32,6 +32,10 @@ rel_bounds:
   - '>'
   - 1.0
   - local_signal_rise
+- - rCM_decay
+  - '>'
+  - 1.0
+  - rCM_rise
 - - global_signal_decay
   - '>'
   - 1.0
@@ -59,15 +63,18 @@ feature_names:
 - exp2_delta_min_loc
 - exp2_delta_min_val
 features_modules: !!python/tuple
-- parallel_optimize_bidirectional_BTSP_CA1
+- parallel_optimize_bidirectional_BTSP_CA1_v3
 get_features: !!python/tuple
 - get_model_ramp_features
 group_sizes: !!python/tuple
-- 1  # 38
+- 2  # 38
 kwargs:
   data_file_name: '101017_BTSP_CA1_data.hdf5'
   verbose: False
   data_keys:
+    - !!python/tuple
+      - 1
+      - 1
     - !!python/tuple
       - 1
       - 2
@@ -94,7 +101,7 @@ objective_names:
 - exp2_delta_min_loc
 - exp2_delta_min_val
 objectives_modules: !!python/tuple
-- parallel_optimize_bidirectional_BTSP_CA1
+- parallel_optimize_bidirectional_BTSP_CA1_v3
 optimization_title: bidirectional_BTSP
 param_gen: BGen
 param_names:
@@ -154,7 +161,7 @@ target_val:
 update_params: !!python/tuple
 - update_model_params
 update_modules: !!python/tuple
-- parallel_optimize_bidirectional_BTSP_CA1
+- parallel_optimize_bidirectional_BTSP_CA1_v3
 x0:
   global_signal_decay: 268.14671785
   global_signal_rise: 130.44454687

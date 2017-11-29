@@ -39,7 +39,7 @@ to the amount of local signal.
 signal and current weight (occupancy of state C).
 """
 
-script_filename = 'parallel_optimize_bidirectional_BTSP_CA1.py'
+script_filename = 'parallel_optimize_bidirectional_BTSP_CA1_v3.py'
 
 context = Context()
 
@@ -699,6 +699,7 @@ def compute_model_ramp_features(x, cell_id=None, induction=None, export=False, p
         context.sm.run()
         if i == 100:
             example_weight_dynamics = np.array(context.sm.states_history['C'][:-1]) * peak_weight
+            example_local_signal = np.array(local_signal)
             example_dual_signal_product = np.array(dual_signal_product)
             if plot:
                 fig, axes = plt.subplots(3, sharex=True)
@@ -822,6 +823,8 @@ def compute_model_ramp_features(x, cell_id=None, induction=None, export=False, p
             group.create_dataset('initial_weights', compression='gzip', compression_opts=9, data=initial_weights)
             group.create_dataset('example_local_signal', compression='gzip', compression_opts=9,
                                  data=example_local_signal)
+            group.create_dataset('example_dual_signal_product', compression='gzip', compression_opts=9,
+                                 data=example_dual_signal_product)
             group.create_dataset('global_signal', compression='gzip', compression_opts=9, data=global_signal)
             group.create_dataset('down_t', compression='gzip', compression_opts=9, data=context.down_t)
             group.create_dataset('example_weight_dynamics', compression='gzip', compression_opts=9,
