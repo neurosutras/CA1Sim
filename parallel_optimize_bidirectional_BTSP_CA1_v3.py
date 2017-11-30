@@ -664,10 +664,10 @@ def compute_model_ramp_features(x, cell_id=None, induction=None, export=False, p
                            context.global_signal_decay, down_dt, plot)
     global_signal = get_global_signal(context.down_induction_gate, global_filter)
     dual_signal_product_range = np.linspace(0., 0.5, 10000)
-    norm_depot_rate = lambda signal: np.exp(-signal/context.rCM_decay) - np.exp(-signal/context.rCM_rise)
+    norm_depot_rate = lambda signal: (np.exp(-signal/context.rCM_decay) - np.exp(-signal/context.rCM_rise)) ** 2.
     depot_rate_peak = np.max(norm_depot_rate(dual_signal_product_range))
-    norm_depot_rate = lambda signal: (np.exp(-signal / context.rCM_decay) - np.exp(-signal / context.rCM_rise)) / \
-                                     depot_rate_peak
+    norm_depot_rate = lambda signal: ((np.exp(-signal / context.rCM_decay) - np.exp(-signal / context.rCM_rise)) ** 2.)\
+                                     / depot_rate_peak
     if plot:
         fig, axes = plt.subplots(1)
         axes.plot(dual_signal_product_range, norm_depot_rate(dual_signal_product_range))
@@ -676,8 +676,8 @@ def compute_model_ramp_features(x, cell_id=None, induction=None, export=False, p
         axes.set_title('Depotentiation rate')
         clean_axes(axes)
         fig.tight_layout()
-        plt.show()
-        plt.close()
+        #plt.show()
+        #plt.close()
     weights = []
     peak_dual_signal_product = []
     peak_weight = context.peak_delta_weight + 1.
@@ -715,7 +715,7 @@ def compute_model_ramp_features(x, cell_id=None, induction=None, export=False, p
                                xmin=context.induction_start_times / 1000.,
                                xmax=context.induction_stop_times / 1000., linewidth=2)
                 axes[0].set_xlabel('Time (s)')
-                axes[0].set_ylabel('Dual plasticity\nsignal\namplitudes')
+                axes[0].set_ylabel('Dual plasticity\nsignal amplitudes')
                 axes[0].legend(loc='best', frameon=False, framealpha=0.5, handlelength=1)
                 axes[1].plot(context.down_t / 1000., example_dual_signal_product)
                 axes[1].set_ylim([-0.1 * ymax1, 1.1 * ymax1])
@@ -723,7 +723,7 @@ def compute_model_ramp_features(x, cell_id=None, induction=None, export=False, p
                                xmin=context.induction_start_times / 1000.,
                                xmax=context.induction_stop_times / 1000., linewidth=2)
                 axes[1].set_xlabel('Time (s)')
-                axes[1].set_ylabel('Dual plasticity\nsignal\nproduct')
+                axes[1].set_ylabel('Plasticity\nsignal product')
                 axes[2].plot(context.down_t / 1000., example_weight_dynamics)
                 axes[2].set_ylim([0., peak_weight * 1.1])
                 axes[2].hlines([peak_weight * 1.05] * len(context.induction_start_times),
@@ -732,9 +732,9 @@ def compute_model_ramp_features(x, cell_id=None, induction=None, export=False, p
                 axes[2].set_ylabel('Synaptic weight\n(example\nsingle input)')
                 axes[2].set_xlabel('Time (s)')
                 clean_axes(axes)
-                fig.tight_layout()
-                plt.show()
-                plt.close()
+                fig.tight_layout(h_pad=2.)
+                #plt.show()
+                #plt.close()
         weights.append(context.sm.states['C'] * peak_weight)
     initial_weights = np.multiply(initial_weights, peak_weight)
     weights = np.array(weights)
@@ -939,18 +939,65 @@ def get_model_ramp_error(x):
     return Err
 
 
+def format_constraints(rel_bounds, param_indexes):
+    """
+    Converts relative bounds from parallelmoo into constraints for scipy.optimize.minimize
+    :param rel_bounds: list of list
+    :return: list of dict
+    """
+    constraints = []
+    for rel_bound in rel_bounds:
+        param1 = rel_bound[0]
+        symbol = rel_bound[1]
+        factor = rel_bound[2]
+        param2 = rel_bound[3]
+        index1 = param_indexes[param1]
+        index2 = param_indexes[param2]
+        constraint_dict = {}
+        if symbol == '=':
+            constraint_dict['type'] = 'eq'
+        elif symbol in ['>', '>=', '<', '<=']:
+            constraint_dict['type'] = 'ineq'
+        else:
+            raise ValueError('format_constraints: unrecognized symbol in provided relative bounds: %s' % symbol)
+        if symbol in ['=', '>', '>=']:
+            constraint_dict['fun'] = lambda x, index1=index1, index2=index2: x[index1] - factor * x[index2]
+        elif symbol in ['<', '<=']:
+            constraint_dict['fun'] = lambda x, index1=index1, index2=index2: factor * x[index2] - x[index1]
+        constraints.append(copy.deepcopy(constraint_dict))
+    return constraints
+
+
+def construct_jacobian(func,epsilon):
+    def jac(x, *args):
+        x0 = np.asfarray(x)
+        f0 = np.atleast_1d(func(*((x0,)+args)))
+        jac = np.zeros([len(x0),len(f0)])
+        dx = np.zeros(len(x0))
+        for i in range(len(x0)):
+            dx[i] = epsilon[i]
+            jac[i] = (func(*((x0+dx,)+args)) - f0)/epsilon[i]
+            dx[i] = 0.0
+
+        return jac.transpose()
+    return jac
+
+
 if __name__ == '__main__':
     config_interactive(config_file_path='data/parallel_optimize_BTSP_CA1_v3_config.yaml')
     x0 = x1 = context.x0_array
     # x0 = x1 = [33.8221927, 55.39154432, 5.27563282, 583.94229261,
     #           130.44454687, 268.14671785, 0.01, 2.47425744]
-    # x0 = x1 = [3.38221927e+01, 2.76957722e+00, 5.27563282e+00,
-    # 5.83942293e+02, 1.30444547e+02, 2.68146718e+02,
-    # 1.00000000e-03, 1.00000000e-02, 2.47425744e+00]
+    # x0 = x1 = [  1.70000816e+02,   4.44714691e-01,   1.15433465e+01,
+    #     5.73616569e+02,   3.46969856e+01,   2.77274582e+02,
+    #     1.49684639e-04,   3.71456510e-02,   3.75313491e+00]
     # Err = get_model_ramp_error(x0)
+    # result = compute_model_ramp_features(x1, 1, 2, plot=True, full_output=True, export=False)
     """
-    result = optimize.minimize(get_model_ramp_error, x0, method='L-BFGS-B', bounds=context.bounds,
-                               options={'disp': True, 'maxfun': 200})
+    constraints = format_constraints(context.rel_bounds, context.param_indexes)
+    eps = [bound[0]/10. for bound in context.bounds]
+    result = optimize.minimize(get_model_ramp_error, x0, method='COBYLA', constraints=constraints,
+                               options={'disp': True, 'maxiter': 100, 'rhobeg': np.min(eps)})
     x1 = result.x
     """
     results = {}

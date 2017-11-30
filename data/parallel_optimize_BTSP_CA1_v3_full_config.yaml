@@ -67,17 +67,11 @@ features_modules: !!python/tuple
 get_features: !!python/tuple
 - get_model_ramp_features
 group_sizes: !!python/tuple
-- 2  # 38
+- 38
 kwargs:
   data_file_name: '101017_BTSP_CA1_data.hdf5'
   verbose: False
   data_keys:
-    - !!python/tuple
-      - 1
-      - 1
-    - !!python/tuple
-      - 1
-      - 2
 objective_names:
 - spont_residuals
 - spont_delta_amp
