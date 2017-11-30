@@ -1,8 +1,8 @@
 #!/bin/bash -l
 
 #SBATCH -J parallel_optimize_BTSP_CA1
-#SBATCH -o parallel_optimize_BTSP_CA1_102817_cell1.%j.o
-#SBATCH -e parallel_optimize_BTSP_CA1_102817_cell1.%j.e
+#SBATCH -o parallel_optimize_BTSP_CA1_112917_cell1.%j.o
+#SBATCH -e parallel_optimize_BTSP_CA1_112917_cell1.%j.e
 #SBATCH -p regular
 #SBATCH -N 15
 #SBATCH -L SCRATCH
