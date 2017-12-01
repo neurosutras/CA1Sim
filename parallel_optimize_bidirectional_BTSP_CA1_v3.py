@@ -1,7 +1,7 @@
 __author__ = 'milsteina'
 from moopgen import *
 from plot_parallel_optimize_results import *
-from scipy.stats import skewnorm
+# from scipy.stats import skewnorm
 
 """
 These methods aim to optimize a single parameterization of a model of bidirectional, state-dependent behavioral time 
