@@ -1,4 +1,4 @@
-#mpiexec -n 3 python pc_simple_optimize_network.py
+#mpiexec -n 4 python pc_simple_optimize_network.py
 
 from mpi4py import MPI
 from neuron import h
@@ -24,9 +24,7 @@ def setup_ranks():
     for module_name in module_names:
         m = importlib.import_module(module_name)
         modules.append(m)
-        m.config_controller(**global_context.kwargs) #should this only be done on rank=0
-        if comm.rank == 0:
-            print 'imported module on rank %d' %comm.rank
+        #m.config_controller(**global_context.kwargs) #not really necessary
         get_features_funcs.append(getattr(m, 'get_feature'))
     global_context.modules = modules
     global_context.get_features_funcs = get_features_funcs
@@ -56,8 +54,9 @@ def run_optimization():
     generation = [0, 1, 2]
     features = get_all_features(generation)
     #next, get all objectives
-    print 'features for rank %i' %comm.rank
+    print 'final features'
     print features
+    getattr(global_context.modules[0], 'end_optimization')()
 
 def get_all_features(generation):
     pop_ids = range(len(generation))
@@ -70,17 +69,13 @@ def get_all_features(generation):
     global_context.setup_funcs = global_context.setup_funcs * 2
 
     for ind in xrange(len(global_context.get_features_funcs)):
-        #global_context.setup_funcs[ind]()
-
         next_generation = {}
         indivs = [{'x': x_vals[pop_id], 'features': features_dict[pop_id]} for pop_id in curr_generation]
         feature_function = global_context.get_features_funcs[ind]
         #differs from old parallel_optimize script in that we are no longer mapping each indiv to a separate feature_function call
+        print 'start round %i' %ind
         results = feature_function(indivs)
         for i, result in enumerate(results):
-            if comm.rank == 0 and i == 0:
-                print 'A result:'
-                print result
             if None in result['result_list']:
                 print 'Individual: %i failed %s' %(result['pop_id'], str(str(feature_function)))
                 features_dict[result['pop_id']] = None

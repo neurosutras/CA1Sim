@@ -64,7 +64,7 @@ class BallStick(object):
     self.dend.e_pas = -65
 
   def position(self, x, y, z):
-    soma.push()
+    self.soma.push()
     for i in range(h.n3d()):
       h.pt3dchange(i, x-self.x+h.x3d(i), y-self.y+h.y3d(i), z-self.z+h.z3d(i), h.diam3d(i))
     self.x = x; self.y = y; self.z = z

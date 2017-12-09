@@ -40,6 +40,8 @@ def config_engine(comm, **kwargs):
     context.pc = pc
     setup_network(**kwargs)
     print 'setup network on MPI rank %d' %context.comm.rank
+    #context.pc.barrier()
+    context.pc.runworker()
 
 
 def report_pc_id():
@@ -49,7 +51,7 @@ def set_constants():
     """
 
     """
-    ncell = 5
+    ncell = 2
     delay = 1
     tstop = 100
     context.update(locals())
@@ -66,19 +68,22 @@ def setup_network(verbose=False, cvode=False, daspk=False, **kwargs):
 
 
 def get_feature(indivs):
-    context.pc.runworker()
+    print 'get_feature rank %i active' %context.pc.id_world()
     features = []
     for i, indiv in enumerate(indivs):
         context.pc.submit(calc_spike_count, indiv, i)
     while context.pc.working():
         features.append(context.pc.pyret())
-    context.pc.done()
+
     return features
 
 
 def calc_spike_count(indiv, i):
     """"""
     x = indiv['x']
-    #results = {'x': x}
     results = runring(context.ring)
-    return {'pop_id': int(i), 'result_list': [results]}
+    return {'pop_id': int(i), 'result_list': [{'id': context.pc.id_world()}, results]}
+
+
+def end_optimization():
+    context.pc.done()
