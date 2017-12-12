@@ -46,8 +46,8 @@ def plot_exported_BTSP_model_ramp_features3(processed_export_file_path):
         axes.set_title('Depotentiation rate')
         clean_axes(axes)
         fig.tight_layout()
-        plt.show()
-        plt.close()
+        # plt.show()
+        # plt.close()
         description = 'model_ramp_features'
         for cell_key in f[description]:
             fig, axes = plt.subplots(2, 2)

@@ -1,7 +1,9 @@
 __author__ = 'milsteina'
-from parallelmoo import *
-from plot_parallel_optimize_results import *
-from scipy.stats import skewnorm
+from function_lib import *
+from parallelmoo.moopgen import *
+# from plot_parallel_optimize_results import *
+from scipy.optimize import minimize
+import click
 
 """
 These methods aim to optimize a single parameterization of a model of bidirectional, state-dependent behavioral time 
@@ -27,7 +29,7 @@ AMPA-Rs.
 4) Both signals interact at already potentiated synapses to destabilize captured AMPA-Rs, returning them to the mobile 
 pool, and reducing the number of eligible slots. 
 5) AMPAR-s can be in 2 states (Markov-style kinetic scheme):
- 
+
         rMC0 * global_signal * local_signal
 M (mobile) <----------------------> C (captured by a synapse)
        rCM0 * global_signal * f(local_signal)
@@ -39,12 +41,12 @@ to the amount of local signal.
 signal and current weight (occupancy of state C).
 """
 
-script_filename = 'parallel_optimize_bidirectional_BTSP_CA1.py'
+script_filename = 'parallel_optimize_bidirectional_BTSP_CA1_v4.py'
 
 context = Context()
 
 
-def config_interactive(config_file_path='data/parallel_optimize_BTSP_CA1_simple_config.yaml',
+def config_interactive(config_file_path='data/parallel_optimize_BTSP_CA1_config.yaml',
                        output_dir='data', temp_output_path=None, export_file_path=None, verbose=True, disp=True):
     """
     :param config_file_path: str (.yaml file path)
@@ -96,7 +98,7 @@ def config_interactive(config_file_path='data/parallel_optimize_BTSP_CA1_simple_
 
     if temp_output_path is None:
         temp_output_path = '%s/parallel_optimize_temp_output_%s_pid%i.hdf5' % \
-                        (output_dir, datetime.datetime.today().strftime('%m%d%Y%H%M'), os.getpid())
+                           (output_dir, datetime.datetime.today().strftime('%m%d%Y%H%M'), os.getpid())
     if export_file_path is None:
         export_file_path = '%s/%s_%s_%s_optimization_exported_output.hdf5' % \
                            (output_dir, datetime.datetime.today().strftime('%m%d%Y%H%M'), optimization_title,
@@ -174,12 +176,12 @@ def init_context():
     context.sm = StateMachine(dt=down_dt)
     context.cell_id = None
     context.induction = None
-        
+
 
 def import_data(cell_id, induction):
     """
-    
-    :param cell_id: int 
+
+    :param cell_id: int
     :param induction: int
     """
     if cell_id == context.cell_id and induction == context.induction:
@@ -231,7 +233,32 @@ def import_data(cell_id, induction):
         context.complete_position = this_group['complete']['position'][:]
         context.complete_t = this_group['complete']['t'][:]
         context.induction_gate = this_group['complete']['induction_gate'][:]
-    context.mean_induction_loc = np.mean(context.induction_locs)
+    context.mean_induction_start_loc = np.mean(context.induction_locs)
+    context.mean_induction_dur = np.mean(context.induction_durs)
+    mean_induction_start_index = np.where(context.mean_position >= context.mean_induction_start_loc)[0][0]
+    mean_induction_stop_index = np.where(context.mean_t >= context.mean_t[mean_induction_start_index] +
+                                         context.mean_induction_dur)[0][0]
+    context.mean_induction_stop_loc = context.mean_position[mean_induction_stop_index]
+    induction_start_times = []
+    induction_stop_times = []
+    track_start_times = []
+    track_stop_times = []
+    running_position = 0.
+    running_t = 0.
+    for i, (this_induction_loc, this_induction_dur) in enumerate(zip(context.induction_locs, context.induction_durs)):
+        this_induction_start_index = np.where(context.complete_position >= this_induction_loc + running_position)[0][0]
+        this_induction_start_time = context.complete_t[this_induction_start_index]
+        this_induction_stop_time = this_induction_start_time + this_induction_dur
+        track_start_times.append(running_t)
+        running_t += len(context.t['induction'][i]) * context.dt
+        track_stop_times.append(running_t)
+        induction_start_times.append(this_induction_start_time)
+        induction_stop_times.append(this_induction_stop_time)
+        running_position += context.track_length
+    context.induction_start_times = np.array(induction_start_times)
+    context.induction_stop_times = np.array(induction_stop_times)
+    context.track_start_times = np.array(track_start_times)
+    context.track_stop_times = np.array(track_stop_times)
     context.complete_rate_maps = get_complete_rate_maps()
     context.down_t = np.arange(context.complete_t[0], context.complete_t[-1] + context.down_dt / 2., context.down_dt)
     context.down_induction_gate = np.interp(context.down_t, context.complete_t, context.induction_gate)
@@ -265,17 +292,17 @@ def update_submodule_params(x, local_context=None):
 
 def plot_data():
     """
-     
+
     """
     fig, axes = plt.subplots(1)
     for group in context.position:
         for i, this_position in enumerate(context.position[group]):
             this_t = context.t[group][i]
-            axes.plot(this_t / 1000., this_position, label=group+str(i))
+            axes.plot(this_t / 1000., this_position, label=group + str(i))
     axes.set_xlabel('Time (s)')
     axes.set_ylabel('Position (cm)')
     axes.set_title('Interpolated position')
-    axes.legend(loc='best', frameon=False, framealpha=0.5)
+    axes.legend(loc='best', frameon=False, framealpha=0.5, handlelength=1)
     fig.tight_layout()
     clean_axes(axes)
 
@@ -319,10 +346,10 @@ def plot_data():
         axes[0][0].plot(this_position, this_current, label='Lap %i: Loc: %i cm, Dur: %i ms' %
                                                            (i, this_induction_loc, this_induction_dur))
         axes[0][1].plot(np.subtract(this_t, this_t[start_index]) / 1000., this_induction_gate)
-    mean_induction_index = np.where(context.mean_position >= context.mean_induction_loc)[0][0]
+    mean_induction_index = np.where(context.mean_position >= context.mean_induction_start_loc)[0][0]
     mean_induction_onset = context.mean_t[mean_induction_index]
     peak_val, ramp_width, peak_shift, ratio, start_loc, peak_loc, end_loc = \
-        calculate_ramp_features(context.exp_ramp['after'], context.mean_induction_loc)
+        calculate_ramp_features(context.exp_ramp['after'], context.mean_induction_start_loc)
     start_index, peak_index, end_index = get_indexes_from_ramp_bounds_with_wrap(context.binned_x, start_loc, peak_loc,
                                                                                 end_loc)
     axes[1][0].scatter(context.binned_x[[start_index, peak_index, end_index]],
@@ -335,7 +362,7 @@ def plot_data():
                        context.exp_ramp_vs_t['after'][[start_index, peak_index, end_index]])
     if 'before' in context.exp_ramp_vs_t:
         axes[1][1].plot(this_shifted_t, context.exp_ramp_vs_t['before'])
-    axes[0][0].legend(loc='best', frameon=False, framealpha=0.5)
+    axes[0][0].legend(loc='best', frameon=False, framealpha=0.5, handlelength=1)
     clean_axes(axes)
     fig.tight_layout()
 
@@ -422,7 +449,7 @@ def calculate_ramp_features(ramp, induction_loc, offset=False, smooth=False):
     extended_interp_x = np.concatenate([default_interp_x - track_length, default_interp_x,
                                         default_interp_x + track_length])
     extended_ramp = np.interp(extended_interp_x, extended_binned_x, extended_binned_ramp)
-    interp_ramp = extended_ramp[len(default_interp_x):2*len(default_interp_x)]
+    interp_ramp = extended_ramp[len(default_interp_x):2 * len(default_interp_x)]
     baseline_indexes = np.where(interp_ramp <= np.percentile(interp_ramp, 10.))[0]
     baseline = np.mean(interp_ramp[baseline_indexes])
     if offset:
@@ -432,9 +459,9 @@ def calculate_ramp_features(ramp, induction_loc, offset=False, smooth=False):
     peak_val = extended_ramp[peak_index]
     peak_x = extended_interp_x[peak_index]
     start_index = np.where(extended_ramp[:peak_index] <=
-                           0.15*(peak_val - baseline) + baseline)[0][-1]
-    end_index = peak_index + np.where(extended_ramp[peak_index:] <= 0.15*
-                                                (peak_val - baseline) + baseline)[0][0]
+                           0.15 * (peak_val - baseline) + baseline)[0][-1]
+    end_index = peak_index + np.where(extended_ramp[peak_index:] <= 0.15 *
+                                      (peak_val - baseline) + baseline)[0][0]
     start_loc = float(start_index % len(default_interp_x)) / float(len(default_interp_x)) * track_length
     end_loc = float(end_index % len(default_interp_x)) / float(len(default_interp_x)) * track_length
     peak_loc = float(peak_index % len(default_interp_x)) / float(len(default_interp_x)) * track_length
@@ -454,7 +481,7 @@ def calculate_ramp_features(ramp, induction_loc, offset=False, smooth=False):
     if induction_loc > end_loc:
         after_width += track_length
     ratio = before_width / after_width
-    return peak_val, ramp_width, peak_shift, ratio, start_loc, peak_loc, end_loc, min_val, min_loc 
+    return peak_val, ramp_width, peak_shift, ratio, start_loc, peak_loc, end_loc, min_val, min_loc
 
 
 def wrap_around_and_compress(waveform, interp_x):
@@ -524,7 +551,7 @@ def get_complete_rate_maps():
     return complete_rate_maps
 
 
-def get_signal_filters(local_signal_rise, local_signal_decay, global_signal_rise, global_signal_decay, dt=None, 
+def get_signal_filters(local_signal_rise, local_signal_decay, global_signal_rise, global_signal_decay, dt=None,
                        plot=False):
     """
     :param local_signal_rise: float
@@ -538,12 +565,12 @@ def get_signal_filters(local_signal_rise, local_signal_decay, global_signal_rise
     max_time_scale = max(local_signal_rise + local_signal_decay, global_signal_rise + global_signal_decay)
     if dt is None:
         dt = context.dt
-    filter_t = np.arange(0., 6.*max_time_scale, dt)
-    local_filter = np.exp(-filter_t/local_signal_decay) - np.exp(-filter_t/local_signal_rise)
+    filter_t = np.arange(0., 6. * max_time_scale, dt)
+    local_filter = np.exp(-filter_t / local_signal_decay) - np.exp(-filter_t / local_signal_rise)
     peak_index = np.where(local_filter == np.max(local_filter))[0][0]
-    decay_indexes = np.where(local_filter[peak_index:] < 0.005*np.max(local_filter))[0]
+    decay_indexes = np.where(local_filter[peak_index:] < 0.005 * np.max(local_filter))[0]
     if np.any(decay_indexes):
-        local_filter = local_filter[:peak_index+decay_indexes[0]]
+        local_filter = local_filter[:peak_index + decay_indexes[0]]
     local_filter /= np.sum(local_filter)
     local_filter_t = filter_t[:len(local_filter)]
     global_filter = np.exp(-filter_t / global_signal_decay) - np.exp(-filter_t / global_signal_rise)
@@ -555,14 +582,14 @@ def get_signal_filters(local_signal_rise, local_signal_decay, global_signal_rise
     global_filter_t = filter_t[:len(global_filter)]
     if plot:
         fig, axes = plt.subplots(1)
-        axes.plot(local_filter_t/1000., local_filter / np.max(local_filter), color='k', 
+        axes.plot(local_filter_t / 1000., local_filter / np.max(local_filter), color='k',
                   label='Local signal filter')
-        axes.plot(global_filter_t / 1000., global_filter / np.max(global_filter), color='r', 
+        axes.plot(global_filter_t / 1000., global_filter / np.max(global_filter), color='r',
                   label='Global signal filter')
         axes.set_xlabel('Time (s)')
         axes.set_ylabel('Normalized filter amplitude')
         axes.set_title('Plasticity signal filters')
-        axes.legend(loc='best', frameon=False, framealpha=0.5)
+        axes.legend(loc='best', frameon=False, framealpha=0.5, handlelength=1)
         axes.set_xlim(-0.5, max(5000., local_filter_t[-1], global_filter_t[-1]) / 1000.)
         clean_axes(axes)
         fig.tight_layout()
@@ -584,8 +611,8 @@ def get_local_signal(rate_map, local_filter, dt):
 
 def get_global_signal(induction_gate, global_filter):
     """
-    
-    :param induction_gate: array 
+
+    :param induction_gate: array
     :param global_filter: array
     :return: array
     """
@@ -638,9 +665,26 @@ def compute_model_ramp_features(x, cell_id=None, induction=None, export=False, p
         get_signal_filters(context.local_signal_rise, context.local_signal_decay, context.global_signal_rise,
                            context.global_signal_decay, down_dt, plot)
     global_signal = get_global_signal(context.down_induction_gate, global_filter)
+    dual_signal_product_range = np.linspace(0., 0.5, 100000)
+    depot_rate = lambda signal: (context.rCM_f1 * np.exp(-signal / context.rCM_decay1) +
+                           (1. - context.rCM_f1) * np.exp(-signal / context.rCM_decay2) -
+                           np.exp(-signal / context.rCM_rise)) ** context.rCM_k
+    depot_rate_peak = np.max(depot_rate(dual_signal_product_range))
+    norm_depot_rate = lambda signal, norm_factor=depot_rate_peak: depot_rate(signal) / depot_rate_peak
+    if plot:
+        fig, axes = plt.subplots(1)
+        axes.plot(dual_signal_product_range, norm_depot_rate(dual_signal_product_range))
+        axes.set_xlabel('Plasticity signal amplitude (a.u.)')
+        axes.set_ylabel('Normalized rate')
+        axes.set_title('Depotentiation rate')
+        clean_axes(axes)
+        fig.tight_layout()
+        #plt.show()
+        #plt.close()
     weights = []
-    # peak_local_signal_amp = []
+    peak_dual_signal_product = []
     peak_weight = context.peak_delta_weight + 1.
+    # initial_weights = (context.SVD_weights['before'] + 1.) / peak_weight
     initial_weights = np.minimum(context.SVD_weights['before'] + 1., peak_weight) / peak_weight
     for i in xrange(len(context.peak_locs)):
         # normalize total number of receptors
@@ -649,22 +693,51 @@ def compute_model_ramp_features(x, cell_id=None, induction=None, export=False, p
         context.sm.update_states({'M': available, 'C': initial_weight})
         rate_map = np.interp(context.down_t, context.complete_t, context.complete_rate_maps[i])
         local_signal = get_local_signal(rate_map, local_filter, down_dt)
+        dual_signal_product = np.multiply(global_signal, local_signal)
+        peak_dual_signal_product.append(np.max(dual_signal_product))
         context.sm.update_rates(
-            {'M': {'C': context.rMC0 * global_signal * local_signal},
-             'C': {'M': context.rCM0 * global_signal * local_signal}})
+            {'M': {'C': context.rMC0 * dual_signal_product},
+             'C': {'M': context.rCM0 * norm_depot_rate(dual_signal_product)}})
         context.sm.reset()
         context.sm.run()
-        if plot and i == 100:
-            fig, axes = plt.subplots(1)
-            axes.plot(context.down_t / 1000., local_signal, c='k', label='Local signal')
-            axes.plot(context.down_t / 1000., global_signal, c='r', label='Global signal')
-            axes.set_xlabel('Time (s)')
-            axes.set_ylabel('Plasticity signal amplitude (a.u.)')
-            axes.legend(loc='best', frameon=False, framealpha=0.5)
-            clean_axes(axes)
-            fig.tight_layout()
-            context.sm.plot()
-        # peak_local_signal_amp.append(np.max(local_signal))
+        if i == 100:
+            example_weight_dynamics = np.array(context.sm.states_history['C'][:-1]) * peak_weight
+            example_local_signal = np.array(local_signal)
+            example_dual_signal_product = np.array(dual_signal_product)
+            if plot:
+                fig, axes = plt.subplots(3, sharex=True)
+                ymax0 = max(np.max(local_signal), np.max(global_signal))
+                bar_loc0 = ymax0 * 1.05
+                ymax1 = np.max(dual_signal_product)
+                bar_loc1 = ymax1 * 1.05
+                axes[0].plot(context.down_t / 1000., local_signal, c='k', label='Local signal')
+                axes[0].plot(context.down_t / 1000., global_signal, c='r', label='Global signal')
+                # axes[0].set_xlim([-1., context.track_stop_times[0] / 1000. + 1.])
+                axes[0].set_ylim([-0.1 * ymax0, 1.1 * ymax0])
+                axes[0].hlines([bar_loc0] * len(context.induction_start_times),
+                               xmin=context.induction_start_times / 1000.,
+                               xmax=context.induction_stop_times / 1000., linewidth=2)
+                axes[0].set_xlabel('Time (s)')
+                axes[0].set_ylabel('Dual plasticity\nsignal amplitudes')
+                axes[0].legend(loc='best', frameon=False, framealpha=0.5, handlelength=1)
+                axes[1].plot(context.down_t / 1000., example_dual_signal_product)
+                axes[1].set_ylim([-0.1 * ymax1, 1.1 * ymax1])
+                axes[1].hlines([bar_loc1] * len(context.induction_start_times),
+                               xmin=context.induction_start_times / 1000.,
+                               xmax=context.induction_stop_times / 1000., linewidth=2)
+                axes[1].set_xlabel('Time (s)')
+                axes[1].set_ylabel('Plasticity\nsignal product')
+                axes[2].plot(context.down_t / 1000., example_weight_dynamics)
+                axes[2].set_ylim([0., peak_weight * 1.1])
+                axes[2].hlines([peak_weight * 1.05] * len(context.induction_start_times),
+                               xmin=context.induction_start_times / 1000.,
+                               xmax=context.induction_stop_times / 1000., linewidth=2)
+                axes[2].set_ylabel('Synaptic weight\n(example\nsingle input)')
+                axes[2].set_xlabel('Time (s)')
+                clean_axes(axes)
+                fig.tight_layout(h_pad=2.)
+                #plt.show()
+                #plt.close()
         weights.append(context.sm.states['C'] * peak_weight)
     initial_weights = np.multiply(initial_weights, peak_weight)
     weights = np.array(weights)
@@ -673,12 +746,12 @@ def compute_model_ramp_features(x, cell_id=None, induction=None, export=False, p
                                                                                               {}, {}, {}
     target_ramp = context.exp_ramp['after']
     ramp_amp['target'], ramp_width['target'], peak_shift['target'], ratio['target'], start_loc['target'], \
-        peak_loc['target'], end_loc['target'], min_val['target'], min_loc['target'] = \
-        calculate_ramp_features(target_ramp, context.mean_induction_loc)
+    peak_loc['target'], end_loc['target'], min_val['target'], min_loc['target'] = \
+        calculate_ramp_features(target_ramp, context.mean_induction_start_loc)
     model_ramp = get_model_ramp(weights - 1.)
     ramp_amp['model'], ramp_width['model'], peak_shift['model'], ratio['model'], start_loc['model'], \
-        peak_loc['model'], end_loc['model'], min_val['model'], min_loc['model'] = \
-        calculate_ramp_features(model_ramp, context.mean_induction_loc)
+    peak_loc['model'], end_loc['model'], min_val['model'], min_loc['model'] = \
+        calculate_ramp_features(model_ramp, context.mean_induction_start_loc)
 
     result = {'delta_amp': ramp_amp['model'] - ramp_amp['target'],
               'delta_width': ramp_width['model'] - ramp_width['target'],
@@ -698,18 +771,21 @@ def compute_model_ramp_features(x, cell_id=None, induction=None, export=False, p
             delta_min_loc = abs_delta_min_loc
     result['delta_min_loc'] = delta_min_loc
     if plot:
-        fig, axes = plt.subplots(1, 2)
+        bar_loc = max(10., np.max(model_ramp) + 1., np.max(target_ramp) + 1.) * 0.95
+        fig, axes = plt.subplots(2)
         axes[1].plot(context.peak_locs, delta_weights)
+        axes[1].hlines(peak_weight * 1.05, xmin=context.mean_induction_start_loc, xmax=context.mean_induction_stop_loc)
         axes[0].plot(context.binned_x, target_ramp, label='Experiment')
         axes[0].plot(context.binned_x, model_ramp, label='Model')
-        axes[1].set_ylabel('Change in synaptic weight (a.u.)')
+        axes[0].hlines(bar_loc, xmin=context.mean_induction_start_loc, xmax=context.mean_induction_stop_loc)
+        axes[1].set_ylabel('Change in\nsynaptic weight')
         axes[1].set_xlabel('Location (cm)')
-        axes[0].set_ylabel('Ramp amplitude (mV)')
+        axes[0].set_ylabel('Subthreshold\ndepolarization (mV)')
         axes[0].set_xlabel('Location (cm)')
-        axes[0].legend(loc='best', frameon=False, framealpha=0.5)
+        axes[0].legend(loc='best', frameon=False, framealpha=0.5, handlelength=1)
         axes[0].set_ylim([min(-1., np.min(model_ramp) - 1., np.min(target_ramp) - 1.),
                           max(10., np.max(model_ramp) + 1., np.max(target_ramp) + 1.)])
-        axes[1].set_ylim([-peak_weight, peak_weight])
+        axes[1].set_ylim([-peak_weight, peak_weight * 1.1])
         clean_axes(axes)
         fig.suptitle('Cell_id: %i, Induction: %i' % (context.cell_id, context.induction))
         fig.tight_layout()
@@ -719,6 +795,8 @@ def compute_model_ramp_features(x, cell_id=None, induction=None, export=False, p
         result['weights'] = weights
         result['initial_weights'] = initial_weights
         result['model_ramp'] = np.array(model_ramp)
+        result['target_ramp'] = np.array(target_ramp)
+        result['peak_dual_signal_product'] = np.array(peak_dual_signal_product)
     if export:
         with h5py.File(context.processed_export_file_path, 'a') as f:
             description = 'model_ramp_context'
@@ -727,6 +805,10 @@ def compute_model_ramp_features(x, cell_id=None, induction=None, export=False, p
                 group = f[description]
                 group.create_dataset('peak_locs', compression='gzip', compression_opts=9, data=context.peak_locs)
                 group.create_dataset('binned_x', compression='gzip', compression_opts=9, data=context.binned_x)
+                group.create_dataset('dual_signal_product_range', compression='gzip', compression_opts=9,
+                                     data=dual_signal_product_range)
+                group.create_dataset('norm_depot_rate', compression='gzip', compression_opts=9,
+                                     data=norm_depot_rate(dual_signal_product_range))
                 group.attrs['peak_weight'] = peak_weight
             description = 'model_ramp_features'
             if description not in f:
@@ -742,6 +824,20 @@ def compute_model_ramp_features(x, cell_id=None, induction=None, export=False, p
             group.create_dataset('model_ramp', compression='gzip', compression_opts=9, data=model_ramp)
             group.create_dataset('weights', compression='gzip', compression_opts=9, data=weights)
             group.create_dataset('initial_weights', compression='gzip', compression_opts=9, data=initial_weights)
+            group.create_dataset('example_local_signal', compression='gzip', compression_opts=9,
+                                 data=example_local_signal)
+            group.create_dataset('example_dual_signal_product', compression='gzip', compression_opts=9,
+                                 data=example_dual_signal_product)
+            group.create_dataset('global_signal', compression='gzip', compression_opts=9, data=global_signal)
+            group.create_dataset('down_t', compression='gzip', compression_opts=9, data=context.down_t)
+            group.create_dataset('example_weight_dynamics', compression='gzip', compression_opts=9,
+                                 data=example_weight_dynamics)
+            group.attrs['mean_induction_start_loc'] = context.mean_induction_start_loc
+            group.attrs['mean_induction_stop_loc'] = context.mean_induction_stop_loc
+            group.attrs['induction_start_times'] = context.induction_start_times
+            group.attrs['induction_stop_times'] = context.induction_stop_times
+            group.attrs['track_start_times'] = context.track_start_times
+            group.attrs['track_stop_times'] = context.track_stop_times
     model_ramp /= ramp_amp['model']
     model_ramp *= ramp_amp['target']
     residuals = np.sum(np.abs(np.subtract(target_ramp, model_ramp)))
@@ -762,12 +858,12 @@ def filter_model_ramp_features(computed_result_list, current_features, target_va
     :return: dict
     """
     residuals, delta_amp, delta_width, delta_peak_shift, delta_asymmetry, delta_min_loc, delta_min_val, \
-        features = {}, {}, {}, {}, {}, {}, {}, {}
+    features = {}, {}, {}, {}, {}, {}, {}, {}
     groups = ['spont', 'exp1', 'exp2']
     features_names = ['residuals', 'delta_amp', 'delta_width', 'delta_peak_shift', 'delta_asymmetry',
                       'delta_min_loc', 'delta_min_val']
-    for feature in residuals, delta_amp, delta_width, delta_peak_shift, delta_asymmetry, delta_min_loc,\
-            delta_min_val:
+    for feature in residuals, delta_amp, delta_width, delta_peak_shift, delta_asymmetry, delta_min_loc, \
+                   delta_min_val:
         for group in groups:
             feature[group] = []
     for this_result_dict in computed_result_list:
@@ -776,7 +872,7 @@ def filter_model_ramp_features(computed_result_list, current_features, target_va
                 if cell_id in context.spont_cell_id_list:
                     group = 'spont'
                 else:
-                    group = 'exp'+str(induction)
+                    group = 'exp' + str(induction)
                 for feature, feature_name in \
                         zip([residuals, delta_amp, delta_width, delta_peak_shift, delta_asymmetry, delta_min_loc,
                              delta_min_val], features_names):
@@ -830,43 +926,56 @@ def get_model_ramp(delta_weights, plot=False):
     return model_ramp
 
 
-def get_model_ramp_error(x):
+def get_model_ramp_error(x, check_bounds=None):
     """
 
     :param x:
-    :param plot: bool
-    :param full_output: bool
+    :param check_bounds: callable
     :return: float
     """
     indiv = {'pop_id': 0, 'x': x}
+    if check_bounds is not None:
+        if not check_bounds(x):
+            return 1e9
     computed_result = get_model_ramp_features(indiv)['async_result']
     features = filter_model_ramp_features(computed_result, {}, context.target_val, context.target_range)
     features, objectives = get_objectives(features, context.target_val, context.target_range)
     Err = np.sum(objectives.values())
+    print 'Process: %i: absolute sum of model_ramp objectives: %.4E' % (os.getpid(), Err)
     return Err
 
 
-if __name__ == '__main__':
-    config_interactive()
-    # x = context.x0_array
-    # x = [17.26330989, 58.89765021, 57.32413683, 765.69679806, 10.14063316, 500.60616055, 3.23101249, -5.14206064,
-    #     2.634794]
-    #x = [17.26330989, 100., 57.32413683, 765.69679806, 10.14063316, 500.60616055, 1.,
-    #          2.634794]
-    x = [37.09395918, 105.52255606, 62.95478383, 524.0054589,
-     97.33240168, 158.68052365, 2.47129701]
-
-    results = []
-    for cell_id, induction in context.data_keys:
-        results.append(compute_model_ramp_features(x, cell_id, induction, plot=True, full_output=True))
+@click.command()
+@click.option("--config-file-path", type=str, default='data/parallel_optimize_BTSP_CA1_v4_cell1_config.yaml')
+def main(config_file_path):
     """
-    for result in results:
-        print result.items()
-    
-    Err = get_model_ramp_error(x)
-    
-    result = optimize.minimize(get_model_ramp_error, x, method='L-BFGS-B', bounds=context.bounds, 
-                               options={'disp': True, 'maxfun': 200})
-    x = result.x
+
+    :param config_file_path:
+    """
+    config_interactive(config_file_path=config_file_path)
+    rel_bounds_handler = RelativeBoundedStep(context.x0_array, context.param_names, context.bounds, context.rel_bounds)
+    x1_array = context.x0_array
+    x1_array = [  1.68676167e+02,   4.65157280e-01,   1.14356708e+01,
+         5.99984086e+02,   3.23884965e+01,   2.90020104e+02,
+         1.45919243e-04,   3.71418346e-02,   3.76797852e-02,
+         9.60599588e-01,   3.93299250e+00,   3.92565591e+00]
+    # Err = get_model_ramp_error(x1_array)
+    # result = compute_model_ramp_features(x1_array, 1, 2, plot=True, full_output=True, export=False)
+    result = optimize.minimize(get_model_ramp_error, x1_array, method='Nelder-Mead',
+                               args=(rel_bounds_handler.check_bounds,),
+                               options={'disp': True, 'maxiter': 20})
+    x1_array = result.x
+    """
+    results = {}
+    # for cell_id, induction in ((cell_id, induction) for (cell_id, induction) in context.data_keys if induction == 2):
+    for cell_id, induction in context.data_keys:
+        result = compute_model_ramp_features(x1_array, cell_id, induction, plot=True, full_output=True, export=False)
+        if cell_id not in results:
+            results[cell_id] = {}
+        results[cell_id][induction] = result[cell_id][induction]
     """
     context.update(locals())
+
+
+if __name__ == '__main__':
+    main(args=sys.argv[(list_find(lambda s: s.find(script_filename) != -1, sys.argv) + 1):])

@@ -1,5 +1,5 @@
 __author__ = 'milsteina'
-from moopgen import *
+from parallelmoo import *
 from plot_parallel_optimize_results import *
 from scipy.stats import skewnorm
 
