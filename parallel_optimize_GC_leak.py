@@ -1,7 +1,7 @@
 __author__ = 'Grace Ng and Aaron D. Milstein'
 from specify_cells4 import *
 from plot_results import *
-from moopgen import *
+from parallelmoo import *
 
 """
 Submodule used by parallel_optimize to tune somatodendritic input resistance gradient in dentate granule cells.

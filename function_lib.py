@@ -1,4 +1,6 @@
 __author__ = 'milsteina'
+from mpi4py import MPI
+import h5py
 import math
 import pickle
 import datetime
@@ -7,7 +9,6 @@ import time
 import numpy as np
 import matplotlib.pyplot as plt
 # import matplotlib.mlab as mm
-import h5py
 import scipy.optimize as optimize
 import scipy.signal as signal
 import random
@@ -2349,14 +2350,12 @@ class Logger(object):
         self.terminal.flush()
 
 
-def list_find (f, lst):
-    i = 0
-    for x in lst:
+def list_find(f, lst):
+    index = None
+    for i, x in enumerate(lst):
         if f(x):
-            return i
-        else:
-            i += 1
-    return None
+            index = i
+    return index
 
 
 class StateMachine(object):
