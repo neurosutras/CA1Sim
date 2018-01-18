@@ -179,15 +179,15 @@ update_params: !!python/tuple
 update_modules: !!python/tuple
 - parallel_optimize_bidirectional_BTSP_CA1_v4
 x0:
-  rMC0: 59.740610
-  rCM0: 0.849870
-  local_signal_rise: 199.103471
-  local_signal_decay: 379.225205
-  global_signal_rise: 38.414186
-  global_signal_decay: 128.471680
-  rCM_rise: 0.001898
-  rCM_decay1: 0.148017
-  rCM_decay2: 0.148017
-  rCM_f1: 1.
-  rCM_k: 4.
-  peak_delta_weight: 2.401183
+  rMC0: 265.420113
+  rCM0: 8.080749
+  local_signal_rise: 47.528376
+  local_signal_decay: 2378.771733
+  global_signal_rise: 45.710971
+  global_signal_decay: 2748.063304
+  rCM_rise: 0.002270
+  rCM_decay1: 0.142682
+  rCM_decay2: 0.198346
+  rCM_f1: 0.510241
+  rCM_k: 1.652937
+  peak_delta_weight: 2.284682

@@ -34,79 +34,125 @@ to the amount of local signal.
 signal and current weight (occupancy of state C).
 """
 __author__ = 'milsteina'
-from function_lib import *
-from nested import *
+# from function_lib import *
+from nested.optimize_utils import *
+from utils import *
 from scipy.optimize import minimize
 import click
 
-script_filename = 'parallel_optimize_bidirectional_BTSP_CA1_v4.py'
 
 context = Context()
 
 
-def config_interactive(config_file_path='data/parallel_optimize_BTSP_CA1_config.yaml',
-                       output_dir='data', temp_output_path=None, export_file_path=None, verbose=True, disp=True):
+def config_interactive(config_file_path=None, output_dir=None, temp_output_path=None, export_file_path=None, label=None,
+                       verbose=True, **kwargs):
     """
+
     :param config_file_path: str (.yaml file path)
     :param output_dir: str (dir path)
     :param temp_output_path: str (.hdf5 file path)
     :param export_file_path: str (.hdf5 file path)
+    :param label: str
     :param verbose: bool
-    :param disp: bool
     """
-    config_dict = read_from_yaml(config_file_path)
-    if 'param_gen' in config_dict and config_dict['param_gen'] is not None:
-        param_gen_name = config_dict['param_gen']
-    else:
-        param_gen_name = 'BGen'
-    param_names = config_dict['param_names']
+
+    if config_file_path is not None:
+        context.config_file_path = config_file_path
+    if 'config_file_path' not in context() or context.config_file_path is None or \
+            not os.path.isfile(context.config_file_path):
+        raise Exception('config_file_path specifying required parameters is missing or invalid.')
+    config_dict = read_from_yaml(context.config_file_path)
+    context.param_names = config_dict['param_names']
     if 'default_params' not in config_dict or config_dict['default_params'] is None:
-        default_params = {}
+        context.default_params = {}
     else:
-        default_params = config_dict['default_params']
-    for param in default_params:
-        config_dict['bounds'][param] = (default_params[param], default_params[param])
-    bounds = [config_dict['bounds'][key] for key in param_names]
+        context.default_params = config_dict['default_params']
+    for param in context.default_params:
+        config_dict['bounds'][param] = (context.default_params[param], context.default_params[param])
+    context.bounds = [config_dict['bounds'][key] for key in context.param_names]
     if 'rel_bounds' not in config_dict or config_dict['rel_bounds'] is None:
-        rel_bounds = None
+        context.rel_bounds = None
     else:
-        rel_bounds = config_dict['rel_bounds']
+        context.rel_bounds = config_dict['rel_bounds']
     if 'x0' not in config_dict or config_dict['x0'] is None:
-        x0 = None
+        context.x0 = None
     else:
-        x0 = config_dict['x0']
-    feature_names = config_dict['feature_names']
-    objective_names = config_dict['objective_names']
-    target_val = config_dict['target_val']
-    target_range = config_dict['target_range']
-    optimization_title = config_dict['optimization_title']
-    kwargs = config_dict['kwargs']  # Extra arguments to be passed to imported submodules
+        context.x0 = config_dict['x0']
+        context.x0_dict = context.x0
+        context.x0_array = param_dict_to_array(context.x0_dict, context.param_names)
+    context.feature_names = config_dict['feature_names']
+    context.objective_names = config_dict['objective_names']
+    context.target_val = config_dict['target_val']
+    context.target_range = config_dict['target_range']
+    context.optimization_title = config_dict['optimization_title']
+    context.kwargs = config_dict['kwargs']  # Extra arguments to be passed to imported sources
+    context.kwargs['verbose'] = verbose
+    context.update(context.kwargs)
 
-    if 'update_params' not in config_dict or config_dict['update_params'] is None:
-        update_params = []
+    missing_config = []
+    if 'update_context' not in config_dict or config_dict['update_context'] is None:
+        missing_config.append('update_context')
     else:
-        update_params = config_dict['update_params']
-    update_params_funcs = []
-    for update_params_func_name in update_params:
-        func = globals().get(update_params_func_name)
-        if not callable(func):
-            raise Exception('parallel_optimize: update_params: %s is not a callable function.'
-                            % update_params_func_name)
-        update_params_funcs.append(func)
+        context.update_context_dict = config_dict['update_context']
+    if 'get_features_stages' not in config_dict or config_dict['get_features_stages'] is None:
+        missing_config.append('get_features_stages')
+    else:
+        context.stages = config_dict['get_features_stages']
+    if 'get_objectives' not in config_dict or config_dict['get_objectives'] is None:
+        missing_config.append('get_objectives')
+    else:
+        context.get_objectives_dict = config_dict['get_objectives']
+    if missing_config:
+        raise Exception('config_file at path: %s is missing the following required fields: %s' %
+                        (context.config_file_path, ', '.join(str(field) for field in missing_config)))
 
-    if temp_output_path is None:
-        temp_output_path = '%s/parallel_optimize_temp_output_%s_pid%i.hdf5' % \
-                           (output_dir, datetime.datetime.today().strftime('%m%d%Y%H%M'), os.getpid())
-    if export_file_path is None:
-        export_file_path = '%s/%s_%s_%s_optimization_exported_output.hdf5' % \
-                           (output_dir, datetime.datetime.today().strftime('%m%d%Y%H%M'), optimization_title,
-                            param_gen_name)
-    x0_array = param_dict_to_array(x0, param_names)
-    context.update(locals())
-    context.update(kwargs)
-    config_engine(update_params_funcs, param_names, default_params, temp_output_path, export_file_path, output_dir,
-                  disp, **kwargs)
-    update_submodule_params(x0_array)
+    if label is not None:
+        context.label = label
+    if 'label' not in context() or context.label is None:
+        label = ''
+    else:
+        label = '_' + context.label
+
+    if output_dir is not None:
+        context.output_dir = output_dir
+    if 'output_dir' not in context():
+        context.output_dir = None
+    if context.output_dir is None:
+        output_dir_str = ''
+    else:
+        output_dir_str = context.output_dir + '/'
+
+    if temp_output_path is not None:
+        context.temp_output_path = temp_output_path
+    if 'temp_output_path' not in context() or context.temp_output_path is None:
+        context.temp_output_path = '%s%s_pid%i_%s%s_temp_output.hdf5' % \
+                                   (output_dir_str, datetime.datetime.today().strftime('%Y%m%d%H%M'), os.getpid(),
+                                    context.optimization_title, label)
+
+    if export_file_path is not None:
+        context.export_file_path = export_file_path
+    if 'export_file_path' not in context() or context.export_file_path is None:
+        context.export_file_path = '%s%s_%s%s_interactive_exported_output.hdf5' % \
+                                   (output_dir_str, datetime.datetime.today().strftime('%Y%m%d%H%M'),
+                                    context.optimization_title, label)
+
+    context.update_context_funcs = []
+    for source, func_name in context.update_context_dict.iteritems():
+        if source == os.path.basename(__file__).split('.')[0]:
+            try:
+                func = globals()[func_name]
+                if not isinstance(func, collections.Callable):
+                    raise Exception('update_context function: %s not callable' % func_name)
+                context.update_context_funcs.append(func)
+            except:
+                raise Exception('update_context function: %s not found' % func_name)
+    if not context.update_context_funcs:
+        raise Exception('update_context function not found')
+
+    config_worker(context.update_context_funcs, context.param_names, context.default_params, context.target_val,
+                  context.target_range, context.temp_output_path, context.export_file_path, context.output_dir,
+                  context.disp, **context.kwargs)
+    update_source_contexts(context.x0_array)
 
 
 def config_controller(export_file_path, output_dir, **kwargs):
@@ -118,25 +164,29 @@ def config_controller(export_file_path, output_dir, **kwargs):
     processed_export_file_path = export_file_path.replace('.hdf5', '_processed.hdf5')
     context.update(locals())
     context.update(kwargs)
+    context.data_path = context.output_dir + '/' + context.data_file_name
     init_context()
 
 
-def config_engine(update_params_funcs, param_names, default_params, temp_output_file_path, export_file_path, output_dir,
-                  disp, data_file_name, **kwargs):
+def config_worker(update_context_funcs, param_names, default_params, target_val, target_range, temp_output_path,
+                  export_file_path, output_dur, disp, data_file_name, **kwargs):
     """
-    :param update_params_funcs: list of function references
+    :param update_context_funcs: list of function references
     :param param_names: list of str
     :param default_params: dict
-    :param temp_output_file_path: str
+    :param target_val: dict
+    :param target_range: dict
+    :param temp_output_path: str
     :param export_file_path: str
-    :param output_dir: str (path)
+    :param output_dur: str (dir path)
     :param disp: bool
     :param data_file_name: str (path)
     """
+    context.update(kwargs)
     param_indexes = {param_name: i for i, param_name in enumerate(param_names)}
     processed_export_file_path = export_file_path.replace('.hdf5', '_processed.hdf5')
     context.update(locals())
-    context.update(kwargs)
+    context.data_path = context.output_dir + '/' + context.data_file_name
     init_context()
 
 
@@ -144,8 +194,10 @@ def init_context():
     """
 
     """
-    context.data_file_path = context.output_dir + '/' + context.data_file_name
-    with h5py.File(context.data_file_path, 'r') as f:
+
+    if context.data_path is None or not os.path.isfile(context.data_path):
+        raise IOError('init_context: invalid data_path: %s' % context.data_path)
+    with h5py.File(context.data_path, 'r') as f:
         dt = f['defaults'].attrs['dt']  # ms
         input_field_width = f['defaults'].attrs['input_field_width']  # cm
         input_field_peak_rate = f['defaults'].attrs['input_field_peak_rate']  # Hz
@@ -182,11 +234,13 @@ def import_data(cell_id, induction):
     :param cell_id: int
     :param induction: int
     """
+    cell_id = int(cell_id)
+    induction = int(induction)
     if cell_id == context.cell_id and induction == context.induction:
         return
     cell_key = str(cell_id)
     induction_key = str(induction)
-    with h5py.File(context.data_file_path, 'r') as f:
+    with h5py.File(context.data_path, 'r') as f:
         if cell_key not in f['data'] or induction_key not in f['data'][cell_key]:
             raise KeyError('parallel_optimize_bidirectional_BTSP_CA1: no data found for cell_id: %s, induction: %s' %
                            (cell_key, induction_key))
@@ -265,6 +319,18 @@ def import_data(cell_id, induction):
               (os.getpid(), cell_id, induction)
 
 
+def update_source_contexts(x, local_context=None):
+    """
+
+    :param x: array
+    :param local_context: :class:'Context'
+    """
+    if local_context is None:
+        local_context = context
+    for update_func in local_context.update_context_funcs:
+        update_func(x, local_context)
+
+
 def update_model_params(x, local_context):
     """
 
@@ -274,18 +340,6 @@ def update_model_params(x, local_context):
     if local_context is None:
         local_context = context
     local_context.update(param_array_to_dict(x, local_context.param_names))
-
-
-def update_submodule_params(x, local_context=None):
-    """
-
-    :param x: array
-    :param local_context: :class:'Context'
-    """
-    if local_context is None:
-        local_context = context
-    for update_func in local_context.update_params_funcs:
-        update_func(x, local_context)
 
 
 def plot_data():
@@ -617,32 +671,34 @@ def get_global_signal(induction_gate, global_filter):
     return np.convolve(induction_gate, global_filter)[:len(induction_gate)]
 
 
-def get_model_ramp_features(indiv, c=None, client_range=None, export=False):
+def get_local_signal_population(local_filter):
     """
-    Distribute simulations across available engines for computing model ramp features.
-    :param indiv: dict {'pop_id': pop_id, 'x': x arr, 'features': features dict}
-    :param c: :class:'ipyparallel.Client'
-    :param client_range: list of int
-    :param export: bool
-    :return: dict
+
+    :param local_filter:
+    :return:
     """
-    if c is not None:
-        if client_range is None:
-            client_range = range(len(c))
-        dv = c[client_range]
-        map_func = dv.map_async
-    else:
-        map_func = map
-    x = indiv['x']
-    cell_id_list = [data_key[0] for data_key in context.data_keys]
-    induction_list = [data_key[1] for data_key in context.data_keys]
-    result = map_func(compute_model_ramp_features, [x] * len(context.data_keys), cell_id_list, induction_list,
-                      [export] * len(context.data_keys))
-    return {'pop_id': indiv['pop_id'], 'client_range': client_range, 'async_result': result,
-            'filter_features': filter_model_ramp_features}
+    local_signals = []
+    for i in xrange(len(context.peak_locs)):
+        rate_map = np.interp(context.down_t, context.complete_t, context.complete_rate_maps[i])
+        local_signals.append(get_local_signal(rate_map, local_filter, context.down_dt))
+    return local_signals
 
 
-def compute_model_ramp_features(x, cell_id=None, induction=None, export=False, plot=False, full_output=False):
+def get_args_static_signal_amplitudes():
+    """
+    A nested map operation is required to compute model signal amplitudes. The arguments to be mapped are the same
+    (static) for each set of parameters.
+    :return: list of list
+    """
+    with h5py.File(context.data_path, 'r') as f:
+        data_keys = []
+        for cell_key in f['data']:
+            for induction_key in f['data'][cell_key]:
+                data_keys.append((int(cell_key), int(induction_key)))
+    return zip(*data_keys)
+
+
+def compute_features_signal_amplitudes(x, cell_id=None, induction=None, export=False, plot=False, full_output=False):
     """
 
     :param x: array
@@ -654,48 +710,168 @@ def compute_model_ramp_features(x, cell_id=None, induction=None, export=False, p
     :return: dict
     """
     import_data(cell_id, induction)
-    update_submodule_params(x, context)
+    update_source_contexts(x, context)
+    print 'Process: %i: computing signal_amplitude features for cell_id: %i, induction: %i with x: %s' % \
+          (os.getpid(), context.cell_id, context.induction, ', '.join('%.3E' % i for i in x))
+    start_time = time.time()
+    local_filter_t, local_filter, global_filter_t, global_filter = \
+        get_signal_filters(context.local_signal_rise, context.local_signal_decay, context.global_signal_rise,
+                           context.global_signal_decay, context.down_dt, plot)
+    global_signal = get_global_signal(context.down_induction_gate, global_filter)
+    local_signals = get_local_signal_population(local_filter)
+    local_signal_peaks = [np.max(local_signal) for local_signal in local_signals]
+    if plot:
+        fig, axes = plt.subplots(1)
+        hist, edges = np.histogram(local_signal_peaks, density=True)
+        bin_width = edges[1] - edges[0]
+        axes.plot(edges[:-1]+bin_width/2., hist * bin_width)
+        axes.set_xlabel('Plasticity peak local signal amplitude (a.u.)')
+        axes.set_ylabel('Probability')
+        axes.set_title('Local signal amplitude distribution')
+        clean_axes(axes)
+        fig.tight_layout()
+        plt.show()
+        plt.close()
+    result = {'local_signal_peaks': local_signal_peaks,
+              'global_signal_peak': np.max(global_signal)
+              }
+    print 'Process: %i: computing signal_amplitude features for cell_id: %i, induction: %i took %.1f s' % \
+          (os.getpid(), context.cell_id, context.induction, time.time() - start_time)
+    return {cell_id: {induction: result}}
+
+
+def filter_features_signal_amplitudes(primitives, features, export=False, plot=False):
+    """
+
+    :param primitives: list of dict (each dict contains results from a single simulation)
+    :param current_features: dict
+    :param export: bool
+    :param plot: bool
+    :return: dict
+    """
+    all_inputs_local_signal_peaks = np.array([], dtype='float32')
+    each_cell_local_signal_peak = []
+    each_cell_global_signal_peak = []
+    for this_dict in primitives:
+        for cell_id in this_dict:
+            for induction_id in this_dict[cell_id]:
+                each_cell_global_signal_peak.append(this_dict[cell_id][induction_id]['global_signal_peak'])
+                each_cell_local_signal_peak.append(np.max(this_dict[cell_id][induction_id]['local_signal_peaks']))
+                all_inputs_local_signal_peaks = np.append(all_inputs_local_signal_peaks,
+                                                          this_dict[cell_id][induction_id]['local_signal_peaks'])
+    if plot:
+        hist, edges = np.histogram(all_inputs_local_signal_peaks, bins=10, density=True)
+        bin_width = edges[1] - edges[0]
+        fig, axes = plt.subplots(1)
+        axes.plot(edges[:-1] + bin_width / 2., hist * bin_width)
+        axes.set_xlabel('Plasticity peak local signal amplitude (a.u.)')
+        axes.set_ylabel('Probability')
+        axes.set_title('Local signal amplitude distribution (all inputs, all cells)')
+        clean_axes(axes)
+        fig.tight_layout()
+
+        hist, edges = np.histogram(each_cell_local_signal_peak, bins=min(10, len(primitives)), density=True)
+        bin_width = edges[1] - edges[0]
+        fig, axes = plt.subplots(1)
+        axes.plot(edges[:-1] + bin_width / 2., hist * bin_width)
+        axes.set_xlabel('Plasticity peak local signal amplitude (a.u.)')
+        axes.set_ylabel('Probability')
+        axes.set_title('Local signal amplitude distribution (each cell)')
+        clean_axes(axes)
+        fig.tight_layout()
+
+        hist, edges = np.histogram(each_cell_global_signal_peak, bins=min(10, len(primitives)), density=True)
+        bin_width = edges[1] - edges[0]
+        fig, axes = plt.subplots(1)
+        axes.plot(edges[:-1] + bin_width / 2., hist * bin_width)
+        axes.set_xlabel('Plasticity peak global signal amplitude (a.u.)')
+        axes.set_ylabel('Probability')
+        axes.set_title('Global signal amplitude distribution (each cell)')
+        clean_axes(axes)
+        fig.tight_layout()
+        plt.show()
+        plt.close()
+    return {'local_signal_max': np.max(each_cell_local_signal_peak),
+            'global_signal_max': np.max(each_cell_global_signal_peak)
+            }
+
+
+def get_args_dynamic_model_ramp(x, features):
+    """
+    A nested map operation is required to compute model_ramp features. The arguments to be mapped depend on each set of
+    parameters and prior features (dynamic).
+    :param x: array
+    :param features: dict
+    :return: list of list
+    """
+    group_size = len(context.data_keys)
+    return [list(item) for item in zip(*context.data_keys)] + [[features['local_signal_max']] * group_size] + \
+           [[features['global_signal_max']] * group_size]
+
+
+def compute_features_model_ramp(x, cell_id=None, induction=None, local_signal_peak=None, global_signal_peak=None,
+                                export=False, plot=False, full_output=False):
+    """
+
+    :param x: array
+    :param cell_id: int
+    :param induction: int
+    :param local_signal_peak: float
+    :param global_signal_peak: float
+    :param export: bool
+    :param plot: bool
+    :param full_output: bool
+    :return: dict
+    """
+    import_data(cell_id, induction)
+    update_source_contexts(x, context)
     print 'Process: %i: computing model_ramp_features for cell_id: %i, induction: %i with x: %s' % \
           (os.getpid(), context.cell_id, context.induction, ', '.join('%.3E' % i for i in x))
     start_time = time.time()
-    down_dt = context.down_dt
     local_filter_t, local_filter, global_filter_t, global_filter = \
         get_signal_filters(context.local_signal_rise, context.local_signal_decay, context.global_signal_rise,
-                           context.global_signal_decay, down_dt, plot)
-    global_signal = get_global_signal(context.down_induction_gate, global_filter)
-    dual_signal_product_range = np.linspace(0., 0.5, 100000)
+                           context.global_signal_decay, context.down_dt, plot)
+    global_signal = get_global_signal(context.down_induction_gate, global_filter) / global_signal_peak
+    local_signals = np.divide(get_local_signal_population(local_filter), local_signal_peak)
+    signal_xrange = np.linspace(0., 1., 10000)
+    pot_rate = sigmoid_segment(context.rMC_slope, context.rMC_th)
+    """
     depot_rate = lambda signal: (context.rCM_f1 * np.exp(-signal / context.rCM_decay1) +
-                           (1. - context.rCM_f1) * np.exp(-signal / context.rCM_decay2) -
-                           np.exp(-signal / context.rCM_rise)) ** context.rCM_k
-    depot_rate_peak = np.max(depot_rate(dual_signal_product_range))
-    norm_depot_rate = lambda signal, norm_factor=depot_rate_peak: depot_rate(signal) / depot_rate_peak
+                                 (1. - context.rCM_f1) * np.exp(-signal / context.rCM_decay2) -
+                                 np.exp(-signal / context.rCM_rise)) ** context.rCM_k
+    """
+    raw_depot_rate = lambda signal: (np.exp(-signal / context.rCM_decay) -
+                                     np.exp(-signal / context.rCM_rise)) ** context.rCM_k
+    depot_rate_peak_loc = np.log(context.rCM_decay / context.rCM_rise) * context.rCM_decay * context.rCM_rise / \
+                        (context.rCM_decay - context.rCM_rise)
+    depot_rate_norm_factor = raw_depot_rate(depot_rate_peak_loc)
+    depot_rate = lambda signal: (1. / depot_rate_norm_factor) * (np.exp(-signal / context.rCM_decay) -
+                                                                 np.exp(-signal / context.rCM_rise)) ** context.rCM_k
     if plot:
         fig, axes = plt.subplots(1)
-        axes.plot(dual_signal_product_range, norm_depot_rate(dual_signal_product_range))
-        axes.set_xlabel('Plasticity signal amplitude (a.u.)')
+        axes.plot(signal_xrange, pot_rate(signal_xrange), label='Potentiation rate')
+        axes.plot(signal_xrange, depot_rate(signal_xrange), label='Depotentiation rate')
+        axes.set_xlabel('Normalized plasticity signal amplitude (a.u.)')
         axes.set_ylabel('Normalized rate')
-        axes.set_title('Depotentiation rate')
+        axes.set_title('Plasticity signal transformations')
         clean_axes(axes)
         fig.tight_layout()
         #plt.show()
         #plt.close()
     weights = []
-    peak_dual_signal_product = []
     peak_weight = context.peak_delta_weight + 1.
-    # initial_weights = (context.SVD_weights['before'] + 1.) / peak_weight
     initial_weights = np.minimum(context.SVD_weights['before'] + 1., peak_weight) / peak_weight
     for i in xrange(len(context.peak_locs)):
         # normalize total number of receptors
         initial_weight = initial_weights[i]
         available = 1. - initial_weight
         context.sm.update_states({'M': available, 'C': initial_weight})
-        rate_map = np.interp(context.down_t, context.complete_t, context.complete_rate_maps[i])
-        local_signal = get_local_signal(rate_map, local_filter, down_dt)
+        # rate_map = np.interp(context.down_t, context.complete_t, context.complete_rate_maps[i])
+        local_signal = local_signals[i]
         dual_signal_product = np.multiply(global_signal, local_signal)
-        peak_dual_signal_product.append(np.max(dual_signal_product))
         context.sm.update_rates(
-            {'M': {'C': context.rMC0 * dual_signal_product},
-             'C': {'M': context.rCM0 * norm_depot_rate(dual_signal_product)}})
+            {'M': {'C': context.rMC0 * pot_rate(dual_signal_product)},
+             'C': {'M': context.rCM0 * depot_rate(dual_signal_product)}})
         context.sm.reset()
         context.sm.run()
         if i == 100:
@@ -794,7 +970,6 @@ def compute_model_ramp_features(x, cell_id=None, induction=None, export=False, p
         result['initial_weights'] = initial_weights
         result['model_ramp'] = np.array(model_ramp)
         result['target_ramp'] = np.array(target_ramp)
-        result['peak_dual_signal_product'] = np.array(peak_dual_signal_product)
     if export:
         with h5py.File(context.processed_export_file_path, 'a') as f:
             description = 'model_ramp_context'
@@ -803,10 +978,12 @@ def compute_model_ramp_features(x, cell_id=None, induction=None, export=False, p
                 group = f[description]
                 group.create_dataset('peak_locs', compression='gzip', compression_opts=9, data=context.peak_locs)
                 group.create_dataset('binned_x', compression='gzip', compression_opts=9, data=context.binned_x)
-                group.create_dataset('dual_signal_product_range', compression='gzip', compression_opts=9,
-                                     data=dual_signal_product_range)
-                group.create_dataset('norm_depot_rate', compression='gzip', compression_opts=9,
-                                     data=norm_depot_rate(dual_signal_product_range))
+                group.create_dataset('signal_xrange', compression='gzip', compression_opts=9,
+                                     data=signal_xrange)
+                group.create_dataset('pot_rate', compression='gzip', compression_opts=9,
+                                     data=pot_rate(signal_xrange))
+                group.create_dataset('depot_rate', compression='gzip', compression_opts=9,
+                                     data=depot_rate(signal_xrange))
                 group.attrs['peak_weight'] = peak_weight
             description = 'model_ramp_features'
             if description not in f:
@@ -845,13 +1022,11 @@ def compute_model_ramp_features(x, cell_id=None, induction=None, export=False, p
     return {cell_id: {induction: result}}
 
 
-def filter_model_ramp_features(computed_result_list, current_features, target_val, target_range, export=False):
+def filter_features_model_ramp(primitives, current_features, export=False):
     """
 
-    :param computed_result_list: list of dict (each dict contains results from a single simulation)
+    :param primitives: list of dict (each dict contains results from a single simulation)
     :param current_features: dict
-    :param target_val: dict of float
-    :param target_range: dict of float
     :param export: bool
     :return: dict
     """
@@ -864,9 +1039,11 @@ def filter_model_ramp_features(computed_result_list, current_features, target_va
                    delta_min_val:
         for group in groups:
             feature[group] = []
-    for this_result_dict in computed_result_list:
+    for this_result_dict in primitives:
         for cell_id in this_result_dict:
             for induction in this_result_dict[cell_id]:
+                cell_id = int(cell_id)
+                induction = int(induction)
                 if cell_id in context.spont_cell_id_list:
                     group = 'spont'
                 else:
@@ -886,18 +1063,16 @@ def filter_model_ramp_features(computed_result_list, current_features, target_va
     return features
 
 
-def get_objectives(features, target_val, target_range):
+def get_objectives(features):
     """
 
     :param features: dict
-    :param target_val: dict of float
-    :param target_range: dict of float
     :return: tuple of dict
     """
     objectives = {}
-    for objective_name in target_val:
-        objectives[objective_name] = ((target_val[objective_name] - features[objective_name]) /
-                                      target_range[objective_name]) ** 2.
+    for objective_name in context.target_val:
+        objectives[objective_name] = ((context.target_val[objective_name] - features[objective_name]) /
+                                      context.target_range[objective_name]) ** 2.
     return features, objectives
 
 
@@ -924,57 +1099,108 @@ def get_model_ramp(delta_weights, plot=False):
     return model_ramp
 
 
-def get_model_ramp_error(x, check_bounds=None):
+def get_features_interactive(x, export=False, plot=False):
+    """
+
+    :param x:
+    :param export:
+    :param plot:
+    :return: dict
+    """
+    features = {}
+    args = get_args_static_signal_amplitudes()
+    group_size = len(args[0])
+    sequences = [[x] * group_size] + args + [[context.export] * group_size]  # + [[plot] * group_size]
+    primitives = map(compute_features_signal_amplitudes, *sequences)
+    new_features = filter_features_signal_amplitudes(primitives, features, context.export, plot)
+    features.update(new_features)
+
+    args = get_args_dynamic_model_ramp(x, features)
+    group_size = len(args[0])
+    sequences = [[x] * group_size] + args + [[context.export] * group_size] + [[plot] * group_size]
+    primitives = map(compute_features_model_ramp, *sequences)
+    new_features = filter_features_model_ramp(primitives, features, context.export)
+    features.update(new_features)
+    return features
+
+
+def get_model_ramp_error(x, check_bounds=None, plot=False, full_output=False):
     """
 
     :param x:
     :param check_bounds: callable
+    :param plot: bool
+    :param full_output: bool
     :return: float
     """
-    indiv = {'pop_id': 0, 'x': x}
     if check_bounds is not None:
         if not check_bounds(x):
             return 1e9
-    computed_result = get_model_ramp_features(indiv)['async_result']
-    features = filter_model_ramp_features(computed_result, {}, context.target_val, context.target_range)
-    features, objectives = get_objectives(features, context.target_val, context.target_range)
+    features = get_features_interactive(x, plot=plot)
+    features, objectives = get_objectives(features)
     Err = np.sum(objectives.values())
     print 'Process: %i: absolute sum of model_ramp objectives: %.4E' % (os.getpid(), Err)
-    return Err
+    if full_output:
+        return Err, features, objectives
+    else:
+        return Err
 
 
 @click.command()
-@click.option("--config-file-path", type=str, default='data/parallel_optimize_BTSP_CA1_v4_cell1_config.yaml')
+@click.option("--config-file-path", type=click.Path(exists=True, file_okay=True, dir_okay=False),
+              default='config/optimize_BTSP2_CA1_v5_config.yaml')
+@click.option("--output-dir", type=click.Path(exists=True, file_okay=False, dir_okay=True), default='data')
+@click.option("--export", is_flag=True)
+@click.option("--export-file-path", type=str, default=None)
+@click.option("--label", type=str, default=None)
+@click.option("--disp", is_flag=True)
+@click.option("--verbose", is_flag=True)
 @click.option("--serial-optimize", is_flag=True)
 @click.option("--plot", is_flag=True)
-def main(config_file_path, serial_optimize, plot):
+@click.option("--debug", is_flag=True)
+def main(config_file_path, output_dir, export, export_file_path, label, disp, verbose, serial_optimize, plot, debug):
     """
 
-    :param config_file_path:
-    :param serial_optimize:
-    :param plot:
+    :param config_file_path: str (path)
+    :param output_dir: str (path)
+    :param export: bool
+    :param export_file_path: str
+    :param label: str
+    :param disp: bool
+    :param verbose: bool
+    :param serial_optimize: bool
+    :param plot: bool
+    :param debug: bool
     """
-    config_interactive(config_file_path=config_file_path)
+    # requires a global variable context: :class:'Context'
+
+    context.update(locals())
+    config_interactive(config_file_path=config_file_path, output_dir=output_dir, export_file_path=export_file_path,
+                       label=label, verbose=verbose)
     rel_bounds_handler = RelativeBoundedStep(context.x0_array, context.param_names, context.bounds, context.rel_bounds)
     x1_array = context.x0_array
     """
-    x1_array = [  1.68676167e+02,   4.65157280e-01,   1.14356708e+01,
+    x1_array = [1., 0.5, 1.68676167e+02,   4.65157280e-01,   1.14356708e+01,
          5.99984086e+02,   3.23884965e+01,   2.90020104e+02,
-         1.45919243e-04,   3.71418346e-02,   3.76797852e-02,
-         9.60599588e-01,   3.93299250e+00,   3.92565591e+00]
+         1.45919243e-04,   3.71418346e-02,
+         3.93299250e+00,   3.92565591e+00]
     """
-    # Err = get_model_ramp_error(x1_array)
-    # result = compute_model_ramp_features(x1_array, 1, 2, plot=True, full_output=True, export=False)
+    if debug:
+        # Err, features, objectives = get_model_ramp_error(x1_array, rel_bounds_handler.check_bounds, plot=plot,
+        #                                                 full_output=True)
+        features = get_features_interactive(x1_array, plot=plot)
+
+    # result = compute_features_model_ramp(x1_array, 1, 2, plot=True, full_output=True, export=False)
     if serial_optimize:
         result = minimize(get_model_ramp_error, x1_array, method='Nelder-Mead',
                                    args=(rel_bounds_handler.check_bounds,),
                                    options={'disp': True, 'maxiter': 20})
         x1_array = result.x
-    if plot:
+    if plot and not debug:
         results = {}
         # for cell_id, induction in ((cell_id, induction) for (cell_id, induction) in context.data_keys if induction == 2):
         for cell_id, induction in context.data_keys:
-            result = compute_model_ramp_features(x1_array, cell_id, induction, plot=True, full_output=True,
+            result = compute_features_model_ramp(x1_array, cell_id, induction, plot=True, full_output=True,
                                                  export=False)
             if cell_id not in results:
                 results[cell_id] = {}

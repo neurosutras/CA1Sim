@@ -1,5 +1,5 @@
 __author__ = 'milsteina'
-from parallelmoo import *
+from nested import *
 from plot_parallel_optimize_results import *
 # from scipy.stats import skewnorm
 import click
@@ -942,7 +942,7 @@ def get_model_ramp_error(x):
 
 def format_constraints(rel_bounds, param_indexes):
     """
-    Converts relative bounds from parallelmoo into constraints for scipy.optimize.minimize
+    Converts relative bounds from nested into constraints for scipy.optimize.minimize
     :param rel_bounds: list of list
     :return: list of dict
     """
