@@ -25,4 +25,4 @@ sleep 60
 srun -N 13 -n 400 -c 2 --cpu_bind=cores ipengine --mpi=mpi4py --cluster-id=$cluster_id &
 sleep 1
 sleep 300
-srun -N 1 -n 1 -c 2 --cpu_bind=cores python parallel_optimize.py --config-file-path='data/parallel_optimize_BTSP_CA1_v3_config.yaml' --cluster-id=$cluster_id --pop-size=200 --max-iter=50 --path-length=3 --disp --export --output-dir=$SCRATCH/BTSP
+srun -N 1 -n 1 -c 2 --cpu_bind=cores python -m nested.parallel_optimize --config-file-path='data/parallel_optimize_BTSP_CA1_v3_cell1_config.yaml' --cluster-id=$cluster_id --pop-size=200 --max-iter=50 --path-length=3 --disp --export --output-dir=$SCRATCH/BTSP

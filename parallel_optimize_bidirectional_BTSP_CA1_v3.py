@@ -1,7 +1,8 @@
 __author__ = 'milsteina'
-from moopgen import *
+from nested import *
 from plot_parallel_optimize_results import *
-from scipy.stats import skewnorm
+# from scipy.stats import skewnorm
+import click
 
 """
 These methods aim to optimize a single parameterization of a model of bidirectional, state-dependent behavioral time 
@@ -941,7 +942,7 @@ def get_model_ramp_error(x):
 
 def format_constraints(rel_bounds, param_indexes):
     """
-    Converts relative bounds from parallelmoo into constraints for scipy.optimize.minimize
+    Converts relative bounds from nested into constraints for scipy.optimize.minimize
     :param rel_bounds: list of list
     :return: list of dict
     """
@@ -983,8 +984,14 @@ def construct_jacobian(func,epsilon):
     return jac
 
 
-if __name__ == '__main__':
-    config_interactive(config_file_path='data/parallel_optimize_BTSP_CA1_v3_config.yaml')
+@click.command()
+@click.option("--config-file-path", type=str, default='data/parallel_optimize_BTSP_CA1_v3_cell1_config.yaml')
+def main(config_file_path):
+    """
+
+    :param config_file_path:
+    """
+    config_interactive(config_file_path=config_file_path)
     x0 = x1 = context.x0_array
     # x0 = x1 = [33.8221927, 55.39154432, 5.27563282, 583.94229261,
     #           130.44454687, 268.14671785, 0.01, 2.47425744]
@@ -1001,10 +1008,14 @@ if __name__ == '__main__':
     x1 = result.x
     """
     results = {}
-    for cell_id, induction in context.data_keys:
+    for cell_id, induction in ((cell_id, induction) for (cell_id, induction) in context.data_keys if induction == 2):
         result = compute_model_ramp_features(x1, cell_id, induction, plot=True, full_output=True, export=False)
         if cell_id not in results:
             results[cell_id] = {}
         results[cell_id][induction] = result[cell_id][induction]
 
     context.update(locals())
+
+
+if __name__ == '__main__':
+    main(args=sys.argv[(list_find(lambda s: s.find(script_filename) != -1, sys.argv) + 1):])
