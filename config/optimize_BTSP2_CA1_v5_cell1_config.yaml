@@ -7,10 +7,10 @@ bounds:
   - 1.
   rMC0: !!python/tuple
   - 0.1
-  - 100.
+  - 10.
   rCM0: !!python/tuple
-  - 0.001
-  - 100.
+  - 0.1
+  - 10.
   local_signal_rise: !!python/tuple
   - 5.
   - 200.
@@ -71,6 +71,7 @@ feature_names:
 - exp2_delta_asymmetry
 - exp2_delta_min_loc
 - exp2_delta_min_val
+- self_consistent_delta_residuals
 update_context:
   optimize_BTSP2_CA1_v5: update_model_params
 get_features_stages:
@@ -82,11 +83,16 @@ get_features_stages:
   get_args_dynamic: get_args_dynamic_model_ramp
   compute_features: compute_features_model_ramp
   filter_features: filter_features_model_ramp
+- source: optimize_BTSP2_CA1_v5
+  get_args_dynamic: get_args_dynamic_self_consistent_model_ramp
+  compute_features: compute_features_self_consistent_model_ramp
+  filter_features: filter_features_self_consistent_model_ramp
 get_objectives:
   optimize_BTSP2_CA1_v5: get_objectives
 kwargs:
-  data_file_name: '101017_BTSP_CA1_data.hdf5'
-  verbose: False
+  data_file_name: '20180124_BTSP2_CA1_data.hdf5'
+  verbose: 1
+  min_delta_weight: -0.1
   data_keys:
     - !!python/tuple
       - 1
@@ -116,6 +122,7 @@ objective_names:
 - exp2_delta_asymmetry
 - exp2_delta_min_loc
 - exp2_delta_min_val
+- self_consistent_delta_residuals
 optimization_title: bidirectional_BTSP
 param_gen: PopulationAnnealing
 param_names:
@@ -153,6 +160,7 @@ target_range:
   exp2_delta_asymmetry: 0.01
   exp2_delta_min_loc: 0.1
   exp2_delta_min_val: 0.01
+  self_consistent_delta_residuals: 1.
 target_val:
   spont_residuals: 0.
   spont_delta_amp: 0.
@@ -175,16 +183,43 @@ target_val:
   exp2_delta_asymmetry: 0.
   exp2_delta_min_loc: 0.
   exp2_delta_min_val: 0.
+  self_consistent_delta_residuals: 0.
 x0:
-  rMC_slope: 10.
-  rMC_th: 0.5
-  rMC0: 99.
-  rCM0: 8.080749
-  local_signal_rise: 47.528376
-  local_signal_decay: 2378.771733
-  global_signal_rise: 45.710971
-  global_signal_decay: 2748.063304
-  rCM_rise: 0.002270
-  rCM_decay: 0.142682
-  rCM_k: 1.652937
-  peak_delta_weight: 2.284682
+  global_signal_decay: 354.792767
+  local_signal_rise: 6.262048
+  rMC0: 9.367722
+  rMC_th: 0.076655
+  peak_delta_weight: 3.756783
+  rCM_rise: 0.000480
+  local_signal_decay: 663.108895
+  rCM_decay: 0.057229
+  rMC_slope: 14.483458
+  rCM0: 0.533902
+  global_signal_rise: 14.881418
+  rCM_k: 2.325468
+
+  # rMC_slope: 15.999824
+  # rMC_th: 0.114864
+  # rMC0: 10.
+  # rCM0: 0.649567
+  # local_signal_rise: 9.454393
+  # local_signal_decay: 590.882268
+  # global_signal_rise: 25.233934
+  # global_signal_decay: 307.652113
+  # rCM_rise: 0.000430
+  # rCM_decay: 0.081357
+  # rCM_k: 2.308605
+  # peak_delta_weight: 3.780131
+
+  # rMC_slope: 10.
+  # rMC_th: 0.5
+  # rMC0: 99.
+  # rCM0: 8.080749
+  # local_signal_rise: 47.528376
+  # local_signal_decay: 2378.771733
+  # global_signal_rise: 45.710971
+  # global_signal_decay: 2748.063304
+  # rCM_rise: 0.002270
+  # rCM_decay: 0.142682
+  # rCM_k: 1.652937
+  # peak_delta_weight: 2.284682

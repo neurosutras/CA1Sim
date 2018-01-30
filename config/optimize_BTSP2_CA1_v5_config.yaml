@@ -82,11 +82,16 @@ get_features_stages:
   get_args_dynamic: get_args_dynamic_model_ramp
   compute_features: compute_features_model_ramp
   filter_features: filter_features_model_ramp
+- source: optimize_BTSP2_CA1_v5
+  get_args_dynamic: get_args_dynamic_self_consistent_model_ramp
+  compute_features: compute_features_model_ramp
+  filter_features: filter_features_self_consistent_model_ramp
 get_objectives:
   optimize_BTSP2_CA1_v5: get_objectives
 kwargs:
-  data_file_name: '101017_BTSP_CA1_data.hdf5'
+  data_file_name: '20180124_BTSP2_CA1_data.hdf5'
   verbose: False
+  min_delta_weight: -0.1
   data_keys:
     - !!python/tuple
       - 5

@@ -217,3 +217,31 @@ def sigmoid_segment(slope, th, xlim=None, ylim=None):
     y1 = y(xlim[1])
     current_amp = y1 - y0
     return lambda x: (target_amp / current_amp) * (1. / (1. + np.exp(-slope * (x - th))) - y0) + ylim[0]
+
+
+def subtract_baseline(waveform, baseline=None):
+    """
+
+    :param waveform: array
+    :param baseline: float
+    :return: array
+    """
+    new_waveform = np.array(waveform)
+    if baseline is None:
+        baseline = np.mean(new_waveform[np.where(new_waveform <= np.percentile(new_waveform, 10.))[0]])
+    new_waveform -= baseline
+    return new_waveform, baseline
+
+
+def wrap_around_and_compress(waveform, interp_x):
+    """
+
+    :param waveform: array of len(3 * interp_x)
+    :param interp_x: array
+    :return: array of len(interp_x)
+    """
+    before = np.array(waveform[:len(interp_x)])
+    after = np.array(waveform[2 * len(interp_x):])
+    within = np.array(waveform[len(interp_x):2 * len(interp_x)])
+    waveform = within[:len(interp_x)] + before[:len(interp_x)] + after[:len(interp_x)]
+    return waveform
