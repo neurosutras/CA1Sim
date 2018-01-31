@@ -34,8 +34,8 @@ to the amount of local signal.
 signal and current weight (occupancy of state C).
 """
 __author__ = 'milsteina'
+from BTSP_utils import *
 from nested.optimize_utils import *
-from utils import *
 from scipy.optimize import minimize
 import click
 
@@ -172,7 +172,7 @@ def config_controller(export_file_path, output_dir, **kwargs):
 
 
 def config_worker(update_context_funcs, param_names, default_params, target_val, target_range, temp_output_path,
-                  export_file_path, output_dur, disp, data_file_name, **kwargs):
+                  export_file_path, output_dir, disp, data_file_name, **kwargs):
     """
     :param update_context_funcs: list of function references
     :param param_names: list of str
@@ -181,7 +181,7 @@ def config_worker(update_context_funcs, param_names, default_params, target_val,
     :param target_range: dict
     :param temp_output_path: str
     :param export_file_path: str
-    :param output_dur: str (dir path)
+    :param output_dir: str (dir path)
     :param disp: bool
     :param data_file_name: str (path)
     """

@@ -2,7 +2,7 @@ __author__ = 'Aaron D. Milstein'
 import click
 import pandas as pd
 from plot_results import *
-from utils import *
+from BTSP_utils import *
 
 """
 Magee lab CA1 BTSP2 place field data is in a series of text files. This organizes them into a single .hdf5 file with a 

@@ -198,11 +198,11 @@ class StateMachine(object):
 
 def sigmoid_segment(slope, th, xlim=None, ylim=None):
     """
-    Transform a sigmoid to reach with x and y range limits.
+    Transform a sigmoid to intersect x and y range limits.
     :param slope: float
     :param th: float
-    :param xrange: pair of float
-    :param yrange: pair of float
+    :param xlim: pair of float
+    :param ylim: pair of float
     :return: callable
     """
     if xlim is None:
