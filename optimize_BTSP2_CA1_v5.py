@@ -1311,7 +1311,7 @@ def filter_features_self_consistent_model_ramp(primitives, current_features, exp
                 except Exception:
                     raise KeyError('filter_features_self_consistent_model_ramp: residuals not found in current_features'
                                    ' for cell_id: %i' % cell_id)
-                delta_residuals.append(min(0., this_result_dict[cell_id][induction]['residuals'] -
+                delta_residuals.append(max(0., this_result_dict[cell_id][induction]['residuals'] -
                                            independent_residuals))
     features['self_consistent_delta_residuals'] = np.mean(delta_residuals)
     return features
