@@ -50,45 +50,41 @@ rel_bounds:
   - 1.0
   - global_signal_rise
 feature_names:
-- spont_residuals
 - spont_delta_amp
 - spont_delta_width
 - spont_delta_peak_shift
 - spont_delta_asymmetry
 - spont_delta_min_loc
 - spont_delta_min_val
-- exp1_residuals
 - exp1_delta_amp
 - exp1_delta_width
 - exp1_delta_peak_shift
 - exp1_delta_asymmetry
 - exp1_delta_min_loc
 - exp1_delta_min_val
-- exp2_residuals
 - exp2_delta_amp
 - exp2_delta_width
 - exp2_delta_peak_shift
 - exp2_delta_asymmetry
 - exp2_delta_min_loc
 - exp2_delta_min_val
-- self_consistent_delta_residuals
 update_context:
-  optimize_BTSP2_CA1_v5: update_model_params
+  optimize_BTSP2_CA1_v6: update_model_params
 get_features_stages:
-- source: optimize_BTSP2_CA1_v5
+- source: optimize_BTSP2_CA1_v6
   get_args_static: get_args_static_signal_amplitudes
   compute_features: compute_features_signal_amplitudes
   filter_features: filter_features_signal_amplitudes
-- source: optimize_BTSP2_CA1_v5
+- source: optimize_BTSP2_CA1_v6
   get_args_dynamic: get_args_dynamic_model_ramp
   compute_features: compute_features_model_ramp
   filter_features: filter_features_model_ramp
-- source: optimize_BTSP2_CA1_v5
+- source: optimize_BTSP2_CA1_v6
   get_args_dynamic: get_args_dynamic_self_consistent_model_ramp
   compute_features: compute_features_self_consistent_model_ramp
   filter_features: filter_features_self_consistent_model_ramp
 get_objectives:
-  optimize_BTSP2_CA1_v5: get_objectives
+  optimize_BTSP2_CA1_v6: get_objectives
 kwargs:
   data_file_name: '20180124_BTSP2_CA1_data.hdf5'
   verbose: 1
@@ -122,7 +118,8 @@ objective_names:
 - exp2_delta_asymmetry
 - exp2_delta_min_loc
 - exp2_delta_min_val
-- self_consistent_delta_residuals
+- self_consistent_residuals
+- smoothness
 optimization_title: bidirectional_BTSP
 param_gen: PopulationAnnealing
 param_names:
@@ -160,7 +157,8 @@ target_range:
   exp2_delta_asymmetry: 0.01
   exp2_delta_min_loc: 0.1
   exp2_delta_min_val: 0.01
-  self_consistent_delta_residuals: 1.
+  self_consistent_residuals: 1.
+  smoothness: 0.01
 target_val:
   spont_residuals: 0.
   spont_delta_amp: 0.
@@ -183,7 +181,8 @@ target_val:
   exp2_delta_asymmetry: 0.
   exp2_delta_min_loc: 0.
   exp2_delta_min_val: 0.
-  self_consistent_delta_residuals: 0.
+  self_consistent_residuals: 0.
+  smoothness: 0.
 x0:
   global_signal_decay: 354.792767
   local_signal_rise: 6.262048
