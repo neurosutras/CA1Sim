@@ -1,0 +1,213 @@
+bounds:
+  rCM_slope1: !!python/tuple
+  - 0.01
+  - 500.
+  rCM_th1: !!python/tuple
+  - 0.01
+  - 1.
+  rCM_peak1: !!python/tuple
+  - 0.0001
+  - 1.
+  rCM_slope2: !!python/tuple
+  - -100.
+  - -0.001
+  rCM_th2: !!python/tuple
+  - 0.01
+  - 1.
+  rCM_min2: !!python/tuple
+  - 0.
+  - 1.
+  rMC0: !!python/tuple
+  - 0.1
+  - 10.
+  rCM0: !!python/tuple
+  - 0.1
+  - 10.
+  local_pot_rise: !!python/tuple
+  - 5.
+  - 200.
+  local_pot_decay: !!python/tuple
+  - 50.
+  - 4000.
+  local_depot_rise: !!python/tuple
+  - 5.
+  - 200.
+  local_depot_decay: !!python/tuple
+  - 50.
+  - 4000.
+  global_signal_rise: !!python/tuple
+  - 5.
+  - 200.
+  global_signal_decay: !!python/tuple
+  - 50.
+  - 3000.
+  peak_delta_weight: !!python/tuple
+  - 1.5
+  - 4.
+default_params:
+rel_bounds:
+- - local_pot_decay
+  - '>'
+  - 1.0
+  - local_pot_rise
+- - local_depot_decay
+  - '>'
+  - 1.0
+  - local_depot_rise
+- - global_signal_decay
+  - '>'
+  - 1.0
+  - global_signal_rise
+feature_names:
+- spont_delta_amp
+- spont_delta_width
+- spont_delta_peak_shift
+- spont_delta_asymmetry
+- spont_delta_min_loc
+- spont_delta_min_val
+- exp1_delta_amp
+- exp1_delta_width
+- exp1_delta_peak_shift
+- exp1_delta_asymmetry
+- exp1_delta_min_loc
+- exp1_delta_min_val
+- exp2_delta_amp
+- exp2_delta_width
+- exp2_delta_peak_shift
+- exp2_delta_asymmetry
+- exp2_delta_min_loc
+- exp2_delta_min_val
+update_context:
+  optimize_BTSP2_CA1_v7: update_model_params
+get_features_stages:
+- source: optimize_BTSP2_CA1_v7
+  get_args_static: get_args_static_signal_amplitudes
+  compute_features: compute_features_signal_amplitudes
+  filter_features: filter_features_signal_amplitudes
+- source: optimize_BTSP2_CA1_v7
+  get_args_dynamic: get_args_dynamic_model_ramp
+  compute_features: compute_features_model_ramp
+  filter_features: filter_features_model_ramp
+- source: optimize_BTSP2_CA1_v7
+  get_args_dynamic: get_args_dynamic_self_consistent_model_ramp
+  compute_features: compute_features_self_consistent_model_ramp
+  filter_features: filter_features_self_consistent_model_ramp
+get_objectives:
+  optimize_BTSP2_CA1_v7: get_objectives
+kwargs:
+  data_file_name: '20180124_BTSP2_CA1_data.hdf5'
+  verbose: 1
+  min_delta_weight: -0.1
+  data_keys:
+    - !!python/tuple
+      - 1
+      - 1
+    - !!python/tuple
+      - 1
+      - 2
+objective_names:
+- spont_residuals
+- spont_delta_amp
+- spont_delta_width
+- spont_delta_peak_shift
+- spont_delta_asymmetry
+- spont_delta_min_loc
+- spont_delta_min_val
+- exp1_residuals
+- exp1_delta_amp
+- exp1_delta_width
+- exp1_delta_peak_shift
+- exp1_delta_asymmetry
+- exp1_delta_min_loc
+- exp1_delta_min_val
+- exp2_residuals
+- exp2_delta_amp
+- exp2_delta_width
+- exp2_delta_peak_shift
+- exp2_delta_asymmetry
+- exp2_delta_min_loc
+- exp2_delta_min_val
+- self_consistent_residuals
+- smoothness
+optimization_title: bidirectional_BTSP
+param_gen: PopulationAnnealing
+param_names:
+- rCM_slope1
+- rCM_th1
+- rCM_peak1
+- rCM_slope2
+- rCM_th2
+- rCM_min2
+- rMC0
+- rCM0
+- local_pot_rise
+- local_pot_decay
+- local_depot_rise
+- local_depot_decay
+- global_signal_rise
+- global_signal_decay
+- peak_delta_weight
+target_range:
+  spont_residuals: 1.
+  spont_delta_amp: 0.01
+  spont_delta_width: 0.1
+  spont_delta_peak_shift: 0.1
+  spont_delta_asymmetry: 0.01
+  spont_delta_min_loc: 0.1
+  spont_delta_min_val: 0.01
+  exp1_residuals: 1.
+  exp1_delta_amp: 0.01
+  exp1_delta_width: 0.1
+  exp1_delta_peak_shift: 0.1
+  exp1_delta_asymmetry: 0.01
+  exp1_delta_min_loc: 0.1
+  exp1_delta_min_val: 0.01
+  exp2_residuals: 1.
+  exp2_delta_amp: 0.01
+  exp2_delta_width: 0.1
+  exp2_delta_peak_shift: 0.1
+  exp2_delta_asymmetry: 0.01
+  exp2_delta_min_loc: 0.1
+  exp2_delta_min_val: 0.01
+  self_consistent_residuals: 1.
+  smoothness: 0.01
+target_val:
+  spont_residuals: 0.
+  spont_delta_amp: 0.
+  spont_delta_width: 0.
+  spont_delta_peak_shift: 0.
+  spont_delta_asymmetry: 0.
+  spont_delta_min_loc: 0.
+  spont_delta_min_val: 0.
+  exp1_residuals: 0.
+  exp1_delta_amp: 0.
+  exp1_delta_width: 0.
+  exp1_delta_peak_shift: 0.
+  exp1_delta_asymmetry: 0.
+  exp1_delta_min_loc: 0.
+  exp1_delta_min_val: 0.
+  exp2_residuals: 0.
+  exp2_delta_amp: 0.
+  exp2_delta_width: 0.
+  exp2_delta_peak_shift: 0.
+  exp2_delta_asymmetry: 0.
+  exp2_delta_min_loc: 0.
+  exp2_delta_min_val: 0.
+  self_consistent_residuals: 0.
+  smoothness: 0.
+x0:
+  global_signal_decay: 354.792767
+  local_pot_rise: 6.262048
+  local_depot_rise: 6.262048
+  rMC0: 9.367722
+  peak_delta_weight: 3.756783
+  rCM_slope1: 100.
+  rCM_th1: 0.5
+  rCM_peak1: 0.001
+  rCM_slope2: -20.
+  rCM_th2: 0.25
+  rCM_min2: 0.
+  local_pot_decay: 663.108895
+  local_depot_decay: 663.108895
+  rCM0: 0.533902
+  global_signal_rise: 14.881418
