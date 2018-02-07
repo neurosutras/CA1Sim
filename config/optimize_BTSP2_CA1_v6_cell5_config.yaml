@@ -91,10 +91,10 @@ kwargs:
   min_delta_weight: -0.1
   data_keys:
     - !!python/tuple
-      - 1
+      - 5
       - 1
     - !!python/tuple
-      - 1
+      - 5
       - 2
 objective_names:
 - spont_residuals
