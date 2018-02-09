@@ -1332,7 +1332,8 @@ def get_objectives(features):
                 objective_name = group + '_' + feature_name
                 if objective_name not in objectives:
                     objectives[objective_name] = []
-                objectives[objective_name].append(features['raw'][cell_id][induction][feature_name])
+                objectives[objective_name].append((features['raw'][cell_id][induction][feature_name] /
+                                                  context.target_range[objective_name]) ** 2.)
             feature_name = 'residuals'
             objective_name = group + '_' + feature_name
             if objective_name not in objectives:
@@ -1494,6 +1495,10 @@ def main(config_file_path, output_dir, export, export_file_path, label, disp, ve
     if debug:
         features = get_features_interactive(x1_array, plot=plot)
         features, objectives = get_objectives(features)
+        print 'features:'
+        pprint.pprint({key: val for (key, val) in features.iteritems() if key in context.feature_names})
+        print 'objectives'
+        pprint.pprint({key: val for (key, val) in objectives.iteritems() if key in context.objective_names})
 
     if serial_optimize:
         result = minimize(get_model_ramp_error, x1_array, method='Nelder-Mead',
