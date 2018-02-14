@@ -221,7 +221,8 @@ def init_context():
         input_rate_maps = f['defaults']['input_rate_maps'][:]
         peak_locs = f['defaults']['peak_locs'][:]
         if 'data_keys' not in context() or context.data_keys is None:
-            data_keys = [(int(cell_id), int(induction)) for cell_id in f['data'] for induction in f['data'][cell_id]]
+            context.data_keys = \
+                [(int(cell_id), int(induction)) for cell_id in f['data'] for induction in f['data'][cell_id]]
         spont_cell_id_list = [int(cell_id) for cell_id in f['data'] if f['data'][cell_id].attrs['spont']]
     self_consistent_cell_ids = [cell_id for (cell_id, induction) in context.data_keys if induction == 1 and
                                  (cell_id, 2) in context.data_keys]
