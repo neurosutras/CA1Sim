@@ -27,7 +27,7 @@ bounds:
   - 0.1
   - 10.
   rCM0: !!python/tuple
-  - 0.1
+  - 0.01
   - 10.
   local_pot_rise: !!python/tuple
   - 5.
