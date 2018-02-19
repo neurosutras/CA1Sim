@@ -105,8 +105,6 @@ kwargs:
   verbose: 1
   min_delta_weight: -0.1
   data_keys:
-    - 1
-    - 5
 objective_names:
 - spont_residuals
 - spont_delta_amp
@@ -200,20 +198,20 @@ target_val:
   self_consistent_residuals: 0.
   smoothness: 0.
 x0:
-  global_signal_decay: 354.792767
-  local_pot_rise: 6.262048
-  local_depot_rise: 6.262048
-  rMC0: 9.367722
-  peak_delta_weight: 3.756783
-  rCM_slope1: 100.
-  rCM_th1: 0.5
-  rCM_peak1: 0.01
-  rCM_slope2: -20.
-  rCM_th2: 0.25
-  rCM_min2: 0.
-  local_pot_decay: 663.108895
-  local_depot_decay: 663.108895
-  rCM0: 0.533902
-  global_signal_rise: 14.881418
-  rMC_slope: 10.
-  rMC_th: 0.5
+  rMC_slope: 9.624853
+  rMC_th: 0.126723
+  rCM_slope1: 81.778112
+  rCM_th1: 0.139779
+  rCM_peak1: 0.232855
+  rCM_slope2: -1.645541
+  rCM_th2: 0.783822
+  rCM_min2: 0.424421
+  rMC0: 7.735767
+  rCM0: 2.238014
+  local_pot_rise: 45.787321
+  local_pot_decay: 1143.533130
+  local_depot_rise: 39.694494
+  local_depot_decay: 1225.800991
+  global_signal_rise: 50.344024
+  global_signal_decay: 161.819655
+  peak_delta_weight: 2.376609

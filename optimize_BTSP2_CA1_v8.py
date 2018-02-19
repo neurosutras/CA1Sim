@@ -88,6 +88,7 @@ def config_interactive(config_file_path=None, output_dir=None, temp_output_path=
     context.optimization_title = config_dict['optimization_title']
     context.kwargs = config_dict['kwargs']  # Extra arguments to be passed to imported sources
     context.kwargs['verbose'] = verbose
+    context.kwargs.update(kwargs)
     context.update(context.kwargs)
 
     missing_config = []
@@ -219,9 +220,19 @@ def init_context():
         input_rate_maps = f['defaults']['input_rate_maps'][:]
         peak_locs = f['defaults']['peak_locs'][:]
         if 'data_keys' not in context() or context.data_keys is None:
-            context.data_keys = \
-                [(int(cell_id), int(induction)) for cell_id in f['data'] for induction in f['data'][cell_id]]
+            if 'cell_id' in context() and not context.cell_id == 'all':
+                context.data_keys = \
+                    [(int(cell_id), int(induction)) for cell_id in context.cell_id for induction in f['data'][cell_id]]
+            else:
+                context.data_keys = \
+                    [(int(cell_id), int(induction)) for cell_id in f['data'] for induction in f['data'][cell_id]]
+        else:
+            context.data_keys = [(int(cell_id), int(induction))
+                                 for cell_id in [cell_id for cell_id in context.data_keys if str(cell_id) in f['data']]
+                                 for induction in f['data'][str(cell_id)]]
         spont_cell_id_list = [int(cell_id) for cell_id in f['data'] if f['data'][cell_id].attrs['spont']]
+    if context.disp:
+        print 'optimize_BTSP2_CA1: processing the following data_keys: %s' % str(context.data_keys)
     self_consistent_cell_ids = [cell_id for (cell_id, induction) in context.data_keys if induction == 1 and
                                  (cell_id, 2) in context.data_keys]
     down_dt = 10.  # ms, to speed up optimization
@@ -1511,9 +1522,9 @@ def get_model_ramp_error(x, check_bounds=None, plot=False, full_output=False):
         return Err
 
 
-@click.command()
+@click.command(context_settings=dict(ignore_unknown_options=True, allow_extra_args=True,))
 @click.option("--config-file-path", type=click.Path(exists=True, file_okay=True, dir_okay=False),
-              default='config/optimize_BTSP2_CA1_v8_cell1_config.yaml')
+              default='config/optimize_BTSP2_CA1_v8_cli_config.yaml')
 @click.option("--output-dir", type=click.Path(exists=True, file_okay=False, dir_okay=True), default='data')
 @click.option("--export", is_flag=True)
 @click.option("--export-file-path", type=str, default=None)
@@ -1523,9 +1534,12 @@ def get_model_ramp_error(x, check_bounds=None, plot=False, full_output=False):
 @click.option("--serial-optimize", is_flag=True)
 @click.option("--plot", is_flag=True)
 @click.option("--debug", is_flag=True)
-def main(config_file_path, output_dir, export, export_file_path, label, disp, verbose, serial_optimize, plot, debug):
+@click.pass_context
+def main(cli, config_file_path, output_dir, export, export_file_path, label, disp, verbose, serial_optimize, plot,
+         debug):
     """
 
+    :param cli: contains unrecognized args as list of str
     :param config_file_path: str (path)
     :param output_dir: str (path)
     :param export: bool
@@ -1538,10 +1552,10 @@ def main(config_file_path, output_dir, export, export_file_path, label, disp, ve
     :param debug: bool
     """
     # requires a global variable context: :class:'Context'
-
     context.update(locals())
+    kwargs = get_unknown_click_arg_dict(cli.args)
     config_interactive(config_file_path=config_file_path, output_dir=output_dir, export=export,
-                       export_file_path=export_file_path, label=label, disp=disp, verbose=verbose)
+                       export_file_path=export_file_path, label=label, disp=disp, verbose=verbose, **kwargs)
     rel_bounds_handler = RelativeBoundedStep(context.x0_array, context.param_names, context.bounds, context.rel_bounds)
     x1_array = context.x0_array
 
