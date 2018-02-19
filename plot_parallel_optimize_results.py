@@ -23,6 +23,81 @@ mpl.rcParams['ytick.labelsize'] = 'large'
 mpl.rcParams['legend.fontsize'] = 'x-large'
 """
 
+def plot_exported_BTSP_model_ramp_features8(export_file_path):
+    """
+
+    :param export_file_path: str (path)
+    """
+    orig_fontsize = mpl.rcParams['font.size']
+    # mpl.rcParams['font.size'] = 20.
+    with h5py.File(export_file_path, 'r') as f:
+        description = 'shared_context'
+        group = f[description]
+        peak_locs = group['peak_locs'][:]
+        binned_x = group['binned_x'][:]
+        signal_xrange = group['signal_xrange'][:]
+        depot_rate = group['depot_rate'][:]
+        pot_rate = group['pot_rate'][:]
+        peak_weight = group.attrs['peak_weight']
+        fig, axes = plt.subplots(1)
+        axes.plot(signal_xrange, pot_rate, label='Potentiation rate', c='k')
+        axes.plot(signal_xrange, depot_rate, label='Depotentiation rate', c='r')
+        axes.set_xlabel('Normalized plasticity signal amplitude (a.u.)')
+        axes.set_ylabel('Normalized rate')
+        axes.set_title('Plasticity signal transformations')
+        axes.legend(loc='best', frameon=False, framealpha=0.5)
+        clean_axes(axes)
+        fig.tight_layout()
+        # plt.show()
+        # plt.close()
+        exported_data_key = 'exported_data'
+        for cell_key in f[exported_data_key]:
+            fig2, axes = plt.subplots(2, 2)
+            ymin = -1.
+            ymax = 10.
+            for induction_key in f[exported_data_key][cell_key]:
+                i = int(float(induction_key)) - 1
+                description = 'model_ramp_features'
+                group = f[exported_data_key][cell_key][induction_key][description]
+                model_weights = group['model_weights'][:]
+                initial_weights = group['initial_weights'][:]
+                delta_weights = np.subtract(model_weights, initial_weights)
+                target_ramp = group['target_ramp'][:]
+                model_ramp = group['model_ramp'][:]
+                axes[i][1].plot(peak_locs, delta_weights, c='r')
+                axes[i][0].plot(binned_x, target_ramp, label='Experiment', c='k')
+                axes[i][0].plot(binned_x, model_ramp, label='Model', c='r')
+                axes[i][1].set_ylabel('Change in synaptic weight (a.u.)')
+                axes[i][1].set_xlabel('Location (cm)')
+                axes[i][0].set_ylabel('Ramp amplitude (mV)')
+                axes[i][0].set_xlabel('Location (cm)')
+                axes[i][1].set_title('Induction: %i' % int(float(induction_key)), fontsize=mpl.rcParams['font.size'])
+                ymin = min(ymin, np.min(model_ramp) - 1., np.min(target_ramp) - 1.)
+                ymax = max(ymax, np.max(model_ramp) + 1., np.max(target_ramp) + 1.)
+            description = 'model_ramp_self_consistent_features'
+            if description in f[exported_data_key][cell_key][induction_key]:
+                group = f[exported_data_key][cell_key][induction_key][description]
+                self_consistent_model_ramp = group['model_ramp'][:]
+                self_consistent_initial_weights = group['initial_weights'][:]
+                self_consistent_model_weights = group['model_weights'][:]
+                self_consistent_delta_weights = np.subtract(self_consistent_model_weights,
+                                                            self_consistent_initial_weights)
+                axes[1][1].plot(peak_locs, self_consistent_delta_weights, c='c')
+                axes[1][0].plot(binned_x, self_consistent_model_ramp, label='Model (self-consistent)', c='c')
+                ymin = min(ymin, np.min(self_consistent_model_ramp) - 1.)
+                ymax = max(ymax, np.max(self_consistent_model_ramp) + 1.)
+            for induction_key in f[exported_data_key][cell_key]:
+                i = int(float(induction_key)) - 1
+                axes[i][0].set_ylim([ymin, ymax])
+                axes[i][1].set_ylim([-peak_weight, peak_weight])
+                axes[i][0].legend(loc='best', frameon=False, framealpha=0.5)
+            clean_axes(axes)
+            fig2.suptitle('Cell_id: %i' % int(float(cell_key)), fontsize=mpl.rcParams['font.size'])
+            fig2.tight_layout(h_pad=0.2)
+            plt.show()
+            plt.close()
+    mpl.rcParams['font.size'] = orig_fontsize
+
 
 def plot_exported_BTSP_model_ramp_features7(processed_export_file_path):
     """

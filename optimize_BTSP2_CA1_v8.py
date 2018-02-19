@@ -164,7 +164,6 @@ def config_controller(export_file_path, output_dir, **kwargs):
     :param export_file_path: str
     :param output_dir: str
     """
-    processed_export_file_path = export_file_path.replace('.hdf5', '_processed.hdf5')
     context.update(locals())
     context.update(kwargs)
     context.data_path = context.output_dir + '/' + context.data_file_name
@@ -187,7 +186,6 @@ def config_worker(update_context_funcs, param_names, default_params, target_val,
     """
     context.update(kwargs)
     param_indexes = {param_name: i for i, param_name in enumerate(param_names)}
-    processed_export_file_path = export_file_path.replace('.hdf5', '_processed.hdf5')
     context.update(locals())
     context.data_path = context.output_dir + '/' + context.data_file_name
     init_context()
@@ -1141,11 +1139,11 @@ def calculate_model_ramp(initial_weights=None, local_pot_signal_peak=None, local
     result['model_ramp'] = np.array(model_ramp)
     result['target_ramp'] = np.array(target_ramp)
     if export:
-        with h5py.File(context.processed_export_file_path, 'a') as f:
-            this_description = 'model_ramp_context'
-            if this_description not in f:
-                f.create_group(this_description)
-                group = f[this_description]
+        with h5py.File(context.temp_output_path, 'a') as f:
+            shared_context_key = 'shared_context'
+            if shared_context_key not in f:
+                f.create_group(shared_context_key)
+                group = f[shared_context_key]
                 group.create_dataset('peak_locs', compression='gzip', compression_opts=9, data=context.peak_locs)
                 group.create_dataset('binned_x', compression='gzip', compression_opts=9, data=context.binned_x)
                 group.create_dataset('signal_xrange', compression='gzip', compression_opts=9,
@@ -1155,15 +1153,19 @@ def calculate_model_ramp(initial_weights=None, local_pot_signal_peak=None, local
                 group.create_dataset('depot_rate', compression='gzip', compression_opts=9,
                                      data=depot_rate(signal_xrange))
                 group.attrs['peak_weight'] = peak_weight
-            if description not in f:
-                f.create_group(description)
+            exported_data_key = 'exported_data'
+            if exported_data_key not in f:
+                f.create_group(exported_data_key)
+                f[exported_data_key].attrs['enumerated'] = False
             cell_key = str(context.cell_id)
             induction_key = str(context.induction)
-            if cell_key not in f[description]:
-                f[description].create_group(cell_key)
-            if induction_key not in f[description][cell_key]:
-                f[description][cell_key].create_group(induction_key)
-            group = f[description][cell_key][induction_key]
+            if cell_key not in f[exported_data_key]:
+                f[exported_data_key].create_group(cell_key)
+            if induction_key not in f[exported_data_key][cell_key]:
+                f[exported_data_key][cell_key].create_group(induction_key)
+            if description not in f[exported_data_key][cell_key][induction_key]:
+                f[exported_data_key][cell_key][induction_key].create_group(description)
+            group = f[exported_data_key][cell_key][induction_key][description]
             group.create_dataset('target_ramp', compression='gzip', compression_opts=9, data=target_ramp)
             group.create_dataset('model_ramp', compression='gzip', compression_opts=9, data=model_ramp)
             group.create_dataset('model_weights', compression='gzip', compression_opts=9, data=weights)
