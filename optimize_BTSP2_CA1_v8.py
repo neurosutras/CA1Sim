@@ -170,7 +170,7 @@ def config_controller(export_file_path, output_dir, **kwargs):
     context.update(kwargs)
     context.data_path = context.output_dir + '/' + context.data_file_name
     init_context()
-    print 'optimize_BTSP2_CA1: processing the following data_keys: %s' % str(context.data_keys)
+    # print 'optimize_BTSP2_CA1: processing the following data_keys: %s' % str(context.data_keys)
 
 
 def config_worker(update_context_funcs, param_names, default_params, target_val, target_range, temp_output_path,
