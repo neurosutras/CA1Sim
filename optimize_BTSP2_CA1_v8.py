@@ -156,6 +156,7 @@ def config_interactive(config_file_path=None, output_dir=None, temp_output_path=
     config_worker(context.update_context_funcs, context.param_names, context.default_params, context.target_val,
                   context.target_range, context.temp_output_path, context.export_file_path, context.output_dir,
                   context.disp, **context.kwargs)
+    print 'optimize_BTSP2_CA1: processing the following data_keys: %s' % str(context.data_keys)
     update_source_contexts(context.x0_array)
 
 
@@ -169,6 +170,7 @@ def config_controller(export_file_path, output_dir, **kwargs):
     context.update(kwargs)
     context.data_path = context.output_dir + '/' + context.data_file_name
     init_context()
+    print 'optimize_BTSP2_CA1: processing the following data_keys: %s' % str(context.data_keys)
 
 
 def config_worker(update_context_funcs, param_names, default_params, target_val, target_range, temp_output_path,
@@ -222,7 +224,7 @@ def init_context():
         if 'data_keys' not in context() or context.data_keys is None:
             if 'cell_id' in context() and not context.cell_id == 'all':
                 context.data_keys = \
-                    [(int(cell_id), int(induction)) for cell_id in context.cell_id for induction in f['data'][cell_id]]
+                    [(int(context.cell_id), int(induction)) for induction in f['data'][str(context.cell_id)]]
             else:
                 context.data_keys = \
                     [(int(cell_id), int(induction)) for cell_id in f['data'] for induction in f['data'][cell_id]]
@@ -231,8 +233,6 @@ def init_context():
                                  for cell_id in [cell_id for cell_id in context.data_keys if str(cell_id) in f['data']]
                                  for induction in f['data'][str(cell_id)]]
         spont_cell_id_list = [int(cell_id) for cell_id in f['data'] if f['data'][cell_id].attrs['spont']]
-    if context.disp:
-        print 'optimize_BTSP2_CA1: processing the following data_keys: %s' % str(context.data_keys)
     self_consistent_cell_ids = [cell_id for (cell_id, induction) in context.data_keys if induction == 1 and
                                  (cell_id, 2) in context.data_keys]
     down_dt = 10.  # ms, to speed up optimization
