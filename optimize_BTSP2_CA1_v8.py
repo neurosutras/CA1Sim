@@ -35,6 +35,7 @@ M (mobile) <----------------------> C (captured by a synapse)
 """
 __author__ = 'milsteina'
 from BTSP_utils import *
+from nested.utils import *
 from nested.optimize_utils import *
 from scipy.optimize import minimize
 import click
@@ -341,6 +342,7 @@ def update_source_contexts(x, local_context=None):
     """
     if local_context is None:
         local_context = context
+    local_context.x_array = x
     for update_func in local_context.update_context_funcs:
         update_func(x, local_context)
 
@@ -1159,11 +1161,8 @@ def calculate_model_ramp(initial_weights=None, local_pot_signal_peak=None, local
                 group.create_dataset('binned_x', compression='gzip', compression_opts=9, data=context.binned_x)
                 group.create_dataset('signal_xrange', compression='gzip', compression_opts=9,
                                      data=signal_xrange)
-                group.create_dataset('pot_rate', compression='gzip', compression_opts=9,
-                                     data=pot_rate(signal_xrange))
-                group.create_dataset('depot_rate', compression='gzip', compression_opts=9,
-                                     data=depot_rate(signal_xrange))
-                group.attrs['peak_weight'] = peak_weight
+                group.create_dataset('param_names', compression='gzip', compression_opts=9,
+                                     data=context.param_names)
             exported_data_key = 'exported_data'
             if exported_data_key not in f:
                 f.create_group(exported_data_key)
@@ -1178,6 +1177,7 @@ def calculate_model_ramp(initial_weights=None, local_pot_signal_peak=None, local
                 f[exported_data_key][cell_key][induction_key].create_group(description)
             group = f[exported_data_key][cell_key][induction_key][description]
             group.create_dataset('target_ramp', compression='gzip', compression_opts=9, data=target_ramp)
+            group.create_dataset('initial_ramp', compression='gzip', compression_opts=9, data=initial_ramp)
             group.create_dataset('model_ramp', compression='gzip', compression_opts=9, data=model_ramp)
             group.create_dataset('model_weights', compression='gzip', compression_opts=9, data=weights)
             group.create_dataset('initial_weights', compression='gzip', compression_opts=9, data=initial_weights)
@@ -1189,12 +1189,25 @@ def calculate_model_ramp(initial_weights=None, local_pot_signal_peak=None, local
             group.create_dataset('down_t', compression='gzip', compression_opts=9, data=context.down_t)
             group.create_dataset('example_weight_dynamics', compression='gzip', compression_opts=9,
                                  data=example_weight_dynamics)
+            group.create_dataset('pot_rate', compression='gzip', compression_opts=9, data=pot_rate(signal_xrange))
+            group.create_dataset('depot_rate', compression='gzip', compression_opts=9, data=depot_rate(signal_xrange))
+            group.create_dataset('x_array', compression='gzip', compression_opts=9,
+                                 data=context.x_array)
             group.attrs['mean_induction_start_loc'] = context.mean_induction_start_loc
             group.attrs['mean_induction_stop_loc'] = context.mean_induction_stop_loc
             group.attrs['induction_start_times'] = context.induction_start_times
             group.attrs['induction_stop_times'] = context.induction_stop_times
             group.attrs['track_start_times'] = context.track_start_times
             group.attrs['track_stop_times'] = context.track_stop_times
+            group.attrs['ramp_amp'] = ramp_amp
+            group.attrs['ramp_width'] = ramp_width
+            group.attrs['peak_shift'] = peak_shift
+            group.attrs['ratio'] = ratio
+            group.attrs['start_loc'] = start_loc
+            group.attrs['peak_loc'] = peak_loc
+            group.attrs['end_loc'] = end_loc
+            group.attrs['min_val'] = min_val
+            group.attrs['min_loc'] = min_loc
     return {context.cell_id: {context.induction: result}}
 
 
