@@ -223,12 +223,12 @@ def init_context():
         input_rate_maps = f['defaults']['input_rate_maps'][:]
         peak_locs = f['defaults']['peak_locs'][:]
         if 'data_keys' not in context() or context.data_keys is None:
-            if 'cell_id' in context() and not context.cell_id == 'all':
-                context.data_keys = \
-                    [(int(context.cell_id), int(induction)) for induction in f['data'][str(context.cell_id)]]
+            if 'cell_id' not in context() or context.cell_id == 'all' or context.cell_id is None:
+                    context.data_keys = \
+                        [(int(cell_id), int(induction)) for cell_id in f['data'] for induction in f['data'][cell_id]]
             else:
                 context.data_keys = \
-                    [(int(cell_id), int(induction)) for cell_id in f['data'] for induction in f['data'][cell_id]]
+                    [(int(context.cell_id), int(induction)) for induction in f['data'][str(context.cell_id)]]
         else:
             context.data_keys = [(int(cell_id), int(induction))
                                  for cell_id in [cell_id for cell_id in context.data_keys if str(cell_id) in f['data']]
@@ -362,6 +362,17 @@ def plot_data():
     """
 
     """
+    import matplotlib as mpl
+
+    mpl.rcParams['svg.fonttype'] = 'none'
+    mpl.rcParams['font.size'] = 14.
+    # mpl.rcParams['font.size'] = 14.
+    # mpl.rcParams['font.sans-serif'] = 'Arial'
+    mpl.rcParams['font.sans-serif'] = 'Calibri'
+    # mpl.rcParams['font.sans-serif'] = 'Myriad Pro'
+    mpl.rcParams['text.usetex'] = False
+    # mpl.rcParams['figure.figsize'] = 6, 4.3
+
     fig, axes = plt.subplots(1)
     for group in context.position:
         for i, this_position in enumerate(context.position[group]):
@@ -371,7 +382,7 @@ def plot_data():
     axes.set_ylabel('Position (cm)')
     axes.set_title('Interpolated position')
     axes.legend(loc='best', frameon=False, framealpha=0.5, handlelength=1)
-    fig.tight_layout()
+    fig.tight_layout(h_pad=0.2)
     clean_axes(axes)
 
     fig, axes = plt.subplots(1)
@@ -386,7 +397,7 @@ def plot_data():
     axes2.spines['left'].set_visible(False)
     axes2.get_xaxis().tick_bottom()
     axes2.get_yaxis().tick_right()
-    fig.tight_layout()
+    fig.tight_layout(h_pad=0.2)
 
     fig, axes = plt.subplots(2, 2)
     axes[1][0].plot(context.binned_x, context.exp_ramp['after'])
@@ -416,14 +427,14 @@ def plot_data():
         axes[0][1].plot(np.subtract(this_t, this_t[start_index]) / 1000., this_induction_gate)
     mean_induction_index = np.where(context.mean_position >= context.mean_induction_start_loc)[0][0]
     mean_induction_onset = context.mean_t[mean_induction_index]
-    peak_val, ramp_width, peak_shift, ratio, start_loc, peak_loc, end_loc = \
+    peak_val, ramp_width, peak_shift, ratio, start_loc, peak_loc, end_loc, min_val, min_loc = \
         calculate_ramp_features(context.exp_ramp['after'], context.mean_induction_start_loc)
-    start_index, peak_index, end_index = get_indexes_from_ramp_bounds_with_wrap(context.binned_x, start_loc, peak_loc,
-                                                                                end_loc)
+    start_index, peak_index, end_index, min_index = get_indexes_from_ramp_bounds_with_wrap(context.binned_x, start_loc, peak_loc,
+                                                                                end_loc, min_loc)
     axes[1][0].scatter(context.binned_x[[start_index, peak_index, end_index]],
                        context.exp_ramp['after'][[start_index, peak_index, end_index]])
-    start_index, peak_index, end_index = get_indexes_from_ramp_bounds_with_wrap(context.mean_position, start_loc,
-                                                                                peak_loc, end_loc)
+    start_index, peak_index, end_index, min_index = get_indexes_from_ramp_bounds_with_wrap(context.mean_position, start_loc,
+                                                                                peak_loc, end_loc, min_loc)
     this_shifted_t = np.subtract(context.mean_t, mean_induction_onset) / 1000.
     axes[1][1].plot(this_shifted_t, context.exp_ramp_vs_t['after'])
     axes[1][1].scatter(this_shifted_t[[start_index, peak_index, end_index]],
@@ -432,7 +443,7 @@ def plot_data():
         axes[1][1].plot(this_shifted_t, context.exp_ramp_vs_t['before'])
     axes[0][0].legend(loc='best', frameon=False, framealpha=0.5, handlelength=1)
     clean_axes(axes)
-    fig.tight_layout()
+    fig.tight_layout(h_pad=0.2)
 
     fig, axes = plt.subplots(1, 2)
     x_start = context.mean_induction_start_loc
@@ -465,7 +476,8 @@ def plot_data():
     axes[1].legend(loc='best', frameon=False, framealpha=0.5, handlelength=1)
     fig.suptitle('Cell: %i, Induction: %i' % (context.cell_id, context.induction))
     clean_axes(axes)
-    fig.tight_layout()
+    fig.tight_layout(h_pad=0.2)
+    plt.subplots_adjust(top=0.9)
     plt.show()
     plt.close()
 
@@ -1026,9 +1038,13 @@ def calculate_model_ramp(initial_weights=None, local_pot_signal_peak=None, local
                                                                         bounds=(context.min_delta_weight,
                                                                                 context.peak_delta_weight),
                                                                         verbose=context.verbose)
+
+        else:
+            initial_ramp = get_model_ramp(initial_delta_weights)
         initial_weights = np.divide(np.add(initial_delta_weights, 1.), peak_weight)
     else:
         description = 'model_ramp_self_consistent_features'
+        initial_ramp = get_model_ramp(np.subtract(initial_weights, 1.))
         initial_weights = np.divide(initial_weights, peak_weight)
     for i in xrange(len(context.peak_locs)):
         # normalize total number of receptors
@@ -1176,8 +1192,12 @@ def calculate_model_ramp(initial_weights=None, local_pot_signal_peak=None, local
             if description not in f[exported_data_key][cell_key][induction_key]:
                 f[exported_data_key][cell_key][induction_key].create_group(description)
             group = f[exported_data_key][cell_key][induction_key][description]
+            if 'before' in context.exp_ramp:
+                group.create_dataset('initial_exp_ramp', compression='gzip', compression_opts=9,
+                                     data=context.exp_ramp['before'])
             group.create_dataset('target_ramp', compression='gzip', compression_opts=9, data=target_ramp)
-            group.create_dataset('initial_ramp', compression='gzip', compression_opts=9, data=initial_ramp)
+            group.create_dataset('initial_model_ramp', compression='gzip', compression_opts=9, data=initial_ramp)
+
             group.create_dataset('model_ramp', compression='gzip', compression_opts=9, data=model_ramp)
             group.create_dataset('model_weights', compression='gzip', compression_opts=9, data=weights)
             group.create_dataset('initial_weights', compression='gzip', compression_opts=9, data=initial_weights)
@@ -1191,23 +1211,44 @@ def calculate_model_ramp(initial_weights=None, local_pot_signal_peak=None, local
                                  data=example_weight_dynamics)
             group.create_dataset('pot_rate', compression='gzip', compression_opts=9, data=pot_rate(signal_xrange))
             group.create_dataset('depot_rate', compression='gzip', compression_opts=9, data=depot_rate(signal_xrange))
-            group.create_dataset('x_array', compression='gzip', compression_opts=9,
+            group.create_dataset('param_array', compression='gzip', compression_opts=9,
                                  data=context.x_array)
+            group.create_dataset('local_pot_filter_t', compression='gzip', compression_opts=9,
+                                 data=local_pot_filter_t)
+            group.create_dataset('local_pot_filter', compression='gzip', compression_opts=9,
+                                 data=local_pot_filter)
+            group.create_dataset('local_depot_filter_t', compression='gzip', compression_opts=9,
+                                 data=local_depot_filter_t)
+            group.create_dataset('local_depot_filter', compression='gzip', compression_opts=9,
+                                 data=local_depot_filter)
+            group.create_dataset('global_filter_t', compression='gzip', compression_opts=9,
+                                 data=global_filter_t)
+            group.create_dataset('global_filter', compression='gzip', compression_opts=9,
+                                 data=global_filter)
             group.attrs['mean_induction_start_loc'] = context.mean_induction_start_loc
             group.attrs['mean_induction_stop_loc'] = context.mean_induction_stop_loc
             group.attrs['induction_start_times'] = context.induction_start_times
             group.attrs['induction_stop_times'] = context.induction_stop_times
             group.attrs['track_start_times'] = context.track_start_times
             group.attrs['track_stop_times'] = context.track_stop_times
-            group.attrs['ramp_amp'] = ramp_amp
-            group.attrs['ramp_width'] = ramp_width
-            group.attrs['peak_shift'] = peak_shift
-            group.attrs['ratio'] = ratio
-            group.attrs['start_loc'] = start_loc
-            group.attrs['peak_loc'] = peak_loc
-            group.attrs['end_loc'] = end_loc
-            group.attrs['min_val'] = min_val
-            group.attrs['min_loc'] = min_loc
+            group.attrs['target_ramp_amp'] = ramp_amp['target']
+            group.attrs['target_ramp_width'] = ramp_width['target']
+            group.attrs['target_peak_shift'] = peak_shift['target']
+            group.attrs['target_ratio'] = ratio['target']
+            group.attrs['target_start_loc'] = start_loc['target']
+            group.attrs['target_peak_loc'] = peak_loc['target']
+            group.attrs['target_end_loc'] = end_loc['target']
+            group.attrs['target_min_val'] = min_val['target']
+            group.attrs['target_min_loc'] = min_loc['target']
+            group.attrs['model_ramp_amp'] = ramp_amp['model']
+            group.attrs['model_ramp_width'] = ramp_width['model']
+            group.attrs['model_peak_shift'] = peak_shift['model']
+            group.attrs['model_ratio'] = ratio['model']
+            group.attrs['model_start_loc'] = start_loc['model']
+            group.attrs['model_peak_loc'] = peak_loc['model']
+            group.attrs['model_end_loc'] = end_loc['model']
+            group.attrs['model_min_val'] = min_val['model']
+            group.attrs['model_min_loc'] = min_loc['model']
     return {context.cell_id: {context.induction: result}}
 
 
@@ -1570,7 +1611,25 @@ def main(cli, config_file_path, output_dir, export, export_file_path, label, dis
     config_interactive(config_file_path=config_file_path, output_dir=output_dir, export=export,
                        export_file_path=export_file_path, label=label, disp=disp, verbose=verbose, **kwargs)
     rel_bounds_handler = RelativeBoundedStep(context.x0_array, context.param_names, context.bounds, context.rel_bounds)
+
     x1_array = context.x0_array
+    if 'params_path' in context.kwargs and os.path.isfile(context.kwargs['params_path']):
+        param_source_dict = read_from_yaml(context.kwargs['params_path'])
+        if 'cell_id' in context.kwargs:
+            if int(context.kwargs['cell_id']) in param_source_dict:
+                x1_dict = param_source_dict[int(context.kwargs['cell_id'])]
+                x1_array = param_dict_to_array(x1_dict, context.param_names)
+            elif 'all' in param_source_dict:
+                x1_dict = param_source_dict['all']
+                x1_array = param_dict_to_array(x1_dict, context.param_names)
+            else:
+                print 'optimize_BTSP: problem loading params for cell_id: %s from params_path: %s' % \
+                      (kwargs['params_path'], context.kwargs['cell_id'])
+        elif 'all' in param_source_dict:
+            x1_dict = param_source_dict['all']
+            x1_array = param_dict_to_array(x1_dict, context.param_names)
+        else:
+            'optimize_BTSP: problem loading params from params_path: %s' % kwargs['params_path']
 
     if debug:
         features = get_features_interactive(x1_array, plot=plot)

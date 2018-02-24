@@ -1,11 +1,9 @@
 __author__ = 'milsteina'
-from function_lib import *
+from BTSP_utils import *
+from nested.optimize_utils import *
 from matplotlib import cm
 import matplotlib.lines as mlines
 import matplotlib as mpl
-import numpy as np
-import scipy.signal as signal
-import scipy.stats as stats
 
 mpl.rcParams['svg.fonttype'] = 'none'
 mpl.rcParams['font.size'] = 14.
@@ -22,6 +20,270 @@ mpl.rcParams['xtick.labelsize'] = 'large'
 mpl.rcParams['ytick.labelsize'] = 'large'
 mpl.rcParams['legend.fontsize'] = 'x-large'
 """
+
+
+def plot_BTSP_model_ramp_traces_8(file_path, self_consistent=False, savefig_dir=None, show=True,
+                                             full_output=False):
+    """
+
+    :param file_path: str (path)
+    :param self_consistent: bool : whether or not to also plot model_ramp_self_consistent_features when available
+    :param savefig_dir: str : path to output figures
+    :param show: bool : actually display plots?
+    :param full_output : return summary dicts
+    return dict (optional)
+    """
+    date_stamp = datetime.datetime.today().strftime('%Y%m%d%H%M')
+    ramp_amp, ramp_width, peak_shift, ratio, min_val = {}, {}, {}, {}, {}
+    orig_fontsize = mpl.rcParams['font.size']
+    # mpl.rcParams['font.size'] = 20.
+    with h5py.File(file_path, 'r') as f:
+        shared_context_key = 'shared_context'
+        group = f[shared_context_key]
+        peak_locs = group['peak_locs'][:]
+        binned_x = group['binned_x'][:]
+        signal_xrange = group['signal_xrange'][:]
+        param_names = group['param_names'][:]
+        exported_data_key = 'exported_data'
+        for cell_key in f[exported_data_key]:
+            for parameter in ramp_amp, ramp_width, peak_shift, ratio, min_val:
+                if cell_key not in parameter:
+                    parameter[cell_key] = {}
+            description = 'model_ramp_features'
+            group = f[exported_data_key][cell_key].itervalues().next()[description]
+            param_array = group['param_array'][:]
+            param_dict = param_array_to_dict(param_array, param_names)
+            peak_weight = param_dict['peak_delta_weight'] + 1.
+            depot_rate = group['depot_rate'][:]
+            pot_rate = group['pot_rate'][:]
+            local_pot_filter_t = group['local_pot_filter_t'][:]
+            local_pot_filter = group['local_pot_filter'][:]
+            local_depot_filter_t = group['local_depot_filter_t'][:]
+            local_depot_filter = group['local_depot_filter'][:]
+            global_filter_t = group['global_filter_t'][:]
+            global_filter = group['global_filter'][:]
+            
+            fig, axes = plt.subplots(1)
+            axes.plot(signal_xrange, pot_rate, label='Potentiation rate', c='k')
+            axes.plot(signal_xrange, depot_rate, label='Depotentiation rate', c='r')
+            axes.set_xlabel('Normalized plasticity signal amplitude (a.u.)')
+            axes.set_ylabel('Normalized rate')
+            axes.set_title('Plasticity signal transformations')
+            axes.legend(loc='best', frameon=False, framealpha=0.5)
+            clean_axes(axes)
+            fig.tight_layout()
+
+            fig2, axes2 = plt.subplots(1)
+            axes2.plot(local_pot_filter_t / 1000., local_pot_filter / np.max(local_pot_filter), color='r',
+                      label='Local potentiation signal filter')
+            axes2.plot(local_depot_filter_t / 1000., local_depot_filter / np.max(local_depot_filter), color='c',
+                      label='Local de-potentiation signal filter')
+            axes2.plot(global_filter_t / 1000., global_filter / np.max(global_filter), color='k',
+                      label='Global signal filter')
+            axes2.set_xlabel('Time (s)')
+            axes2.set_ylabel('Normalized filter amplitude')
+            axes2.set_title('Plasticity signal filters')
+            axes2.legend(loc='best', frameon=False, framealpha=0.5, handlelength=1)
+            axes2.set_xlim(-0.5, max(5000., local_pot_filter_t[-1], global_filter_t[-1]) / 1000.)
+            clean_axes(axes2)
+            fig2.tight_layout()
+
+            for induction_key in f[exported_data_key][cell_key]:
+                for parameter in ramp_amp, ramp_width, peak_shift, ratio, min_val:
+                    if induction_key not in parameter[cell_key]:
+                        parameter[cell_key][induction_key] = {}
+                i = int(float(induction_key)) - 1
+                description = 'model_ramp_features'
+                if i + 1 == 2 and self_consistent and \
+                        'model_ramp_self_consistent_features' in f[exported_data_key][cell_key][induction_key]:
+                    description = 'model_ramp_self_consistent_features'
+                group = f[exported_data_key][cell_key][induction_key][description]
+
+                ramp_amp[cell_key][induction_key]['target'] = group.attrs['target_ramp_amp']
+                ramp_width[cell_key][induction_key]['target'] = group.attrs['target_ramp_width']
+                peak_shift[cell_key][induction_key]['target'] = group.attrs['target_peak_shift']
+                ratio[cell_key][induction_key]['target'] = group.attrs['target_ratio']
+                min_val[cell_key][induction_key]['target'] = group.attrs['target_min_val']
+                ramp_amp[cell_key][induction_key]['model'] = group.attrs['model_ramp_amp']
+                ramp_width[cell_key][induction_key]['model'] = group.attrs['model_ramp_width']
+                peak_shift[cell_key][induction_key]['model'] = group.attrs['model_peak_shift']
+                ratio[cell_key][induction_key]['model'] = group.attrs['model_ratio']
+                min_val[cell_key][induction_key]['model'] = group.attrs['model_min_val']
+                
+                induction_start_times = group.attrs['induction_start_times']
+                induction_stop_times = group.attrs['induction_stop_times']
+                down_t = group['down_t'][:]
+                example_local_pot_signal = group['example_local_pot_signal'][:]
+                example_local_depot_signal = group['example_local_depot_signal'][:]
+                global_signal = group['global_signal'][:]
+                example_weight_dynamics = group['example_weight_dynamics'][:]
+
+                fig4, axes4 = plt.subplots(3, sharex=True, figsize=[12, 9])
+                ymax0 = max(np.max(example_local_pot_signal), np.max(global_signal))
+                bar_loc0 = ymax0 * 1.05
+                ymax1 = max(np.max(example_local_depot_signal), np.max(global_signal))
+                bar_loc1 = ymax1 * 1.05
+                axes4[0].plot(down_t / 1000., example_local_pot_signal, c='r', label='Local potentiation signal')
+                axes4[0].plot(down_t / 1000., global_signal, c='k', label='Global signal')
+                axes4[0].set_ylim([-0.1 * ymax0, 1.1 * ymax0])
+                axes4[0].hlines([bar_loc0] * len(induction_start_times),
+                               xmin=induction_start_times / 1000.,
+                               xmax=induction_stop_times / 1000., linewidth=2)
+                axes4[0].set_xlabel('Time (s)')
+                axes4[0].set_ylabel('Plasticity\nsignal amplitudes')
+                axes4[0].legend(loc='best', frameon=False, framealpha=0.5, handlelength=1)
+                axes4[1].plot(down_t / 1000., example_local_depot_signal, c='c',
+                             label='Local de-potentiation signal')
+                axes4[1].plot(down_t / 1000., global_signal, c='k', label='Global signal')
+                axes4[1].set_ylim([-0.1 * ymax1, 1.1 * ymax1])
+                axes4[1].hlines([bar_loc1] * len(induction_start_times),
+                               xmin=induction_start_times / 1000.,
+                               xmax=induction_stop_times / 1000., linewidth=2)
+                axes4[1].set_xlabel('Time (s)')
+                axes4[1].set_ylabel('Plasticity\nsignal amplitudes')
+                axes4[1].legend(loc='best', frameon=False, framealpha=0.5, handlelength=1)
+                axes4[2].plot(down_t / 1000., example_weight_dynamics)
+                axes4[2].set_ylim([0., peak_weight * 1.1])
+                axes4[2].hlines([peak_weight * 1.05] * len(induction_start_times),
+                               xmin=induction_start_times / 1000.,
+                               xmax=induction_stop_times / 1000., linewidth=2)
+                axes4[2].set_ylabel('Synaptic weight\n(example\nsingle input)')
+                axes4[2].set_xlabel('Time (s)')
+                fig4.suptitle('Cell: %i, Induction: %i' % (int(float(cell_key)), int(float(induction_key))),
+                              fontsize=mpl.rcParams['font.size'])
+                clean_axes(axes4)
+                fig4.tight_layout()
+                fig4.subplots_adjust(top=0.9, hspace=0.5)
+
+            fig3, axes3 = plt.subplots(2, 3, figsize=[12, 9])
+            ymin = -1.
+            ymax = 10.
+            for induction_key in f[exported_data_key][cell_key]:
+                i = int(float(induction_key)) - 1
+                description = 'model_ramp_features'
+                if i + 1 == 2 and self_consistent and \
+                        'model_ramp_self_consistent_features' in f[exported_data_key][cell_key][induction_key]:
+                    description = 'model_ramp_self_consistent_features'
+                group = f[exported_data_key][cell_key][induction_key][description]
+                model_weights = group['model_weights'][:]
+                initial_weights = group['initial_weights'][:]
+                delta_weights = np.subtract(model_weights, initial_weights)
+                initial_model_ramp = group['initial_model_ramp'][:]
+                target_ramp = group['target_ramp'][:]
+                model_ramp = group['model_ramp'][:]
+                if 'initial_exp_ramp' in group:
+                    initial_exp_ramp = group['initial_exp_ramp'][:]
+                    axes3[i][0].plot(binned_x, initial_exp_ramp, label='Before', c='darkgrey')
+                axes3[i][0].plot(binned_x, target_ramp, label='After', c='r')
+                axes3[i][0].set_title('Induction %i\nExperiment Vm:' % (i + 1), fontsize=mpl.rcParams['font.size'])
+                axes3[i][1].plot(binned_x, initial_model_ramp, label='Before', c='darkgrey')
+                axes3[i][1].plot(binned_x, model_ramp, label='After', c='c')
+                axes3[i][1].set_title('\nModel Vm', fontsize=mpl.rcParams['font.size'])
+                axes3[i][2].plot(peak_locs, delta_weights, c='k')
+                axes3[i][2].set_title('Change in\nSynaptic Weights', fontsize=mpl.rcParams['font.size'])
+
+                axes3[i][0].set_xlabel('Location (cm)')
+                axes3[i][0].set_ylabel('Depolarization\namplitude (mV)')
+                axes3[i][1].set_xlabel('Location (cm)')
+                axes3[i][1].set_ylabel('Depolarization\namplitude (mV)')
+                axes3[i][2].set_xlabel('Location (cm)')
+                axes3[i][2].set_ylabel('Change in synaptic\nweight (a.u.)')
+
+                ymin = min(ymin, np.min(model_ramp) - 1., np.min(target_ramp) - 1.)
+                ymax = max(ymax, np.max(model_ramp) + 1., np.max(target_ramp) + 1.)
+            for induction_key in f[exported_data_key][cell_key]:
+                i = int(float(induction_key)) - 1
+                description = 'model_ramp_features'
+                if i + 1 == 2 and self_consistent and \
+                        'model_ramp_self_consistent_features' in f[exported_data_key][cell_key][induction_key]:
+                    description = 'model_ramp_self_consistent_features'
+                group = f[exported_data_key][cell_key][induction_key][description]
+                mean_induction_start_loc = group.attrs['mean_induction_start_loc']
+                mean_induction_stop_loc = group.attrs['mean_induction_stop_loc']
+                axes3[i][0].set_ylim([ymin, ymax * 1.05])
+                axes3[i][1].set_ylim([ymin, ymax * 1.05])
+                axes3[i][2].set_ylim([-peak_weight, peak_weight * 1.1])
+                axes3[i][0].hlines(ymax, xmin=mean_induction_start_loc, xmax=mean_induction_stop_loc)
+                axes3[i][1].hlines(ymax, xmin=mean_induction_start_loc, xmax=mean_induction_stop_loc)
+                axes3[i][2].hlines(peak_weight * 1.05, xmin=mean_induction_start_loc, xmax=mean_induction_stop_loc)
+                axes3[i][0].legend(loc='best', frameon=False, framealpha=0.5)
+                axes3[i][1].legend(loc='best', frameon=False, framealpha=0.5)
+            clean_axes(axes3)
+            fig3.suptitle('Cell: %i' % int(float(cell_key)), fontsize=mpl.rcParams['font.size'])
+            fig3.tight_layout()
+            fig3.subplots_adjust(top=0.9, hspace=0.5)
+            if savefig_dir is not None:
+                if not os.path.isdir(savefig_dir):
+                    raise IOError('plot_BTSP_model_ramp_traces: cannot save figure to invalid directory: %s' %
+                                  savefig_dir)
+                else:
+                    fig3.savefig('%s/%s_BTSP2_cell_%s_ramp_shape_traces.svg' %
+                                 (savefig_dir, date_stamp, cell_key), format='svg')
+            if show:
+                plt.show()
+    plt.close('all')
+    mpl.rcParams['font.size'] = orig_fontsize
+    plot_BTSP_model_ramp_summary(ramp_amp, ramp_width, peak_shift, ratio, min_val, date_stamp=date_stamp,
+                                 savefig_dir=savefig_dir, show=show)
+    if full_output:
+        return ramp_amp, ramp_width, peak_shift, ratio, min_val
+
+
+def plot_BTSP_model_ramp_summary(ramp_amp, ramp_width, peak_shift, ratio, min_val, date_stamp=None, savefig_dir=None,
+                                 show=True):
+    """
+
+    :param ramp_amp: dict
+    :param ramp_width: dict
+    :param peak_shift: dict
+    :param ratio: dict
+    :param min_val: dict
+    :param date_stamp: str
+    :param savefig_dir: str: dir
+    :param show: bool
+    """
+    orig_fontsize = mpl.rcParams['font.size']
+    # mpl.rcParams['font.size'] = 20.
+    if date_stamp is None:
+        date_stamp = datetime.datetime.today().strftime('%Y%m%d%H%M')
+    fig, axes = plt.subplots(2, 3, figsize=[12, 9])
+    for i, (parameter, label) in enumerate(zip([ramp_amp, ramp_width, peak_shift, ratio, min_val],
+                                ['Ramp peak\namplitude (mV)', 'Ramp width (cm)', 'Peak shift (cm)',
+                                 'Ramp asymmetry\n(ratio)', 'Ramp minimum\namplitude (mV)'])):
+        col = i / 3
+        row = i % 3
+        axes[col][row].scatter(*zip(*[(parameter[cell_key]['1']['target'], parameter[cell_key]['1']['model'])
+                            for cell_key in (cell_key for cell_key in parameter if '1' in parameter[cell_key])]),
+                     color='darkgrey', alpha=0.5, label='Induction 1')
+        axes[col][row].scatter(*zip(*[(parameter[cell_key]['2']['target'], parameter[cell_key]['2']['model'])
+                            for cell_key in (cell_key for cell_key in parameter if '2' in parameter[cell_key])]),
+                     color='r', alpha=0.5, label='Induction 2')
+        axes[col][row].set_title(label, fontsize=mpl.rcParams['font.size'])
+        if i == 0:
+            axes[col][row].legend(loc='best', frameon=False, framealpha=0.5)
+        ymin, ymax = axes[col][row].get_ylim()
+        xmin, xmax = axes[col][row].get_xlim()
+        min_lim = min(0., ymin, xmin)
+        max_lim = max(0., ymax, xmax)
+        axes[col][row].set_xlim([min_lim, max_lim])
+        axes[col][row].set_ylim([min_lim, max_lim])
+        axes[col][row].plot([min_lim, max_lim], [min_lim, max_lim], c='darkgrey', alpha=0.5, ls='--')
+        axes[col][row].set_aspect('equal')
+        axes[col][row].set_xlabel('Experiment')
+        axes[col][row].set_ylabel('Model')
+    clean_axes(axes)
+    fig.tight_layout(h_pad=0.2)
+    fig.subplots_adjust(hspace=0.5)
+    if savefig_dir is not None:
+        if not os.path.isdir(savefig_dir):
+            raise IOError('plot_BTSP_model_ramp_traces: cannot save figure to invalid directory: %s' %
+                          savefig_dir)
+        else:
+            fig.savefig('%s/%s_BTSP2_ramp_shape_summary.svg' % (savefig_dir, date_stamp), format='svg')
+    if show:
+        plt.show()
+    plt.close('all')
+    mpl.rcParams['font.size'] = orig_fontsize
 
 
 def plot_exported_BTSP_model_ramp_features8(export_file_path):
