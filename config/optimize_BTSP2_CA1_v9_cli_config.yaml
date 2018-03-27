@@ -29,16 +29,10 @@ bounds:
   rCM0: !!python/tuple
   - 0.1
   - 10.
-  local_pot_rise: !!python/tuple
+  local_signal_rise: !!python/tuple
   - 5.
   - 200.
-  local_pot_decay: !!python/tuple
-  - 50.
-  - 4000.
-  local_depot_rise: !!python/tuple
-  - 5.
-  - 200.
-  local_depot_decay: !!python/tuple
+  local_signal_decay: !!python/tuple
   - 50.
   - 4000.
   global_signal_rise: !!python/tuple
@@ -51,15 +45,17 @@ bounds:
   - 1.5
   - 4.
 default_params:
+  global_signal_decay: 161.81965512863673
+  global_signal_rise: 50.344024212982561
+  local_signal_decay: 1184.66706065663745
+  local_signal_rise': 42.740907646745779
+  rMC_slope: 9.6248528728378151
+  rMC_th: 0.12672325366569678
 rel_bounds:
-- - local_pot_decay
+- - local_signal_decay
   - '>'
   - 1.0
-  - local_pot_rise
-- - local_depot_decay
-  - '>'
-  - 1.0
-  - local_depot_rise
+  - local_signal_rise
 - - global_signal_decay
   - '>'
   - 1.0
@@ -84,28 +80,27 @@ feature_names:
 - exp2_delta_min_loc
 - exp2_delta_min_val
 update_context:
-  optimize_BTSP2_CA1_v8: update_model_params
+  optimize_BTSP2_CA1_v9: update_model_params
 get_features_stages:
-- source: optimize_BTSP2_CA1_v8
+- source: optimize_BTSP2_CA1_v9
   get_args_static: get_args_static_signal_amplitudes
-  compute_features: compute_features_signal_amplitudes
+  compute_features_shared: compute_features_signal_amplitudes
   filter_features: filter_features_signal_amplitudes
-- source: optimize_BTSP2_CA1_v8
+- source: optimize_BTSP2_CA1_v9
   get_args_dynamic: get_args_dynamic_model_ramp
   compute_features: compute_features_model_ramp
   filter_features: filter_features_model_ramp
-- source: optimize_BTSP2_CA1_v8
+- source: optimize_BTSP2_CA1_v9
   get_args_dynamic: get_args_dynamic_self_consistent_model_ramp
   compute_features: compute_features_self_consistent_model_ramp
   filter_features: filter_features_self_consistent_model_ramp
 get_objectives:
-  optimize_BTSP2_CA1_v8: get_objectives
+  optimize_BTSP2_CA1_v9: get_objectives
 kwargs:
   data_file_name: '20180124_BTSP2_CA1_data.hdf5'
   verbose: 1
   min_delta_weight: -0.1
   data_keys:
-    - 1
 objective_names:
 - spont_residuals
 - spont_delta_amp
@@ -143,10 +138,8 @@ param_names:
 - rCM_min2
 - rMC0
 - rCM0
-- local_pot_rise
-- local_pot_decay
-- local_depot_rise
-- local_depot_decay
+- local_signal_rise
+- local_signal_decay
 - global_signal_rise
 - global_signal_decay
 - peak_delta_weight
@@ -199,20 +192,18 @@ target_val:
   self_consistent_residuals: 0.
   smoothness: 0.
 x0:
-  global_signal_decay: 354.792767
-  local_pot_rise: 6.262048
-  local_depot_rise: 6.262048
-  rMC0: 9.367722
-  peak_delta_weight: 3.756783
-  rCM_slope1: 100.
-  rCM_th1: 0.5
-  rCM_peak1: 0.01
-  rCM_slope2: -20.
-  rCM_th2: 0.25
-  rCM_min2: 0.
-  local_pot_decay: 663.108895
-  local_depot_decay: 663.108895
-  rCM0: 0.533902
-  global_signal_rise: 14.881418
-  rMC_slope: 10.
-  rMC_th: 0.5
+  global_signal_decay: 161.81965512863673
+  global_signal_rise: 50.344024212982561
+  local_signal_decay: 1184.66706065663745
+  local_signal_rise: 42.740907646745779
+  rMC_slope: 9.6248528728378151
+  rMC_th: 0.12672325366569678
+  peak_delta_weight: 2.3766087807470182
+  rCM0: 2.2380142954546014
+  rCM_min2: 0.42442063289794074
+  rCM_peak1: 0.23285469603360878
+  rCM_slope1: 81.778112287913387
+  rCM_slope2: -1.6455405178536719
+  rCM_th1: 0.1397787027838677
+  rCM_th2: 0.78382164301093582
+  rMC0: 7.7357671268444506

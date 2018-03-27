@@ -9,35 +9,32 @@ the Magee lab that includes:
 Features/assumptions of the phenomenological model:
 1) Synaptic weights in a silent cell are all = 1 prior to field induction 1. w(t0) = 1
 2) Activity at each synapse generates a long duration 'local plasticity signal', or an 'eligibility trace' for
-synaptic potentiation.
-3) Activity at each synapse generates a long duration 'local de-potentiating signal', or an 'eligibility trace' for
-synaptic de-potentiation.
-4) Dendritic plateaus generate a long duration 'global signal', or a 'gating trace' for both synaptic potentiation and
-de-potentiation.
-5) Synaptic weights w1 at time t1 after a plateau are a function of the initial weights w0 at time t0, and the three
+synaptic plasticity.
+3) Dendritic plateaus generate a long duration 'global plasticity signal', or a 'gating trace' for synaptic plasticity.
+4) Synaptic weights w1 at time t1 after a plateau are a function of the initial weights w0 at time t0, and the two
 plasticity signals.
 
 Features/assumptions of the mechanistic model:
 1) Synaptic strength is equivalent to the number of AMPA-Rs at a synapse (quantal size). 
 2) Dendritic plateaus generate a global gating signal that mobilizes AMPA-Rs, allowing them to be either inserted or
 removed from synapses.
-3) Activity at each synapse generates a local potentiating signal that, in conjunction with the global gating signal,
-increases the number of AMPA-Rs stably incorporated into synapses.
-4) Activity at each synapse generates a local de-potentiating signal that, in conjunction with the global gating signal,
-decreases the number of AMPA-Rs stably incorporated into synapses.
+3) Activity at each synapse generates a local plasticity signal that, in conjunction with the global gating signal,
+can activate a forward process to increase the number of AMPA-Rs stably incorporated into synapses.
+4) Activity at each synapse generates a local plasticity signal that, in conjunction with the global gating signal,
+can activate a reverse process to decrease the number of AMPA-Rs stably incorporated into synapses.
 5) AMPAR-s can be in 2 states (Markov-style kinetic scheme):
 
-     rMC0 * global_signal * f_p(local_pot_signal)
+     rMC0 * global_signal * f_p(local_signal)
 M (mobile) <----------------------> C (captured by a synapse)
-     rCM0 * global_signal * f_d(local_depot_signal)
+     rCM0 * global_signal * f_d(local_signal)
 
 6) At rest 100% of non-synaptic receptors are in state M, mobile and available for synaptic capture.
 7) global_signals are pooled across all cells and normalized to a peak value of 1.
-8) f_p represents the "sensitivity" of the forward process to the presence of the local_pot_signal. local_pot_signals
-are pooled across all cells and normalized to a peak value of 1. The transformation f_p has the flexibility to be any
-segment of a sigmoid (so can be linear, exponential rise, or saturating).
-9) f_d represents the "sensitivity" of the reverse process to the presence of the local_depot_signal. local_depot_signals
-are pooled across all cells and normalized to a peak value of 1. The transformation f_d is a piecewise function with to
+8) local_signals are pooled across all cells and normalized to a peak value of 1.
+9) f_p represents the "sensitivity" of the forward process to the presence of the local_signal.  The transformation f_p
+has the flexibility to be any segment of a sigmoid (so can be linear, exponential rise, or saturating).
+10) f_d represents the "sensitivity" of the reverse process to the presence of the local_signal. local_signals
+are pooled across all cells and normalized to a peak value of 1. The transformation f_d is a piecewise function with two
 components: a rising phase and a decaying phase. Each phase has the flexibility to be any segment of a sigmoid (so
 can be linear, exponential rise, or saturating).
 """
@@ -137,7 +134,7 @@ def config_interactive(config_file_path=None, output_dir=None, temp_output_path=
         context.temp_output_path = temp_output_path
     if 'temp_output_path' not in context() or context.temp_output_path is None:
         context.temp_output_path = '%s%s_pid%i_%s%s_temp_output.hdf5' % \
-                                   (output_dir_str, datetime.datetime.today().strftime('%Y%m%d_%H%M'), os.getpid(),
+                                   (output_dir_str, datetime.datetime.today().strftime('%Y%m%d%H%M'), os.getpid(),
                                     context.optimization_title, label)
 
     context.export = export
@@ -145,7 +142,7 @@ def config_interactive(config_file_path=None, output_dir=None, temp_output_path=
         context.export_file_path = export_file_path
     if 'export_file_path' not in context() or context.export_file_path is None:
         context.export_file_path = '%s%s_%s%s_interactive_exported_output.hdf5' % \
-                                   (output_dir_str, datetime.datetime.today().strftime('%Y%m%d_%H%M'),
+                                   (output_dir_str, datetime.datetime.today().strftime('%Y%m%d%H%M'),
                                     context.optimization_title, label)
 
     context.update_context_funcs = []
@@ -179,6 +176,7 @@ def config_controller(export_file_path, output_dir, **kwargs):
     context.update(kwargs)
     context.data_path = context.output_dir + '/' + context.data_file_name
     init_context()
+    # print 'optimize_BTSP2_CA1: processing the following data_keys: %s' % str(context.data_keys)
 
 
 def config_worker(update_context_funcs, param_names, default_params, target_val, target_range, temp_output_path,
@@ -705,43 +703,36 @@ def get_filter(rise, decay, max_time_scale, dt=None):
     return filter_t, filter
 
 
-def get_signal_filters(local_pot_rise, local_pot_decay, local_depot_rise, local_depot_decay, global_signal_rise,
-                       global_signal_decay, dt=None, plot=False):
+def get_signal_filters(local_signal_rise, local_signal_decay, global_signal_rise, global_signal_decay, dt=None,
+                       plot=False):
     """
-    :param local_pot_rise: float
-    :param local_pot_decay: float
-    :param local_depot_rise: float
-    :param local_depot_decay: float
+    :param local_signal_rise: float
+    :param local_signal_decay: float
     :param global_signal_rise: float
     :param global_signal_decay: float
     :param dt: float
     :param plot: bool
     :return: array, array
     """
-    max_time_scale = max(local_pot_rise + local_pot_decay, local_depot_rise + local_depot_decay,
-                         global_signal_rise + global_signal_decay)
-    local_pot_filter_t, local_pot_filter = get_filter(local_pot_rise, local_pot_decay, max_time_scale, dt)
-    local_depot_filter_t, local_depot_filter = get_filter(local_depot_rise, local_depot_decay, max_time_scale, dt)
+    max_time_scale = max(local_signal_rise + local_signal_decay, global_signal_rise + global_signal_decay)
+    local_signal_filter_t, local_signal_filter = get_filter(local_signal_rise, local_signal_decay, max_time_scale, dt)
     global_filter_t, global_filter = get_filter(global_signal_rise, global_signal_decay, max_time_scale, dt)
     if plot:
         fig, axes = plt.subplots(1)
-        axes.plot(local_pot_filter_t / 1000., local_pot_filter / np.max(local_pot_filter), color='r',
-                  label='Local potentiation signal filter')
-        axes.plot(local_depot_filter_t / 1000., local_depot_filter / np.max(local_depot_filter), color='c',
-                  label='Local de-potentiation signal filter')
+        axes.plot(local_signal_filter_t / 1000., local_signal_filter / np.max(local_signal_filter), color='r',
+                  label='Local plasticity signal filter')
         axes.plot(global_filter_t / 1000., global_filter / np.max(global_filter), color='k',
-                  label='Global signal filter')
+                  label='Global plasticity signal filter')
         axes.set_xlabel('Time (s)')
         axes.set_ylabel('Normalized filter amplitude')
         axes.set_title('Plasticity signal filters')
         axes.legend(loc='best', frameon=False, framealpha=0.5, handlelength=1)
-        axes.set_xlim(-0.5, max(5000., local_pot_filter_t[-1], global_filter_t[-1]) / 1000.)
+        axes.set_xlim(-0.5, max(5000., local_signal_filter_t[-1], global_filter_t[-1]) / 1000.)
         clean_axes(axes)
         fig.tight_layout()
         plt.show()
         plt.close()
-    return local_pot_filter_t, local_pot_filter, local_depot_filter_t, local_depot_filter, \
-           global_filter_t, global_filter
+    return local_signal_filter_t, local_signal_filter, global_filter_t, global_filter
 
 
 def get_local_signal(rate_map, local_filter, dt):
@@ -808,23 +799,17 @@ def compute_features_signal_amplitudes(x, cell_id=None, induction=None, export=F
     print 'Process: %i: computing signal_amplitude features for cell_id: %i, induction: %i with x: %s' % \
           (os.getpid(), context.cell_id, context.induction, ', '.join('%.3E' % i for i in x))
     start_time = time.time()
-    local_pot_filter_t, local_pot_filter, local_depot_filter_t, local_depot_filter, global_filter_t, global_filter = \
-        get_signal_filters(context.local_pot_rise, context.local_pot_decay, context.local_depot_rise,
-                           context.local_depot_decay, context.global_signal_rise, context.global_signal_decay,
-                           context.down_dt, plot)
+    local_signal_filter_t, local_signal_filter, global_filter_t, global_filter = \
+        get_signal_filters(context.local_signal_rise, context.local_signal_decay, context.global_signal_rise,
+                           context.global_signal_decay, context.down_dt, plot)
     global_signal = get_global_signal(context.down_induction_gate, global_filter)
-    local_pot_signals = get_local_signal_population(local_pot_filter)
-    local_depot_signals = get_local_signal_population(local_depot_filter)
-    local_pot_signal_peaks = [np.max(local_pot_signal) for local_pot_signal in local_pot_signals]
-    local_depot_signal_peaks = [np.max(local_depot_signal) for local_depot_signal in local_depot_signals]
+    local_signals = get_local_signal_population(local_signal_filter)
+    local_signal_peaks = [np.max(local_signal) for local_signal in local_signals]
     if plot:
         fig, axes = plt.subplots(1)
-        hist, edges = np.histogram(local_pot_signal_peaks, density=True)
+        hist, edges = np.histogram(local_signal_peaks, density=True)
         bin_width = edges[1] - edges[0]
-        axes.plot(edges[:-1]+bin_width/2., hist * bin_width, c='r', label='Local potentiation signals')
-        hist, edges = np.histogram(local_depot_signal_peaks, density=True)
-        bin_width = edges[1] - edges[0]
-        axes.plot(edges[:-1] + bin_width / 2., hist * bin_width, c='c', label='Local de-potentiation signals')
+        axes.plot(edges[:-1]+bin_width/2., hist * bin_width, c='r', label='Local plasticity signals')
         axes.set_xlabel('Peak local plasticity signal amplitudes (a.u.)')
         axes.set_ylabel('Probability')
         axes.set_title('Local signal amplitude distribution')
@@ -833,10 +818,8 @@ def compute_features_signal_amplitudes(x, cell_id=None, induction=None, export=F
         fig.tight_layout()
         plt.show()
         plt.close()
-    result = {'local_pot_signal_peaks': local_pot_signal_peaks,
-              'local_depot_signal_peaks': local_depot_signal_peaks,
-              'global_signal_peak': np.max(global_signal)
-              }
+    result = {'local_signal_peaks': local_signal_peaks,
+              'global_signal_peak': np.max(global_signal)}
     print 'Process: %i: computing signal_amplitude features for cell_id: %i, induction: %i took %.1f s' % \
           (os.getpid(), context.cell_id, context.induction, time.time() - start_time)
     return {cell_id: {induction: result}}
@@ -851,32 +834,22 @@ def filter_features_signal_amplitudes(primitives, features, export=False, plot=F
     :param plot: bool
     :return: dict
     """
-    all_inputs_local_pot_signal_peaks = np.array([], dtype='float32')
-    all_inputs_local_depot_signal_peaks = np.array([], dtype='float32')
-    each_cell_local_pot_signal_peak = []
-    each_cell_local_depot_signal_peak = []
+    all_inputs_local_signal_peaks = np.array([], dtype='float32')
+    each_cell_local_signal_peak = []
     each_cell_global_signal_peak = []
     for this_dict in primitives:
         for cell_id in this_dict:
             for induction_id in this_dict[cell_id]:
                 each_cell_global_signal_peak.append(this_dict[cell_id][induction_id]['global_signal_peak'])
-                each_cell_local_pot_signal_peak.append(
-                    np.max(this_dict[cell_id][induction_id]['local_pot_signal_peaks']))
-                each_cell_local_depot_signal_peak.append(
-                    np.max(this_dict[cell_id][induction_id]['local_depot_signal_peaks']))
-                all_inputs_local_pot_signal_peaks = np.append(all_inputs_local_pot_signal_peaks,
-                                                          this_dict[cell_id][induction_id]['local_pot_signal_peaks'])
-                all_inputs_local_depot_signal_peaks = np.append(all_inputs_local_depot_signal_peaks,
-                                                              this_dict[cell_id][induction_id][
-                                                                  'local_depot_signal_peaks'])
+                each_cell_local_signal_peak.append(
+                    np.max(this_dict[cell_id][induction_id]['local_signal_peaks']))
+                all_inputs_local_signal_peaks = np.append(all_inputs_local_signal_peaks,
+                                                          this_dict[cell_id][induction_id]['local_signal_peaks'])
     if plot:
         fig, axes = plt.subplots(1)
-        hist, edges = np.histogram(all_inputs_local_pot_signal_peaks, bins=10, density=True)
+        hist, edges = np.histogram(all_inputs_local_signal_peaks, bins=10, density=True)
         bin_width = edges[1] - edges[0]
-        axes.plot(edges[:-1] + bin_width / 2., hist * bin_width, c='r', label='Local potentiation signals')
-        hist, edges = np.histogram(all_inputs_local_depot_signal_peaks, bins=10, density=True)
-        bin_width = edges[1] - edges[0]
-        axes.plot(edges[:-1] + bin_width / 2., hist * bin_width, c='c', label='Local de-potentiation signals')
+        axes.plot(edges[:-1] + bin_width / 2., hist * bin_width, c='r', label='Local plasticity signals')
         axes.set_xlabel('Peak local plasticity signal amplitudes (a.u.)')
         axes.set_ylabel('Probability')
         axes.set_title('Local signal amplitude distribution (all inputs, all cells)')
@@ -885,12 +858,9 @@ def filter_features_signal_amplitudes(primitives, features, export=False, plot=F
         fig.tight_layout()
 
         fig, axes = plt.subplots(1)
-        hist, edges = np.histogram(each_cell_local_pot_signal_peak, bins=min(10, len(primitives)), density=True)
+        hist, edges = np.histogram(each_cell_local_signal_peak, bins=min(10, len(primitives)), density=True)
         bin_width = edges[1] - edges[0]
         axes.plot(edges[:-1] + bin_width / 2., hist * bin_width, c='r', label='Local potentiation signals')
-        hist, edges = np.histogram(each_cell_local_depot_signal_peak, bins=min(10, len(primitives)), density=True)
-        bin_width = edges[1] - edges[0]
-        axes.plot(edges[:-1] + bin_width / 2., hist * bin_width, c='c', label='Local de-potentiation signals')
         axes.set_xlabel('Peak local plasticity signal amplitudes (a.u.)')
         axes.set_ylabel('Probability')
         axes.set_title('Local signal amplitude distribution (each cell)')
@@ -909,8 +879,7 @@ def filter_features_signal_amplitudes(primitives, features, export=False, plot=F
         fig.tight_layout()
         plt.show()
         plt.close()
-    return {'local_pot_signal_max': np.max(each_cell_local_pot_signal_peak),
-            'local_depot_signal_max': np.max(each_cell_local_depot_signal_peak),
+    return {'local_signal_max': np.max(each_cell_local_signal_peak),
             'global_signal_max': np.max(each_cell_global_signal_peak)
             }
 
@@ -1042,25 +1011,22 @@ def get_delta_weights_LSA(target_ramp, input_rate_maps, initial_delta_weights=No
     return model_ramp, delta_weights
 
 
-def calculate_model_ramp(initial_weights=None, local_pot_signal_peak=None, local_depot_signal_peak=None,
-                         global_signal_peak=None, export=False, plot=False):
+def calculate_model_ramp(initial_weights=None, local_signal_peak=None, global_signal_peak=None, export=False,
+                         plot=False):
     """
 
     :param initial_weights: array
-    :param local_pot_signal_peak: float
-    :param local_depot_signal_peak: float
+    :param local_signal_peak: float
     :param global_signal_peak: float
     :param export: bool
     :param plot: bool
     :return: dict
     """
-    local_pot_filter_t, local_pot_filter, local_depot_filter_t, local_depot_filter, global_filter_t, global_filter = \
-        get_signal_filters(context.local_pot_rise, context.local_pot_decay, context.local_depot_rise,
-                           context.local_depot_decay, context.global_signal_rise, context.global_signal_decay,
-                           context.down_dt, plot)
+    local_signal_filter_t, local_signal_filter, global_filter_t, global_filter = \
+        get_signal_filters(context.local_signal_rise, context.local_signal_decay, context.global_signal_rise,
+                           context.global_signal_decay, context.down_dt, plot)
     global_signal = np.divide(get_global_signal(context.down_induction_gate, global_filter), global_signal_peak)
-    local_pot_signals = np.divide(get_local_signal_population(local_pot_filter), local_pot_signal_peak)
-    local_depot_signals = np.divide(get_local_signal_population(local_depot_filter), local_depot_signal_peak)
+    local_signals = np.divide(get_local_signal_population(local_signal_filter), local_signal_peak)
 
     signal_xrange = np.linspace(0., 1., 10000)
     pot_rate = sigmoid_segment(context.rMC_slope, context.rMC_th)
@@ -1110,26 +1076,21 @@ def calculate_model_ramp(initial_weights=None, local_pot_signal_peak=None, local
         initial_weight = initial_weights[i]
         available = 1. - initial_weight
         context.sm.update_states({'M': available, 'C': initial_weight})
-        local_pot_signal = local_pot_signals[i]
-        local_depot_signal = local_depot_signals[i]
+        local_signal = local_signals[i]
         context.sm.update_rates(
-            {'M': {'C': context.rMC0 * np.multiply(pot_rate(local_pot_signal), global_signal)},
-             'C': {'M': context.rCM0 * np.multiply(depot_rate(local_depot_signal), global_signal)}})
+            {'M': {'C': context.rMC0 * np.multiply(pot_rate(local_signal), global_signal)},
+             'C': {'M': context.rCM0 * np.multiply(depot_rate(local_signal), global_signal)}})
         context.sm.reset()
         context.sm.run()
         if i == 100:
             example_weight_dynamics = np.array(context.sm.states_history['C'][:-1]) * peak_weight
-            example_local_pot_signal = np.array(local_pot_signal)
-            example_local_depot_signal = np.array(local_depot_signal)
+            example_local_signal = np.array(local_signal)
             if plot:
-                fig, axes = plt.subplots(3, sharex=True)
-                ymax0 = max(np.max(local_pot_signal), np.max(global_signal))
+                fig, axes = plt.subplots(2, sharex=True)
+                ymax0 = max(np.max(local_signal), np.max(global_signal))
                 bar_loc0 = ymax0 * 1.05
-                ymax1 = max(np.max(local_depot_signal), np.max(global_signal))
-                bar_loc1 = ymax1 * 1.05
-                axes[0].plot(context.down_t / 1000., example_local_pot_signal, c='r', label='Local potentiation signal')
+                axes[0].plot(context.down_t / 1000., example_local_signal, c='r', label='Local plasticity signal')
                 axes[0].plot(context.down_t / 1000., global_signal, c='k', label='Global signal')
-                # axes[0].set_xlim([-1., context.track_stop_times[0] / 1000. + 1.])
                 axes[0].set_ylim([-0.1 * ymax0, 1.1 * ymax0])
                 axes[0].hlines([bar_loc0] * len(context.induction_start_times),
                                xmin=context.induction_start_times / 1000.,
@@ -1137,23 +1098,13 @@ def calculate_model_ramp(initial_weights=None, local_pot_signal_peak=None, local
                 axes[0].set_xlabel('Time (s)')
                 axes[0].set_ylabel('Plasticity\nsignal amplitudes')
                 axes[0].legend(loc='best', frameon=False, framealpha=0.5, handlelength=1)
-                axes[1].plot(context.down_t / 1000., example_local_depot_signal, c='c',
-                             label='Local de-potentiation signal')
-                axes[1].plot(context.down_t / 1000., global_signal, c='k', label='Global signal')
-                axes[1].set_ylim([-0.1 * ymax1, 1.1 * ymax1])
-                axes[1].hlines([bar_loc1] * len(context.induction_start_times),
+                axes[1].plot(context.down_t / 1000., example_weight_dynamics)
+                axes[1].set_ylim([0., peak_weight * 1.1])
+                axes[1].hlines([peak_weight * 1.05] * len(context.induction_start_times),
                                xmin=context.induction_start_times / 1000.,
                                xmax=context.induction_stop_times / 1000., linewidth=2)
+                axes[1].set_ylabel('Synaptic weight\n(example\nsingle input)')
                 axes[1].set_xlabel('Time (s)')
-                axes[1].set_ylabel('Plasticity\nsignal amplitudes')
-                axes[1].legend(loc='best', frameon=False, framealpha=0.5, handlelength=1)
-                axes[2].plot(context.down_t / 1000., example_weight_dynamics)
-                axes[2].set_ylim([0., peak_weight * 1.1])
-                axes[2].hlines([peak_weight * 1.05] * len(context.induction_start_times),
-                               xmin=context.induction_start_times / 1000.,
-                               xmax=context.induction_stop_times / 1000., linewidth=2)
-                axes[2].set_ylabel('Synaptic weight\n(example\nsingle input)')
-                axes[2].set_xlabel('Time (s)')
                 clean_axes(axes)
                 fig.tight_layout(h_pad=2.)
                 #plt.show()
@@ -1260,10 +1211,8 @@ def calculate_model_ramp(initial_weights=None, local_pot_signal_peak=None, local
             group.create_dataset('model_ramp', compression='gzip', compression_opts=9, data=model_ramp)
             group.create_dataset('model_weights', compression='gzip', compression_opts=9, data=weights)
             group.create_dataset('initial_weights', compression='gzip', compression_opts=9, data=initial_weights)
-            group.create_dataset('example_local_pot_signal', compression='gzip', compression_opts=9,
-                                 data=example_local_pot_signal)
-            group.create_dataset('example_local_depot_signal', compression='gzip', compression_opts=9,
-                                 data=example_local_depot_signal)
+            group.create_dataset('example_local_signal', compression='gzip', compression_opts=9,
+                                 data=example_local_signal)
             group.create_dataset('global_signal', compression='gzip', compression_opts=9, data=global_signal)
             group.create_dataset('down_t', compression='gzip', compression_opts=9, data=context.down_t)
             group.create_dataset('example_weight_dynamics', compression='gzip', compression_opts=9,
@@ -1272,10 +1221,10 @@ def calculate_model_ramp(initial_weights=None, local_pot_signal_peak=None, local
             group.create_dataset('depot_rate', compression='gzip', compression_opts=9, data=depot_rate(signal_xrange))
             group.create_dataset('param_array', compression='gzip', compression_opts=9,
                                  data=context.x_array)
-            group.create_dataset('local_pot_filter_t', compression='gzip', compression_opts=9,
-                                 data=local_pot_filter_t)
-            group.create_dataset('local_pot_filter', compression='gzip', compression_opts=9,
-                                 data=local_pot_filter)
+            group.create_dataset('local_signal_filter_t', compression='gzip', compression_opts=9,
+                                 data=local_signal_filter_t)
+            group.create_dataset('local_signal_filter', compression='gzip', compression_opts=9,
+                                 data=local_signal_filter)
             group.create_dataset('local_depot_filter_t', compression='gzip', compression_opts=9,
                                  data=local_depot_filter_t)
             group.create_dataset('local_depot_filter', compression='gzip', compression_opts=9,
@@ -1320,19 +1269,18 @@ def get_args_dynamic_model_ramp(x, features):
     :return: list of list
     """
     group_size = len(context.data_keys)
-    return [list(item) for item in zip(*context.data_keys)] + [[features['local_pot_signal_max']] * group_size] + \
-           [[features['local_depot_signal_max']] * group_size] + [[features['global_signal_max']] * group_size]
+    return [list(item) for item in zip(*context.data_keys)] + [[features['local_signal_max']] * group_size] + \
+           [[features['global_signal_max']] * group_size]
 
 
-def compute_features_model_ramp(x, cell_id=None, induction=None, local_pot_signal_peak=None,
-                                local_depot_signal_peak=None, global_signal_peak=None, export=False, plot=False):
+def compute_features_model_ramp(x, cell_id=None, induction=None, local_signal_peak=None, global_signal_peak=None,
+                                export=False, plot=False):
     """
 
     :param x: array
     :param cell_id: int
     :param induction: int
-    :param local_pot_signal_peak: float
-    :param local_depot_signal_peak: float
+    :param local_signal_peak: float
     :param global_signal_peak: float
     :param export: bool
     :param plot: bool
@@ -1343,8 +1291,7 @@ def compute_features_model_ramp(x, cell_id=None, induction=None, local_pot_signa
     start_time = time.time()
     print 'Process: %i: computing model_ramp_features for cell_id: %i, induction: %i with x: %s' % \
           (os.getpid(), context.cell_id, context.induction, ', '.join('%.3E' % i for i in x))
-    result = calculate_model_ramp(local_pot_signal_peak=local_pot_signal_peak,
-                                  local_depot_signal_peak=local_depot_signal_peak,
+    result = calculate_model_ramp(local_signal_peak=local_signal_peak,
                                   global_signal_peak=global_signal_peak, export=export, plot=plot)
     print 'Process: %i: computing model_ramp_features for cell_id: %i, induction: %i took %.1f s' % \
           (os.getpid(), context.cell_id, context.induction, time.time() - start_time)
@@ -1422,21 +1369,19 @@ def get_args_dynamic_self_consistent_model_ramp(x, features):
         self_consistent_data_keys.append((cell_id, 2))
     group_size = len(self_consistent_data_keys)
     return [list(item) for item in zip(*self_consistent_data_keys)] + \
-           [[features['local_pot_signal_max']] * group_size] + \
-           [[features['local_depot_signal_max']] * group_size] + \
+           [[features['local_signal_max']] * group_size] + \
            [[features['global_signal_max']] * group_size] + [self_consistent_initial_weights]
 
 
-def compute_features_self_consistent_model_ramp(x, cell_id=None, induction=None, local_pot_signal_peak=None,
-                                                local_depot_signal_peak=None, global_signal_peak=None,
-                                                self_consistent_initial_weights=None, export=False, plot=False):
+def compute_features_self_consistent_model_ramp(x, cell_id=None, induction=None, local_signal_peak=None,
+                                                global_signal_peak=None, self_consistent_initial_weights=None,
+                                                export=False, plot=False):
     """
 
     :param x: array
     :param cell_id: int
     :param induction: int
-    :param local_pot_signal_peak: float
-    :param local_depot_signal_peak: float
+    :param local_signal_peak: float
     :param global_signal_peak: float
     :param self_consistent_initial_weights: array
     :param export: bool
@@ -1449,8 +1394,7 @@ def compute_features_self_consistent_model_ramp(x, cell_id=None, induction=None,
     print 'Process: %i: computing self_consistent_model_ramp_features for cell_id: %i, induction: %i with x: %s' % \
           (os.getpid(), context.cell_id, context.induction, ', '.join('%.3E' % i for i in x))
     result = calculate_model_ramp(initial_weights=self_consistent_initial_weights,
-                                  local_pot_signal_peak=local_pot_signal_peak,
-                                  local_depot_signal_peak=local_depot_signal_peak,
+                                  local_signal_peak=local_signal_peak,
                                   global_signal_peak=global_signal_peak, export=export, plot=plot)
     print 'Process: %i: computing self_consistent_model_ramp_features for cell_id: %i, induction: %i took %.1f s' % \
           (os.getpid(), context.cell_id, context.induction, time.time() - start_time)
@@ -1637,7 +1581,7 @@ def get_model_ramp_error(x, check_bounds=None, plot=False, full_output=False):
 
 @click.command(context_settings=dict(ignore_unknown_options=True, allow_extra_args=True,))
 @click.option("--config-file-path", type=click.Path(exists=True, file_okay=True, dir_okay=False),
-              default='config/optimize_BTSP2_CA1_v8_cli_config.yaml')
+              default='config/optimize_BTSP2_CA1_v9_cli_config.yaml')
 @click.option("--output-dir", type=click.Path(exists=True, file_okay=False, dir_okay=True), default='data')
 @click.option("--export", is_flag=True)
 @click.option("--export-file-path", type=str, default=None)
