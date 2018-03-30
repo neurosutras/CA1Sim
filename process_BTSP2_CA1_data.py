@@ -308,7 +308,7 @@ def initialize():
     """
     dt = 1.  # ms
     input_field_width = 90.  # cm
-    input_field_peak_rate = 40.  # Hz
+    input_field_peak_rate = 1.  # normalized firing rate; previously was 40. Hz
     num_inputs = 200  # 200
     track_length = 187.  # cm
 
@@ -345,7 +345,7 @@ def initialize():
     position_scale = 10.
     vel_window = 10.  # ms
     # generates a predicted 6 mV depolarization given peak_delta_weights = 1.5
-    ramp_scaling_factor = 2.956E-03
+    ramp_scaling_factor = 1.182E-01  # for normalized firing rate; previously was 2.956E-03 for 40 Hz. peak rate
 
     # True for spontaneously-occurring field, False for or induced field
     spont = meta_data[context.cell_id][context.induction]['spont']
