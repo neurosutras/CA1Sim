@@ -203,7 +203,6 @@ def config_controller(export_file_path, output_dir, **kwargs):
     context.update(kwargs)
     context.data_path = context.output_dir + '/' + context.data_file_name
     init_context()
-    # print 'optimize_BTSP2_CA1: processing the following data_keys: %s' % str(context.data_keys)
 
 
 def config_worker(update_context_funcs, param_names, default_params, target_val, target_range, temp_output_path,
@@ -220,9 +219,8 @@ def config_worker(update_context_funcs, param_names, default_params, target_val,
     :param disp: bool
     :param data_file_name: str (path)
     """
-    context.update(kwargs)
-    param_indexes = {param_name: i for i, param_name in enumerate(param_names)}
     context.update(locals())
+    context.update(kwargs)
     context.data_path = context.output_dir + '/' + context.data_file_name
     init_context()
 
@@ -253,7 +251,6 @@ def init_context():
         default_interp_x = f['defaults']['default_interp_x'][:]
         extended_x = f['defaults']['extended_x'][:]
         input_rate_maps = f['defaults']['input_rate_maps'][:]
-        input_rate_maps /= np.max(input_rate_maps)
         peak_locs = f['defaults']['peak_locs'][:]
         if 'data_keys' not in context() or context.data_keys is None:
             if 'cell_id' not in context() or context.cell_id == 'all' or context.cell_id is None:
@@ -856,7 +853,7 @@ def compute_features_signal_amplitudes(x, cell_id=None, induction=None, export=F
     return {cell_id: {induction: result}}
 
 
-def filter_features_signal_amplitudes(primitives, features, export=False, plot=False):
+def filter_features_signal_amplitudes(primitives, current_features, export=False, plot=False):
     """
 
     :param primitives: list of dict (each dict contains results from a single simulation)
@@ -1285,12 +1282,10 @@ def calculate_model_ramp(initial_weights=None, export=False, plot=False):
     return {context.cell_id: {context.induction: result}}
 
 
-def get_args_dynamic_model_ramp(x, features):
+def get_args_static_model_ramp():
     """
-    A nested map operation is required to compute model_ramp features. The arguments to be mapped depend on each set of
-    parameters (dynamic).
-    :param x: array
-    :param features: dict
+    A nested map operation is required to compute model_ramp features. The arguments to be mapped are the same (static)
+    for each set of parameters.
     :return: list of list
     """
     return [list(item) for item in zip(*context.data_keys)]
@@ -1566,7 +1561,7 @@ def get_features_interactive(x, plot=False):
     features.update(new_features)
     """
 
-    args = get_args_dynamic_model_ramp(x, features)
+    args = get_args_static_model_ramp()
     group_size = len(args[0])
     sequences = [[x] * group_size] + args + [[context.export] * group_size] + [[plot] * group_size]
     primitives = map(compute_features_model_ramp, *sequences)
@@ -1592,7 +1587,6 @@ def get_model_ramp_error(x, check_bounds=None, plot=False, full_output=False):
     :param full_output: bool
     :return: float
     """
-    print 'Getting here.'
     if check_bounds is not None:
         if not check_bounds(x):
             return 1e9

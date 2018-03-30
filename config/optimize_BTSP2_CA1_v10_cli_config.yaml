@@ -83,7 +83,7 @@ update_context:
   optimize_BTSP2_CA1_v10: update_model_params
 get_features_stages:
 - source: optimize_BTSP2_CA1_v10
-  get_args_dynamic: get_args_dynamic_model_ramp
+  get_args_static: get_args_static_model_ramp
   compute_features: compute_features_model_ramp
   filter_features: filter_features_model_ramp
 - source: optimize_BTSP2_CA1_v10
