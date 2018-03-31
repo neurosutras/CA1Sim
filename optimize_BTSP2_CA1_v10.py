@@ -1353,8 +1353,8 @@ def filter_features_model_ramp(primitives, current_features, export=False):
                 delta_weights = np.subtract(this_result_dict[cell_id][induction]['model_weights'],
                                         this_result_dict[cell_id][induction]['initial_weights'])
                 features['raw'][cell_id][induction]['delta_weights'] = delta_weights
-                features['raw'][cell_id][induction]['depot_rate'] = \
-                    this_result_dict[cell_id][induction]['depot_rate']
+                if 'depot_rate' not in features:
+                    features['depot_rate'] = this_result_dict[cell_id][induction]['depot_rate']
     for feature_name in feature_names:
         for group in groups:
             key = group + '_' + feature_name
@@ -1480,14 +1480,6 @@ def get_objectives(features):
             this_weights_smoothness = np.sum([(val / context.target_range[objective_name]) ** 2. for val in this_delta])
             objectives[objective_name].append(this_weights_smoothness)
 
-            feature_name = 'depot_rate'
-            objective_name = 'r_depot_smoothness'
-            if objective_name not in objectives:
-                objectives[objective_name] = []
-            this_r_depot = features['raw'][cell_id][induction][feature_name]
-            this_delta = np.diff(this_r_depot)
-            this_r_depot_smoothness = np.sum([(val / context.target_range[objective_name]) ** 2. for val in this_delta])
-            objectives[objective_name].append(this_r_depot_smoothness)
     for cell_id in features['self_consistent']:
         cell_id = int(cell_id)
         for induction in features['self_consistent'][cell_id]:
@@ -1499,6 +1491,14 @@ def get_objectives(features):
             this_residual_sum = np.sum([(val / context.target_range[objective_name]) ** 2. for
                                         val in features['self_consistent'][cell_id][induction][feature_name]])
             objectives[objective_name].append(this_residual_sum)
+
+    feature_name = 'depot_rate'
+    objective_name = 'r_depot_smoothness'
+    this_r_depot = features[feature_name]
+    this_delta = np.diff(this_r_depot)
+    this_r_depot_smoothness = np.sum([(val / context.target_range[objective_name]) ** 2. for val in this_delta])
+    objectives[objective_name] = this_r_depot_smoothness
+
     objective_names = context.target_val.keys()
     for objective_name in objective_names:
         if objective_name not in objectives:
