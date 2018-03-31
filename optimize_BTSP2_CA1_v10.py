@@ -1053,7 +1053,7 @@ def calculate_model_ramp(initial_weights=None, export=False, plot=False):
     global_signal = get_global_signal(context.down_induction_gate, global_filter)
     local_signals = get_local_signal_population(local_signal_filter)
 
-    signal_xrange = np.linspace(0., 1., 100000)
+    signal_xrange = np.linspace(0., 1., 10000)
     pot_rate = sigmoid_segment(context.r_pot_slope, context.r_pot_th)
     depot_segment1 = sigmoid_segment(context.r_depot_slope1, context.r_depot_th1 * context.r_depot_xpeak1,
                                      (0., context.r_depot_xpeak1), (0., 1.))
