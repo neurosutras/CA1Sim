@@ -36,7 +36,7 @@ def plot_BTSP_model_ramp_traces_9(file_path, self_consistent=False, savefig_dir=
     date_stamp = datetime.datetime.today().strftime('%Y%m%d%H%M')
     ramp_amp, ramp_width, peak_shift, ratio, min_val = {}, {}, {}, {}, {}
     orig_fontsize = mpl.rcParams['font.size']
-    mpl.rcParams['font.size'] = 24.
+    # mpl.rcParams['font.size'] = 24.
     with h5py.File(file_path, 'r') as f:
         shared_context_key = 'shared_context'
         group = f[shared_context_key]

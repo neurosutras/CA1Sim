@@ -45,10 +45,10 @@ bounds:
   - 1.5
   - 4.
 default_params:
-  # global_signal_decay: 161.81965512863673
-  # global_signal_rise: 50.344024212982561
-  # local_signal_decay: 1184.66706065663745
-  # local_signal_rise: 42.740907646745779
+  global_signal_decay: 161.81965512863673
+  global_signal_rise: 50.344024212982561
+  local_signal_decay: 1184.66706065663745
+  local_signal_rise: 42.740907646745779
   # r_pot_slope: 9.6248528728378151
   # r_pot_th: 0.12672325366569678
 rel_bounds:
@@ -80,48 +80,48 @@ feature_names:
 - exp2_delta_min_loc
 - exp2_delta_min_val
 update_context:
-  optimize_BTSP2_CA1_v10: update_model_params
+  optimize_BTSP2_CA1_v10b: update_model_params
 get_features_stages:
-- source: optimize_BTSP2_CA1_v10
+- source: optimize_BTSP2_CA1_v10b
   get_args_static: get_args_static_model_ramp
   compute_features: compute_features_model_ramp
   filter_features: filter_features_model_ramp
-# - source: optimize_BTSP2_CA1_v10
-#   get_args_dynamic: get_args_dynamic_self_consistent_model_ramp
-#   compute_features: compute_features_self_consistent_model_ramp
-#   filter_features: filter_features_self_consistent_model_ramp
+- source: optimize_BTSP2_CA1_v10b
+  get_args_dynamic: get_args_dynamic_self_consistent_model_ramp
+  compute_features: compute_features_self_consistent_model_ramp
+  filter_features: filter_features_self_consistent_model_ramp
 get_objectives:
-  optimize_BTSP2_CA1_v10: get_objectives
+  optimize_BTSP2_CA1_v10b: get_objectives
 kwargs:
   data_file_name: '20180329_BTSP2_CA1_data.hdf5'
   verbose: 1
-  min_delta_weight: -0.2
+  min_delta_weight: -0.1
   data_keys:
 objective_names:
 - spont_residuals
 - spont_delta_amp
-# - spont_delta_width
+- spont_delta_width
 - spont_delta_peak_shift
 - spont_delta_asymmetry
 - spont_delta_min_loc
 - spont_delta_min_val
 - exp1_residuals
 - exp1_delta_amp
-# - exp1_delta_width
+- exp1_delta_width
 - exp1_delta_peak_shift
 - exp1_delta_asymmetry
 - exp1_delta_min_loc
 - exp1_delta_min_val
 - exp2_residuals
 - exp2_delta_amp
-# - exp2_delta_width
+- exp2_delta_width
 - exp2_delta_peak_shift
 - exp2_delta_asymmetry
 - exp2_delta_min_loc
 - exp2_delta_min_val
-# - self_consistent_residuals
+- self_consistent_residuals
 - weights_smoothness
-- r_depot_smoothness
+# - r_depot_smoothness
 optimization_title: bidirectional_BTSP
 param_gen: PopulationAnnealing
 param_names:
@@ -141,55 +141,55 @@ param_names:
 - global_signal_decay
 - peak_delta_weight
 target_range:
-  spont_residuals: 0.1
+  spont_residuals: 1.
   spont_delta_amp: 0.01
-  # spont_delta_width: 0.1
+  spont_delta_width: 0.1
   spont_delta_peak_shift: 0.1
   spont_delta_asymmetry: 0.01
   spont_delta_min_loc: 0.1
   spont_delta_min_val: 0.01
-  exp1_residuals: 0.1
+  exp1_residuals: 1.
   exp1_delta_amp: 0.01
-  # exp1_delta_width: 0.1
+  exp1_delta_width: 0.1
   exp1_delta_peak_shift: 0.1
   exp1_delta_asymmetry: 0.01
   exp1_delta_min_loc: 0.1
   exp1_delta_min_val: 0.01
-  exp2_residuals: 0.1
+  exp2_residuals: 1.
   exp2_delta_amp: 0.01
-  # exp2_delta_width: 0.1
+  exp2_delta_width: 0.1
   exp2_delta_peak_shift: 0.1
   exp2_delta_asymmetry: 0.01
   exp2_delta_min_loc: 0.1
   exp2_delta_min_val: 0.01
-  # self_consistent_residuals: 1.
+  self_consistent_residuals: 1.
   weights_smoothness: 0.01
-  r_depot_smoothness: 0.001
+  # r_depot_smoothness: 0.001
 target_val:
   spont_residuals: 0.
   spont_delta_amp: 0.
-  # spont_delta_width: 0.
+  spont_delta_width: 0.
   spont_delta_peak_shift: 0.
   spont_delta_asymmetry: 0.
   spont_delta_min_loc: 0.
   spont_delta_min_val: 0.
   exp1_residuals: 0.
   exp1_delta_amp: 0.
-  # exp1_delta_width: 0.
+  exp1_delta_width: 0.
   exp1_delta_peak_shift: 0.
   exp1_delta_asymmetry: 0.
   exp1_delta_min_loc: 0.
   exp1_delta_min_val: 0.
   exp2_residuals: 0.
   exp2_delta_amp: 0.
-  # exp2_delta_width: 0.
+  exp2_delta_width: 0.
   exp2_delta_peak_shift: 0.
   exp2_delta_asymmetry: 0.
   exp2_delta_min_loc: 0.
   exp2_delta_min_val: 0.
-  # self_consistent_residuals: 0.
+  self_consistent_residuals: 0.
   weights_smoothness: 0.
-  r_depot_smoothness: 0.
+  # r_depot_smoothness: 0.
 x0:
 #  global_signal_decay: 161.81965512863673
 #  global_signal_rise: 50.344024212982561

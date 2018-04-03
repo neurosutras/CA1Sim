@@ -1480,17 +1480,18 @@ def get_objectives(features):
             this_weights_smoothness = np.sum([(val / context.target_range[objective_name]) ** 2. for val in this_delta])
             objectives[objective_name].append(this_weights_smoothness)
 
-    for cell_id in features['self_consistent']:
-        cell_id = int(cell_id)
-        for induction in features['self_consistent'][cell_id]:
-            induction = int(induction)
-            feature_name = 'residuals'
-            objective_name = 'self_consistent' + '_' + feature_name
-            if objective_name not in objectives:
-                objectives[objective_name] = []
-            this_residual_sum = np.sum([(val / context.target_range[objective_name]) ** 2. for
-                                        val in features['self_consistent'][cell_id][induction][feature_name]])
-            objectives[objective_name].append(this_residual_sum)
+    if 'self_consistent' in features:
+        for cell_id in features['self_consistent']:
+            cell_id = int(cell_id)
+            for induction in features['self_consistent'][cell_id]:
+                induction = int(induction)
+                feature_name = 'residuals'
+                objective_name = 'self_consistent' + '_' + feature_name
+                if objective_name not in objectives:
+                    objectives[objective_name] = []
+                this_residual_sum = np.sum([(val / context.target_range[objective_name]) ** 2. for
+                                            val in features['self_consistent'][cell_id][induction][feature_name]])
+                objectives[objective_name].append(this_residual_sum)
 
     feature_name = 'depot_rate'
     objective_name = 'r_depot_smoothness'
