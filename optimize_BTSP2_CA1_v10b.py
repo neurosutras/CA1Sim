@@ -768,7 +768,10 @@ def get_local_signal(rate_map, local_filter, dt):
     :param dt: float
     :return: array
     """
-    return np.convolve(0.001 * dt * rate_map, local_filter)[:len(rate_map)]
+    # originally rate_maps were expressed in Hz, and the convolution operated on probability of spikes in a time bin
+    # return np.convolve(0.001 * dt * rate_map, local_filter)[:len(rate_map)]
+    # now expressed as normalized activations
+    return np.convolve(rate_map, local_filter)[:len(rate_map)]
 
 
 def get_global_signal(induction_gate, global_filter):
