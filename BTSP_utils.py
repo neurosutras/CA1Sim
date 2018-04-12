@@ -2,6 +2,7 @@
 
 """
 from nested.utils import *
+from scipy.optimize import minimize
 
 
 class StateMachine(object):
@@ -245,3 +246,127 @@ def wrap_around_and_compress(waveform, interp_x):
     within = np.array(waveform[len(interp_x):2 * len(interp_x)])
     waveform = within[:len(interp_x)] + before[:len(interp_x)] + after[:len(interp_x)]
     return waveform
+
+
+def get_indexes_from_ramp_bounds_with_wrap(x, start, peak, end, min):
+    """
+
+    :param x: array
+    :param start: float
+    :param peak: float
+    :param end: float
+    :param min: float
+    :return: tuple of float: (start_index, peak_index, end_index, min_index)
+    """
+    peak_index = np.where(x >= peak)[0]
+    if np.any(peak_index):
+        peak_index = peak_index[0]
+    else:
+        peak_index = len(x) - 1
+    min_index = np.where(x >= min)[0]
+    if np.any(min_index):
+        min_index = min_index[0]
+    else:
+        min_index = len(x) - 1
+    if start < peak:
+        start_index = np.where(x[:peak_index] <= start)[0][-1]
+    else:
+        start_index = peak_index + np.where(x[peak_index:] <= start)[0]
+        if np.any(start_index):
+            start_index = start_index[-1]
+        else:
+            start_index = len(x) - 1
+    if end < peak:
+        end_index = np.where(x > end)[0][0]
+    else:
+        end_index = peak_index + np.where(x[peak_index:] > end)[0]
+        if np.any(end_index):
+            end_index = end_index[0]
+        else:
+            end_index = len(x) - 1
+    return start_index, peak_index, end_index, min_index
+
+
+def calculate_ramp_features(local_context, ramp, induction_loc, offset=False, smooth=False):
+    """
+
+    :param local_context: :class:'Context'
+    :param ramp: array
+    :param induction_loc: float
+    :param offset: bool
+    :param smooth: bool
+    :return tuple of float
+    """
+    binned_x = local_context.binned_x
+    track_length = local_context.track_length
+    default_interp_x = local_context.default_interp_x
+    extended_binned_x = np.concatenate([binned_x - track_length, binned_x, binned_x + track_length])
+    if smooth:
+        local_ramp = signal.savgol_filter(ramp, 21, 3, mode='wrap')
+    else:
+        local_ramp = np.array(ramp)
+    extended_binned_ramp = np.concatenate([local_ramp] * 3)
+    extended_interp_x = np.concatenate([default_interp_x - track_length, default_interp_x,
+                                        default_interp_x + track_length])
+    extended_ramp = np.interp(extended_interp_x, extended_binned_x, extended_binned_ramp)
+    interp_ramp = extended_ramp[len(default_interp_x):2 * len(default_interp_x)]
+    baseline_indexes = np.where(interp_ramp <= np.percentile(interp_ramp, 10.))[0]
+    baseline = np.mean(interp_ramp[baseline_indexes])
+    if offset:
+        interp_ramp -= baseline
+        extended_ramp -= baseline
+    peak_index = np.where(interp_ramp == np.max(interp_ramp))[0][0] + len(interp_ramp)
+    peak_val = extended_ramp[peak_index]
+    peak_x = extended_interp_x[peak_index]
+    start_index = np.where(extended_ramp[:peak_index] <=
+                           0.15 * (peak_val - baseline) + baseline)[0][-1]
+    end_index = peak_index + np.where(extended_ramp[peak_index:] <= 0.15 *
+                                      (peak_val - baseline) + baseline)[0][0]
+    start_loc = float(start_index % len(default_interp_x)) / float(len(default_interp_x)) * track_length
+    end_loc = float(end_index % len(default_interp_x)) / float(len(default_interp_x)) * track_length
+    peak_loc = float(peak_index % len(default_interp_x)) / float(len(default_interp_x)) * track_length
+    min_index = np.where(interp_ramp == np.min(interp_ramp))[0][0] + len(interp_ramp)
+    min_val = extended_ramp[min_index]
+    min_loc = float(min_index % len(default_interp_x)) / float(len(default_interp_x)) * track_length
+    peak_shift = peak_x - induction_loc
+    if peak_shift > track_length / 2.:
+        peak_shift = -(track_length - peak_shift)
+    elif peak_shift < -track_length / 2.:
+        peak_shift += track_length
+    ramp_width = extended_interp_x[end_index] - extended_interp_x[start_index]
+    before_width = induction_loc - start_loc
+    if induction_loc < start_loc:
+        before_width += track_length
+    after_width = end_loc - induction_loc
+    if induction_loc > end_loc:
+        after_width += track_length
+    ratio = before_width / after_width
+    return peak_val, ramp_width, peak_shift, ratio, start_loc, peak_loc, end_loc, min_val, min_loc
+
+
+def wrap_around_and_compress(waveform, interp_x):
+    """
+
+    :param waveform: array of len(3 * interp_x)
+    :param interp_x: array
+    :return: array of len(interp_x)
+    """
+    before = np.array(waveform[:len(interp_x)])
+    after = np.array(waveform[2 * len(interp_x):])
+    within = np.array(waveform[len(interp_x):2 * len(interp_x)])
+    waveform = within[:len(interp_x)] + before[:len(interp_x)] + after[:len(interp_x)]
+    return waveform
+
+
+def subtract_baseline(waveform, baseline=None):
+    """
+
+    :param waveform: array
+    :param baseline: float
+    :return: array
+    """
+    new_waveform = np.array(waveform)
+    if baseline is None:
+        baseline = np.mean(new_waveform[np.where(new_waveform <= np.percentile(new_waveform, 10.))[0]])
+    new_waveform -= baseline
+    return new_waveform, baseline

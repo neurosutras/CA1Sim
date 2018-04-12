@@ -1,8 +1,9 @@
 __author__ = 'Aaron D. Milstein'
+from BTSP_utils import *
 import click
 import pandas as pd
-from plot_results import *
-from BTSP_utils import *
+# from plot_results import *
+
 
 """
 Magee lab CA1 BTSP2 place field data is in a series of text files. This organizes them into a single .hdf5 file with a 
@@ -218,7 +219,7 @@ def main(cell_id, induction, config_file_path, data_dir, plot, export, export_fi
 
     exp_ramp_raw = {'after': context.data[context.ramp_laps['after']][:100] * context.ramp_scale}
     exp_ramp = {'after': signal.savgol_filter(exp_ramp_raw['after'], 21, 3, mode='wrap')}
-    exp_ramp_vs_t= {}
+    exp_ramp_vs_t = {}
     if 'before' in context.ramp_laps:
         exp_ramp_raw['before'] = context.data[context.ramp_laps['before']][:100] * context.ramp_scale
         exp_ramp['before'] = signal.savgol_filter(exp_ramp_raw['before'], 21, 3, mode='wrap')
@@ -277,15 +278,17 @@ def main(cell_id, induction, config_file_path, data_dir, plot, export, export_fi
     mean_induction_loc = np.mean(induction_locs)
     mean_induction_index = np.where(mean_position >= mean_induction_loc)[0][0]
     mean_induction_onset = mean_t[mean_induction_index]
+    context.update(locals())
+
     if plot>0:
-        peak_val, ramp_width, peak_shift, ratio, start_loc, peak_loc, end_loc = \
-            calculate_ramp_features(exp_ramp['after'], mean_induction_loc)
-        start_index, peak_index, end_index = get_indexes_from_ramp_bounds_with_wrap(context.binned_x, start_loc,
-                                                                                    peak_loc, end_loc)
+        peak_val, ramp_width, peak_shift, ratio, start_loc, peak_loc, end_loc, min_val, min_loc = \
+            calculate_ramp_features(context,exp_ramp['after'], mean_induction_loc)
+        start_index, peak_index, end_index, min_index = \
+            get_indexes_from_ramp_bounds_with_wrap(context.binned_x, start_loc, peak_loc, end_loc, min_loc)
         axes[1][0].scatter(context.binned_x[[start_index, peak_index, end_index]],
                            exp_ramp['after'][[start_index, peak_index, end_index]])
-        start_index, peak_index, end_index = get_indexes_from_ramp_bounds_with_wrap(mean_position, start_loc, peak_loc,
-                                                                                    end_loc)
+        start_index, peak_index, end_index, min_index = \
+            get_indexes_from_ramp_bounds_with_wrap(mean_position, start_loc, peak_loc, end_loc, min_loc)
         this_shifted_t = np.subtract(mean_t, mean_induction_onset) / 1000.
         axes[1][1].plot(this_shifted_t, exp_ramp_vs_t['after'])
         axes[1][1].scatter(this_shifted_t[[start_index, peak_index, end_index]],
@@ -297,7 +300,7 @@ def main(cell_id, induction, config_file_path, data_dir, plot, export, export_fi
         fig.tight_layout()
         plt.show()
         plt.close()
-    context.update(locals())
+
     if export:
         export_data()
 
@@ -308,7 +311,7 @@ def initialize():
     """
     dt = 1.  # ms
     input_field_width = 90.  # cm
-    input_field_peak_rate = 1.  # normalized firing rate; previously was 40. Hz
+    input_field_peak_rate = 40.  # Hz
     num_inputs = 200  # 200
     track_length = 187.  # cm
 
@@ -345,7 +348,7 @@ def initialize():
     position_scale = 10.
     vel_window = 10.  # ms
     # generates a predicted 6 mV depolarization given peak_delta_weights = 1.5
-    ramp_scaling_factor = 1.182E-01  # for normalized firing rate; previously was 2.956E-03 for 40 Hz. peak rate
+    ramp_scaling_factor = 2.956E-03
 
     # True for spontaneously-occurring field, False for or induced field
     spont = meta_data[context.cell_id][context.induction]['spont']
@@ -471,92 +474,6 @@ def export_data(export_file_path=None):
                                               data=context.induction_gate)
     print 'Exported data for cell: %i, induction: %i to %s' % (context.cell_id, context.induction,
                                                                context.export_file_path)
-
-
-def get_indexes_from_ramp_bounds_with_wrap(x, start, peak, end):
-    """
-
-    :param x: array
-    :param start: float
-    :param peak: float
-    :param end: float
-    :return: tuple of float: (start_index, end_index)
-    """
-    peak_index = np.where(x >= peak)[0]
-    if np.any(peak_index):
-        peak_index = peak_index[0]
-    else:
-        peak_index = len(x) - 1
-    if start < peak:
-        start_index = np.where(x[:peak_index] <= start)[0][-1]
-    else:
-        start_index = peak_index + np.where(x[peak_index:] <= start)[0]
-        if np.any(start_index):
-            start_index = start_index[-1]
-        else:
-            start_index = len(x) - 1
-    if end < peak:
-        end_index = np.where(x > end)[0][0]
-    else:
-        end_index = peak_index + np.where(x[peak_index:] > end)[0]
-        if np.any(end_index):
-            end_index = end_index[0]
-        else:
-            end_index = len(x) - 1
-    return start_index, peak_index, end_index
-
-
-def calculate_ramp_features(ramp, induction_loc, offset=False, smooth=False):
-    """
-
-    :param ramp: array
-    :param induction_loc: float
-    :param offset: bool
-    :param smooth: bool
-    :return tuple of float
-    """
-    binned_x = context.binned_x
-    track_length = context.track_length
-    default_interp_x = context.default_interp_x
-    extended_binned_x = np.concatenate([binned_x - track_length, binned_x, binned_x + track_length])
-    if smooth:
-        smoothed_ramp = signal.savgol_filter(ramp, 21, 3, mode='wrap')
-    else:
-        smoothed_ramp = np.array(ramp)
-    extended_binned_ramp = np.concatenate([smoothed_ramp] * 3)
-    extended_interp_x = np.concatenate([default_interp_x - track_length, default_interp_x,
-                                        default_interp_x + track_length])
-    extended_ramp = np.interp(extended_interp_x, extended_binned_x, extended_binned_ramp)
-    interp_ramp = extended_ramp[len(default_interp_x):2*len(default_interp_x)]
-    baseline_indexes = np.where(interp_ramp <= np.percentile(interp_ramp, 10.))[0]
-    baseline = np.mean(interp_ramp[baseline_indexes])
-    if offset:
-        interp_ramp -= baseline
-        extended_ramp -= baseline
-    peak_index = np.where(interp_ramp == np.max(interp_ramp))[0][0] + len(interp_ramp)
-    peak_val = extended_ramp[peak_index]
-    peak_x = extended_interp_x[peak_index]
-    start_index = np.where(extended_ramp[:peak_index] <=
-                           0.15*(peak_val - baseline) + baseline)[0][-1]
-    end_index = peak_index + np.where(extended_ramp[peak_index:] <= 0.15*
-                                                (peak_val - baseline) + baseline)[0][0]
-    start_loc = float(start_index % len(default_interp_x)) / float(len(default_interp_x)) * track_length
-    end_loc = float(end_index % len(default_interp_x)) / float(len(default_interp_x)) * track_length
-    peak_loc = float(peak_index % len(default_interp_x)) / float(len(default_interp_x)) * track_length
-    peak_shift = peak_x - induction_loc
-    if peak_shift > track_length / 2.:
-        peak_shift = -(track_length - peak_shift)
-    elif peak_shift < -track_length / 2.:
-        peak_shift += track_length
-    ramp_width = extended_interp_x[end_index] - extended_interp_x[start_index]
-    before_width = induction_loc - start_loc
-    if induction_loc < start_loc:
-        before_width += track_length
-    after_width = end_loc - induction_loc
-    if induction_loc > end_loc:
-        after_width += track_length
-    ratio = before_width / after_width
-    return peak_val, ramp_width, peak_shift, ratio, start_loc, peak_loc, end_loc
 
 
 def generate_spatial_rate_maps(n=200, peak_rate=1., field_width=90., track_length=187., x=None):
