@@ -1028,8 +1028,8 @@ def calculate_model_ramp(local_signal_peak=None, global_signal_peak=None, export
                                           bounds=(context.min_delta_weight, context.peak_delta_weight),
                                           verbose=context.verbose)
                 if context.disp:
-                    print 're-computed initial weights: cell_id: %i, before induction: %i, ramp_offset: %.3f' % \
-                          (context.cell_id, context.induction, initial_ramp_offset)
+                    print 'Process: %i; re-computed initial weights: cell_id: %i, before induction: %i,' \
+                          ' ramp_offset: %.3f' % (os.getpid(), context.cell_id, context.induction, initial_ramp_offset)
             else:
                 initial_ramp = context.LSA_ramp['before']
         else:
@@ -1047,8 +1047,8 @@ def calculate_model_ramp(local_signal_peak=None, global_signal_peak=None, export
                                       bounds=(context.min_delta_weight, context.peak_delta_weight),
                                       allow_offset=allow_offset, verbose=context.verbose)
             if context.disp:
-                print 're-computed initial weights: cell_id: %i, before induction: %i, ramp_offset: %.3f' % \
-                      (context.cell_id, context.induction, initial_ramp_offset)
+                print 'Process: %i; re-computed initial weights: cell_id: %i, before induction: %i, ' \
+                      'ramp_offset: %.3f' % (os.getpid(), context.cell_id, context.induction, initial_ramp_offset)
         else:
             initial_ramp = context.LSA_ramp['before']
             initial_ramp_offset = context.LSA_ramp_offset['before']
@@ -1116,8 +1116,8 @@ def calculate_model_ramp(local_signal_peak=None, global_signal_peak=None, export
                                       allow_offset=allow_offset, impose_offset=initial_ramp_offset,
                                       verbose=context.verbose)
             if context.disp:
-                print 're-computed LSA weights: cell_id: %i, after induction: %i, ramp_offset: %.3f' % \
-                      (context.cell_id, context.induction, LSA_ramp_offset)
+                print 'Process: %i; re-computed LSA weights: cell_id: %i, after induction: %i, ramp_offset: %.3f' % \
+                      (os.getpid(), context.cell_id, context.induction, LSA_ramp_offset)
         else:
             LSA_ramp, LSA_delta_weights, LSA_ramp_offset, LSA_residual_score = \
                 get_residual_score(LSA_delta_weights, target_ramp, input_matrix, allow_offset=allow_offset,
@@ -1333,16 +1333,13 @@ def filter_features_model_ramp(primitives, current_features, export=False):
     groups = ['spont', 'exp1', 'exp2']
     grouped_feature_names = ['delta_amp', 'delta_width', 'delta_peak_shift', 'delta_asymmetry', 'delta_min_loc',
                       'delta_min_val', 'residual_score']
-    features['raw'] = {}
+    shared_feature_names = ['r_depot_smoothness']
+    feature_names = ['self_consistent_delta_residual_score']
     for this_result_dict in primitives:
         for cell_id in this_result_dict:
             cell_id = int(cell_id)
-            if cell_id not in features['raw']:
-                features['raw'][cell_id] = {}
             for induction in this_result_dict[cell_id]:
                 induction = int(induction)
-                if induction not in features['raw'][cell_id]:
-                    features['raw'][cell_id][induction] = {}
                 if cell_id in context.spont_cell_id_list:
                     group = 'spont'
                 else:
@@ -1352,19 +1349,17 @@ def filter_features_model_ramp(primitives, current_features, export=False):
                     if key not in features:
                         features[key] = []
                     features[key].append(this_result_dict[cell_id][induction][feature_name])
-                    features['raw'][cell_id][induction][feature_name] = \
-                        this_result_dict[cell_id][induction][feature_name]
-                shared_feature_names = ['r_depot_smoothness']
+
                 for feature_name in shared_feature_names:
                     if feature_name not in features and feature_name in this_result_dict[cell_id][induction]:
                         features[feature_name] = this_result_dict[cell_id][induction][feature_name]
-                feature_names = ['self_consistent_delta_residual_score']
+
                 for feature_name in feature_names:
                     if feature_name in this_result_dict[cell_id][induction]:
                         if feature_name not in features:
                             features[feature_name] = []
                         features[feature_name].append(this_result_dict[cell_id][induction][feature_name])
-    
+
     for feature_name in grouped_feature_names:
         for group in groups:
             key = group + '_' + feature_name
@@ -1372,11 +1367,13 @@ def filter_features_model_ramp(primitives, current_features, export=False):
                 features[key] = np.mean(features[key])
             else:
                 features[key] = 0.
+
     for feature_name in feature_names:
         if feature_name in features and len(features[feature_name]) > 0:
             features[feature_name] = np.mean(features[feature_name])
         else:
             features[feature_name] = 0.
+
     return features
 
 

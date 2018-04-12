@@ -333,7 +333,9 @@ def calculate_ramp_features(local_context, ramp, induction_loc, offset=False, sm
         peak_shift = -(track_length - peak_shift)
     elif peak_shift < -track_length / 2.:
         peak_shift += track_length
-    ramp_width = extended_interp_x[end_index] - extended_interp_x[start_index]
+    # ramp_width = extended_interp_x[end_index] - extended_interp_x[start_index]
+    scaled_ramp = np.divide(local_ramp, peak_val)
+    ramp_width = np.trapz(scaled_ramp, binned_x)
     before_width = induction_loc - start_loc
     if induction_loc < start_loc:
         before_width += track_length

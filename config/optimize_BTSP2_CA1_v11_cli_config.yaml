@@ -85,7 +85,7 @@ update_context:
 get_features_stages:
 - source: optimize_BTSP2_CA1_v11
   get_args_static: get_args_static_signal_amplitudes
-  compute_features_shared: compute_features_signal_amplitudes
+  compute_features: compute_features_signal_amplitudes
   filter_features: filter_features_signal_amplitudes
 - source: optimize_BTSP2_CA1_v11
   get_args_dynamic: get_args_dynamic_model_ramp
@@ -131,33 +131,18 @@ target_range:
   r_depot_smoothness: 0.00001
 target_val:
 x0:
-#  global_signal_decay: 161.81965512863673
-#  global_signal_rise: 50.344024212982561
-#  local_signal_decay: 1184.66706065663745
-#  local_signal_rise: 42.740907646745779
-#  rMC_slope: 9.6248528728378151
-#  rMC_th: 0.12672325366569678
-#  peak_delta_weight: 2.3766087807470182
-#  rCM0: 2.2380142954546014
-#  rCM_min2: 0.42442063289794074
-#  rCM_peak1: 0.23285469603360878
-#  rCM_slope1: 81.778112287913387
-#  rCM_slope2: -1.6455405178536719
-#  rCM_th1: 0.1397787027838677
-#  rCM_th2: 0.78382164301093582
-#  rMC0: 7.7357671268444506
-  rMC_slope: 9.625000
-  rMC_th: 0.126700
-  rCM_slope1: 1.625000
-  rCM_th1: 0.307900
-  rCM_peak1: 0.073540
-  rCM_slope2: -8.731000
-  rCM_th2: 0.673000
-  rCM_min2: 0.151300
-  rMC0: 2.108000
-  rCM0: 1.026000
-  local_signal_rise: 42.740908
-  local_signal_decay: 1185.000000
-  global_signal_rise: 50.340000
-  global_signal_decay: 161.800000
-  peak_delta_weight: 3.768000
+  global_signal_decay: 301.859166
+  local_signal_rise: 35.090523
+  rCM_slope2: -4.689140
+  rMC_th: 0.172151
+  rCM_slope1: 355.479314
+  peak_delta_weight: 3.419783
+  rMC_slope: 7.490246
+  local_signal_decay: 839.928289
+  rCM_min2: 0.723112
+  rCM_th1: 0.098161
+  rCM_th2: 0.163429
+  rCM_peak1: 0.022199
+  rCM0: 0.864787
+  global_signal_rise: 103.498674
+  rMC0: 3.880179

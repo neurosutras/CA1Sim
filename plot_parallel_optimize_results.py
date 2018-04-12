@@ -441,10 +441,10 @@ def plot_BTSP_model_ramp_summary(ramp_amp, ramp_width, peak_shift, ratio, min_va
     :param show: bool
     """
     orig_fontsize = mpl.rcParams['font.size']
-    mpl.rcParams['font.size'] = 24.
+    # mpl.rcParams['font.size'] = 24.
     if date_stamp is None:
         date_stamp = datetime.datetime.today().strftime('%Y%m%d%H%M')
-    fig, axes = plt.subplots(2, 3, figsize=[16.25, 11.75])
+    fig, axes = plt.subplots(2, 3, figsize=[12., 8.])
     tick_locs = [np.arange(0., 13., 3.), np.arange(0., 181., 60.), np.arange(-90., 91., 45.), np.arange(0., 6., 1.),
                  np.arange(0., 6., 1.)]
     for i, (parameter, label) in enumerate(zip([ramp_amp, ramp_width, peak_shift, ratio, min_val],
