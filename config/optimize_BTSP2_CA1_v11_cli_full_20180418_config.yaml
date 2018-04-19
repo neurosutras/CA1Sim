@@ -1,0 +1,149 @@
+bounds:
+  rMC_slope: !!python/tuple
+  - 0.01
+  - 500.
+  rMC_th: !!python/tuple
+  - 0.01
+  - 1.
+  rCM_slope1: !!python/tuple
+  - 0.01
+  - 500.
+  rCM_th1: !!python/tuple
+  - 0.01
+  - 1.
+  rCM_peak1: !!python/tuple
+  - 0.0001
+  - 1.
+  rCM_slope2: !!python/tuple
+  - -100.
+  - -0.001
+  rCM_th2: !!python/tuple
+  - 0.01
+  - 1.
+  rCM_min2: !!python/tuple
+  - 0.
+  - 1.
+  rMC0: !!python/tuple
+  - 0.1
+  - 10.
+  rCM0: !!python/tuple
+  - 0.1
+  - 10.
+  local_signal_rise: !!python/tuple
+  - 5.
+  - 200.
+  local_signal_decay: !!python/tuple
+  - 50.
+  - 4000.
+  global_signal_rise: !!python/tuple
+  - 5.
+  - 200.
+  global_signal_decay: !!python/tuple
+  - 50.
+  - 3000.
+  peak_delta_weight: !!python/tuple
+  - 1.5
+  - 4.
+default_params:
+  # global_signal_decay: 161.81965512863673
+  # global_signal_rise: 50.344024212982561
+  # local_signal_decay: 1184.66706065663745
+  # local_signal_rise: 42.740907646745779
+  # rMC_slope: 9.6248528728378151
+  # rMC_th: 0.12672325366569678
+rel_bounds:
+- - local_signal_decay
+  - '>'
+  - 1.0
+  - local_signal_rise
+- - global_signal_decay
+  - '>'
+  - 1.0
+  - global_signal_rise
+feature_names:
+- spont_delta_amp
+- spont_delta_width
+- spont_delta_peak_shift
+- spont_delta_asymmetry
+- spont_delta_min_loc
+- spont_delta_min_val
+- exp1_delta_amp
+- exp1_delta_width
+- exp1_delta_peak_shift
+- exp1_delta_asymmetry
+- exp1_delta_min_loc
+- exp1_delta_min_val
+- exp2_delta_amp
+- exp2_delta_width
+- exp2_delta_peak_shift
+- exp2_delta_asymmetry
+- exp2_delta_min_loc
+- exp2_delta_min_val
+update_context:
+- - optimize_BTSP2_CA1_v11
+  - update_model_params
+get_features_stages:
+- source: optimize_BTSP2_CA1_v11
+  get_args_static: get_args_static_signal_amplitudes
+  compute_features: compute_features_signal_amplitudes
+  filter_features: filter_features_signal_amplitudes
+- source: optimize_BTSP2_CA1_v11
+  get_args_dynamic: get_args_dynamic_model_ramp
+  compute_features: compute_features_model_ramp
+  filter_features: filter_features_model_ramp
+get_objectives:
+  optimize_BTSP2_CA1_v11: get_objectives
+kwargs:
+  data_file_name: '20180411_BTSP2_CA1_data.hdf5'
+  verbose: 1
+  min_delta_weight: -0.2
+  data_keys:
+objective_names:
+- spont_residual_score
+- exp1_residual_score
+- exp2_residual_score
+- self_consistent_delta_residual_score
+- r_depot_smoothness
+optimization_title: bidirectional_BTSP
+param_gen: PopulationAnnealing
+param_names:
+- rMC_slope
+- rMC_th
+- rCM_slope1
+- rCM_th1
+- rCM_peak1
+- rCM_slope2
+- rCM_th2
+- rCM_min2
+- rMC0
+- rCM0
+- local_signal_rise
+- local_signal_decay
+- global_signal_rise
+- global_signal_decay
+- peak_delta_weight
+target_range:
+  ramp_offset: 0.01
+  delta_min_val: 0.01
+  delta_peak_val: 0.01
+  residuals: 0.1
+  weights_smoothness: 0.01
+  r_depot_smoothness: 0.00001
+target_val:
+x0:
+  global_signal_decay: 158.096315
+  local_signal_rise: 140.339120
+  rCM_slope2: -24.920992
+  rMC_th: 0.232859
+  rCM_slope1: 0.600594
+  peak_delta_weight: 1.741214
+  rMC_slope: 36.660393
+  local_signal_decay: 485.464285
+  rCM_min2: 0.176978
+  rCM_th1: 0.646362
+  rCM_th2: 0.239359
+  rCM_peak1: 0.272672
+  rCM0: 0.128556
+  global_signal_rise: 28.610365
+  rMC0: 7.878081
+
