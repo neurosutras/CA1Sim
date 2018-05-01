@@ -379,7 +379,7 @@ def import_data(cell_id, induction):
     context.complete_rate_maps = get_complete_rate_maps(context.input_rate_maps, context.binned_x)
     context.down_t = np.arange(context.complete_t[0], context.complete_t[-1] + context.down_dt / 2., context.down_dt)
     context.down_induction_gate = np.interp(context.down_t, context.complete_t, context.induction_gate)
-    if context.disp:
+    if context.verbose > 1:
         print 'optimize_BTSP2_CA1: process: %i loaded data for cell: %i, induction: %i' % \
               (os.getpid(), cell_id, induction)
 
