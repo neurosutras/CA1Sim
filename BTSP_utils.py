@@ -220,6 +220,72 @@ def sigmoid_segment(slope, th, xlim=None, ylim=None):
     return lambda x: (target_amp / current_amp) * (1. / (1. + np.exp(-slope * (x - th))) - y0) + ylim[0]
 
 
+def scaled_single_sigmoid(th, peak, x, ylim=None):
+    """
+    Transform a sigmoid to intersect x and y range limits.
+    :param th: float
+    :param peak: float
+    :param x: array
+    :param ylim: pair of float
+    :return: callable
+    """
+    if ylim is None:
+        ylim = (0., 1.)
+    if th < x[0] or th > x[-1]:
+        raise ValueError('scaled_single_sigmoid: th: %.2E is out of range for xlim: [%.2E, %.2E]' % (th, x[0], x[-1]))
+    if peak == th:
+        raise ValueError('scaled_single_sigmoid: peak and th: %.2E cannot be equal' % th)
+    slope = 2. / (peak - th)
+    y = lambda x: 1. / (1. + np.exp(-slope * (x - th)))
+    start_val = y(x[0])
+    end_val = y(x[-1])
+    amp = end_val - start_val
+    target_amp = ylim[1] - ylim[0]
+    return lambda xi: (target_amp / amp) * (1. / (1. + np.exp(-slope * (xi - th))) - start_val) + ylim[0]
+
+
+def scaled_double_sigmoid(th1, peak1, th2, peak2, x, y_start=0., y_peak=1., y_end=0.):
+    """
+    Transform a double sigmoid to intersect x and y range limits. A double sigmoid is a product of an ascending and a
+    descending sigmoid.
+    :param th1: float
+    :param peak1: float
+    :param th2: float
+    :param peak2: float
+    :param x: array
+    :param y_start: float
+    :param y_peak: float
+    :param y_end: float
+    :return: callable
+    """
+    if th1 < x[0] or th1 > x[-1]:
+        raise ValueError('scaled_double_sigmoid: th1: %.2E is out of range for xlim: [%.2E, %.2E]' % (th1, x[0], x[-1]))
+    if th2 < x[0] or th2 > x[-1]:
+        raise ValueError('scaled_double_sigmoid: th2: %.2E is out of range for xlim: [%.2E, %.2E]' % (th2, x[0], x[-1]))
+    if peak1 == th1:
+        raise ValueError('scaled_double_sigmoid: peak1 and th1: %.2E cannot be equal' % th1)
+    if peak2 == th2:
+        raise ValueError('scaled_double_sigmoid: peak2 and th2: %.2E cannot be equal' % th2)
+    if peak2 / (x[-1] - x[0]) > 0.95 and th2 / (x[-1] - x[0]) > 0.95:
+        return scaled_single_sigmoid(peak1, th1, x, [y_start, y_peak])
+    slope1 = 2. / (peak1 - th1)
+    slope2 = 2. / (peak2 - th2)
+    y = lambda x: (1. / (1. + np.exp(-slope1 * (x - th1)))) * (1. / (1. + np.exp(-slope2 * (x - th2))))
+    y_array = np.vectorize(y)
+    peak_index = np.argmax(y_array(x))
+    x_peak = x[peak_index]
+    max_val = y(x_peak)
+    start_val = y(x[0])
+    end_val = y(x[-1])
+    amp1 = max_val - start_val
+    amp2 = max_val - end_val
+    target_amp1 = y_peak - y_start
+    target_amp2 = y_peak - y_end
+
+    return lambda xi: (target_amp1 / amp1) * (y(xi) - start_val) + y_start if xi <= x_peak else \
+        (target_amp2 / amp2) * (y(xi) - end_val) + y_end
+
+
 def subtract_baseline(waveform, baseline=None):
     """
 
