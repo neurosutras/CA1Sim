@@ -143,48 +143,17 @@ target_range:
   weights_smoothness: 0.01
 target_val:
 x0:
-  default:
-    global_signal_decay: 277.323254
-    local_signal_rise: 45.131891
-    rMC_th: 0.128312
-    rMC_peak: 0.387765
-    global_signal_rise: 116.777287
-    peak_delta_weight: 3.329851
-    rCM_min2: 0.658883
-    local_signal_decay: 792.575456
-    rCM0: 1.029367
-    rMC0: 4.607720
-    rCM_th1: 0.002671
-    rCM_th2: 0.301503
-    rCM_peak1: 0.008125
-    rCM_peak2: 0.015067
-  1:
-    global_signal_decay: 277.323254
-    local_signal_rise: 45.131891
-    rMC_th: 0.128312
-    rMC_peak: 0.387765
-    global_signal_rise: 116.777287
-    peak_delta_weight: 3.329851
-    rCM_min2: 0.658883
-    local_signal_decay: 792.575456
-    rCM0: 1.029367
-    rMC0: 4.607720
-    rCM_th1: 0.002671
-    rCM_th2: 0.301503
-    rCM_peak1: 0.008125
-    rCM_peak2: 0.015067
-  5:
-    global_signal_decay: 132.676471
-    local_signal_rise: 172.359830
-    rMC_th: 0.172570
-    rMC_peak: 0.254504
-    global_signal_rise: 35.261774
-    peak_delta_weight: 2.188654
-    rCM_min2: 0.165265
-    local_signal_decay: 571.443158
-    rCM0: 1.995754
-    rMC0: 6.910865
-    rCM_th1: 0.090930
-    rCM_th2: 0.445385
-    rCM_peak1: 0.208933
-    rCM_peak2: 0.371106
+  global_signal_decay: 132.676471
+  local_signal_rise: 172.359830
+  rMC_th: 0.172570
+  rMC_peak: 0.254504
+  global_signal_rise: 35.261774
+  peak_delta_weight: 2.188654
+  rCM_min2: 0.165265
+  local_signal_decay: 571.443158
+  rCM0: 1.995754
+  rMC0: 6.910865
+  rCM_th1: 0.090930
+  rCM_th2: 0.445385
+  rCM_peak1: 0.208933
+  rCM_peak2: 0.371106
