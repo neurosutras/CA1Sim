@@ -47,151 +47,6 @@ import click
 context = Context()
 
 
-def config_interactive(config_file_path=None, output_dir=None, temp_output_path=None, export=False,
-                       export_file_path=None, label=None, disp=True, verbose=2, **kwargs):
-    """
-
-    :param config_file_path: str (.yaml file path)
-    :param output_dir: str (dir path)
-    :param temp_output_path: str (.hdf5 file path)
-    :param export: bool
-    :param export_file_path: str (.hdf5 file path)
-    :param label: str
-    :param disp: bool
-    :param verbose: int
-    """
-
-    if config_file_path is not None:
-        context.config_file_path = config_file_path
-    if 'config_file_path' not in context() or context.config_file_path is None or \
-            not os.path.isfile(context.config_file_path):
-        raise Exception('config_file_path specifying required parameters is missing or invalid.')
-    config_dict = read_from_yaml(context.config_file_path)
-    if 'param_names' not in config_dict or config_dict['param_names'] is None:
-        raise Exception('config_file at path: %s is missing the following required field: %s' %
-                        (context.config_file_path, 'param_names'))
-    else:
-        context.param_names = config_dict['param_names']
-    if 'default_params' not in config_dict or config_dict['default_params'] is None:
-        context.default_params = {}
-    else:
-        context.default_params = config_dict['default_params']
-    if 'bounds' not in config_dict or config_dict['bounds'] is None:
-        raise Exception('config_file at path: %s is missing the following required field: %s' %
-                        (context.config_file_path, 'bounds'))
-    for param in context.default_params:
-        config_dict['bounds'][param] = (context.default_params[param], context.default_params[param])
-    context.bounds = [config_dict['bounds'][key] for key in context.param_names]
-    if 'rel_bounds' not in config_dict or config_dict['rel_bounds'] is None:
-        context.rel_bounds = None
-    else:
-        context.rel_bounds = config_dict['rel_bounds']
-    if 'x0' not in config_dict or config_dict['x0'] is None:
-        context.x0 = None
-    else:
-        context.x0 = config_dict['x0']
-        context.x0_dict = context.x0
-        for param_name in context.default_params:
-            context.x0_dict[param_name] = context.default_params[param_name]
-        context.x0_array = param_dict_to_array(context.x0_dict, context.param_names)
-
-    missing_config = []
-    if 'feature_names' not in config_dict or config_dict['feature_names'] is None:
-        missing_config.append('feature_names')
-    else:
-        context.feature_names = config_dict['feature_names']
-    if 'objective_names' not in config_dict or config_dict['objective_names'] is None:
-        missing_config.append('objective_names')
-    else:
-        context.objective_names = config_dict['objective_names']
-    if 'target_val' in config_dict:
-        context.target_val = config_dict['target_val']
-    else:
-        context.target_val = None
-    if 'target_range' in config_dict:
-        context.target_range = config_dict['target_range']
-    else:
-        context.target_range = None
-    if 'optimization_title' in config_dict:
-        if config_dict['optimization_title'] is None:
-            context.optimization_title = ''
-        else:
-            context.optimization_title = config_dict['optimization_title']
-    if 'kwargs' in config_dict and config_dict['kwargs'] is not None:
-        context.kwargs = config_dict['kwargs']  # Extra arguments to be passed to imported sources
-    else:
-        context.kwargs = {}
-    context.kwargs.update(kwargs)
-    context.update(context.kwargs)
-
-    if 'update_context' not in config_dict or config_dict['update_context'] is None:
-        context.update_context_list = []
-    else:
-        context.update_context_list = config_dict['update_context']
-    if 'get_features_stages' not in config_dict or config_dict['get_features_stages'] is None:
-        missing_config.append('get_features_stages')
-    else:
-        context.stages = config_dict['get_features_stages']
-    if 'get_objectives' not in config_dict or config_dict['get_objectives'] is None:
-        missing_config.append('get_objectives')
-    else:
-        context.get_objectives_dict = config_dict['get_objectives']
-    if missing_config:
-        raise Exception('config_file at path: %s is missing the following required fields: %s' %
-                        (context.config_file_path, ', '.join(str(field) for field in missing_config)))
-
-    if label is not None:
-        context.label = label
-    if 'label' not in context() or context.label is None:
-        label = ''
-    else:
-        label = '_' + context.label
-
-    if output_dir is not None:
-        context.output_dir = output_dir
-    if 'output_dir' not in context():
-        context.output_dir = None
-    if context.output_dir is None:
-        output_dir_str = ''
-    else:
-        output_dir_str = context.output_dir + '/'
-
-    if temp_output_path is not None:
-        context.temp_output_path = temp_output_path
-    if 'temp_output_path' not in context() or context.temp_output_path is None:
-        context.temp_output_path = '%s%s_pid%i_%s%s_temp_output.hdf5' % \
-                                   (output_dir_str, datetime.datetime.today().strftime('%Y%m%d%H%M'), os.getpid(),
-                                    context.optimization_title, label)
-
-    context.export = export
-    if export_file_path is not None:
-        context.export_file_path = export_file_path
-    if 'export_file_path' not in context() or context.export_file_path is None:
-        context.export_file_path = '%s%s_%s%s_interactive_exported_output.hdf5' % \
-                                   (output_dir_str, datetime.datetime.today().strftime('%Y%m%d%H%M'),
-                                    context.optimization_title, label)
-
-    context.update_context_funcs = []
-    for source, func_name in context.update_context_list:
-        if source == os.path.basename(__file__).split('.')[0]:
-            try:
-                func = globals()[func_name]
-                if not isinstance(func, collections.Callable):
-                    raise Exception('update_context function: %s not callable' % func_name)
-                context.update_context_funcs.append(func)
-            except:
-                raise Exception('update_context function: %s not found' % func_name)
-    if not context.update_context_funcs:
-        raise Exception('update_context function not found')
-
-    context.disp=disp
-    config_worker(context.update_context_funcs, context.param_names, context.default_params, context.feature_names,
-                  context.objective_names, context.target_val, context.target_range, context.temp_output_path,
-                  context.export_file_path, context.output_dir, context.disp, **context.kwargs)
-    print 'optimize_BTSP2_CA1: processing the following data_keys: %s' % str(context.data_keys)
-    update_source_contexts(context.x0_array, context)
-
-
 def config_controller(export_file_path, output_dir, **kwargs):
     """
 
@@ -268,6 +123,9 @@ def init_context():
         allow_offset_cell_ids = [int(cell_id) for cell_id in f['data'] if '2' in f['data'][cell_id] and
                                  ('1' not in f['data'][cell_id] or
                                   'before' not in f['data'][cell_id]['1']['raw']['exp_ramp'])]
+    if context.verbose > 1:
+        print 'pid: %i; optimize_BTSP2_CA1: processing the following data_keys: %s' % \
+              (os.getpid(), str(context.data_keys))
     self_consistent_cell_ids = [cell_id for (cell_id, induction) in context.data_keys if induction == 1 and
                                  (cell_id, 2) in context.data_keys]
     down_dt = 10.  # ms, to speed up optimization
@@ -805,11 +663,10 @@ def filter_features_signal_amplitudes(primitives, current_features, export=False
     signal_amplitude_features = {'local_signal_max': np.max(each_cell_local_signal_peak),
                                  'global_signal_max': np.max(each_cell_global_signal_peak)
                                  }
-    if context.disp:
-        print 'Process: %i: signal_amplitude features for cell_id: %i, induction: %i; local_signal_max: %.2E,' \
-              'global_signal_max: %.2E' % (os.getpid(), context.cell_id, context.induction,
-                                           signal_amplitude_features['local_signal_max'],
-                                           signal_amplitude_features['global_signal_max'])
+    if context.verbose > 1:
+        print 'Process: %i: signal_amplitude features; local_signal_max: %.2E, global_signal_max: %.2E' % \
+              (os.getpid(), signal_amplitude_features['local_signal_max'],
+               signal_amplitude_features['global_signal_max'])
     return signal_amplitude_features
 
 
@@ -1147,7 +1004,7 @@ def calculate_model_ramp(local_signal_peak=None, global_signal_peak=None, export
         peak_loc['LSA'], end_loc['LSA'], min_val['LSA'], min_loc['LSA'] = \
             calculate_ramp_features(context, LSA_ramp, context.mean_induction_start_loc)
 
-    if context.disp:
+    if context.verbose > 0:
         print 'Process: %i; cell: %i; induction: %i:' % (os.getpid(), context.cell_id, context.induction)
         print 'exp: amp: %.1f, ramp_width: %.1f, peak_shift: %.1f, asymmetry: %.1f, start_loc: %.1f, peak_loc: %.1f, ' \
               'end_loc: %.1f, min_val: %.1f, min_loc: %.1f' % \
@@ -1505,14 +1362,13 @@ def get_model_ramp_error(x, check_bounds=None, plot=False, full_output=False):
 @click.option("--export", is_flag=True)
 @click.option("--export-file-path", type=str, default=None)
 @click.option("--label", type=str, default=None)
-@click.option("--disp", is_flag=True)
-@click.option("--verbose", type=int, default=1)
+@click.option("--verbose", type=int, default=2)
 @click.option("--serial-optimize", is_flag=True)
 @click.option("--plot", is_flag=True)
 @click.option("--debug", is_flag=True)
 @click.option("--check-lsa", is_flag=True)
 @click.pass_context
-def main(cli, config_file_path, output_dir, export, export_file_path, label, disp, verbose, serial_optimize, plot,
+def main(cli, config_file_path, output_dir, export, export_file_path, label, verbose, serial_optimize, plot,
          debug, check_lsa):
     """
 
@@ -1522,7 +1378,6 @@ def main(cli, config_file_path, output_dir, export, export_file_path, label, dis
     :param export: bool
     :param export_file_path: str
     :param label: str
-    :param disp: bool
     :param verbose: int
     :param serial_optimize: bool
     :param plot: bool
@@ -1532,9 +1387,10 @@ def main(cli, config_file_path, output_dir, export, export_file_path, label, dis
     # requires a global variable context: :class:'Context'
     context.update(locals())
     kwargs = get_unknown_click_arg_dict(cli.args)
-    config_interactive(config_file_path=config_file_path, output_dir=output_dir, export=export,
-                       export_file_path=export_file_path, label=label, disp=disp, verbose=verbose, **kwargs)
-    rel_bounds_handler = RelativeBoundedStep(context.x0_array, context.param_names, context.bounds, context.rel_bounds)
+    context.disp = verbose > 0
+    config_interactive(context, __file__, config_file_path=config_file_path, output_dir=output_dir, export=export,
+                       export_file_path=export_file_path, label=label, disp=context.disp, **kwargs)
+    rel_bounds_handler = context.rel_bounds_handler
 
     x1_array = context.x0_array
     if 'params_path' in context.kwargs and os.path.isfile(context.kwargs['params_path']):
