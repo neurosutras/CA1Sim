@@ -5,10 +5,19 @@ I) To install on a local machine:
 2) download neuron from:
 http://www.neuron.yale.edu/ftp/neuron/versions/alpha/nrn-7.4.rel-1390.tar.gz
 
-or install from mercurial
-cd ~/neuron
-hg clone http://www.neuron.yale.edu/hg/neuron/nrn -r trunk
-hg clone http://www.neuron.yale.edu/hg/neuron/iv
+
+
+or build from repository:
+mkdir ~/neuron
+mkdir ~/neuron/ivsrc
+mkdir ~/neuron/iv
+cd ~/neuron/ivsrc
+git clone https://github.com/nrnhines/iv.git .
+./build.sh
+./configure --prefix=$HOME/neuron/iv
+make
+make install
+
 
 following tips from:
 
@@ -16,13 +25,20 @@ http://www.neuron.yale.edu/neuron/download/compilestd_osx
 
 http://www.neuron.yale.edu/phpBB/viewtopic.php?f=4&t=3051#p12584
 
-and making sure to execute these commands before running 'make':
-
+mkdir ~/neuron/nrnsrc
+mkdir ~/neuron/nrn
+cd ~/neuron/nrnsrc
+git clone https://github.com/nrnhines/nrn.git .
+./build.sh
+./configure --prefix=$HOME/neuron/nrn --with-iv=$HOME/neuron/iv --with-nrnpython=dynamic --with-paranrn=dynamic
 export CFLAGS='-Qunused-arguments'
 export CXXFLAGS='-Qunused-arguments'
-
-cd nrn/src/nrnmpi
+cd ~/neuron/nrnsrc/src/nrnmpi
 sh mkdynam.sh
+cd ~/neuron/nrnsrc
+make
+make install
+
 
 3) Install btmorph from
 
@@ -30,7 +46,7 @@ http://btmorph.readthedocs.org/en/latest/readme.html#installation
 
 4) Make sure ~/neuron/nrnenv includes:
 
-export IDIR=/Applications/NEURON-7.4
+export IDIR=$HOME/neuron
 export IV=$IDIR/iv
 export N=$IDIR/nrn
 export CPU=x86_64
@@ -39,21 +55,17 @@ export PATH=$IV/$CPU/bin:$N/$CPU/bin:$PATH
 
 and ~/.bash_profile includes:
 
-export HOME=/Users/milsteina
-export PATH="$HOME/anaconda/bin:$PATH"
+export PATH=$HOME/anaconda/bin:$PATH
 export PATH=$HOME/local/bin:$PATH
 source $HOME/neuron/nrnenv
-export PATH="/Applications/NEURON-7.4:$PATH"
-export LD_LIBRARY_PATH=$HOME/local/lib/
-export LD_LIBRARY_PATH="$HOME/anaconda/lib:$LD_LIBRARY_PATH"
-export PYTHONHOME="$HOME/anaconda"
-export PYTHONPATH="$PYTHONPATH:/Applications/NEURON-7.4/nrn/lib/python"
-export PYTHONPATH="$PYTHONPATH:$HOME/python_modules/btmorph"
-export PATH="$PYTHONHOME:$PYTHONPATH:$LD_LIBRARY_PATH:$PATH"
+export PATH=$HOME/neuron:$PATH
+export PYTHONPATH=$HOME/neuron/nrn/lib/python:$PYTHONPATH
+export PYTHONPATH=$HOME/python_modules:$HOME/python_modules/btmorph:$PYTHONPATH
+export PATH=$PYTHONPATH:$PATH
 
 5) If error related to libreadline.6.2.dylib :
 
-cd /Applications/NEURON-7.4/nrn/lib/python/neuron/
+cd $HOME/neuron/nrn/lib/python/neuron/
 install_name_tool -change libreadline.6.2.dylib $HOME/anaconda2/lib/libreadline.6.2.dylib hoc.so
 
 II) To install on a linux cluster:
@@ -77,7 +89,24 @@ if cloning from mercurial:
 ./build.sh
 *
 
-./configure --prefix=$HOME/neuron/nrn --without-x --with-paranrn=dynamic --with-nrnpython=dynamic
+On Comet:
+module load python
+module load hdf5
+module load mpi4py
+
+./configure --prefix=$HOME/neuron/nrn --without-iv --with-paranrn --with-nrnpython --with-mpi
+
+
+On Cori:
+module swap PrgEnv-intel PrgEnv-gnu
+module load python
+export CC=cc
+export CXX=CC
+export LD_PRELOAD=/lib64/libreadline.so.6
+export CRAYPE_LINK_TYPE=dynamic
+export PYTHONPATH=/usr/common/software/python/2.7-anaconda-4.4/lib/python2.7/site-packages:$PYTHONPATH
+
+./configure --prefix=$HOME/neuron/nrn -with-paranrn --with-mpi --with-nrnpython=/usr/common/software/python/2.7-anaconda-4.4/bin/python --without-x --without-memacs --with-readline=no
 make
 make install
 
@@ -93,14 +122,11 @@ export PATH=$N/$CPU/bin:$PATH
 6) Make sure ~/.bash_profile includes:
 
 export PATH=/usr/local/anaconda/bin:$PATH
-export LD_LIBRARY_PATH=/usr/local/anaconda/lib
 source $HOME/neuron/nrnenv
 export PATH=$HOME/neuron/nrn:$PATH
-export PYTHONHOME=/usr/local/anaconda
-export PYTHONPATH=$PYTHONPATH:$HOME/neuron/nrn/lib/python
-export PYTHONPATH=$PYTHONPATH:$HOME/python_modules/btmorph
-export PYTHONPATH=$PYTHONPATH:$HOME/CA1Sim
-export PATH=$PYTHONHOME:$PYTHONPATH:$LD_LIBRARY_PATH:$PATH
+export PYTHONPATH=$HOME/neuron/nrn/lib/python:$PYTHONPATH
+export PYTHONPATH=$HOME/python_modules/btmorph:$PYTHONPATH
+export PYTHONPATH=$HOME/CA1Sim:$PYTHONPATH
 
 7) mpi4py is required to use the IPython.parallel framework across cores on more than one node, and it is already installed alongside anaconda on the Janelia cluster.
 In order to use the Intel MPI implementation on the Janelia cluster, make sure the following lines are included in ~/.bashrc
@@ -129,7 +155,10 @@ c.MPI.use = 'mpi4py'
 
 9) set the default backend for matplotlib to 'Agg' in the matplotlibrc file so that importing pyplot doesn't cause errors in a system without display capability
 Original config file should be in site-packages/matplotlib/mpl-data/matplotlibrc
-Copy it to $HOME/.config/matplotlib/matplotlibrc, then change the backend to 'Agg'
+Copy it to $HOME/.config/matplotlib/matplotlibrc, then change the backend to 'Agg'.
+
+On my mac, I have to manually edit matplotlibrc in site-packages/matplotlib/mpl-data to
+'Qt5Agg' every time I update anaconda.
 
 
 10) To run my simulations, make sure to execute nrnivmodl in the directory that contains the .mod and .py files.
@@ -234,14 +263,15 @@ https://pypi.python.org/pypi/h5py
 
 export CC=mpicc
 python setup.py configure --mpi --hdf5=/usr/local/hdf5
-sudo python setup.py build --build-base=/Users/milsteina/anaconda2/
-sudo python setup.py install --prefix=/Users/milsteina/anaconda2/
+sudo python setup.py build --build-base=/Users/milsteina/anaconda2
+sudo python setup.py install --prefix=/Users/milsteina/anaconda2
 
 test it with:
 # test_phdf5.py
 from mpi4py import MPI
 import h5py
 rank = MPI.COMM_WORLD.rank  # The process ID (integer 0-3 for 4-process run)
+print "Hello World (from process %d)" % rank
 f = h5py.File('parallel_test.hdf5', 'w', driver='mpio', comm=MPI.COMM_WORLD)
 dset = f.create_dataset('test', (4,), dtype='i')
 dset[rank] = rank
@@ -251,3 +281,9 @@ run with:
 mpiexec -n 4 python test_phdf5.py
 
 can use serial h5py to view the contents of the file in an ipython session.
+
+Useful:
+Copy list of files from Finder, paste as list of string filenames from clipboard:
+from Tkinter import Tk
+root = Tk()
+file_list = Tk.clipboard_get(root).split('\r')

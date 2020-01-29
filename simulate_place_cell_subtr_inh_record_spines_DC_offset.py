@@ -424,6 +424,8 @@ for group in stim_exc_syns:
     for i, syn in enumerate(stim_exc_syns[group]):
         syn.netcon('AMPA_KIN').weight[0] = cos_mod_weight[group][i]
 
+
+
 # run_trial(trial_seed)
 exc_rate_maps = run_trial(trial_seed, run_sim=False)
 

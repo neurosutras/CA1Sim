@@ -3,7 +3,7 @@ TITLE I-h channel from Magee 1998 for distal dendrites
 NEURON {
 	SUFFIX h
 	NONSPECIFIC_CURRENT i
-    RANGE ghbar, vhalfl, eh
+    RANGE ghbar, vhalfl, eh, i
     RANGE linf,taul
 }
 
@@ -32,6 +32,7 @@ STATE {
 ASSIGNED {
 	v 	    (mV)
     i       (mA/cm2)
+	ih      (mA/cm2)
     linf
     taul
     g
@@ -47,7 +48,7 @@ BREAKPOINT {
 	SOLVE states METHOD cnexp
 	g = ghbar*l
 	i = g*(v-eh)
-
+	: ih = i
 }
 
 DERIVATIVE states {
