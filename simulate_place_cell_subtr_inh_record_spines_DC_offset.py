@@ -3,6 +3,7 @@ from specify_cells import *
 from plot_results import *
 import random
 import sys
+from collections import defaultdict
 """
 In this version of the simulation, phase precession of CA3 inputs is implemented using the method from Chadwick et al.,
 Elife, 2015, which uses a circular gaussian with a phase sensitivity factor that effectively compresses the range of
@@ -14,40 +15,37 @@ morph_filename = 'EB2-late-bifurcation.swc'
 mech_filename = '043016 Type A - km2_NMDA_KIN5_Pr'
 
 
+synapses_seed = 0
+num_exc_syns = 3200
+num_inh_syns = 600
+mod_inh = 0
+
+
 if len(sys.argv) > 1:
-    synapses_seed = int(sys.argv[1])
+    condition = int(sys.argv[1])
 else:
-    synapses_seed = 0
-if len(sys.argv) > 2:
-    num_exc_syns = int(sys.argv[2])
-else:
-    num_exc_syns = 3200
-if len(sys.argv) > 3:
-    num_inh_syns = int(sys.argv[3])
-else:
-    num_inh_syns = 600
-# whether to modulate the firing rate of all inhibitory inputs (0 = no, 1 = out of field at track start, 2 = in field, 
-# 3 = entire length of track)
-if len(sys.argv) > 4:
-    mod_inh = int(sys.argv[4])
-else:
-    mod_inh = 0
-# the synaptic AMPAR conductances at in-field inputs are multiplied by a factor with this value at the peak of the
-# field, and decays with cosine spatial modulation away from the field
-if len(sys.argv) > 5:
-    mod_weights = float(sys.argv[5])
-else:
-    mod_weights = 2.5
+    condition = 0
+
 # allows parallel computation of multiple trials for the same spines with the same peak_locs, but with different
 # input spike trains and stochastic synapses for each trial
-if len(sys.argv) > 6:
-    trial_seed = int(sys.argv[6])
+if len(sys.argv) > 2:
+    trial_seed = int(sys.argv[2])
 else:
     trial_seed = 0
 
+if condition == 0:
+    mod_weights = 1.
+    DC_offset = 0.
+elif condition == 1:
+    mod_weights = 1.
+    DC_offset = 0.2
+elif condition == 2:
+    mod_weights = 2.5
+    DC_offset = 0.
+
 rec_filename = 'output'+datetime.datetime.today().strftime('%m%d%Y%H%M')+'-pid'+str(os.getpid())+'-seed'+\
-               str(synapses_seed)+'-e'+str(num_exc_syns)+'-i'+str(num_inh_syns)+'-subtr_mod_inh'+str(mod_inh)+\
-               '-type_A_'+str(mod_weights)+'_'+str(trial_seed)
+               str(synapses_seed)+'-e'+str(num_exc_syns)+'-i'+str(num_inh_syns)+'-condition'+str(mod_inh)+\
+               '-seed_'+str(trial_seed)
 
 
 def get_dynamic_theta_phase_force(phase_ranges, peak_loc, input_field_duration, stim_t, dt):
@@ -216,7 +214,7 @@ input_field_duration = input_field_width * global_theta_cycle_duration
 track_length = 2.5  # field widths
 track_duration = track_length * input_field_duration
 track_equilibrate = 2. * global_theta_cycle_duration
-duration = equilibrate + track_equilibrate + track_duration  # input_field_duration
+duration = equilibrate + track_equilibrate # + 1000. # + track_duration  # input_field_duration
 excitatory_peak_rate = {'CA3': 40., 'ECIII': 40.}
 excitatory_theta_modulation_depth = {'CA3': 0.7, 'ECIII': 0.7}
 # From Chadwick et al., ELife 2015
@@ -246,8 +244,8 @@ inhibitory_theta_phase_offset['distal apical dendritic'] = 180. / 360. * 2. * np
 inhibitory_theta_phase_offset['tuft feedforward'] = 340. / 360. * 2. * np.pi  # Like Neurogliaform
 inhibitory_theta_phase_offset['tuft feedback'] = 200. / 360. * 2. * np.pi  # Like SST+ O-LM
 
-stim_dt = 0.02
-dt = 0.02
+stim_dt = 0.05
+dt = 0.05
 v_init = -67.
 
 syn_types = ['AMPA_KIN', NMDA_type]
@@ -266,8 +264,8 @@ if trunk_bifurcation:
     trunk_branches = [branch for branch in trunk_bifurcation[0].children if branch.type == 'trunk']
     # get where the thickest trunk branch gives rise to the tuft
     trunk = max(trunk_branches, key=lambda node: node.sec(0.).diam)
-    trunk = (node for node in cell.trunk if cell.node_in_subtree(trunk, node) and 'tuft' in (child.type
-                                                                                    for child in node.children)).next()
+    trunk = next((node for node in cell.trunk if cell.node_in_subtree(trunk, node) and 'tuft' in (child.type
+                                                                                    for child in node.children)))
 else:
     trunk_bifurcation = [node for node in cell.trunk if 'tuft' in (child.type for child in node.children)]
     trunk = trunk_bifurcation[0]
@@ -317,11 +315,13 @@ cell.spike_detector.record(spike_output_vec)
 
 # get the fraction of total spines contained in each sec_type
 total_exc_syns = {sec_type: len(all_exc_syns[sec_type]) for sec_type in ['basal', 'trunk', 'apical', 'tuft']}
-fraction_exc_syns = {sec_type: float(total_exc_syns[sec_type]) / float(np.sum(total_exc_syns.values())) for sec_type in
-                 ['basal', 'trunk', 'apical', 'tuft']}
+fraction_exc_syns = \
+    {sec_type: float(total_exc_syns[sec_type]) /
+               float(np.sum(list(total_exc_syns.values()))) for sec_type in ['basal', 'trunk', 'apical', 'tuft']}
 
 for sec_type in all_exc_syns:
-    for i in local_random.sample(range(len(all_exc_syns[sec_type])), int(num_exc_syns*fraction_exc_syns[sec_type])):
+    for i in local_random.sample(list(range(len(all_exc_syns[sec_type]))),
+                                 int(num_exc_syns*fraction_exc_syns[sec_type])):
         syn = all_exc_syns[sec_type][i]
         if sec_type == 'tuft':
             stim_exc_syns['ECIII'].append(syn)
@@ -331,12 +331,14 @@ for sec_type in all_exc_syns:
 # get the fraction of inhibitory synapses contained in each sec_type
 total_inh_syns = {sec_type: len(all_inh_syns[sec_type]) for sec_type in ['soma', 'ais', 'basal', 'trunk', 'apical',
                                                                          'tuft']}
-fraction_inh_syns = {sec_type: float(total_inh_syns[sec_type]) / float(np.sum(total_inh_syns.values())) for sec_type in
-                 ['soma', 'ais', 'basal', 'trunk', 'apical', 'tuft']}
-num_inh_syns = min(num_inh_syns, int(np.sum(total_inh_syns.values())))
+fraction_inh_syns = {sec_type: float(total_inh_syns[sec_type]) /
+                               float(np.sum(list(total_inh_syns.values()))) for sec_type in
+                     ['soma', 'ais', 'basal', 'trunk', 'apical', 'tuft']}
+num_inh_syns = min(num_inh_syns, int(np.sum(list(total_inh_syns.values()))))
 
 for sec_type in all_inh_syns:
-    for i in local_random.sample(range(len(all_inh_syns[sec_type])), int(num_inh_syns*fraction_inh_syns[sec_type])):
+    for i in local_random.sample(list(range(len(all_inh_syns[sec_type]))),
+                                 int(num_inh_syns*fraction_inh_syns[sec_type])):
         syn = all_inh_syns[sec_type][i]
         if syn.node.type == 'tuft':
             if cell.is_terminal(syn.node):
@@ -401,7 +403,7 @@ for group in stim_exc_syns:
 # stim_inh_successes = [] will need this when inhibitory synapses become stochastic
 
 # modulate the weights of inputs with peak_locs along this stretch of the track
-modulated_field_center = track_duration * 0.6
+modulated_field_center = 500.  # track_duration * 0.6
 cos_mod_weight = {}
 peak_mod_weight = mod_weights
 tuning_amp = (peak_mod_weight - 1.) / 2.
@@ -417,14 +419,56 @@ for group in stim_exc_syns:
     cos_mod_weight[group][right:] = 1.
     peak_locs[group] = list(peak_locs[group])
     cos_mod_weight[group] = list(cos_mod_weight[group])
-    indexes = range(len(peak_locs[group]))
+    indexes = list(range(len(peak_locs[group])))
     local_random.shuffle(indexes)
-    peak_locs[group] = map(peak_locs[group].__getitem__, indexes)
-    cos_mod_weight[group] = map(cos_mod_weight[group].__getitem__, indexes)
+    peak_locs[group] = list(map(peak_locs[group].__getitem__, indexes))
+    cos_mod_weight[group] = list(map(cos_mod_weight[group].__getitem__, indexes))
     for i, syn in enumerate(stim_exc_syns[group]):
         syn.netcon('AMPA_KIN').weight[0] = cos_mod_weight[group][i]
 
+if DC_offset > 0.:
+    sim.append_stim(cell, cell.tree.root, 0.5, DC_offset, equilibrate, duration - equilibrate)
 
+peak_locs_array = np.array(peak_locs['CA3'])
+candidate_indexes = np.where((peak_locs_array > (modulated_field_center - 100.)) &
+                             (peak_locs_array < (modulated_field_center + 100.)))[0]
+syn_list = []
+distance_list = []
+dend_sec_type = []
+for index in candidate_indexes:
+    this_syn = stim_exc_syns['CA3'][index]
+    syn_list.append(this_syn)
+    this_node = this_syn.node
+    distance_list.append(cell.get_distance_to_node(cell.tree.root, this_node))
+    dend_sec_type.append(this_syn.node.parent.parent.type)
+
+target_distance = 50.
+distance_inc = 50.
+max_distance = max(distance_list)
+distance_tolerance = 25.
+dend_sec_types = ['apical', 'basal']
+spine_rec_candidates = defaultdict(dict)
+while target_distance <= max_distance:
+    for target_sec_type in dend_sec_types:
+        target_indexes = np.where(np.array(dend_sec_type) == target_sec_type)[0]
+        distance_to_target = np.subtract(distance_list, target_distance)[target_indexes]
+        sorted_indexes = np.argsort(distance_to_target)
+        distance_to_target = distance_to_target[sorted_indexes]
+        best_index = np.where((distance_to_target >= 0.) & (distance_to_target <= distance_tolerance))[0]
+        if len(best_index) > 0:
+            best_syn = np.array(syn_list)[target_indexes][sorted_indexes][best_index[0]]
+            spine_rec_candidates[target_sec_type][target_distance] = best_syn
+    target_distance += distance_inc
+
+for this_sec_type in spine_rec_candidates:
+    for this_target_distance in spine_rec_candidates[this_sec_type]:
+        this_syn = spine_rec_candidates[this_sec_type][this_target_distance]
+        dend_node = this_syn.node.parent.parent
+        this_distance = cell.get_distance_to_node(cell.tree.root, this_syn.node)
+        description = '%s_%s_%i' % (this_syn.node, dend_node.name, int(this_distance))
+        sim.append_rec(cell, this_syn.node, 0.5, description=description)
+        description = '%s_%i' % (dend_node.name, int(this_distance))
+        sim.append_rec(cell, dend_node, this_syn.loc, description=description)
 
 # run_trial(trial_seed)
 exc_rate_maps = run_trial(trial_seed, run_sim=False)

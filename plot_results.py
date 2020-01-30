@@ -1,11 +1,10 @@
-__author__ = 'milsteina'
+__author__ = 'Aaron D. Milstein'
 import matplotlib as mpl
 import matplotlib.lines as mlines
 import scipy.stats as stats
 import matplotlib.gridspec as gridspec
 from matplotlib import cm
 from function_lib import *
-# from specify_cells2 import *
 
 mpl.rcParams['svg.fonttype'] = 'none'
 mpl.rcParams['font.size'] = 12.
@@ -42,7 +41,7 @@ def plot_AR(rec_file_list, description_list="", title=None):
     default_sec_types = ['basal', 'trunk', 'apical', 'tuft']
     with h5py.File(data_dir+rec_file_list[0]+'.hdf5', 'r') as f:
         temp_sec_types = []
-        for sim in [sim for sim in f.itervalues() if sim.attrs['stim_loc'] == 'spine']:
+        for sim in [sim for sim in f.values() if sim.attrs['stim_loc'] == 'spine']:
             rec = sim['rec']['0'] if sim['rec']['0'].attrs['description'] == 'branch' else sim['rec']['1']
             sec_type = rec.attrs['type']
             if not sec_type in temp_sec_types:
@@ -78,12 +77,12 @@ def plot_AR(rec_file_list, description_list="", title=None):
                 if not spine_index in index_dict:
                     index_dict[spine_index] = {}
                 index_dict[spine_index][stim_loc] = simiter
-            for indices in index_dict.itervalues():
+            for indices in index_dict.values():
                 spine_stim = f[indices['spine']]['rec']
                 spine_tvec = f[indices['spine']]['time']
                 branch_stim = f[indices['branch']]['rec']
                 branch_tvec = f[indices['branch']]['time']
-                for rec in spine_stim.itervalues():
+                for rec in spine_stim.values():
                     if rec.attrs['description'] == 'branch':
                         branch_rec = rec
                         sec_type = rec.attrs['type']
@@ -157,7 +156,7 @@ def plot_AR_EPSP_amp(rec_file_list, description_list="", title=None):
     default_sec_types = ['basal', 'trunk', 'apical', 'tuft']
     with h5py.File(data_dir+rec_file_list[0]+'.hdf5', 'r') as f:
         temp_sec_types = []
-        for sim in [sim for sim in f.itervalues() if sim.attrs['stim_loc'] == 'spine']:
+        for sim in [sim for sim in f.values() if sim.attrs['stim_loc'] == 'spine']:
             rec = sim['rec']['0'] if sim['rec']['0'].attrs['description'] == 'branch' else sim['rec']['1']
             sec_type = rec.attrs['type']
             if not sec_type in temp_sec_types:
@@ -192,16 +191,16 @@ def plot_AR_EPSP_amp(rec_file_list, description_list="", title=None):
                 if not spine_index in index_dict:
                     index_dict[spine_index] = {}
                 index_dict[spine_index][stim_loc] = simiter
-            for indices in index_dict.itervalues():
+            for indices in index_dict.values():
                 spine_stim = f[indices['spine']]['rec']
-                for rec in spine_stim.itervalues():
+                for rec in spine_stim.values():
                     if rec.attrs['description'] == 'branch':
                         branch_rec = rec
                         sec_type = rec.attrs['type']
                 distances[sec_type].append(branch_rec.attrs['branch_distance'])
                 for stim_loc, stim, tvec in [(stim_loc, f[indices[stim_loc]]['rec'], f[indices[stim_loc]]['time'])
                                              for stim_loc in ['spine', 'branch']]:
-                    for rec in stim.itervalues():
+                    for rec in stim.values():
                         if rec.attrs['description'] == 'branch':
                             branch_rec = rec
                         else:
@@ -261,7 +260,7 @@ def plot_AR_vm(rec_file_list, description_list="", title=None):
     default_sec_types = ['basal', 'trunk', 'apical', 'tuft']
     with h5py.File(data_dir+rec_file_list[0]+'.hdf5', 'r') as f:
         temp_sec_types = []
-        for sim in f.itervalues():
+        for sim in f.values():
             rec = sim['rec']['0'] if sim['rec']['0'].attrs['description'] == 'branch' else sim['rec']['1']
             sec_type = rec.attrs['type']
             if not sec_type in temp_sec_types:
@@ -288,14 +287,14 @@ def plot_AR_vm(rec_file_list, description_list="", title=None):
                 if not spine_index in index_dict:
                     index_dict[spine_index] = {}
                 index_dict[spine_index][stim_loc] = simiter
-            for indices in index_dict.itervalues():
+            for indices in index_dict.values():
                 spine_stim = f[indices['spine']]['rec']
-                for rec in spine_stim.itervalues():
+                for rec in spine_stim.values():
                     if rec.attrs['description'] == 'branch':
                         sec_type = rec.attrs['type']
                 for stim_loc, stim, tvec in [(stim_loc, f[indices[stim_loc]]['rec'], f[indices[stim_loc]]['time'])
                                              for stim_loc in ['spine', 'branch']]:
-                    for rec in stim.itervalues():
+                    for rec in stim.values():
                         if rec.attrs['description'] == 'branch':
                             branch_rec = rec
                         else:
@@ -368,7 +367,7 @@ def plot_Rinp(rec_file_list, sec_types_list=None, features_list=None, features_l
         feature_dict = {feature: {} for feature in features_list}
         distances_dict = {feature: {} for feature in features_list}
         with h5py.File(data_dir + rec_file + '.hdf5', 'r') as f:
-            for item in f['Rinp_data'].itervalues():
+            for item in f['Rinp_data'].values():
                 if ((item.attrs['type'] in sec_types_list) or
                         ('axon' in sec_types_list and item.attrs['type'] in axon_types_list) or
                         ('dendrite' in sec_types_list and item.attrs['type'] in dend_types_list)):
@@ -490,10 +489,10 @@ def plot_superimpose_conditions(rec_filename, legend=False):
     f = h5py.File(data_dir+rec_filename+'.hdf5', 'r')
     rec_ids = []
     sim_ids = []
-    for sim in f.itervalues():
+    for sim in f.values():
         if 'description' in sim.attrs and not sim.attrs['description'] in sim_ids:
             sim_ids.append(sim.attrs['description'])
-        for rec in sim['rec'].itervalues():
+        for rec in sim['rec'].values():
             if 'description' in rec.attrs:
                 rec_id = rec.attrs['description']
             else:
@@ -505,13 +504,13 @@ def plot_superimpose_conditions(rec_filename, legend=False):
         axes[i].set_xlabel('Time (ms)')
         axes[i].set_ylabel(rec_ids[i]['ylabel'])
         axes[i].set_title(rec_ids[i]['id'])
-    for sim in f.itervalues():
+    for sim in f.values():
         if 'description' in sim.attrs:
             sim_id = sim.attrs['description']
         else:
             sim_id = ''
         tvec = sim['time']
-        for rec in sim['rec'].itervalues():
+        for rec in sim['rec'].values():
             if ('description' in rec.attrs):
                 rec_id = rec.attrs['description']
             else:
@@ -547,11 +546,11 @@ def plot_EPSP_attenuation(rec_file_list, description_list="", title=None):
     with h5py.File(data_dir+rec_file_list[0]+'.hdf5', 'r') as f:
         temp_input_locs = []
         temp_rec_locs = []
-        for sim in f.itervalues():
+        for sim in f.values():
             input_loc = sim.attrs['input_loc']
             if not input_loc in temp_input_locs:
                 temp_input_locs.append(input_loc)
-            for rec in sim['rec'].itervalues():
+            for rec in sim['rec'].values():
                 rec_loc = rec.attrs['description']
                 if not rec_loc in temp_rec_locs:
                     temp_rec_locs.append(rec_loc)
@@ -574,11 +573,11 @@ def plot_EPSP_attenuation(rec_file_list, description_list="", title=None):
         with h5py.File(data_dir+rec_filename+'.hdf5', 'r') as f:
             equilibrate = f['0'].attrs['equilibrate']
             duration = f['0'].attrs['duration']
-            for sim in f.itervalues():
+            for sim in f.values():
                 tvec = sim['time']
                 input_loc = sim.attrs['input_loc']
                 distances[input_loc].append(sim['rec']['3'].attrs['branch_distance'])
-                for rec in sim['rec'].itervalues():
+                for rec in sim['rec'].values():
                     rec_loc = rec.attrs['description']
                     interp_t = np.arange(0., duration, 0.001)
                     interp_vm = np.interp(interp_t, tvec[:], rec[:])
@@ -622,11 +621,11 @@ def plot_EPSP_attenuation_GC_branch(rec_file_list, title=None):
     with h5py.File(data_dir+rec_file_list[0]+'.hdf5', 'r') as f:
         temp_input_locs = []
         temp_rec_locs = []
-        for sim in f.itervalues():
+        for sim in f.values():
             input_loc = sim.attrs['input_loc']
             if not input_loc in temp_input_locs:
                 temp_input_locs.append(input_loc)
-            for rec in sim['rec'].itervalues():
+            for rec in sim['rec'].values():
                 rec_loc = rec.attrs['description']
                 if not rec_loc in temp_rec_locs:
                     temp_rec_locs.append(rec_loc)
@@ -653,10 +652,10 @@ def plot_EPSP_attenuation_GC_branch(rec_file_list, title=None):
         with h5py.File(data_dir+rec_filename+'.hdf5', 'r') as f:
             equilibrate = f['0'].attrs['equilibrate']
             duration = f['0'].attrs['duration']
-            for sim in f.itervalues():
+            for sim in f.values():
                 tvec = sim['time']
                 input_loc = sim.attrs['input_loc']
-                for rec in sim['rec'].itervalues():
+                for rec in sim['rec'].values():
                     rec_loc = rec.attrs['description']
                     branch_order = str(sim['rec']['2'].attrs['branch_order'])
                     if branch_order not in distances_soma[input_loc][rec_loc].keys():
@@ -675,7 +674,7 @@ def plot_EPSP_attenuation_GC_branch(rec_file_list, title=None):
                     amps[input_loc][rec_loc][branch_order].append(np.max(interp_vm[start:end]) - baseline)
             for i, input_loc in enumerate(input_locs):
                 for j, rec_loc in enumerate(rec_locs):
-                    string_keys = distances_soma[input_loc][rec_loc].keys()
+                    string_keys = list(distances_soma[input_loc][rec_loc].keys())
                     branch_keys = [int(key) for key in string_keys]
                     branch_keys.sort()
                     for ind, branch_order in enumerate([str(key) for key in branch_keys]):
@@ -717,11 +716,11 @@ def plot_EPSP_attenuation_GC_terminal(rec_file_list, title=None):
     with h5py.File(data_dir+rec_file_list[0]+'.hdf5', 'r') as f:
         temp_input_locs = []
         temp_rec_locs = []
-        for sim in f.itervalues():
+        for sim in f.values():
             input_loc = sim.attrs['input_loc']
             if not input_loc in temp_input_locs:
                 temp_input_locs.append(input_loc)
-            for rec in sim['rec'].itervalues():
+            for rec in sim['rec'].values():
                 rec_loc = rec.attrs['description']
                 if not rec_loc in temp_rec_locs:
                     temp_rec_locs.append(rec_loc)
@@ -748,10 +747,10 @@ def plot_EPSP_attenuation_GC_terminal(rec_file_list, title=None):
         with h5py.File(data_dir+rec_filename+'.hdf5', 'r') as f:
             equilibrate = f['0'].attrs['equilibrate']
             duration = f['0'].attrs['duration']
-            for sim in f.itervalues():
+            for sim in f.values():
                 tvec = sim['time']
                 input_loc = sim.attrs['input_loc']
-                for rec in sim['rec'].itervalues():
+                for rec in sim['rec'].values():
                     rec_loc = rec.attrs['description']
                     is_terminal = str(sim['rec']['2'].attrs['is_terminal'])
                     if is_terminal not in distances_soma[input_loc][rec_loc].keys():
@@ -770,7 +769,7 @@ def plot_EPSP_attenuation_GC_terminal(rec_file_list, title=None):
                     amps[input_loc][rec_loc][is_terminal].append(np.max(interp_vm[start:end]) - baseline)
             for i, input_loc in enumerate(input_locs):
                 for j, rec_loc in enumerate(rec_locs):
-                    string_keys = distances_soma[input_loc][rec_loc].keys()
+                    string_keys = list(distances_soma[input_loc][rec_loc].keys())
                     terminal_keys = [int(key) for key in string_keys]
                     terminal_keys.sort()
                     terminal_labels = []
@@ -820,11 +819,11 @@ def plot_EPSP_kinetics(rec_file_list, description_list="", title=None):
     with h5py.File(data_dir+rec_file_list[0]+'.hdf5', 'r') as f:
         temp_input_locs = []
         temp_rec_locs = []
-        for sim in f.itervalues():
+        for sim in f.values():
             input_loc = sim.attrs['input_loc']
             if not input_loc in temp_input_locs:
                 temp_input_locs.append(input_loc)
-            for rec in sim['rec'].itervalues():
+            for rec in sim['rec'].values():
                 rec_loc = rec.attrs['description']
                 if not rec_loc in temp_rec_locs:
                     temp_rec_locs.append(rec_loc)
@@ -851,11 +850,11 @@ def plot_EPSP_kinetics(rec_file_list, description_list="", title=None):
         with h5py.File(data_dir+rec_filename+'.hdf5', 'r') as f:
             equilibrate = f['0'].attrs['equilibrate']
             duration = f['0'].attrs['duration']
-            for sim in f.itervalues():
+            for sim in f.values():
                 tvec = sim['time']
                 input_loc = sim.attrs['input_loc']
                 distances[input_loc].append(sim['rec']['3'].attrs['branch_distance'])
-                for rec in sim['rec'].itervalues():
+                for rec in sim['rec'].values():
                     rec_loc = rec.attrs['description']
                     left, right = time2index(tvec[:], equilibrate-3.0, equilibrate-1.0)
                     interp_t = np.arange(0., duration, 0.001)
@@ -930,11 +929,11 @@ def plot_EPSP_kinetics_GC_branch(rec_file_list, title=None):
     with h5py.File(data_dir+rec_file_list[0]+'.hdf5', 'r') as f:
         temp_input_locs = []
         temp_rec_locs = []
-        for sim in f.itervalues():
+        for sim in f.values():
             input_loc = sim.attrs['input_loc']
             if not input_loc in temp_input_locs:
                 temp_input_locs.append(input_loc)
-            for rec in sim['rec'].itervalues():
+            for rec in sim['rec'].values():
                 rec_loc = rec.attrs['description']
                 if not rec_loc in temp_rec_locs:
                     temp_rec_locs.append(rec_loc)
@@ -965,10 +964,10 @@ def plot_EPSP_kinetics_GC_branch(rec_file_list, title=None):
         with h5py.File(data_dir+rec_filename+'.hdf5', 'r') as f:
             equilibrate = f['0'].attrs['equilibrate']
             duration = f['0'].attrs['duration']
-            for sim in f.itervalues():
+            for sim in f.values():
                 tvec = sim['time']
                 input_loc = sim.attrs['input_loc']
-                for rec in sim['rec'].itervalues():
+                for rec in sim['rec'].values():
                     rec_loc = rec.attrs['description']
                     branch_order = str(sim['rec']['2'].attrs['branch_order'])
                     if branch_order not in distances_soma[input_loc][rec_loc].keys():
@@ -1009,7 +1008,7 @@ def plot_EPSP_kinetics_GC_branch(rec_file_list, title=None):
                     decay_taus[input_loc][rec_loc][branch_order].append(decay_tau)
             for i, input_loc in enumerate(input_locs):
                 for j, rec_loc in enumerate(rec_locs):
-                    string_keys = distances_soma[input_loc][rec_loc].keys()
+                    string_keys = list(distances_soma[input_loc][rec_loc].keys())
                     branch_keys = [int(key) for key in string_keys]
                     branch_keys.sort()
                     for ind, branch_order in enumerate([str(key) for key in branch_keys]):
@@ -1067,11 +1066,11 @@ def plot_EPSP_kinetics_GC_terminal(rec_file_list, title=None):
     with h5py.File(data_dir+rec_file_list[0]+'.hdf5', 'r') as f:
         temp_input_locs = []
         temp_rec_locs = []
-        for sim in f.itervalues():
+        for sim in f.values():
             input_loc = sim.attrs['input_loc']
             if not input_loc in temp_input_locs:
                 temp_input_locs.append(input_loc)
-            for rec in sim['rec'].itervalues():
+            for rec in sim['rec'].values():
                 rec_loc = rec.attrs['description']
                 if not rec_loc in temp_rec_locs:
                     temp_rec_locs.append(rec_loc)
@@ -1102,10 +1101,10 @@ def plot_EPSP_kinetics_GC_terminal(rec_file_list, title=None):
         with h5py.File(data_dir+rec_filename+'.hdf5', 'r') as f:
             equilibrate = f['0'].attrs['equilibrate']
             duration = f['0'].attrs['duration']
-            for sim in f.itervalues():
+            for sim in f.values():
                 tvec = sim['time']
                 input_loc = sim.attrs['input_loc']
-                for rec in sim['rec'].itervalues():
+                for rec in sim['rec'].values():
                     rec_loc = rec.attrs['description']
                     is_terminal = str(sim['rec']['2'].attrs['is_terminal'])
                     if is_terminal not in distances_soma[input_loc][rec_loc].keys():
@@ -1146,7 +1145,7 @@ def plot_EPSP_kinetics_GC_terminal(rec_file_list, title=None):
                     decay_taus[input_loc][rec_loc][is_terminal].append(decay_tau)
             for i, input_loc in enumerate(input_locs):
                 for j, rec_loc in enumerate(rec_locs):
-                    string_keys = distances_soma[input_loc][rec_loc].keys()
+                    string_keys = list(distances_soma[input_loc][rec_loc].keys())
                     terminal_keys = [int(key) for key in string_keys]
                     terminal_keys.sort()
                     terminal_labels = []
@@ -1212,7 +1211,7 @@ def plot_EPSP_av_vm(rec_file_list, description_list="", title=None):
     with h5py.File(data_dir+rec_file_list[0]+'.hdf5', 'r') as f:
         temp_input_locs = []
         temp_rec_locs = []
-        for sim in f.itervalues():
+        for sim in f.values():
             input_loc = sim.attrs['input_loc']
             if not input_loc in temp_input_locs:
                 if input_loc in ['trunk', 'apical']:
@@ -1220,7 +1219,7 @@ def plot_EPSP_av_vm(rec_file_list, description_list="", title=None):
                     temp_input_locs.append(input_loc+'_dist')
                 else:
                     temp_input_locs.append(input_loc)
-            for rec in sim['rec'].itervalues():
+            for rec in sim['rec'].values():
                 rec_loc = rec.attrs['description']
                 if not rec_loc in temp_rec_locs:
                     temp_rec_locs.append(rec_loc)
@@ -1239,7 +1238,7 @@ def plot_EPSP_av_vm(rec_file_list, description_list="", title=None):
         with h5py.File(data_dir+rec_filename+'.hdf5', 'r') as f:
             equilibrate = f['0'].attrs['equilibrate']
             duration = f['0'].attrs['duration']
-            for sim in f.itervalues():
+            for sim in f.values():
                 tvec = sim['time']
                 input_loc = sim.attrs['input_loc']
                 if input_loc in ['trunk', 'apical']:
@@ -1250,7 +1249,7 @@ def plot_EPSP_av_vm(rec_file_list, description_list="", title=None):
                         input_loc += '_prox'
                     else:
                         input_loc += '_dist'
-                for rec in sim['rec'].itervalues():
+                for rec in sim['rec'].values():
                     rec_loc = rec.attrs['description']
                     interp_t = np.arange(0., duration, 0.001)
                     interp_vm = np.interp(interp_t, tvec[:], rec[:])
@@ -1303,11 +1302,11 @@ def plot_EPSP_i_attenuation(rec_file_list, description_list="", title=None):
     with h5py.File(data_dir+rec_file_list[0]+'.hdf5', 'r') as f:
         temp_input_locs = []
         temp_rec_locs = []
-        for sim in f.itervalues():
+        for sim in f.values():
             input_loc = sim.attrs['input_loc']
             if not input_loc in temp_input_locs:
                 temp_input_locs.append(input_loc)
-            for rec in sim['rec'].itervalues():
+            for rec in sim['rec'].values():
                 rec_loc = rec.attrs['description']
                 if not rec_loc in temp_rec_locs:
                     temp_rec_locs.append(rec_loc)
@@ -1330,10 +1329,10 @@ def plot_EPSP_i_attenuation(rec_file_list, description_list="", title=None):
         with h5py.File(data_dir+rec_filename+'.hdf5', 'r') as f:
             equilibrate = f['0'].attrs['equilibrate']
             duration = f['0'].attrs['duration']
-            for sim in f.itervalues():
+            for sim in f.values():
                 tvec = sim['time']
                 input_loc = sim.attrs['input_loc']
-                for rec in sim['rec'].itervalues():
+                for rec in sim['rec'].values():
                     rec_loc = rec.attrs['description']
                     if rec_loc == 'branch':
                         distances[input_loc].append(rec.attrs['soma_distance'])
@@ -1382,11 +1381,11 @@ def plot_EPSP_i_kinetics(rec_file_list, description_list="", title=None):
     with h5py.File(data_dir+rec_file_list[0]+'.hdf5', 'r') as f:
         temp_input_locs = []
         temp_rec_locs = []
-        for sim in f.itervalues():
+        for sim in f.values():
             input_loc = sim.attrs['input_loc']
             if not input_loc in temp_input_locs:
                 temp_input_locs.append(input_loc)
-            for rec in sim['rec'].itervalues():
+            for rec in sim['rec'].values():
                 rec_loc = rec.attrs['description']
                 if not rec_loc in temp_rec_locs:
                     temp_rec_locs.append(rec_loc)
@@ -1413,10 +1412,10 @@ def plot_EPSP_i_kinetics(rec_file_list, description_list="", title=None):
         with h5py.File(data_dir+rec_filename+'.hdf5', 'r') as f:
             equilibrate = f['0'].attrs['equilibrate']
             duration = f['0'].attrs['duration']
-            for sim in f.itervalues():
+            for sim in f.values():
                 tvec = sim['time']
                 input_loc = sim.attrs['input_loc']
-                for rec in sim['rec'].itervalues():
+                for rec in sim['rec'].values():
                     rec_loc = rec.attrs['description']
                     if rec_loc == 'branch':
                         distances[input_loc].append(rec.attrs['soma_distance'])
@@ -1494,11 +1493,11 @@ def plot_EPSP_i_vm(rec_file_list, description_list="", title=None):
     with h5py.File(data_dir+rec_file_list[0]+'.hdf5', 'r') as f:
         temp_input_locs = []
         temp_rec_locs = []
-        for sim in f.itervalues():
+        for sim in f.values():
             input_loc = sim.attrs['input_loc']
             if not input_loc in temp_input_locs:
                 temp_input_locs.append(input_loc)
-            for rec in sim['rec'].itervalues():
+            for rec in sim['rec'].values():
                 rec_loc = rec.attrs['description']
                 if not rec_loc in temp_rec_locs:
                     temp_rec_locs.append(rec_loc)
@@ -1515,11 +1514,11 @@ def plot_EPSP_i_vm(rec_file_list, description_list="", title=None):
         with h5py.File(data_dir+rec_filename+'.hdf5', 'r') as f:
             equilibrate = f['0'].attrs['equilibrate']
             duration = f['0'].attrs['duration']
-            for sim in f.itervalues():
+            for sim in f.values():
                 tvec = sim['time']
                 input_loc = sim.attrs['input_loc']
                 i = input_locs.index(input_loc)
-                for rec in sim['rec'].itervalues():
+                for rec in sim['rec'].values():
                     rec_loc = rec.attrs['description']
                     j = rec_locs.index(rec_loc)
                     interp_t = np.arange(0., duration, 0.01)
@@ -1564,7 +1563,7 @@ def plot_EPSP_i_av_vm(rec_file_list, description_list="", title=None):
     with h5py.File(data_dir+rec_file_list[0]+'.hdf5', 'r') as f:
         temp_input_locs = []
         temp_rec_locs = []
-        for sim in f.itervalues():
+        for sim in f.values():
             input_loc = sim.attrs['input_loc']
             if not input_loc in temp_input_locs:
                 if input_loc in ['trunk', 'apical']:
@@ -1572,7 +1571,7 @@ def plot_EPSP_i_av_vm(rec_file_list, description_list="", title=None):
                     temp_input_locs.append(input_loc+'_dist')
                 else:
                     temp_input_locs.append(input_loc)
-            for rec in sim['rec'].itervalues():
+            for rec in sim['rec'].values():
                 rec_loc = rec.attrs['description']
                 if not rec_loc in temp_rec_locs:
                     temp_rec_locs.append(rec_loc)
@@ -1589,11 +1588,11 @@ def plot_EPSP_i_av_vm(rec_file_list, description_list="", title=None):
         with h5py.File(data_dir+rec_filename+'.hdf5', 'r') as f:
             equilibrate = f['0'].attrs['equilibrate']
             duration = f['0'].attrs['duration']
-            for sim in f.itervalues():
+            for sim in f.values():
                 tvec = sim['time']
                 input_loc = sim.attrs['input_loc']
                 i = input_locs.index(input_loc)
-                for rec in sim['rec'].itervalues():
+                for rec in sim['rec'].values():
                     rec_loc = rec.attrs['description']
                     j = rec_locs.index(rec_loc)
                     interp_t = np.arange(0., duration, 0.01)
@@ -1631,7 +1630,7 @@ def plot_synaptic_parameter(rec_file_list, description_list=None):
     if description_list is None:
         description_list = [" " for rec in rec_file_list]
     with h5py.File(data_dir+rec_file_list[0]+'.hdf5', 'r') as f:
-        param_list = [dataset for dataset in f.itervalues().next() if not dataset == 'distances']
+        param_list = [dataset for dataset in next(iter(f.values())) if not dataset == 'distances']
         fig, axes = plt.subplots(max(2,len(param_list)), max(2, len(f)))
     colors = ['k', 'r', 'c', 'y', 'm', 'g', 'b']
     for index, rec_filename in enumerate(rec_file_list):
@@ -1663,11 +1662,12 @@ def plot_synaptic_parameter_GC(rec_file_list, param_names=None, description_list
     # default_rec_locs = ['soma']
     with h5py.File(data_dir+rec_file_list[0]+'.hdf5', 'r') as f:
         if param_names is None:
-            param_names = [param_name for param_name in f.values()[0].attrs.keys() if not (param_name == 'input_loc' or param_name == 'equilibrate'
-                           or param_name == 'duration')]
+            param_names = [param_name for param_name in next(iter(f.values())).attrs.keys()
+                           if not (param_name == 'input_loc' or param_name == 'equilibrate' or
+                                   param_name == 'duration')]
         temp_input_locs = []
         temp_rec_locs = []
-        for sim in f.itervalues():
+        for sim in f.values():
             input_loc = sim.attrs['input_loc']
             if not input_loc in temp_input_locs:
                 temp_input_locs.append(input_loc)
@@ -1687,7 +1687,7 @@ def plot_synaptic_parameter_GC(rec_file_list, param_names=None, description_list
             for param_name in param_names:
                 param_vals[param_name][input_loc] = {}
         with h5py.File(data_dir+rec_filename+'.hdf5', 'r') as f:
-            for sim in f.itervalues():
+            for sim in f.values():
                 input_loc = sim.attrs['input_loc']
                 is_terminal = str(sim['rec']['2'].attrs['is_terminal'])
                 if is_terminal not in distances_soma[input_loc].keys():
@@ -1705,7 +1705,7 @@ def plot_synaptic_parameter_GC(rec_file_list, param_names=None, description_list
             colors = ['k', 'r', 'c', 'y', 'm', 'g', 'b']
             for i, input_loc in enumerate(input_locs):
                 for j, param_name in enumerate(param_names):
-                    string_keys = distances_soma[input_loc].keys()
+                    string_keys = list(distances_soma[input_loc].keys())
                     terminal_keys = [int(key) for key in string_keys]
                     terminal_keys.sort()
                     terminal_labels = []
@@ -1832,7 +1832,7 @@ def plot_synaptic_attribute_distribution(cell, syn_category, syn_type, param_nam
     for sec_type in ['apical']:
         for node in cell._node_dict[sec_type]:
             this_synapse_attributes = node.get_filtered_synapse_attributes(syn_category=syn_category, syn_type=syn_type)
-            for i in xrange(len(this_synapse_attributes['syn_locs'])):
+            for i in range(len(this_synapse_attributes['syn_locs'])):
                 this_syn_id = this_synapse_attributes['syn_id'][i]
                 if (this_syn_id in node.synapse_mechanism_attributes and
                             syn_type in node.synapse_mechanism_attributes[this_syn_id] and
@@ -1985,7 +1985,7 @@ def plot_mech_param_distribution(cell, mech_name, param_name, export=None, overw
                 minval = min(minval, min(param_vals[sec_type]))
     axes.set_xlabel('Distance to soma (um)')
     distances_list = []
-    for dist_list in distances.itervalues():
+    for dist_list in distances.values():
         distances_list.extend(dist_list)
     xmax0 = max(0.1, max(distances_list))
     xmin0 = min(0, min(distances_list))
@@ -2228,11 +2228,11 @@ def plot_expected_vs_actual_from_raw(expected_filename, actual_file_list, descri
     with h5py.File(data_dir+actual_file_list[0]+'.hdf5', 'r') as f:
         temp_input_locs = []
         temp_rec_locs = []
-        for sim in f.itervalues():
+        for sim in f.values():
             input_loc = sim.attrs['path_type']
             if not input_loc in temp_input_locs:
                 temp_input_locs.append(input_loc)
-            for rec in sim['rec'].itervalues():
+            for rec in sim['rec'].values():
                 rec_loc = rec.attrs['description']
                 if not rec_loc in temp_rec_locs and rec_loc in location_list:
                     temp_rec_locs.append(rec_loc)
@@ -2250,7 +2250,7 @@ def plot_expected_vs_actual_from_raw(expected_filename, actual_file_list, descri
         for index, rec_filename in enumerate(actual_file_list):
             with h5py.File(data_dir+rec_filename+'.hdf5', 'r') as actual_file:
                 path_indexes = {input_loc: [] for input_loc in input_locs}
-                for sim in actual_file.itervalues():
+                for sim in actual_file.values():
                     path_index = sim.attrs['path_index']
                     path_type = sim.attrs['path_type']
                     if not path_index in path_indexes[path_type] and path_type in input_locs:
@@ -2307,12 +2307,12 @@ def plot_expected_vs_actual_traces(expected_filename, actual_filenames, path_ind
     colors = ['k', 'r', 'c', 'y', 'm', 'g', 'b']
     with h5py.File(data_dir+expected_filename+'.hdf5', 'r') as expected_file:
         expected_index_map = get_expected_spine_index_map(expected_file)[path_index]
-        expected_equilibrate = expected_file.itervalues().next().attrs['equilibrate']
-        expected_duration = expected_file.itervalues().next().attrs['duration']
+        expected_equilibrate = next(iter(expected_file.values())).attrs['equilibrate']
+        expected_duration = next(iter(expected_file.values())).attrs['duration']
         with h5py.File(data_dir+actual_filenames[0]+'.hdf5', 'r') as actual_file:
             actual_traces = []
-            trial = actual_file.itervalues().next()
-            rec_key = (rec for rec in trial['rec'] if trial['rec'][rec].attrs['description'] == rec_loc).next()
+            trial = next(iter(actual_file.values()))
+            rec_key = next((rec for rec in trial['rec'] if trial['rec'][rec].attrs['description'] == rec_loc))
             sim_keys = [key for key in actual_file if actual_file[key].attrs['path_index'] == path_index]
             sim_keys.sort(key=lambda x: len(actual_file[x].attrs['syn_indexes']))
             syn_indexes = actual_file[sim_keys[max_num-1]].attrs['syn_indexes']
@@ -2343,7 +2343,7 @@ def plot_expected_vs_actual_traces(expected_filename, actual_filenames, path_ind
         for actual_filename in actual_filenames[1:]:
             with h5py.File(data_dir+actual_filename+'.hdf5', 'r') as actual_file:
                 actual_traces = []
-                trial = actual_file.itervalues().next()
+                trial = next(iter(actual_file.values()))
                 sim_keys = [key for key in actual_file if actual_file[key].attrs['path_index'] == path_index]
                 sim_keys.sort(key=lambda x: len(actual_file[x].attrs['syn_indexes']))
                 syn_indexes = actual_file[sim_keys[max_num-1]].attrs['syn_indexes']
@@ -2408,7 +2408,7 @@ def plot_expected_vs_actual_from_processed(actual_file_list, description_list=No
     with h5py.File(data_dir+actual_file_list[0]+'.hdf5', 'r') as f:
         temp_input_locs = []
         temp_rec_locs = []
-        for sim in f.itervalues():
+        for sim in f.values():
             input_loc = sim.attrs['path_type']
             if not input_loc in temp_input_locs:
                 temp_input_locs.append(input_loc)
@@ -2435,7 +2435,7 @@ def plot_expected_vs_actual_from_processed(actual_file_list, description_list=No
                 description_list.append(actual_file.attrs['description'])
             else:
                 description_list.append("")
-            for sim in actual_file.itervalues():
+            for sim in actual_file.values():
                 input_loc = sim.attrs['path_type']
                 path_category = sim.attrs['path_category']
                 if path_category == 'proximal':
@@ -2465,7 +2465,7 @@ def plot_expected_vs_actual_from_processed(actual_file_list, description_list=No
         axes[i][0].set_ylabel('Spine Location: '+input_loc+'\nActual EPSP Amp (mV)')  # , fontsize='xx-large')
         label_handle = []
         for index in range(len(label_handles)):
-            label_handle.extend(label_handles[index][input_loc].values())
+            label_handle.extend(list(label_handles[index][input_loc].values()))
         axes[i][0].legend(loc='best', handles=label_handle, frameon=False, framealpha=0.5)
     plt.subplots_adjust(hspace=0.4, wspace=0.3, left=0.05, right=0.95, top=0.95, bottom=0.05)
     if not title is None:
@@ -2548,11 +2548,11 @@ def plot_nmdar_contribution_from_raw(expected_filename, actual_file_list, descri
     with h5py.File(data_dir+actual_file_list[0][0]+'.hdf5', 'r') as f:
         temp_input_locs = []
         temp_rec_locs = []
-        for sim in f.itervalues():
+        for sim in f.values():
             input_loc = sim.attrs['path_type']
             if not input_loc in temp_input_locs:
                 temp_input_locs.append(input_loc)
-            for rec in sim['rec'].itervalues():
+            for rec in sim['rec'].values():
                 rec_loc = rec.attrs['description']
                 if not rec_loc in temp_rec_locs and rec_loc in location_list:
                     temp_rec_locs.append(rec_loc)
@@ -2570,7 +2570,7 @@ def plot_nmdar_contribution_from_raw(expected_filename, actual_file_list, descri
         for index, (with_nmda_filename, without_nmda_filename) in enumerate(actual_file_list):
             with h5py.File(data_dir+with_nmda_filename+'.hdf5', 'r') as with_nmda_file:
                 path_indexes = {input_loc: [] for input_loc in input_locs}
-                for sim in with_nmda_file.itervalues():
+                for sim in with_nmda_file.values():
                     path_index = sim.attrs['path_index']
                     path_type = sim.attrs['path_type']
                     if not path_index in path_indexes[path_type] and path_type in input_locs:
@@ -2584,7 +2584,7 @@ def plot_nmdar_contribution_from_raw(expected_filename, actual_file_list, descri
                                                                         expected_index_map[path_index], sorted_sim_keys)
             with h5py.File(data_dir+without_nmda_filename+'.hdf5', 'r') as without_nmda_file:
                 path_indexes = {input_loc: [] for input_loc in input_locs}
-                for sim in without_nmda_file.itervalues():
+                for sim in without_nmda_file.values():
                     path_index = sim.attrs['path_index']
                     path_type = sim.attrs['path_type']
                     if not path_index in path_indexes[path_type] and path_type in input_locs:
@@ -2600,7 +2600,7 @@ def plot_nmdar_contribution_from_raw(expected_filename, actual_file_list, descri
                             nmda_contribution = (np.array(with_nmda_dict[location]) -
                                 np.array(without_nmda_dict[location])) / np.array(without_nmda_dict[location]) * 100.
                             axes[i][j].plot(expected_dict[location], nmda_contribution, color=colors[index])
-                            print np.max(nmda_contribution)
+                            print(np.max(nmda_contribution))
             label_handles.append(mlines.Line2D([], [], color=colors[index], label=description_list[index]))
     for j, location in enumerate(rec_locs):
         axes[0][j].set_title('Recording loc: '+location)
@@ -2646,7 +2646,7 @@ def plot_nmdar_contribution_from_processed(actual_file_list, description_list=No
     with h5py.File(data_dir+actual_file_list[0][0]+'.hdf5', 'r') as f:
         temp_input_locs = []
         temp_rec_locs = []
-        for sim in f.itervalues():
+        for sim in f.values():
             input_loc = sim.attrs['path_type']
             if not input_loc in temp_input_locs:
                 temp_input_locs.append(input_loc)
@@ -2677,7 +2677,7 @@ def plot_nmdar_contribution_from_processed(actual_file_list, description_list=No
                         description_list.append(with_nmda_file.attrs['description'])
                     else:
                         description_list.append("")
-                for path_index, sim in with_nmda_file.iteritems():
+                for path_index, sim in with_nmda_file.items():
                     input_loc = sim.attrs['path_type']
                     if input_loc == 'apical':
                         distance = sim.attrs['origin_distance']
@@ -2736,7 +2736,7 @@ def plot_nmdar_contribution_from_processed(actual_file_list, description_list=No
         axes[i][0].set_ylabel('Spine Location: '+input_loc+'\n'+ylabel)  # , fontsize='xx-large')
         label_handle = []
         for index in range(len(label_handles)):
-            label_handle.extend(label_handles[index][input_loc].values())
+            label_handle.extend(list(label_handles[index][input_loc].values()))
         axes[i][0].legend(loc='best', handles=label_handle, frameon=False, framealpha=0.5)
     plt.subplots_adjust(hspace=0.4, wspace=0.3, left=0.05, right=0.95, top=0.95, bottom=0.05)
     if not title is None:
@@ -2774,11 +2774,11 @@ def plot_nmdar_supralinearity_from_raw(expected_filename, actual_file_list, desc
     with h5py.File(data_dir+actual_file_list[0]+'.hdf5', 'r') as f:
         temp_input_locs = []
         temp_rec_locs = []
-        for sim in f.itervalues():
+        for sim in f.values():
             input_loc = sim.attrs['path_type']
             if not input_loc in temp_input_locs:
                 temp_input_locs.append(input_loc)
-            for rec in sim['rec'].itervalues():
+            for rec in sim['rec'].values():
                 rec_loc = rec.attrs['description']
                 if not rec_loc in temp_rec_locs and rec_loc in location_list:
                     temp_rec_locs.append(rec_loc)
@@ -2796,7 +2796,7 @@ def plot_nmdar_supralinearity_from_raw(expected_filename, actual_file_list, desc
         for index, rec_filename in enumerate(actual_file_list):
             with h5py.File(data_dir+rec_filename+'.hdf5', 'r') as actual_file:
                 path_indexes = {input_loc: [] for input_loc in input_locs}
-                for sim in actual_file.itervalues():
+                for sim in actual_file.values():
                     path_index = sim.attrs['path_index']
                     path_type = sim.attrs['path_type']
                     if not path_index in path_indexes[path_type] and path_type in input_locs:
@@ -2813,7 +2813,7 @@ def plot_nmdar_supralinearity_from_raw(expected_filename, actual_file_list, desc
                             actual = np.array(actual_dict[location])
                             supralinearity = (actual - expected) / expected * 100.
                             axes[i][j].plot(expected_dict[location], supralinearity, color=colors[index])
-                            print np.max(supralinearity)
+                            print(np.max(supralinearity))
             label_handles.append(mlines.Line2D([], [], color=colors[index], label=description_list[index]))
     for j, location in enumerate(rec_locs):
         axes[0][j].set_title('Recording loc: '+location)
@@ -2858,7 +2858,7 @@ def plot_nmdar_supralinearity_from_processed(actual_file_list, description_list=
     with h5py.File(data_dir+actual_file_list[0]+'.hdf5', 'r') as f:
         temp_input_locs = []
         temp_rec_locs = []
-        for sim in f.itervalues():
+        for sim in f.values():
             input_loc = sim.attrs['path_type']
             if not input_loc in temp_input_locs:
                 temp_input_locs.append(input_loc)
@@ -2888,7 +2888,7 @@ def plot_nmdar_supralinearity_from_processed(actual_file_list, description_list=
                     description_list.append(actual_file.attrs['description'])
                 else:
                     description_list.append("")
-            for sim in actual_file.itervalues():
+            for sim in actual_file.values():
                 input_loc = sim.attrs['path_type']
                 if input_loc == 'apical':
                     distance = sim.attrs['origin_distance']
@@ -2946,7 +2946,7 @@ def plot_nmdar_supralinearity_from_processed(actual_file_list, description_list=
         axes[i][0].set_ylabel('Spine Location: '+input_loc+'\n'+ylabel)  # , fontsize='xx-large')
         label_handle = []
         for index in range(len(label_handles)):
-            label_handle.extend(label_handles[index][input_loc].values())
+            label_handle.extend(list(label_handles[index][input_loc].values()))
         axes[i][0].legend(loc='best', handles=label_handle, frameon=False, framealpha=0.5)
     plt.subplots_adjust(hspace=0.4, wspace=0.3, left=0.05, right=0.95, top=0.95, bottom=0.05)
     if not title is None:
@@ -2977,7 +2977,7 @@ def plot_nmdar_conductance_from_raw(actual_file_list, description_list="", objec
     default_input_locs = ['basal', 'trunk', 'apical', 'tuft']
     with h5py.File(data_dir+actual_file_list[0]+'.hdf5', 'r') as f:
         temp_input_locs = []
-        for sim in f.itervalues():
+        for sim in f.values():
             input_loc = sim.attrs['path_type']
             if not input_loc in temp_input_locs:
                 temp_input_locs.append(input_loc)
@@ -2990,7 +2990,7 @@ def plot_nmdar_conductance_from_raw(actual_file_list, description_list="", objec
     for index, rec_filename in enumerate(actual_file_list):
         with h5py.File(data_dir+rec_filename+'.hdf5', 'r') as actual_file:
             path_indexes = {input_loc: [] for input_loc in input_locs}
-            for sim in actual_file.itervalues():
+            for sim in actual_file.values():
                 path_index = sim.attrs['path_index']
                 path_type = sim.attrs['path_type']
                 if not path_index in path_indexes[path_type] and path_type in input_locs:
@@ -3002,8 +3002,8 @@ def plot_nmdar_conductance_from_raw(actual_file_list, description_list="", objec
                     sorted_sim_keys.sort(key=lambda x: len(actual_file[x].attrs['syn_indexes']))
                     peak_conductance = []
                     for sim in [actual_file[key] for key in sorted_sim_keys]:
-                        rec = (rec[:] for rec in sim['rec'].itervalues() if
-                               rec.attrs['description'] == object_description).next()
+                        rec = next((rec[:] for rec in sim['rec'].values() if
+                               rec.attrs['description'] == object_description))
                         peak_conductance.append(np.max(rec))
                     axes[i/2][i%2].plot(range(1, len(sorted_sim_keys)+1), peak_conductance, color=colors[index])
             axes[i/2][i%2].set_xlabel('Input Number')  # , fontsize='x-large')
@@ -3045,7 +3045,7 @@ def plot_nmdar_conductance_from_processed(actual_file_list, description_list=Non
     default_input_locs = ['basal', 'trunk', 'apical', 'tuft']
     with h5py.File(data_dir+actual_file_list[0]+'.hdf5', 'r') as f:
         temp_input_locs = []
-        for sim in f.itervalues():
+        for sim in f.values():
             input_loc = sim.attrs['path_type']
             if not input_loc in temp_input_locs:
                 temp_input_locs.append(input_loc)
@@ -3071,7 +3071,7 @@ def plot_nmdar_conductance_from_processed(actual_file_list, description_list=Non
                     description_list.append(actual_file.attrs['description'])
                 else:
                     description_list.append("")
-            for sim in actual_file.itervalues():
+            for sim in actual_file.values():
                 input_loc = sim.attrs['path_type']
                 if input_loc == 'apical':
                     distance = sim.attrs['origin_distance']
@@ -3122,7 +3122,7 @@ def plot_nmdar_conductance_from_processed(actual_file_list, description_list=Non
         axes[i].set_ylabel('Spine Location: '+input_loc+'\n'+ylabel)  # , fontsize='xx-large')
         label_handle = []
         for index in range(len(label_handles)):
-            label_handle.extend(label_handles[index][input_loc].values())
+            label_handle.extend(list(label_handles[index][input_loc].values()))
         axes[i].legend(loc='best', handles=label_handle, frameon=False, framealpha=0.5)
     plt.subplots_adjust(hspace=0.4, wspace=0.3, left=0.05, right=0.95, top=0.95, bottom=0.05)
     clean_axes(axes)
@@ -3142,7 +3142,7 @@ def process_patterned_input_simulation_input_output_spatial_binning(rec_filename
     :param svg_title: str
     """
     with h5py.File(data_dir+rec_filename+'.hdf5', 'r') as f:
-        sim = f.itervalues().next()
+        sim = next(iter(f.values()))
         equilibrate = sim.attrs['equilibrate']
         track_equilibrate = sim.attrs['track_equilibrate']
         track_length = sim.attrs['track_length']
@@ -3171,11 +3171,11 @@ def process_patterned_input_simulation_input_output_spatial_binning(rec_filename
             stochastic = True
         else:
             stochastic = False
-        for sim in f.itervalues():
+        for sim in f.values():
             exc_input_sum = None
             successes_sum = None
             inh_input_sum = None
-            for key, train in sim['train'].iteritems():
+            for key, train in sim['train'].items():
                 this_train = np.array(train)
                 if len(this_train) > 0:
                     for i in range(len(this_train) - 1):
@@ -3194,7 +3194,7 @@ def process_patterned_input_simulation_input_output_spatial_binning(rec_filename
             pop_input.append(exc_input_sum)
             if stochastic:
                 successes.append(successes_sum)
-            for train in sim['inh_train'].itervalues():
+            for train in sim['inh_train'].values():
                 this_inh_rate = get_binned_firing_rate(np.array(train), t)
                 if inh_input_sum is None:
                     inh_input_sum = np.array(this_inh_rate)
@@ -3253,7 +3253,7 @@ def process_patterned_input_simulation_input_output(rec_filename, title, svg_tit
     :param svg_title: str
     """
     with h5py.File(data_dir+rec_filename+'.hdf5', 'r') as f:
-        sim = f.itervalues().next()
+        sim = next(iter(f.values()))
         equilibrate = sim.attrs['equilibrate']
         track_equilibrate = sim.attrs['track_equilibrate']
         input_field_duration = sim.attrs['input_field_duration']
@@ -3272,11 +3272,11 @@ def process_patterned_input_simulation_input_output(rec_filename, title, svg_tit
             stochastic = True
         else:
             stochastic = False
-        for sim in f.itervalues():
+        for sim in f.values():
             exc_input_sum = None
             successes_sum = None
             inh_input_sum = None
-            for key, train in sim['train'].iteritems():
+            for key, train in sim['train'].items():
                 this_train = np.array(train)
                 if len(this_train) > 0:
                     for i in range(len(this_train) - 1):
@@ -3295,7 +3295,7 @@ def process_patterned_input_simulation_input_output(rec_filename, title, svg_tit
             pop_input.append(exc_input_sum)
             if stochastic:
                 successes.append(successes_sum)
-            for train in sim['inh_train'].itervalues():
+            for train in sim['inh_train'].values():
                 this_inh_rate = get_binned_firing_rate(np.array(train), stim_t)
                 if inh_input_sum is None:
                     inh_input_sum = np.array(this_inh_rate)
@@ -3356,7 +3356,7 @@ def process_patterned_input_simulation_spatial_binning(rec_filename, title, dt=N
     :return: list of array
     """
     with h5py.File(data_dir+rec_filename+'.hdf5', 'r') as f:
-        sim = f.itervalues().next()
+        sim = next(iter(f.values()))
         equilibrate = sim.attrs['equilibrate']
         track_equilibrate = sim.attrs['track_equilibrate']
         track_length = sim.attrs['track_length']
@@ -3379,9 +3379,9 @@ def process_patterned_input_simulation_spatial_binning(rec_filename, title, dt=N
         intervals = []
         pop_input = []
         output = []
-        for sim in f.itervalues():
+        for sim in f.values():
             exc_input_sum = None
-            for key, train in sim['train'].iteritems():
+            for key, train in sim['train'].items():
                 this_train = np.array(train)
                 intervals.extend(np.diff(this_train))
                 this_exc_rate = get_binned_firing_rate(this_train, stim_t)
@@ -3409,7 +3409,7 @@ def process_patterned_input_simulation_spatial_binning(rec_filename, title, dt=N
         plt.title('Distribution of input inter-spike intervals - '+title)
         plt.show()
         plt.close()
-        peak_locs = [sim.attrs['peak_loc'] for sim in f.itervalues().next()['train'].itervalues()]
+        peak_locs = [sim.attrs['peak_loc'] for sim in next(iter(f.values()))['train'].itervalues()]
         plt.hist(peak_locs, bins=int(bins))
         plt.xlabel('Time (ms)')
         plt.ylabel('Count (%.2f cm bins)' % binned_dx)
@@ -3417,7 +3417,7 @@ def process_patterned_input_simulation_spatial_binning(rec_filename, title, dt=N
         plt.xlim(0., track_length)
         plt.show()
         plt.close()
-        for sim in f.itervalues():
+        for sim in f.values():
             start = int((equilibrate + track_equilibrate) / dt)
             vm = np.interp(track_t, sim['time'], sim['rec']['0'])[start:start+len(t)]
             plt.plot(t, vm)
@@ -3489,7 +3489,7 @@ def process_patterned_input_simulation_spatial_binning(rec_filename, title, dt=N
     mean_binned_var = np.mean(binned_variance, axis=0)
     scatter_vm_mean = np.array(binned_mean).flatten()
     scatter_vm_var = np.array(binned_variance).flatten()
-    print 'Mean Theta Envelope for %s: %.2f' % (title, np.mean(mean_theta_envelope))
+    print('Mean Theta Envelope for %s: %.2f' % (title, np.mean(mean_theta_envelope)))
     plt.plot(binned_x, mean_binned_vm)
     plt.xlabel('Location (%.2f cm bins)' % binned_dx)
     plt.ylabel('Voltage (mV)')
@@ -3531,7 +3531,7 @@ def process_patterned_input_simulation(rec_filename, title, dt=0.02):
     # remember .attrs['phase_offset'] could be inside ['train'] for old files
     """
     with h5py.File(data_dir+rec_filename+'.hdf5', 'r') as f:
-        sim = f.itervalues().next()
+        sim = next(iter(f.values()))
         equilibrate = sim.attrs['equilibrate']
         track_equilibrate = sim.attrs['track_equilibrate']
         track_length = sim.attrs['track_length']
@@ -3549,9 +3549,9 @@ def process_patterned_input_simulation(rec_filename, title, dt=0.02):
         intervals = []
         pop_input = []
         output = []
-        for sim in f.itervalues():
+        for sim in f.values():
             exc_input_sum = None
-            for key, train in sim['train'].iteritems():
+            for key, train in sim['train'].items():
                 this_train = np.array(train)
                 intervals.extend(np.diff(this_train))
                 this_exc_rate = get_binned_firing_rate(this_train, stim_t)
@@ -3579,7 +3579,7 @@ def process_patterned_input_simulation(rec_filename, title, dt=0.02):
         plt.title('Distribution of Input Inter-Spike Intervals - '+title)
         plt.show()
         plt.close()
-        peak_locs = [sim.attrs['peak_loc'] for sim in f.itervalues().next()['train'].itervalues()]
+        peak_locs = [sim.attrs['peak_loc'] for sim in next(iter(f.values()))['train'].itervalues()]
         plt.hist(peak_locs, bins=bins)
         plt.xlabel('Time (ms)')
         plt.ylabel('Count (20 ms Bins)')
@@ -3587,7 +3587,7 @@ def process_patterned_input_simulation(rec_filename, title, dt=0.02):
         plt.xlim((np.min(peak_locs), np.max(peak_locs)))
         plt.show()
         plt.close()
-        for sim in f.itervalues():
+        for sim in f.values():
             t = np.arange(0., duration, dt)
             vm = np.interp(t, sim['time'], sim['rec']['0'])
             start = int((equilibrate + track_equilibrate)/dt)
@@ -3667,7 +3667,7 @@ def process_patterned_input_simulation(rec_filename, title, dt=0.02):
     mean_binned_var = np.mean(binned_variance, axis=0)
     scatter_vm_mean = np.array(binned_mean).flatten()
     scatter_vm_var = np.array(binned_variance).flatten()
-    print 'Mean Theta Envelope for %s: %.2f' % (title, np.mean(mean_theta_envelope))
+    print('Mean Theta Envelope for %s: %.2f' % (title, np.mean(mean_theta_envelope)))
     plt.plot(binned_t, mean_binned_vm)
     plt.xlabel('Time - 180 ms bins')
     plt.ylabel('Voltage (mV)')
@@ -3722,7 +3722,7 @@ def process_patterned_input_simulation_theta_freq(rec_filenames, conditions=None
     for condition in conditions:
         rec_filename = rec_filenames[condition]
         with h5py.File(data_dir+rec_filename+'.hdf5', 'r') as f:
-            sim = f.itervalues().next()
+            sim = next(iter(f.values()))
             equilibrate = sim.attrs['equilibrate']
             track_equilibrate = sim.attrs['track_equilibrate']
             duration = sim.attrs['duration']
@@ -3736,14 +3736,14 @@ def process_patterned_input_simulation_theta_freq(rec_filenames, conditions=None
             # ~5 - 10 Hz bandpass for theta
             window_len = int(2000. / down_dt)
             theta_filter = signal.firwin(window_len, [5., 10.], nyq=1000. / 2. / down_dt, pass_zero=False)
-            time_offset = {'orig': [trial.attrs['phase_offset'] for trial in f.itervalues()]}
+            time_offset = {'orig': [trial.attrs['phase_offset'] for trial in f.values()]}
             if 'mod_inh_time_offset' in sim.attrs:
-                time_offset['modinh'] = [trial.attrs['mod_inh_time_offset'] for trial in f.itervalues()]
-            for i, trial in enumerate(f.itervalues()):
+                time_offset['modinh'] = [trial.attrs['mod_inh_time_offset'] for trial in f.values()]
+            for i, trial in enumerate(f.values()):
                 for group, key in zip(['exc', 'successes', 'inh'], ['train', 'successes', 'inh_train']):
                     if key in trial:
                         input_sum = None
-                        for train in trial[key].itervalues():
+                        for train in trial[key].values():
                             this_rate = get_binned_firing_rate(train[:], stim_t)
                             if input_sum is None:
                                 input_sum = np.array(this_rate)
@@ -3876,7 +3876,7 @@ def process_patterned_input_simulation_single_compartment(rec_filename, title, d
     # remember .attrs['phase_offset'] could be inside ['train'] for old files
     """
     with h5py.File(data_dir+rec_filename+'.hdf5', 'r') as f:
-        sim = f.itervalues().next()
+        sim = next(iter(f.values()))
         equilibrate = sim.attrs['equilibrate']
         track_equilibrate = sim.attrs['track_equilibrate']
         track_length = sim.attrs['track_length']
@@ -3890,9 +3890,9 @@ def process_patterned_input_simulation_single_compartment(rec_filename, title, d
         spatial_bin = input_field_duration/50.
         intervals = []
         pop_input = []
-        for sim in f.itervalues():
+        for sim in f.values():
             exc_input_sum = None
-            for key, train in sim['train'].iteritems():
+            for key, train in sim['train'].items():
                 this_train = np.array(train)
                 intervals.extend(np.diff(this_train))
                 this_exc_rate = get_binned_firing_rate(this_train, stim_t)
@@ -3916,7 +3916,7 @@ def process_patterned_input_simulation_single_compartment(rec_filename, title, d
         plt.title('Distribution of Input Inter-Spike Intervals - '+title)
         plt.show()
         plt.close()
-        peak_locs = [sim.attrs['peak_loc'] for sim in f.itervalues().next()['train'].itervalues()]
+        peak_locs = [sim.attrs['peak_loc'] for sim in next(iter(f.values()))['train'].itervalues()]
         plt.hist(peak_locs, bins=bins)
         plt.xlabel('Time (ms)')
         plt.ylabel('Count (20 ms Bins)')
@@ -3924,7 +3924,7 @@ def process_patterned_input_simulation_single_compartment(rec_filename, title, d
         plt.xlim((np.min(peak_locs), np.max(peak_locs)))
         plt.show()
         plt.close()
-        for sim in f.itervalues():
+        for sim in f.values():
             t = np.arange(0., duration, dt)
             vm = np.interp(t, sim['time'], sim['rec']['0'])
             start = int((equilibrate + track_equilibrate)/dt)
@@ -4003,7 +4003,7 @@ def process_patterned_input_simulation_single_compartment(rec_filename, title, d
     mean_binned_var = np.mean(binned_variance, axis=0)
     scatter_vm_mean = np.array(binned_mean).flatten()
     scatter_vm_var = np.array(binned_variance).flatten()
-    print 'Mean Theta Envelope for %s: %.2f' % (title, np.mean(mean_theta_envelope))
+    print('Mean Theta Envelope for %s: %.2f' % (title, np.mean(mean_theta_envelope)))
     plt.plot(binned_t, mean_binned_vm)
     plt.xlabel('Time - 180 ms bins')
     plt.ylabel('Voltage (mV)')
@@ -4045,7 +4045,7 @@ def process_patterned_input_simulation_fix_bins(rec_filename, title, dt=0.02):
     # remember .attrs['phase_offset'] could be inside ['train'] for old files
     """
     with h5py.File(data_dir+rec_filename+'.hdf5', 'r') as f:
-        sim = f.itervalues().next()
+        sim = next(iter(f.values()))
         equilibrate = sim.attrs['equilibrate']
         track_equilibrate = sim.attrs['track_equilibrate']
         track_length = sim.attrs['track_length']
@@ -4137,7 +4137,7 @@ def plot_patterned_input_individual_trial_traces(rec_t, vm_array, theta_traces, 
     if index is not None:
         index_range = [index]
     else:
-        index_range = range(len(vm_array))
+        index_range = list(range(len(vm_array)))
     for i in index_range:
         fig, axes = plt.subplots(3, sharey=True, sharex=True)
         label_handles = []
@@ -4277,13 +4277,13 @@ def plot_vm_distribution(rec_filenames, key_list=None, i_bounds=[0., 1800., 3600
     for condition in hist:
         span_edges[condition] = {}
         test = np.where(np.array(hist[condition]) >= 0.02 * np.max(hist[condition]))[0]
-        print condition, 'start:', edges[condition][test[0]], 'end:', edges[condition][test[-1]]
+        print(condition, 'start:', edges[condition][test[0]], 'end:', edges[condition][test[-1]])
         span_edges[condition]['start'] = edges[condition][test[0]]
         span_edges[condition]['end'] = edges[condition][test[-1]]
     for condition in [key_list[3], key_list[1]]:
-        print condition, 'distance to threshold:', span_edges[condition]['end'] - -52.
-    print 'Control overlap span:', span_edges[key_list[3]]['end'] - span_edges[key_list[4]]['start']
-    print 'Modinh overlap span:', span_edges[key_list[1]]['end'] - span_edges[key_list[2]]['start']
+        print(condition, 'distance to threshold:', span_edges[condition]['end'] - -52.)
+    print('Control overlap span:', span_edges[key_list[3]]['end'] - span_edges[key_list[4]]['start'])
+    print('Modinh overlap span:', span_edges[key_list[1]]['end'] - span_edges[key_list[2]]['start'])
     return hist, edges
 
 
@@ -4406,7 +4406,7 @@ def plot_place_field_summmary_across_cells(rec_t, mean_theta_envelope, binned_t,
     :param svg_title: str
     """
     if groups is None:
-        groups = mean_theta_envelope.keys()
+        groups = list(mean_theta_envelope.keys())
     if svg_title is not None:
         remember_font_size = mpl.rcParams['font.size']
         mpl.rcParams['font.size'] = 8
@@ -4620,7 +4620,7 @@ def plot_phase_precession(t_array, phase_array, title, fit_start=3600., fit_end=
     if plot:
         plt.show()
     plt.close()
-    print title, abs(m * (fit_end - fit_start))
+    print(title, abs(m * (fit_end - fit_start)))
     if svg_title is not None:
         mpl.rcParams['font.size'] = remember_font_size
     return binned_times, binned_phases
@@ -4730,7 +4730,7 @@ def plot_phase_precession_paired(rec_filenames, conditions=None, titles=None, fi
                 if plot:
                     plt.show()
                 plt.close()
-                print param_type, condition, abs(m * (fit_end - fit_start - window_dur))
+                print(param_type, condition, abs(m * (fit_end - fit_start - window_dur)))
     if svg_title is not None:
         mpl.rcParams['font.size'] = remember_font_size
     return binned_spike_times, binned_spike_phases, binned_intra_peaks, binned_intra_phases
@@ -4788,7 +4788,7 @@ def plot_phase_precession_sliding(t_array, phase_array, title, fit_start=3660., 
         plt.savefig(data_dir+svg_title+'.svg', format='svg')
     plt.show()
     plt.close()
-    print title, abs(m * (fit_end - fit_start))
+    print(title, abs(m * (fit_end - fit_start)))
     return binned_times, binned_phases
 
 
@@ -4818,12 +4818,12 @@ def process_simple_axon_model_output(rec_filename):
         right = int((equilibrate-1.) / dt)
         start = int((equilibrate+stim_dur-11.) / dt)
         end = int((equilibrate+stim_dur-1.) / dt)
-        distances = [rec.attrs['soma_distance'] for rec in f.itervalues().next()['rec'].itervalues()]
-        propagation = {sim.attrs['vm_amp_target']: [] for sim in f.itervalues()}
-        for i, sim in enumerate(f.itervalues()):
+        distances = [rec.attrs['soma_distance'] for rec in next(iter(f.values()))['rec'].itervalues()]
+        propagation = {sim.attrs['vm_amp_target']: [] for sim in f.values()}
+        for i, sim in enumerate(f.values()):
             target = sim.attrs['vm_amp_target']
             soma_plateau = sim.attrs['plateau']
-            for rec in sim['rec'].itervalues():
+            for rec in sim['rec'].values():
                 vm = np.interp(t, sim['time'], rec)
                 baseline = np.mean(vm[left:right])
                 plateau = np.min(vm[start:end]) - baseline
@@ -4857,9 +4857,9 @@ def get_spike_delay_vs_distance_simple_axon_model(rec_filename):
         end = int((equilibrate+stim_dur) / dt)
         distances = []
         delays = []
-        for sim in f.itervalues():
+        for sim in f.values():
             if not distances:
-                for rec in sim['rec'].itervalues():
+                for rec in sim['rec'].values():
                     distances.append(rec.attrs['soma_distance'])
             if sim['stim']['0'].attrs['amp'] > 0.:
                 rec = sim['rec']['0']
@@ -4873,7 +4873,7 @@ def get_spike_delay_vs_distance_simple_axon_model(rec_filename):
                     soma_peak_x = np.where(vm[soma_th_x:end]==soma_peak)[0][0] + soma_th_x
                     soma_peak_t = t[soma_peak_x]
                     start = soma_th_x - int(2. / dt)
-                    for rec in sim['rec'].itervalues():
+                    for rec in sim['rec'].values():
                         vm = np.interp(t, sim['time'], rec)
                         peak = np.max(vm[start:end])
                         peak_x = np.where(vm[start:end]==peak)[0][0] + start
@@ -4963,7 +4963,7 @@ def plot_patterned_input_binned_rinp(t_dict, phase_dict, r_inp_dict, key_list=No
     axes[1].tick_params(direction='out')
     fig.subplots_adjust(wspace=0.6)
     for condition in key_list:
-        print condition, np.mean(filtered_r_inp_dict[condition])
+        print(condition, np.mean(filtered_r_inp_dict[condition]))
     if svg_title is not None:
         fig.set_size_inches(4.2, 1.5)
         fig.savefig(data_dir+svg_title+' - r_inp.svg', format='svg', transparent=True)
@@ -5136,7 +5136,7 @@ def plot_place_field_i_syn_across_cells(rec_filename_array, groups=None, svg_tit
         remember_font_size = mpl.rcParams['font.size']
         mpl.rcParams['font.size'] = 8
     if groups is None:
-        groups = rec_filename_array['i_AMPA'].keys()
+        groups = list(rec_filename_array['i_AMPA'].keys())
     i_syn_dict = {}
     for key in ['i_AMPA', 'i_NMDA', 'i_GABA', 'ratio']:
         i_syn_dict[key] = {}
@@ -5218,7 +5218,7 @@ def plot_place_field_i_syn_across_cells(rec_filename_array, groups=None, svg_tit
     if svg_title is not None:
         mpl.rcParams['font.size'] = remember_font_size
     for group in groups:
-        print group, ':'
+        print(group, ':')
         for key in i_syn_dict:
             i_syn_dict[key][group]['modinh3_out'] = copy.deepcopy(i_syn_dict[key][group]['modinh3'])
             get_i_syn_mean_values(i_syn_dict[key][group], key, ['modinh0', 'modinh3_out', 'modinh3'])
@@ -5245,7 +5245,7 @@ def plot_best_norm_features_boxplot(storage, target_val, target_range):
     """
     #Ensure that f_I_slope is in target_val with a value of 53.
     fig, axes = plt.subplots(1)
-    labels = target_val.keys()
+    labels = list(target_val.keys())
     # y_values = range(len(y_labels))
     final_survivors = storage.survivors[-1]
     norm_feature_vals = {}
@@ -5294,8 +5294,8 @@ def plot_best_norm_features_scatter(storage, target_val, target_range):
     orig_fontsize = mpl.rcParams['font.size']
     mpl.rcParams['font.size'] = 16.
     fig, axes = plt.subplots(1)
-    y_labels = target_val.keys()
-    y_values = range(len(y_labels))
+    y_labels = list(target_val.keys())
+    y_values = list(range(len(y_labels)))
     final_survivors = storage.survivors[-1]
     norm_feature_vals = {}
     colors = list(cm.rainbow(np.linspace(0, 1, len(y_labels))))
@@ -5362,10 +5362,10 @@ def plot_parallel_optimize_exported_traces(export_file_path):
     orig_fontsize = mpl.rcParams['font.size']
     # mpl.rcParams['font.size'] = 20.
     with h5py.File(export_file_path, 'r') as f:
-        for trial in f.itervalues():
+        for trial in f.values():
             # amplitude = trial.attrs['amp']
             fig, axes = plt.subplots(1)
-            for rec in trial['rec'].itervalues():
+            for rec in trial['rec'].values():
                 axes.plot(trial['time'], rec, label=rec.attrs['description'])
             axes.legend(loc='best', frameon=False, framealpha=0.5)
             axes.set_xlabel('Time (ms)')
@@ -5388,7 +5388,7 @@ def plot_na_gradient_params(x_dict):
     mpl.rcParams['font.size'] = 20.
     fig, axes = plt.subplots(1)
     x_labels = ['axon', 'AIS', 'soma', 'dend']
-    x_values = range(len(x_labels))
+    x_values = list(range(len(x_labels)))
     colors = ['b', 'c', 'g', 'r']
     y_values = [x_dict['axon.gbar_nax'], x_dict['ais.gbar_nax'], x_dict['soma.gbar_nas'], x_dict['dend.gbar_nas']]
     for i in x_values:

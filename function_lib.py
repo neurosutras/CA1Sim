@@ -1,4 +1,7 @@
-__author__ = 'milsteina'
+from __future__ import absolute_import
+
+__author__ = 'Aaron D. Milstein'
+from builtins import zip, map, str, range, object
 from mpi4py import MPI
 import h5py
 import math
@@ -132,7 +135,7 @@ def scaleSWC(filenameBase, mag=100, scope='neurolucida'):
         py *= xyDist; px *= xyDist; r = r*xyDist; z *= zDist
         Points.append([nn,tp,py,px,z,r,np])
 
-    print 'Saving SWC to file '+filenameBase+'-scaled.swc'
+    print('Saving SWC to file '+filenameBase+'-scaled.swc')
     f = open(morph_dir+filenameBase+'-scaled.swc', 'w')
     for [nn,tp,py,px,z,r,np] in Points:
         ll = str(int(nn))+' '+str(int(tp))+' '+str(py)+' '+str(px)+' '+str(z)+' '+str(r)+' '+str(int(np))+'\n'
@@ -155,10 +158,10 @@ def investigateSWC(filenameBase):
         xvals.append(float(ll[3]))
         zvals.append(float(ll[4]))    # z
         rvals.append(float(ll[5]))    # radius of the sphere.
-    print 'x - ',min(xvals),':',max(xvals)
-    print 'y - ',min(yvals),':',max(yvals)
-    print 'z - ',min(zvals),':',max(zvals)
-    print 'r - ',min(rvals),':',max(rvals)
+    print('x - ',min(xvals),':',max(xvals))
+    print('y - ',min(yvals),':',max(yvals))
+    print('z - ',min(zvals),':',max(zvals))
+    print('r - ',min(rvals),':',max(rvals))
 
 
 def translateSWCs():
@@ -181,7 +184,7 @@ def translateSWCs():
         if '.swc' in filename and not '-offset' in filename:
             filenames.append(filename)
             z_offsets.append(float(filename.split('z=')[1].split(' ')[0])/10.0)
-    indexes = range(len(z_offsets))
+    indexes = list(range(len(z_offsets)))
     indexes.sort(key=z_offsets.__getitem__)
     for i in indexes:
         f = open(filenames[i])
@@ -208,7 +211,7 @@ def translateSWCs():
                 leaves.remove(parent)
         for index in leaves:
             nodes[index]['type'] = 7
-        print 'Saving '+filenames[i]+' to '+outputname
+        print('Saving '+filenames[i]+' to '+outputname)
         if prev_nodes:
             leaves = [index for index in nodes if (nodes[index]['type'] == 7 or nodes[index]['parent'] == -1)]
             for prev_index in [index for index in prev_nodes if (prev_nodes[index]['type'] == 7 or
@@ -260,7 +263,7 @@ def read_from_pkl(fname):
     """
     if os.path.isfile(fname):
         pkl_file = open(fname, 'rb')
-        data = pickle.load(pkl_file)
+        data = pickle.load(pkl_file, encoding='latin1')
         pkl_file.close()
         return data
     else:
@@ -401,12 +404,12 @@ def combine_output_files(rec_file_list, new_rec_filename=None, local_data_dir=da
     simiter = 0
     for rec_filename in rec_file_list:
         old_f = h5py.File(local_data_dir+rec_filename+'.hdf5', 'r')
-        for old_group in old_f.itervalues():
+        for old_group in old_f.values():
             new_f.copy(old_group, new_f, name=str(simiter))
             simiter += 1
         old_f.close()
     new_f.close()
-    print 'Combined data in list of files and exported to: '+new_rec_filename+'.hdf5'
+    print('Combined data in list of files and exported to: '+new_rec_filename+'.hdf5')
     return new_rec_filename
 
 
@@ -423,12 +426,12 @@ def combine_hdf5_file_paths(file_path_list, new_file_path=None):
     iter = 0
     for old_file_path in file_path_list:
         old_f = h5py.File(old_file_path, 'r')
-        for old_group in old_f.itervalues():
+        for old_group in old_f.values():
             new_f.copy(old_group, new_f, name=str(iter))
             iter += 1
         old_f.close()
     new_f.close()
-    print 'combine_output_file_paths: exported to file path: %s' % new_file_path
+    print('combine_output_file_paths: exported to file path: %s' % new_file_path)
 
 
 def time2index(tvec, start, stop):
@@ -566,7 +569,7 @@ def get_expected_spine_index_map(sim_file):
     :return: dict
     """
     index_map = {}
-    for key, sim in sim_file.iteritems():
+    for key, sim in sim_file.items():
         path_index = sim.attrs['path_index']
         spine_index = sim.attrs['spine_index']
         if path_index not in index_map:
@@ -603,17 +606,17 @@ def get_spine_group_info(sim_filename, verbose=1):
                 spine_group_info[path_type][path_category]['distances'].append(distance)
     for path_type in spine_group_info:
         for path_category in spine_group_info[path_type]:
-            indexes = range(len(spine_group_info[path_type][path_category]['distances']))
+            indexes = list(range(len(spine_group_info[path_type][path_category]['distances'])))
             indexes.sort(key=spine_group_info[path_type][path_category]['distances'].__getitem__)
             spine_group_info[path_type][path_category]['distances'] = \
-                map(spine_group_info[path_type][path_category]['distances'].__getitem__, indexes)
+                list(map(spine_group_info[path_type][path_category]['distances'].__getitem__, indexes))
             spine_group_info[path_type][path_category]['path_indexes'] = \
-                map(spine_group_info[path_type][path_category]['path_indexes'].__getitem__, indexes)
+                list(map(spine_group_info[path_type][path_category]['path_indexes'].__getitem__, indexes))
         if verbose:
             for path_category in spine_group_info[path_type]:
-                print path_type, '-', path_category
+                print(path_type, '-', path_category)
                 for i, distance in enumerate(spine_group_info[path_type][path_category]['distances']):
-                    print spine_group_info[path_type][path_category]['path_indexes'][i], distance
+                    print(spine_group_info[path_type][path_category]['path_indexes'][i], distance)
     return spine_group_info
 
 
@@ -635,7 +638,7 @@ def get_expected_EPSP(sim_file, group_index, equilibrate, duration, dt=0.02):
     left, right = time2index(interp_t, equilibrate-3., equilibrate-1.)
     start, stop = time2index(interp_t, equilibrate-2., duration)
     trace_dict = {}
-    for rec in sim['rec'].itervalues():
+    for rec in sim['rec'].values():
         location = rec.attrs['description']
         vm = rec[:]
         interp_vm = np.interp(interp_t, t, vm)
@@ -684,7 +687,7 @@ def get_expected_vs_actual(expected_sim_file, actual_sim_file, expected_index_ma
         interp_t = np.arange(0., duration, dt)
         left, right = time2index(interp_t, equilibrate-3., equilibrate-1.)
         start, stop = time2index(interp_t, equilibrate-2., duration)
-        for rec in sim['rec'].itervalues():
+        for rec in sim['rec'].values():
             location = rec.attrs['description']
             if not location in actual:
                 actual[location] = []
@@ -699,8 +702,8 @@ def get_expected_vs_actual(expected_sim_file, actual_sim_file, expected_index_ma
     interp_t -= interp_t[0] + 2.
     expected = {}
     summed_traces = {}
-    equilibrate = expected_sim_file.itervalues().next().attrs['equilibrate']
-    duration = expected_sim_file.itervalues().next().attrs['duration']
+    equilibrate = next(iter(expected_sim_file.values())).attrs['equilibrate']
+    duration = next(iter(expected_sim_file.values())).attrs['duration']
     for i, spine_index in enumerate(spine_list):
         group_index = expected_index_map[spine_index]
         trace_dict = get_expected_EPSP(expected_sim_file, group_index, equilibrate, duration, dt)
@@ -732,7 +735,7 @@ def export_nmdar_cooperativity(expected_filename, actual_filename, description="
     """
     sim_key_dict = {}
     with h5py.File(data_dir+actual_filename+'.hdf5', 'r') as actual_file:
-        for key, sim in actual_file.iteritems():
+        for key, sim in actual_file.items():
             path_index = sim.attrs['path_index']
             if path_index not in sim_key_dict:
                 sim_key_dict[path_index] = []
@@ -758,7 +761,7 @@ def export_nmdar_cooperativity(expected_filename, actual_filename, description="
                     path_group.attrs['origin_distance'] = origin_distance
                     expected_dict, actual_dict = get_expected_vs_actual(expected_file, actual_file,
                                                                         expected_index_map[path_index], sim_keys)
-                    for rec in sim['rec'].itervalues():
+                    for rec in sim['rec'].values():
                         location = rec.attrs['description']
                         rec_group = path_group.create_group(location)
                         rec_group.create_dataset('expected', compression='gzip', compression_opts=9,
@@ -903,11 +906,11 @@ def get_removed_spikes(rec_filename, before=1.6, after=6., dt=0.02, th=10., plot
     """
     removed = []
     with h5py.File(data_dir+rec_filename+'.hdf5', 'r') as f:
-        sim = f.itervalues().next()
+        sim = next(iter(f.values()))
         equilibrate = sim.attrs['equilibrate']
         duration = sim.attrs['duration']
         track_equilibrate = sim.attrs['track_equilibrate']
-        for rec in f.itervalues():
+        for rec in f.values():
             t = np.arange(0., duration, dt)
             vm = np.interp(t, rec['time'], rec['rec']['0'])
             start = int((equilibrate + track_equilibrate) / dt)
@@ -985,11 +988,11 @@ def get_removed_spikes_alt(rec_filename, before=1.6, after=6., dt=0.02, th=10., 
     """
     removed = []
     with h5py.File(data_dir+rec_filename+'.hdf5', 'r') as f:
-        sim = f.itervalues().next()
+        sim = next(iter(f.values()))
         equilibrate = sim.attrs['equilibrate']
         duration = sim.attrs['duration']
         track_equilibrate = sim.attrs['track_equilibrate']
-        for trial in f.itervalues():
+        for trial in f.values():
             t = np.arange(0., duration, dt)
             vm = np.interp(t, trial['time'], trial['rec'][rec_key])
             start = int((equilibrate + track_equilibrate) / dt)
@@ -1127,11 +1130,11 @@ def get_removed_spikes_nangaps(rec_filename, before=1.6, after=6., dt=0.02, th=1
     removed_interp = []
     removed_nangaps = []
     with h5py.File(data_dir+rec_filename+'.hdf5', 'r') as f:
-        sim = f.itervalues().next()
+        sim = next(iter(f.values()))
         equilibrate = sim.attrs['equilibrate']
         duration = sim.attrs['duration']
         track_equilibrate = sim.attrs['track_equilibrate']
-        for trial in f.itervalues():
+        for trial in f.values():
             t = np.arange(0., duration, dt)
             vm = np.interp(t, trial['time'], trial['rec'][rec_key])
             start = int((equilibrate + track_equilibrate) / dt)
@@ -1193,7 +1196,7 @@ def get_theta_filtered_traces(rec_filename, dt=0.02):
     # remember .attrs['phase_offset'] could be inside ['train'] for old files
     """
     with h5py.File(data_dir+rec_filename+'.hdf5', 'r') as f:
-        sim = f.itervalues().next()
+        sim = next(iter(f.values()))
         equilibrate = sim.attrs['equilibrate']
         track_equilibrate = sim.attrs['track_equilibrate']
         track_length = sim.attrs['track_length']
@@ -1205,17 +1208,17 @@ def get_theta_filtered_traces(rec_filename, dt=0.02):
         exc_input = []
         inh_input = []
         phase_offsets = []
-        for sim in f.itervalues():
+        for sim in f.values():
             exc_input_sum = None
             inh_input_sum = None
-            for train in sim['train'].itervalues():
+            for train in sim['train'].values():
                 this_exc_rate = get_binned_firing_rate(np.array(train), stim_t)
                 if exc_input_sum is None:
                     exc_input_sum = np.array(this_exc_rate)
                 else:
                     exc_input_sum = np.add(exc_input_sum, this_exc_rate)
             exc_input.append(exc_input_sum)
-            for train in sim['inh_train'].itervalues():
+            for train in sim['inh_train'].values():
                 this_inh_rate = get_binned_firing_rate(np.array(train), stim_t)
                 if inh_input_sum is None:
                     inh_input_sum = np.array(this_inh_rate)
@@ -1266,7 +1269,7 @@ def get_phase_precession(rec_filename, start_loc=None, end_loc=None, theta_durat
     # remember .attrs['phase_offset'] could be inside ['train'] for old files
     """
     with h5py.File(data_dir+rec_filename+'.hdf5', 'r') as f:
-        sim = f.itervalues().next()
+        sim = next(iter(f.values()))
         equilibrate = sim.attrs['equilibrate']
         track_equilibrate = sim.attrs['track_equilibrate']
         duration = sim.attrs['duration']
@@ -1281,14 +1284,14 @@ def get_phase_precession(rec_filename, start_loc=None, end_loc=None, theta_durat
         if end_loc is None:
             end_loc = track_duration
         phase_offsets = []
-        for sim in f.itervalues():
+        for sim in f.values():
             if 'phase_offset' in sim.attrs:
                 phase_offsets.append(sim.attrs['phase_offset'])
             elif 'train' in sim and 'phase_offset' in sim['train'].attrs:
                 phase_offsets.append(sim['train'].attrs['phase_offset'])
             else:
                 phase_offsets.append(0.)
-        output_trains = [np.array(sim['output']) for sim in f.itervalues() if 'output' in sim]
+        output_trains = [np.array(sim['output']) for sim in f.values() if 'output' in sim]
     spike_phase_array = []
     spike_time_array = []
     for i, train in enumerate(output_trains):
@@ -1414,7 +1417,7 @@ def get_input_spike_train_phase_precession(rec_filename, index, start_loc=None, 
     # remember .attrs['phase_offset'] could be inside ['train'] for old files
     """
     with h5py.File(data_dir+rec_filename+'.hdf5', 'r') as f:
-        sim = f.itervalues().next()
+        sim = next(iter(f.values()))
         equilibrate = sim.attrs['equilibrate']
         track_equilibrate = sim.attrs['track_equilibrate']
         duration = sim.attrs['duration']
@@ -1430,7 +1433,7 @@ def get_input_spike_train_phase_precession(rec_filename, index, start_loc=None, 
             end_loc = track_duration
         spike_phase_array = []
         spike_time_array = []
-        for sim in f.itervalues():
+        for sim in f.values():
             if 'phase_offset' in sim.attrs:
                 time_offset = sim.attrs['phase_offset']
             elif 'train' in sim and 'phase_offset' in sim['train'].attrs:
@@ -1460,16 +1463,16 @@ def get_subset_downsampled_recordings(rec_filename, description, dt=0.1):
     # remember .attrs['phase_offset'] could be inside ['train'] for old files
     """
     with h5py.File(data_dir+rec_filename+'.hdf5', 'r') as f:
-        sim = f.itervalues().next()
+        sim = next(iter(f.values()))
         equilibrate = sim.attrs['equilibrate']
         track_equilibrate = sim.attrs['track_equilibrate']
         duration = sim.attrs['duration']
         rec_t = np.arange(0., duration, dt)
         sim_list = []
-        for sim in f.itervalues():
+        for sim in f.values():
             rec_list = []
             index_list = []
-            for rec in [rec for rec in sim['rec'].itervalues() if 'description' in rec.attrs and
+            for rec in [rec for rec in sim['rec'].values() if 'description' in rec.attrs and
                             rec.attrs['description'] == description]:
                 down_sampled = np.interp(rec_t, sim['time'], rec)
                 rec_list.append(down_sampled[int((equilibrate + track_equilibrate) / dt):])
@@ -1489,7 +1492,7 @@ def get_patterned_input_r_inp(rec_filename, seperate=False):
     :return: hypo_r_inp_array, hypo_phase_array, hypo_t_array, depo_r_inp_array, depo_phase_array, depo_t_array
     """
     with h5py.File(data_dir+rec_filename+'.hdf5', 'r') as f:
-        sim = f.itervalues().next()
+        sim = next(iter(f.values()))
         equilibrate = sim.attrs['equilibrate']
         track_equilibrate = sim.attrs['track_equilibrate']
         duration = sim.attrs['duration']
@@ -1498,7 +1501,7 @@ def get_patterned_input_r_inp(rec_filename, seperate=False):
         theta_cycle_duration = sim.attrs['global_theta_cycle_duration']
         probe_amp = sim.attrs['r_inp_probe_amp']
         probe_dur = sim.attrs['r_inp_probe_duration']
-        phase_offsets = [trial.attrs['phase_offset'] for trial in f.itervalues()]
+        phase_offsets = [trial.attrs['phase_offset'] for trial in f.values()]
         traces = get_removed_spikes(rec_filename, plot=0)
         hypo_r_inp_array, hypo_phase_array, hypo_t_array = [], [], []
         depo_r_inp_array, depo_phase_array, depo_t_array = [], [], []
@@ -1534,14 +1537,14 @@ def get_patterned_input_component_traces(rec_filename, dt=0.02):
     # remember .attrs['phase_offset'] could be inside ['train'] for old files
     """
     with h5py.File(data_dir+rec_filename+'.hdf5', 'r') as f:
-        sim = f.itervalues().next()
+        sim = next(iter(f.values()))
         equilibrate = sim.attrs['equilibrate']
         track_equilibrate = sim.attrs['track_equilibrate']
         duration = sim.attrs['duration']
         track_duration = duration - equilibrate - track_equilibrate
         start = int((equilibrate + track_equilibrate)/dt)
         vm_array = []
-        for sim in f.itervalues():
+        for sim in f.values():
             t = np.arange(0., duration, dt)
             vm = np.interp(t, sim['time'], sim['rec']['0'])
             vm = vm[start:]
@@ -1585,7 +1588,7 @@ def alternative_binned_vm_variance_analysis(rec_filename, dt=0.02):
     :param dt: float
     """
     with h5py.File(data_dir + rec_filename + '.hdf5', 'r') as f:
-        sim = f.itervalues().next()
+        sim = next(iter(f.values()))
         equilibrate = sim.attrs['equilibrate']
         track_equilibrate = sim.attrs['track_equilibrate']
         track_length = sim.attrs['track_length']
@@ -1706,9 +1709,9 @@ def get_patterned_input_mean_values(residuals, intra_theta_amp, rate_map, ramp, 
         mean_ramp[target_condition] = np.mean(ramp[source_condition][start:end]) - baseline
     for parameter, title in zip([mean_var, mean_theta_amp, mean_rate, mean_ramp],
                                 ['Variance: ', 'Theta Envelope: ', 'Rate: ', 'Depolarization: ']):
-        print title
+        print(title)
         for condition in key_list[1:]:
-            print condition, parameter[condition]
+            print(condition, parameter[condition])
 
 
 def get_i_syn_mean_values(parameter_array, parameter_title, key_list=None, peak_bounds=[600., 1200., 4200., 4800.],
@@ -1725,17 +1728,17 @@ def get_i_syn_mean_values(parameter_array, parameter_title, key_list=None, peak_
         key_list = ['modinh0', 'modinh1', 'modinh2']
     key_list.extend([key_list[0] + '_out', key_list[0] + '_in'])
     mean_val = {}
-    print parameter_title+':'
+    print(parameter_title+':')
     for source_condition, target_condition in zip([key_list[1], key_list[0]], [key_list[1], key_list[3]]):
         start = int(peak_bounds[0] / dt)
         end = int(peak_bounds[1] / dt)
         mean_val[target_condition] = np.mean(parameter_array[source_condition][start:end])
-        print target_condition+': ', mean_val[target_condition]
+        print(target_condition+': ', mean_val[target_condition])
     for source_condition, target_condition in zip([key_list[2], key_list[0]], [key_list[2], key_list[4]]):
         start = int(peak_bounds[2] / dt)
         end = int(peak_bounds[3] / dt)
         mean_val[target_condition] = np.mean(parameter_array[source_condition][start:end])
-        print target_condition + ': ', mean_val[target_condition]
+        print(target_condition + ': ', mean_val[target_condition])
 
 
 def compress_i_syn_rec_files(rec_filelist, rec_description_list=['i_AMPA', 'i_NMDA', 'i_GABA'],
@@ -1751,7 +1754,7 @@ def compress_i_syn_rec_files(rec_filelist, rec_description_list=['i_AMPA', 'i_NM
     """
     for rec_file in rec_filelist:
         with h5py.File(local_data_dir+rec_file+'.hdf5', 'a') as f:
-            for trial in f.itervalues():
+            for trial in f.values():
                 group_dict = {}
                 for rec in trial['rec']:
                     key = trial['rec'][rec].attrs['description']
@@ -1763,7 +1766,7 @@ def compress_i_syn_rec_files(rec_filelist, rec_description_list=['i_AMPA', 'i_NM
                         del trial['rec'][rec]
                 for key in group_dict:
                     trial.create_dataset(key, compression='gzip', compression_opts=9, data=group_dict[key])
-        print 'Compressed group recordings in file: ', rec_file
+        print('Compressed group recordings in file: ', rec_file)
 
 
 def process_i_syn_rec(rec_filename, description_list=['i_AMPA', 'i_NMDA', 'i_GABA'], dt=0.02):
@@ -1777,7 +1780,7 @@ def process_i_syn_rec(rec_filename, description_list=['i_AMPA', 'i_NMDA', 'i_GAB
     :return: dict
     """
     with h5py.File(data_dir+rec_filename+'.hdf5', 'r') as f:
-        sim = f.itervalues().next()
+        sim = next(iter(f.values()))
         equilibrate = sim.attrs['equilibrate']
         track_equilibrate = sim.attrs['track_equilibrate']
         duration = sim.attrs['duration']
@@ -1786,7 +1789,7 @@ def process_i_syn_rec(rec_filename, description_list=['i_AMPA', 'i_NMDA', 'i_GAB
         rec_t = np.arange(0., track_duration, dt)
         start = int((equilibrate + track_equilibrate) / dt)
         group_dict = {}
-        for trial in f.itervalues():
+        for trial in f.values():
             for key in trial:
                 if key in description_list:
                     if key not in group_dict:
@@ -1831,7 +1834,7 @@ def process_special_rec_within_group(rec_filename, group_name='pre',
     :return: dict
     """
     with h5py.File(data_dir+rec_filename+'.hdf5', 'r') as f:
-        sim = f.itervalues().next()
+        sim = next(iter(f.values()))
         equilibrate = sim.attrs['equilibrate']
         track_equilibrate = sim.attrs['track_equilibrate']
         duration = sim.attrs['duration']
@@ -1840,8 +1843,8 @@ def process_special_rec_within_group(rec_filename, group_name='pre',
         rec_t = np.arange(0., track_duration, dt)
         start = int((equilibrate + track_equilibrate) / dt)
         rec_dict = {}
-        for trial in f.itervalues():
-            for rec in trial[group_name].itervalues():
+        for trial in f.values():
+            for rec in trial[group_name].values():
                 description = rec.attrs['description']
                 if description in description_list:
                     if description not in rec_dict:
@@ -1855,7 +1858,7 @@ def process_special_rec_within_group(rec_filename, group_name='pre',
         down_t = np.arange(0., track_duration, down_dt)
         # 2000 ms Hamming window, ~3 Hz low-pass filter
         window_len = int(2000./down_dt)
-        print 'This method hasn\'t been updated with appropriate signal padding before filtering.'
+        print('This method hasn\'t been updated with appropriate signal padding before filtering.')
         ramp_filter = signal.firwin(window_len, 2., nyq=1000./2./down_dt)
         rec_low_pass_dict = {description: [] for description in rec_dict}
         for description in rec_dict:
@@ -1891,21 +1894,21 @@ def generate_patterned_input_expected(expected_filename, actual_filename, output
     if output_filename is None:
         output_filename = actual_filename+'_linear_expected'
     with h5py.File(data_dir+expected_filename+'.hdf5', 'r') as expected_file:
-        expected_equilibrate = expected_file.itervalues().next().attrs['equilibrate']
-        expected_duration = expected_file.itervalues().next().attrs['duration']
+        expected_equilibrate = next(iter(expected_file.values())).attrs['equilibrate']
+        expected_duration = next(iter(expected_file.values())).attrs['duration']
         expected_key_map = {expected_file[key].attrs['spine_index']: key for key in expected_file}
         with h5py.File(data_dir+actual_filename+'.hdf5', 'r') as actual_file:
-            trial = actual_file.itervalues().next()
+            trial = next(iter(actual_file.values()))
             equilibrate = trial.attrs['equilibrate']
             track_equilibrate = trial.attrs['track_equilibrate']
             duration = trial.attrs['duration']
             track_duration = duration - track_equilibrate - equilibrate
             t = np.arange(0., track_equilibrate + track_duration, dt)
             stochastic = True if 'successes' in trial else False
-            expected_sim = expected_file.itervalues().next()
+            expected_sim = next(iter(expected_file.values()))
             expected_t = np.arange(0., expected_duration, dt)
             baseline = {}
-            for rec in (rec for rec in expected_sim['rec'].itervalues() if rec.attrs['description'] in location_list):
+            for rec in (rec for rec in expected_sim['rec'].values() if rec.attrs['description'] in location_list):
                 sec_type = rec.attrs['description']
                 vm = np.interp(expected_t, expected_sim['time'], rec)
                 baseline[sec_type] = np.mean(vm[int((expected_equilibrate-3.)/dt):int((expected_equilibrate-1.)/dt)])
@@ -1965,11 +1968,11 @@ def sliding_window(unsorted_x, y=None, bin_size=60., window_size=3, start=-60., 
     :param y: array
     :return: bin_center, density, rolling_mean: array, array, array
     """
-    indexes = range(len(unsorted_x))
+    indexes = list(range(len(unsorted_x)))
     indexes.sort(key=unsorted_x.__getitem__)
-    sorted_x = map(unsorted_x.__getitem__, indexes)
+    sorted_x = list(map(unsorted_x.__getitem__, indexes))
     if y is not None:
-        sorted_y = map(y.__getitem__, indexes)
+        sorted_y = list(map(y.__getitem__, indexes))
     window_dur = bin_size * window_size
     bin_centers = np.arange(start+window_dur/2., end-window_dur/2.+bin_size, bin_size)
     density = np.zeros(len(bin_centers))
@@ -2012,7 +2015,7 @@ def sort_str_list(str_list, seperator='_', end=None):
     :param str_list: list of str
     :return: list of str
     """
-    indexes = range(len(str_list))
+    indexes = list(range(len(str_list)))
     values = []
     for this_str in str_list:
         if end is not None:
@@ -2020,7 +2023,7 @@ def sort_str_list(str_list, seperator='_', end=None):
         this_value = int(this_str.split(seperator)[-1])
         values.append(this_value)
     indexes.sort(key=values.__getitem__)
-    sorted_str_list = map(str_list.__getitem__, indexes)
+    sorted_str_list = list(map(str_list.__getitem__, indexes))
     return sorted_str_list
 
 
@@ -2171,11 +2174,11 @@ def print_ramp_features(x, ramp, title, track_length=None, dx=None, induction_lo
     before_width = induction_loc - extended_interp_x[start_index]
     after_width = extended_interp_x[end_index] - induction_loc
     ratio = before_width / after_width
-    print '%s:' % title
-    print '  amplitude: %.1f' % center_of_mass_val
-    print '  peak_shift: %.1f' % peak_shift
-    print '  ramp_width: %.1f' % ramp_width
-    print '  rise:decay ratio: %.1f' % ratio
+    print('%s:' % title)
+    print('  amplitude: %.1f' % center_of_mass_val)
+    print('  peak_shift: %.1f' % peak_shift)
+    print('  ramp_width: %.1f' % ramp_width)
+    print('  rise:decay ratio: %.1f' % ratio)
     if plot:
         plt.plot(default_interp_x, interp_ramp)
 
@@ -2229,8 +2232,8 @@ class optimize_history(object):
         index = self.error_values.index(lowest_Err)
         best_x = self.x_values[index]
         formatted_x = '[' + ', '.join(['%.3E' % xi for xi in best_x]) + ']'
-        print 'best x: %s' % formatted_x
-        print 'lowest Err: %.3E' % lowest_Err
+        print('best x: %s' % formatted_x)
+        print('lowest Err: %.3E' % lowest_Err)
         return best_x
 
     def export_to_pkl(self, hist_filename):
@@ -2277,9 +2280,9 @@ class optimize_history(object):
 
     def plot_features(self, feat_list=None, x_indices=None):
         if feat_list is None:
-            feat_list = self.features.keys()
+            feat_list = list(self.features.keys())
         if x_indices is None:
-            x_indices = range(0, len(self.xlabels))
+            x_indices = list(range(0, len(self.xlabels)))
         num_x_param = len(x_indices)
         num_plot_rows = math.floor(math.sqrt(num_x_param))
         num_plot_cols = math.ceil(num_x_param/num_plot_rows)
@@ -2440,7 +2443,7 @@ class StateMachine(object):
         :param rates: dict  
         """
         for s0 in rates:
-            for s1, r in rates[s0].iteritems():
+            for s1, r in rates[s0].items():
                 self.update_transition(s0, s1, r)
 
     def update_states(self, states):
@@ -2448,7 +2451,7 @@ class StateMachine(object):
 
         :param states: dict
         """
-        for s, v in states.iteritems():
+        for s, v in states.items():
             self.init_states[s] = v
             self.states[s] = v
             self.states_history[s] = np.array([v])
@@ -2533,7 +2536,7 @@ class StateMachine(object):
         :param states:
         """
         if states is None:
-            states = self.states.keys()
+            states = list(self.states.keys())
         elif not hasattr(states, '__iter__'):
             states = [states]
         fig, axes = plt.subplots(1)
@@ -2541,7 +2544,7 @@ class StateMachine(object):
             if state in self.states:
                 axes.plot(self.t_history, self.states_history[state], label=state)
             else:
-                print 'StateMachine: Not including invalid state: %s' % state
+                print('StateMachine: Not including invalid state: %s' % state)
         axes.set_xlabel('Time (ms)')
         axes.set_ylabel('Occupancy')
         axes.legend(loc='best', frameon=False, framealpha=0.5)
@@ -2558,7 +2561,7 @@ def flush_engine_buffer(result):
     for stdout in result.stdout:
         if stdout:
             for line in stdout.splitlines():
-                print line
+                print(line)
     sys.stdout.flush()
 
 
@@ -2575,7 +2578,7 @@ class Context(object):
         Converts items in a dictionary (such as globals() or locals()) into context object internals.
         :param namespace_dict: dict
         """
-        for key, value in namespace_dict.iteritems():
+        for key, value in namespace_dict.items():
             setattr(self, key, value)
 
     def __call__(self):
