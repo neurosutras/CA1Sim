@@ -3,7 +3,7 @@ from specify_cells import *
 from plot_results import *
 import random
 import sys
-from collections import defaultdict
+
 """
 In this version of the simulation, phase precession of CA3 inputs is implemented using the method from Chadwick et al.,
 Elife, 2015, which uses a circular gaussian with a phase sensitivity factor that effectively compresses the range of
@@ -14,17 +14,18 @@ morph_filename = 'EB2-late-bifurcation.swc'
 
 mech_filename = '043016 Type A - km2_NMDA_KIN5_Pr'
 
-
 synapses_seed = 0
 num_exc_syns = 3200
 num_inh_syns = 600
-mod_inh = 0
+mod_weights = 2.5
 
 
+# proportion to modulate the firing rate of all AAC inhibitory inputs
 if len(sys.argv) > 1:
-    condition = int(sys.argv[1])
+    mod_inh = max(0., float(sys.argv[1]))
+
 else:
-    condition = 0
+    mod_inh = 1.
 
 # allows parallel computation of multiple trials for the same spines with the same peak_locs, but with different
 # input spike trains and stochastic synapses for each trial
@@ -33,30 +34,17 @@ if len(sys.argv) > 2:
 else:
     trial_seed = 0
 
-if condition == 0:
-    # silent cell, no DC current
-    mod_weights = 1.
-    DC_offset = None
-elif condition == 1:
-    # silent cell, depolarizing current
-    mod_weights = 1.
-    DC_offset = 0.2
-elif condition == 2:
-    # place cell, no DC current
-    mod_weights = 2.5
-    DC_offset = None
-elif condition == 3:
-    # place cell, hyperpolarizing current
-    mod_weights = 2.5
-    DC_offset = -0.6
-elif condition == 4:
-    # silent cell, hyperpolarizing current (for calibration)
-    mod_weights = 1.
-    DC_offset = -0.6
+if len(sys.argv) > 3:
+    if int(sys.argv[3]) > 0:
+        debug = True
+    else:
+        debug = False
+else:
+    debug = False
 
-rec_filename = 'output'+datetime.datetime.today().strftime('%m%d%Y%H%M')+'-pid'+str(os.getpid())+'-seed'+\
-               str(synapses_seed)+'-e'+str(num_exc_syns)+'-i'+str(num_inh_syns)+'-condition'+str(condition)+\
-               '-seed_'+str(trial_seed)
+
+rec_filename = datetime.datetime.today().strftime('%Y%m%d_%H%M%S')+'-pid'+str(os.getpid())+\
+               '-AAC_mod_inh%.2f' % (mod_inh) +'_'+str(trial_seed)
 
 
 def get_dynamic_theta_phase_force(phase_ranges, peak_loc, input_field_duration, stim_t, dt):
@@ -120,18 +108,7 @@ def run_trial(simiter, run_sim=True):
             f[str(simiter)].create_group('inh_train')
             f[str(simiter)].attrs['phase_offset'] = global_phase_offset / 2. / np.pi * global_theta_cycle_duration
     exc_rate_maps = {}
-    if mod_inh > 0:
-        if mod_inh == 1:
-            mod_inh_start = int(track_equilibrate / dt)
-            mod_inh_stop = mod_inh_start + int(inhibitory_manipulation_duration * input_field_duration / dt)
-        elif mod_inh == 2:
-            mod_inh_start = int((track_equilibrate + modulated_field_center - 0.3 * input_field_duration) / dt)
-            mod_inh_stop = mod_inh_start + int(inhibitory_manipulation_duration * input_field_duration / dt)
-        elif mod_inh == 3:
-            mod_inh_start = 0
-            mod_inh_stop = len(stim_t)
-        sim.parameters['mod_inh_start'] = stim_t[mod_inh_start]
-        sim.parameters['mod_inh_stop'] = stim_t[mod_inh_stop-1]
+    sim.parameters['mod_inh'] = mod_inh
     index = 0
     for group in stim_exc_syns:
         exc_rate_maps[group] = []
@@ -182,11 +159,9 @@ def run_trial(simiter, run_sim=True):
             inhibitory_theta_force *= inh_peak_rate
             for syn in stim_inh_syns[group]:
                 stim_force = np.array(inhibitory_theta_force)
-                if mod_inh > 0 and group in inhibitory_manipulation_offset:
-                    # inhibitory manipulation subtracts from the mean firing rate, but maintains the same theta modulation
-                    # depth
-                    mod_inh_multiplier = 1. - inhibitory_manipulation_offset[group] / inhibitory_mean_rate[group]
-                    stim_force[mod_inh_start:mod_inh_stop] *= mod_inh_multiplier
+                if group in inhibitory_manipulation_set:
+                    # inhibitory manipulation scales the theta-modulated firing rate
+                    stim_force *= mod_inh
                 train = get_inhom_poisson_spike_times(stim_force, stim_t, dt=stim_dt, generator=local_random)
                 syn.source.play(h.Vector(np.add(train, equilibrate + track_equilibrate)))
                 with h5py.File(data_dir+rec_filename+'-working.hdf5', 'a') as f:
@@ -225,7 +200,7 @@ input_field_duration = input_field_width * global_theta_cycle_duration
 track_length = 2.5  # field widths
 track_duration = track_length * input_field_duration
 track_equilibrate = 2. * global_theta_cycle_duration
-duration = equilibrate + track_equilibrate + 1000. # + track_duration  # input_field_duration
+duration = equilibrate + track_equilibrate + 1.8 * input_field_duration  # track_duration
 excitatory_peak_rate = {'CA3': 40., 'ECIII': 40.}
 excitatory_theta_modulation_depth = {'CA3': 0.7, 'ECIII': 0.7}
 # From Chadwick et al., ELife 2015
@@ -237,9 +212,8 @@ excitatory_theta_phase_offset = {}
 excitatory_theta_phase_offset['CA3'] = 165. / 360. * 2. * np.pi  # radians
 excitatory_theta_phase_offset['ECIII'] = 0. / 360. * 2. * np.pi  # radians
 excitatory_stochastic = 1
-inhibitory_manipulation_offset = {'perisomatic': 9., 'axo-axonic': 9., 'apical dendritic': 9.,
-                                    'distal apical dendritic': 9., 'tuft feedback': 9.}
-inhibitory_manipulation_duration = 0.6  # Ratio of input_field_duration
+inhibitory_manipulation_set = set(['axo-axonic'])
+
 inhibitory_mean_rate = {'perisomatic': 25., 'axo-axonic': 25., 'apical dendritic': 25., 'distal apical dendritic': 25.,
                         'tuft feedforward': 25., 'tuft feedback': 25.}
 inhibitory_theta_modulation_depth = {'perisomatic': 0.5, 'axo-axonic': 0.5, 'apical dendritic': 0.5,
@@ -414,7 +388,7 @@ for group in stim_exc_syns:
 # stim_inh_successes = [] will need this when inhibitory synapses become stochastic
 
 # modulate the weights of inputs with peak_locs along this stretch of the track
-modulated_field_center = 500.  # track_duration * 0.6
+modulated_field_center = 0.9 * input_field_duration  # track_duration * 0.6
 cos_mod_weight = {}
 peak_mod_weight = mod_weights
 tuning_amp = (peak_mod_weight - 1.) / 2.
@@ -437,53 +411,10 @@ for group in stim_exc_syns:
     for i, syn in enumerate(stim_exc_syns[group]):
         syn.netcon('AMPA_KIN').weight[0] = cos_mod_weight[group][i]
 
-if DC_offset is not None:
-    sim.append_stim(cell, cell.tree.root, 0.5, DC_offset, equilibrate, duration - equilibrate)
-
-peak_locs_array = np.array(peak_locs['CA3'])
-candidate_indexes = np.where((peak_locs_array > (modulated_field_center - 100.)) &
-                             (peak_locs_array < (modulated_field_center + 100.)))[0]
-syn_list = []
-distance_list = []
-dend_sec_type = []
-for index in candidate_indexes:
-    this_syn = stim_exc_syns['CA3'][index]
-    syn_list.append(this_syn)
-    this_node = this_syn.node
-    distance_list.append(cell.get_distance_to_node(cell.tree.root, this_node))
-    dend_sec_type.append(this_syn.node.parent.parent.type)
-
-target_distance = 50.
-distance_inc = 50.
-max_distance = max(distance_list)
-distance_tolerance = 25.
-dend_sec_types = ['apical', 'basal']
-spine_rec_candidates = defaultdict(dict)
-while target_distance <= max_distance:
-    for target_sec_type in dend_sec_types:
-        target_indexes = np.where(np.array(dend_sec_type) == target_sec_type)[0]
-        distance_to_target = np.subtract(distance_list, target_distance)[target_indexes]
-        sorted_indexes = np.argsort(distance_to_target)
-        distance_to_target = distance_to_target[sorted_indexes]
-        best_index = np.where((distance_to_target >= 0.) & (distance_to_target <= distance_tolerance))[0]
-        if len(best_index) > 0:
-            best_syn = np.array(syn_list)[target_indexes][sorted_indexes][best_index[0]]
-            spine_rec_candidates[target_sec_type][target_distance] = best_syn
-    target_distance += distance_inc
-
-for this_sec_type in spine_rec_candidates:
-    for this_target_distance in spine_rec_candidates[this_sec_type]:
-        this_syn = spine_rec_candidates[this_sec_type][this_target_distance]
-        dend_node = this_syn.node.parent.parent
-        this_distance = cell.get_distance_to_node(cell.tree.root, this_syn.node)
-        description = '%s_%s_%i' % (this_syn.node.name, dend_node.name, int(this_distance))
-        sim.append_rec(cell, this_syn.node, 0.5, description=description)
-        description = '%s_%i' % (dend_node.name, int(this_distance))
-        sim.append_rec(cell, dend_node, this_syn.loc, description=description)
-
-
-run_trial(trial_seed)
-# exc_rate_maps = run_trial(trial_seed, run_sim=False)
+if not debug:
+    run_trial(trial_seed)
+else:
+    exc_rate_maps = run_trial(trial_seed, run_sim=False)
 
 if os.path.isfile(data_dir+rec_filename+'-working.hdf5'):
     os.rename(data_dir+rec_filename+'-working.hdf5', data_dir+rec_filename+'.hdf5')
