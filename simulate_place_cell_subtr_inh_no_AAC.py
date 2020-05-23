@@ -42,9 +42,10 @@ if len(sys.argv) > 3:
 else:
     debug = False
 
-
+start_time = time.time()
 rec_filename = datetime.datetime.today().strftime('%Y%m%d_%H%M%S')+'-pid'+str(os.getpid())+\
                '-AAC_mod_inh%.2f' % (mod_inh) +'_'+str(trial_seed)
+print(rec_filename)
 
 
 def get_dynamic_theta_phase_force(phase_ranges, peak_loc, input_field_duration, stim_t, dt):
@@ -417,4 +418,8 @@ else:
     exc_rate_maps = run_trial(trial_seed, run_sim=False)
 
 if os.path.isfile(data_dir+rec_filename+'-working.hdf5'):
+
     os.rename(data_dir+rec_filename+'-working.hdf5', data_dir+rec_filename+'.hdf5')
+
+print('simulate_place_cell_subtr_inh_no_AAC: task took %.1f s; exported to %s' %
+      (time.time()-start_time, data_dir+rec_filename+'.hdf5'))
