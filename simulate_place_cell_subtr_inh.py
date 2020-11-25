@@ -266,8 +266,8 @@ if trunk_bifurcation:
     trunk_branches = [branch for branch in trunk_bifurcation[0].children if branch.type == 'trunk']
     # get where the thickest trunk branch gives rise to the tuft
     trunk = max(trunk_branches, key=lambda node: node.sec(0.).diam)
-    trunk = (node for node in cell.trunk if cell.node_in_subtree(trunk, node) and 'tuft' in (child.type
-                                                                                    for child in node.children)).next()
+    trunk = next((node for node in cell.trunk if cell.node_in_subtree(trunk, node) and 'tuft' in (child.type
+                                                                                    for child in node.children)))
 else:
     trunk_bifurcation = [node for node in cell.trunk if 'tuft' in (child.type for child in node.children)]
     trunk = trunk_bifurcation[0]
@@ -317,11 +317,13 @@ cell.spike_detector.record(spike_output_vec)
 
 # get the fraction of total spines contained in each sec_type
 total_exc_syns = {sec_type: len(all_exc_syns[sec_type]) for sec_type in ['basal', 'trunk', 'apical', 'tuft']}
-fraction_exc_syns = {sec_type: float(total_exc_syns[sec_type]) / float(np.sum(total_exc_syns.values())) for sec_type in
-                 ['basal', 'trunk', 'apical', 'tuft']}
+fraction_exc_syns = \
+    {sec_type: float(total_exc_syns[sec_type]) /
+               float(np.sum(list(total_exc_syns.values()))) for sec_type in ['basal', 'trunk', 'apical', 'tuft']}
 
 for sec_type in all_exc_syns:
-    for i in local_random.sample(range(len(all_exc_syns[sec_type])), int(num_exc_syns*fraction_exc_syns[sec_type])):
+    for i in local_random.sample(list(range(len(all_exc_syns[sec_type]))),
+                                 int(num_exc_syns*fraction_exc_syns[sec_type])):
         syn = all_exc_syns[sec_type][i]
         if sec_type == 'tuft':
             stim_exc_syns['ECIII'].append(syn)
@@ -331,12 +333,14 @@ for sec_type in all_exc_syns:
 # get the fraction of inhibitory synapses contained in each sec_type
 total_inh_syns = {sec_type: len(all_inh_syns[sec_type]) for sec_type in ['soma', 'ais', 'basal', 'trunk', 'apical',
                                                                          'tuft']}
-fraction_inh_syns = {sec_type: float(total_inh_syns[sec_type]) / float(np.sum(total_inh_syns.values())) for sec_type in
-                 ['soma', 'ais', 'basal', 'trunk', 'apical', 'tuft']}
-num_inh_syns = min(num_inh_syns, int(np.sum(total_inh_syns.values())))
+fraction_inh_syns = {sec_type: float(total_inh_syns[sec_type]) /
+                               float(np.sum(list(total_inh_syns.values()))) for sec_type in
+                     ['soma', 'ais', 'basal', 'trunk', 'apical', 'tuft']}
+num_inh_syns = min(num_inh_syns, int(np.sum(list(total_inh_syns.values()))))
 
 for sec_type in all_inh_syns:
-    for i in local_random.sample(range(len(all_inh_syns[sec_type])), int(num_inh_syns*fraction_inh_syns[sec_type])):
+    for i in local_random.sample(list(range(len(all_inh_syns[sec_type]))),
+                                 int(num_inh_syns*fraction_inh_syns[sec_type])):
         syn = all_inh_syns[sec_type][i]
         if syn.node.type == 'tuft':
             if cell.is_terminal(syn.node):
@@ -417,15 +421,15 @@ for group in stim_exc_syns:
     cos_mod_weight[group][right:] = 1.
     peak_locs[group] = list(peak_locs[group])
     cos_mod_weight[group] = list(cos_mod_weight[group])
-    indexes = range(len(peak_locs[group]))
+    indexes = list(range(len(peak_locs[group])))
     local_random.shuffle(indexes)
-    peak_locs[group] = map(peak_locs[group].__getitem__, indexes)
-    cos_mod_weight[group] = map(cos_mod_weight[group].__getitem__, indexes)
+    peak_locs[group] = list(map(peak_locs[group].__getitem__, indexes))
+    cos_mod_weight[group] = list(map(cos_mod_weight[group].__getitem__, indexes))
     for i, syn in enumerate(stim_exc_syns[group]):
         syn.netcon('AMPA_KIN').weight[0] = cos_mod_weight[group][i]
 
-# run_trial(trial_seed)
-exc_rate_maps = run_trial(trial_seed, run_sim=False)
+run_trial(trial_seed)
+# exc_rate_maps = run_trial(trial_seed, run_sim=False)
 
 if os.path.isfile(data_dir+rec_filename+'-working.hdf5'):
     os.rename(data_dir+rec_filename+'-working.hdf5', data_dir+rec_filename+'.hdf5')
