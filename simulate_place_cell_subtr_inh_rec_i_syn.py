@@ -32,8 +32,8 @@ if len(sys.argv) > 4:
     mod_inh = int(sys.argv[4])
 else:
     mod_inh = 0
-# the synaptic AMPAR conductances at in-field inputs are multiplied by a factor with this value at the peak of the
-# field, and decays with cosine spatial modulation away from the field
+# Takes as arguments either 'AMPA', 'NMDA', or 'GABA', depending on which syn_type you would like to record all
+# synaptic currents across all synapses for later analysis.
 if len(sys.argv) > 5:
     syn_type = str(sys.argv[5])
 else:
