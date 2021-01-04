@@ -80,7 +80,7 @@ def run_trial(simiter):
                                         unit_theta_cycle_duration * (stim_t - unit_phase_offset) -
                                         global_phase_offset - excitatory_theta_phase_offset['CA3'])
             stim_force = np.multiply(gauss_force, theta_force)
-            train = get_inhom_poisson_spike_times(stim_force, stim_t, dt=stim_dt, generator=local_random)
+            train = get_inhom_poisson_spike_times_by_thinning(stim_force, stim_t, dt=stim_dt, generator=local_random)
             syn.source.play(h.Vector(np.add(train, equilibrate + track_equilibrate)))
             with h5py.File(data_dir+rec_filename+'-working.hdf5', 'a') as f:
                 f[str(simiter)]['train'].create_dataset(str(index), compression='gzip', compression_opts=9, data=train)
@@ -100,7 +100,7 @@ def run_trial(simiter):
                                                 inhibitory_phase_offset)
             if mod_inh > 0 and group in inhibitory_manipulation_fraction and syn in manipulated_inh_syns[group]:
                 inhibitory_theta_force[mod_inh_start:mod_inh_stop] = 0.
-            train = get_inhom_poisson_spike_times(inhibitory_theta_force, stim_t, dt=stim_dt,
+            train = get_inhom_poisson_spike_times_by_thinning(inhibitory_theta_force, stim_t, dt=stim_dt,
                                                   generator=local_random)
             syn.source.play(h.Vector(np.add(train, equilibrate + track_equilibrate)))
             with h5py.File(data_dir+rec_filename+'-working.hdf5', 'a') as f:

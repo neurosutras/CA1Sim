@@ -144,7 +144,7 @@ def run_trial(simiter):
             theta_force *= excitatory_theta_modulation_depth[group]
             theta_force += 1. - excitatory_theta_modulation_depth[group]
             stim_force = np.multiply(gauss_force, theta_force)
-            train = get_inhom_poisson_spike_times(stim_force, stim_t, dt=stim_dt, generator=local_random)
+            train = get_inhom_poisson_spike_times_by_thinning(stim_force, stim_t, dt=stim_dt, generator=local_random)
             syn.source.play(h.Vector(np.add(train, equilibrate + track_equilibrate)))
             with h5py.File(data_dir+rec_filename+'-working.hdf5', 'a') as f:
                 f[str(simiter)]['train'].create_dataset(str(index), compression='gzip', compression_opts=9, data=train)
@@ -171,7 +171,7 @@ def run_trial(simiter):
                 # depth
                 mod_inh_multiplier = 1. - inhibitory_manipulation_offset[group] / inhibitory_mean_rate[group]
                 stim_force[mod_inh_start:mod_inh_stop] *= mod_inh_multiplier
-            train = get_inhom_poisson_spike_times(stim_force, stim_t, dt=stim_dt, generator=local_random)
+            train = get_inhom_poisson_spike_times_by_thinning(stim_force, stim_t, dt=stim_dt, generator=local_random)
             syn.source.play(h.Vector(np.add(train, equilibrate + track_equilibrate)))
             with h5py.File(data_dir+rec_filename+'-working.hdf5', 'a') as f:
                 f[str(simiter)]['inh_train'].create_dataset(str(index), compression='gzip', compression_opts=9,
@@ -258,8 +258,8 @@ if trunk_bifurcation:
     trunk_branches = [branch for branch in trunk_bifurcation[0].children if branch.type == 'trunk']
     # get where the thickest trunk branch gives rise to the tuft
     trunk = max(trunk_branches, key=lambda node: node.sec(0.).diam)
-    trunk = (node for node in cell.trunk if cell.node_in_subtree(trunk, node) and 'tuft' in (child.type
-                                                                                    for child in node.children)).next()
+    trunk = next((node for node in cell.trunk if cell.node_in_subtree(trunk, node) and 'tuft' in (child.type
+                                                                                    for child in node.children)))
 else:
     trunk_bifurcation = [node for node in cell.trunk if 'tuft' in (child.type for child in node.children)]
     trunk = trunk_bifurcation[0]
@@ -293,7 +293,7 @@ for sec_type in all_inh_syns:
             if 'GABA_A_KIN' in syn._syn:
                 all_inh_syns[sec_type].append(syn)
 
-sim = QuickSim(duration, cvode=0, dt=0.01)
+sim = QuickSim(duration, cvode=0, dt=0.025)
 sim.parameters['equilibrate'] = equilibrate
 sim.parameters['track_equilibrate'] = track_equilibrate
 sim.parameters['global_theta_cycle_duration'] = global_theta_cycle_duration
@@ -309,11 +309,13 @@ cell.spike_detector.record(spike_output_vec)
 
 # get the fraction of total spines contained in each sec_type
 total_exc_syns = {sec_type: len(all_exc_syns[sec_type]) for sec_type in ['basal', 'trunk', 'apical', 'tuft']}
-fraction_exc_syns = {sec_type: float(total_exc_syns[sec_type]) / float(np.sum(total_exc_syns.values())) for sec_type in
-                 ['basal', 'trunk', 'apical', 'tuft']}
+fraction_exc_syns = \
+    {sec_type: float(total_exc_syns[sec_type]) /
+               float(np.sum(list(total_exc_syns.values()))) for sec_type in ['basal', 'trunk', 'apical', 'tuft']}
 
 for sec_type in all_exc_syns:
-    for i in local_random.sample(range(len(all_exc_syns[sec_type])), int(num_exc_syns*fraction_exc_syns[sec_type])):
+    for i in local_random.sample(list(range(len(all_exc_syns[sec_type]))),
+                                 int(num_exc_syns*fraction_exc_syns[sec_type])):
         syn = all_exc_syns[sec_type][i]
         if sec_type == 'tuft':
             stim_exc_syns['ECIII'].append(syn)
@@ -323,12 +325,14 @@ for sec_type in all_exc_syns:
 # get the fraction of inhibitory synapses contained in each sec_type
 total_inh_syns = {sec_type: len(all_inh_syns[sec_type]) for sec_type in ['soma', 'ais', 'basal', 'trunk', 'apical',
                                                                          'tuft']}
-fraction_inh_syns = {sec_type: float(total_inh_syns[sec_type]) / float(np.sum(total_inh_syns.values())) for sec_type in
-                 ['soma', 'ais', 'basal', 'trunk', 'apical', 'tuft']}
-num_inh_syns = min(num_inh_syns, int(np.sum(total_inh_syns.values())))
+fraction_inh_syns = {sec_type: float(total_inh_syns[sec_type]) /
+                               float(np.sum(list(total_inh_syns.values()))) for sec_type in
+                     ['soma', 'ais', 'basal', 'trunk', 'apical', 'tuft']}
+num_inh_syns = min(num_inh_syns, int(np.sum(list(total_inh_syns.values()))))
 
 for sec_type in all_inh_syns:
-    for i in local_random.sample(range(len(all_inh_syns[sec_type])), int(num_inh_syns*fraction_inh_syns[sec_type])):
+    for i in local_random.sample(list(range(len(all_inh_syns[sec_type]))),
+                                 int(num_inh_syns*fraction_inh_syns[sec_type])):
         syn = all_inh_syns[sec_type][i]
         if syn.node.type == 'tuft':
             if cell.is_terminal(syn.node):
@@ -413,10 +417,10 @@ for group in stim_exc_syns:
     cos_mod_weight[group][right:] = 1.
     peak_locs[group] = list(peak_locs[group])
     cos_mod_weight[group] = list(cos_mod_weight[group])
-    indexes = range(len(peak_locs[group]))
+    indexes = list(range(len(peak_locs[group])))
     local_random.shuffle(indexes)
-    peak_locs[group] = map(peak_locs[group].__getitem__, indexes)
-    cos_mod_weight[group] = map(cos_mod_weight[group].__getitem__, indexes)
+    peak_locs[group] = list(map(peak_locs[group].__getitem__, indexes))
+    cos_mod_weight[group] = list(map(cos_mod_weight[group].__getitem__, indexes))
     for i, syn in enumerate(stim_exc_syns[group]):
         syn.netcon('AMPA_KIN').weight[0] = cos_mod_weight[group][i]
 

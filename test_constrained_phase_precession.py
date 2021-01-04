@@ -105,13 +105,13 @@ def run_n_trials(n):
             end = start + len(stim_t)
             stim_force = gauss_force[start:end]
             stim_force = np.multiply(stim_force, theta_force)
-            train = get_inhom_poisson_spike_times(stim_force, stim_t, generator=local_random)
+            train = get_inhom_poisson_spike_times_by_thinning(stim_force, stim_t, generator=local_random)
             stim_trains.append(train)
             syn.source.play(h.Vector(np.add(train, equilibrate + track_equilibrate)))
         for i, syn in enumerate(stim_inh_syns):
             inhibitory_theta_force = inhibitory_theta_offset + inhibitory_theta_amp * np.sin(2. * np.pi /
                                                         global_theta_cycle_duration * (stim_t - global_phase_offset))
-            train = get_inhom_poisson_spike_times(inhibitory_theta_force, stim_t, generator=local_random)
+            train = get_inhom_poisson_spike_times_by_thinning(inhibitory_theta_force, stim_t, generator=local_random)
             stim_inh_trains.append(train)
             syn.source.play(h.Vector(np.add(train, equilibrate + track_equilibrate)))
         sim.run(v_init)
