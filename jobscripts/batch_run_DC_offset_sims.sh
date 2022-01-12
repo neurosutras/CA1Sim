@@ -16,7 +16,9 @@ sbatch <<EOT
 
 set -x
 
-# cd $WORK2/CA1Sim
+cd $WORK2/CA1Sim
+
+export DATA_DIR=$SCRATCH/data/CA1Sim
 
 declare -a offset=(-0.6 -0.4 -0.2 0 0.2 0.4 0.6)
 
@@ -24,8 +26,8 @@ arraylength=${#offset[@]}
 
 for ((i=0; i<${arraylength}; i++))
 do
-  echo ibrun -n 1 python3 20220112_simulate_place_cell_subtr_inh_record_spines_DC_offset.py 0 $i ${offset[$i]} &
+  ibrun -n 1 python3 20220112_simulate_place_cell_subtr_inh_record_spines_DC_offset.py 0 $i ${offset[$i]} $DATA_DIR &
   let "j = $i + $arraylength"
-  echo ibrun -n 1 python3 20220112_simulate_place_cell_subtr_inh_record_spines_DC_offset.py 1 $j ${offset[$i]} &
+  ibrun -n 1 python3 20220112_simulate_place_cell_subtr_inh_record_spines_DC_offset.py 1 $j ${offset[$i]} $DATA_DIR &
 done
 EOT

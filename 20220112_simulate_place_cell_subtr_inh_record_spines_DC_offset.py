@@ -40,6 +40,10 @@ if len(sys.argv) > 3:
 else:
     DC_offset = 0
 
+if len(sys.argv) > 4:
+    data_dir = str(sys.argv[4])
+
+
 if condition == 0:
     condition = 'out'
     mod_weights = 1.
