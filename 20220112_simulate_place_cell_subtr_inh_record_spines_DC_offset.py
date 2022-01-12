@@ -41,7 +41,7 @@ else:
     DC_offset = 0
 
 if len(sys.argv) > 4:
-    data_dir = str(sys.argv[4])
+    data_dir = str(sys.argv[4])+'/'
 
 
 if condition == 0:
@@ -56,6 +56,7 @@ rec_filename = 'output'+datetime.datetime.today().strftime('%m%d%Y%H%M')+'-pid'+
                str(synapses_seed)+'-e'+str(num_exc_syns)+'-i'+str(num_inh_syns)+'-'+str(condition)+\
                '-DC_'+str(DC_offset)+'-seed_'+str(trial_seed)
 print(rec_filename)
+sys.stdout.flush()
 
 
 def get_dynamic_theta_phase_force(phase_ranges, peak_loc, input_field_duration, stim_t, dt):
@@ -438,8 +439,7 @@ for group in stim_exc_syns:
     for i, syn in enumerate(stim_exc_syns[group]):
         syn.netcon('AMPA_KIN').weight[0] = cos_mod_weight[group][i]
 
-if DC_offset > 0:
-    sim.append_stim(cell, cell.tree.root, 0.5, DC_offset, equilibrate, duration - equilibrate)
+sim.append_stim(cell, cell.tree.root, 0.5, DC_offset, equilibrate, duration - equilibrate)
 
 peak_locs_array = np.array(peak_locs['CA3'])
 candidate_indexes = np.where((peak_locs_array > (modulated_field_center - 100.)) &
