@@ -2,7 +2,9 @@ from __future__ import absolute_import
 
 __author__ = 'Aaron D. Milstein'
 from builtins import zip, map, str, range, object
+from past.builtins import basestring
 from mpi4py import MPI
+from collections import Iterable
 import h5py
 import math
 import pickle
@@ -18,6 +20,7 @@ import random
 import pprint
 import sys
 import os
+import yaml
 
 
 #---------------------------------------Some global variables and functions------------------------------
@@ -270,31 +273,63 @@ def read_from_pkl(fname):
         raise Exception('File: {} does not exist.'.format(fname))
 
 
-def write_to_yaml(file_path, dict):
+class ExplicitDumper(yaml.SafeDumper):
+    """
+    YAML dumper that will never emit aliases.
+    """
+
+    def ignore_aliases(self, data):
+        return True
+
+
+def nested_convert_scalars(data):
+    """
+    Crawls a nested dictionary, and converts any scalar objects from numpy types to python types.
+    :param data: dict
+    :return: dict
+    """
+    if isinstance(data, dict):
+        for key in data:
+            data[key] = nested_convert_scalars(data[key])
+    elif isinstance(data, Iterable) and not isinstance(data, (basestring, tuple)):
+        data = list(data)
+        for i in range(len(data)):
+            data[i] = nested_convert_scalars(data[i])
+    elif hasattr(data, 'item'):
+        data = data.item()
+    return data
+
+
+def write_to_yaml(file_path, data, convert_scalars=True):
     """
 
     :param file_path: str (should end in '.yaml')
-    :param dict: dict
+    :param data: dict
+    :param convert_scalars: bool
     :return:
     """
-    import yaml
     with open(file_path, 'w') as outfile:
-        yaml.dump(dict, outfile, default_flow_style=False)
+        if convert_scalars:
+            data = nested_convert_scalars(data)
+        yaml.dump(data, outfile, default_flow_style=False, Dumper=ExplicitDumper)
 
 
-def read_from_yaml(file_path):
+def read_from_yaml(file_path, include_loader=None):
     """
 
     :param file_path: str (should end in '.yaml')
     :return:
     """
-    import yaml
     if os.path.isfile(file_path):
         with open(file_path, 'r') as stream:
-            data = yaml.load(stream)
+            if include_loader is None:
+                Loader = yaml.FullLoader
+            else:
+                Loader = include_loader
+            data = yaml.load(stream, Loader=Loader)
         return data
     else:
-        raise Exception('File: {} does not exist.'.format(file_path))
+        raise IOError('read_from_yaml: invalid file_path: %s' % file_path)
 
 
 class CheckBounds(object):
