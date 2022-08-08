@@ -1,0 +1,419 @@
+ais:
+  cable:
+    Ra:
+      origin: soma
+    cm:
+      origin: soma
+  ions:
+    ek:
+      origin: soma
+  kap:
+    gkabar:
+      value: 0.090585
+  kdr:
+    gkdrbar:
+      origin: soma
+  km2:
+    gkmbar:
+      value: 0.0075
+  nax:
+    gbar:
+      value: 0.41184000000000004
+    sh:
+      origin: axon_hill
+    sha:
+      value: -3.6
+  pas:
+    e:
+      value: -67.0
+    g:
+      origin: soma
+apical:
+  cable:
+    Ra:
+      origin: soma
+    cm:
+      origin: soma
+  h:
+    eh:
+      origin: soma
+    ghbar:
+      origin: trunk
+    vhalfl:
+    - max_loc: 75.0
+      origin: soma
+    - min_loc: 75.0
+      origin: soma
+      value: -81.0
+  ions:
+    ek:
+      origin: soma
+  kad:
+    gkabar:
+    - max_loc: 75.0
+      origin: soma
+      value: 0.0
+    - max_loc: 300.0
+      min_loc: 75.0
+      origin: soma
+      slope: 0.00018299999999999998
+      value: 0.044225
+    - min_loc: 300.0
+      origin: soma
+      value: 0.08539999999999999
+  kap:
+    gkabar:
+    - min_loc: 75.0
+      origin: soma
+      value: 0.0
+    - max_loc: 75.0
+      origin: soma
+      slope: 0.00018299999999999998
+  kdr:
+    gkdrbar:
+      origin: soma
+  nas:
+    ar:
+      value: 0.8
+    gbar:
+      min: 0.0
+      origin: trunk
+      slope: -0.0002
+    sh:
+      origin: soma
+    sha:
+      value: 5.0
+  pas:
+    e:
+      origin: trunk
+    g:
+      origin: trunk
+  synapse:
+    AMPA_KIN:
+      gmax:
+        origin: trunk
+    NMDA_KIN5:
+      gmax:
+        origin: trunk
+axon:
+  cable:
+    Ra:
+      origin: soma
+    cm:
+      origin: soma
+  ions:
+    ek:
+      origin: soma
+  kap:
+    gkabar:
+      value: 0.090585
+  kdr:
+    gkdrbar:
+      origin: soma
+  km2:
+    gkmbar:
+      origin: ais
+  nax:
+    gbar:
+      value: 0.0936
+    sh:
+      origin: axon_hill
+  pas:
+    e:
+      value: -67.0
+    g:
+      origin: soma
+axon_hill:
+  cable:
+    Ra:
+      origin: soma
+    cm:
+      origin: soma
+  ions:
+    ek:
+      origin: soma
+  kap:
+    gkabar:
+      origin: soma
+  kdr:
+    gkdrbar:
+      origin: soma
+  km2:
+    gkmbar:
+      origin: soma
+  nax:
+    gbar:
+      value: 0.04
+    sh:
+      value: 1.7
+  pas:
+    e:
+      value: -67.0
+    g:
+      origin: soma
+basal:
+  cable:
+    Ra:
+      origin: soma
+    cm:
+      origin: soma
+  h:
+    eh:
+      origin: soma
+    ghbar:
+      origin: soma
+    vhalfl:
+    - max_loc: 75.0
+      origin: soma
+    - min_loc: 75.0
+      origin: soma
+      value: -81.0
+  ions:
+    ek:
+      origin: soma
+  kad:
+    gkabar:
+    - max_loc: 75.0
+      origin: soma
+      value: 0.0
+    - max_loc: 300.0
+      min_loc: 75.0
+      origin: soma
+      slope: 0.00018299999999999998
+      value: 0.044225
+    - min_loc: 300.0
+      origin: soma
+      value: 0.08539999999999999
+  kap:
+    gkabar:
+    - min_loc: 75.0
+      origin: soma
+      value: 0.0
+    - max_loc: 75.0
+      origin: soma
+      slope: 0.00018299999999999998
+  kdr:
+    gkdrbar:
+      origin: soma
+  nas:
+    ar:
+      value: 0.8
+    gbar:
+      min: 0.0
+      origin: soma
+      slope: -0.0002
+    sh:
+      origin: soma
+    sha:
+      value: 5.0
+  pas:
+    e:
+      value: -67.0
+    g:
+      origin: soma
+  synapse:
+    AMPA_KIN:
+      gmax:
+        value: 0.00079
+    NMDA_KIN5:
+      gmax:
+        value: 0.003026
+soma:
+  cable:
+    Ra:
+      value: 150.0
+    cm:
+      value: 1.0
+  h:
+    eh:
+      value: -30.0
+    ghbar:
+      value: 2.43e-09
+    vhalfl:
+      value: -73.0
+  ions:
+    ek:
+      value: -77.0
+  kap:
+    gkabar:
+      value: 0.0305
+  kdr:
+    gkdrbar:
+      value: 0.0478
+  km2:
+    gkmbar:
+      value: 0.0015
+  nas:
+    ar:
+      value: 1.0
+    gbar:
+      value: 0.04
+    sh:
+      value: 1.7
+  pas:
+    e:
+      value: -63.0
+    g:
+      value: 1.52e-06
+spine_head:
+  cable:
+    Ra:
+      origin: soma
+    cm:
+      origin: soma
+  pas:
+    e:
+      value: -67.0
+    g:
+      origin: parent
+spine_neck:
+  cable:
+    Ra:
+      origin: soma
+    cm:
+      origin: soma
+  pas:
+    e:
+      value: -67.0
+    g:
+      origin: parent
+trunk:
+  cable:
+    Ra:
+      origin: soma
+    cm:
+      origin: soma
+  h:
+    eh:
+      origin: soma
+    ghbar:
+      origin: soma
+      slope: 0.00185
+      tau: 383.1
+      xhalf: 260.7
+    vhalfl:
+    - max_loc: 75.0
+      origin: soma
+    - min_loc: 75.0
+      origin: soma
+      value: -81.0
+  ions:
+    ek:
+      origin: soma
+  kad:
+    gkabar:
+    - max_loc: 75.0
+      origin: soma
+      value: 0.0
+    - max_loc: 300.0
+      min_loc: 75.0
+      origin: soma
+      slope: 0.00018299999999999998
+      value: 0.044225
+    - min_loc: 300.0
+      origin: soma
+      value: 0.08539999999999999
+  kap:
+    gkabar:
+    - min_loc: 75.0
+      origin: soma
+      value: 0.0
+    - max_loc: 75.0
+      origin: soma
+      slope: 0.00018299999999999998
+  kdr:
+    gkdrbar:
+      origin: soma
+  nas:
+    ar:
+      value: 0.8
+    gbar:
+      origin: soma
+    sh:
+      origin: soma
+    sha:
+      value: 5.0
+  pas:
+    e:
+      origin: soma
+      slope: -1.5827143250102864
+      tau: 121.9
+    g:
+      origin: soma
+      slope: 1.63e-05
+      tau: 121.9
+  synapse:
+    AMPA_KIN:
+      gmax:
+        origin: soma
+        slope: 0.000297
+        tau: 132.8
+        value: 0.00079
+    NMDA_KIN5:
+      gmax:
+        value: 0.003026
+tuft:
+  cable:
+    Ra:
+      origin: soma
+    cm:
+      origin: soma
+  h:
+    eh:
+      origin: soma
+    ghbar:
+      origin: trunk
+    vhalfl:
+    - max_loc: 75.0
+      origin: soma
+    - min_loc: 75.0
+      origin: soma
+      value: -81.0
+  ions:
+    ek:
+      origin: soma
+  kad:
+    gkabar:
+    - max_loc: 75.0
+      origin: soma
+      value: 0.0
+    - max_loc: 300.0
+      min_loc: 75.0
+      origin: soma
+      slope: 0.00018299999999999998
+      value: 0.044225
+    - min_loc: 300.0
+      origin: soma
+      value: 0.08539999999999999
+  kap:
+    gkabar:
+    - min_loc: 75.0
+      origin: soma
+      value: 0.0
+    - max_loc: 75.0
+      origin: soma
+      slope: 0.00018299999999999998
+  kdr:
+    gkdrbar:
+      origin: soma
+  nas:
+    ar:
+      value: 0.8
+    gbar:
+      origin: trunk
+    sh:
+      origin: soma
+    sha:
+      value: 5.0
+  pas:
+    e:
+      origin: trunk
+    g:
+      origin: trunk
+  synapse:
+    AMPA_KIN:
+      gmax:
+        origin: trunk
+    NMDA_KIN5:
+      gmax:
+        origin: trunk

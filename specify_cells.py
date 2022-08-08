@@ -3,7 +3,6 @@ __author__ = 'Aaron D. Milstein'
 # Includes an extension of BtMorph, created by Ben Torben-Nielsen and modified by Daniele Linaro.
 from function_lib import *
 from neuron import h  # must be found in system $PYTHONPATH
-import pprint
 
 
 # SWC files must use this nonstandard convention to exploit trunk and tuft categorization
@@ -676,8 +675,8 @@ class STree2(object):
 class HocCell(object):
     def __init__(self, morph_filename=None, mech_filename=None, gid=0):
         """
-        :param morph_filename: str : path to .swc file containing morphology
-        :param mech_filename: str : path to .pkl file specifying cable parameters and membrane mechanisms
+        :param morph_filename: str : file name of .swc file containing morphology
+        :param mech_filename: str : file name of .yaml file specifying cable parameters and membrane mechanisms
         """
         global local_gid_counter
         self._gid = gid
@@ -686,7 +685,7 @@ class HocCell(object):
         self.index = 0  # Keep track of number of nodes
         self._node_dict = {'soma': [], 'axon': [], 'basal': [], 'trunk': [], 'apical': [], 'tuft': [], 'spine': []}
         self.mech_dict = self.load_mech_dict(mech_filename)  # Refer to function_lib for description of structure of
-                                                             # mechanism dictionary. loads from .pkl or
+                                                             # mechanism dictionary. loads from .yaml or
                                                              # default_mech_dict in function_lib
         if not morph_filename is None:
             self.load_morphology_from_swc(morph_filename)
@@ -865,12 +864,12 @@ class HocCell(object):
 
     def load_mech_dict(self, mech_filename=None):
         """
-        This method loads the dictionary specifying membrane mechanism parameters. If a .pkl file is not provided, a
+        This method loads the dictionary specifying membrane mechanism parameters. If a .yaml file is not provided, a
         global variable default_mech_dict from function_lib is used.
         :param mech_filename: str
         """
         if not mech_filename is None:
-            return read_from_pkl(data_dir+mech_filename+'.pkl')
+            return read_from_yaml(data_dir+mech_filename)
         else:
             local_mech_dict = copy.deepcopy(default_mech_dict)
             return local_mech_dict
@@ -1632,13 +1631,13 @@ class HocCell(object):
     def export_mech_dict(self, mech_filename=None):
         """
         Following modifications to the mechanism dictionary either during model specification or parameter optimization,
-        this method stores the current mech_dict to a pickle file stamped with the date and time. This allows the
+        this method stores the current mech_dict to a .yaml file stamped with the date and time. This allows the
         current set of mechanism parameters to be recalled later.
         """
         if mech_filename is None:
-            mech_filename = 'mech_dict_'+datetime.datetime.today().strftime('%m%d%Y%H%M')+'.pkl'
-        write_to_pkl(data_dir+mech_filename+'.pkl', self.mech_dict)
-        print("Exported mechanism dictionary to "+mech_filename+'.pkl')
+            mech_filename = 'mech_dict_'+datetime.datetime.today().strftime('%m%d%Y%H%M')+'.yaml'
+        write_to_yaml(data_dir+mech_filename, self.mech_dict)
+        print("Exported mechanism dictionary to "+mech_filename)
 
     def get_node_by_distance_to_soma(self, distance, sec_type):
         """
@@ -2109,60 +2108,61 @@ class QuickSim(object):
         plt.show()
         plt.close()
 
-    def export_to_file(self, f, simiter=None):
+    def export_to_file(self, file_path, simiter=None):
         """
-        Extracts important parameters from the lists of stimulation and recording sites, and exports to an HDF5
-        database. Arrays are saved as datasets and metadata is saved as attributes.
-        :param f: :class:'h5py.File'
+        Extracts important parameters from the lists of stimulation and recording sites, and exports to an .hdf5 file.
+        Arrays are saved as datasets and metadata is saved as attributes.
+        :param file_path: str; path to .hdf5 file
         :param simiter: int
         """
         start_time = time.time()
-        if simiter is None:
-            simiter = len(f)
-        if str(simiter) not in f:
-            f.create_group(str(simiter))
-        f[str(simiter)].create_dataset('time', compression='gzip', compression_opts=9, data=self.tvec)
-        f[str(simiter)]['time'].attrs['dt'] = self.dt
-        for parameter in self.parameters:
-            f[str(simiter)].attrs[parameter] = self.parameters[parameter]
-        if self.stim_list:
-            f[str(simiter)].create_group('stim')
-            for index, stim in enumerate(self.stim_list):
-                stim_out = f[str(simiter)]['stim'].create_dataset(str(index), compression='gzip', compression_opts=9,
-                                                                  data=stim['vec'])
-                cell = stim['cell']
-                stim_out.attrs['cell'] = cell.gid
-                node = stim['node']
-                stim_out.attrs['index'] = node.index
-                stim_out.attrs['type'] = node.type
-                loc = stim['stim'].get_segment().x
-                stim_out.attrs['loc'] = loc
-                distance = cell.get_distance_to_node(cell.tree.root, node, loc)
-                stim_out.attrs['soma_distance'] = distance
-                distance = cell.get_distance_to_node(cell.get_dendrite_origin(node), node, loc)
-                stim_out.attrs['branch_distance'] = distance
-                stim_out.attrs['amp'] = stim['stim'].amp
-                stim_out.attrs['delay'] = stim['stim'].delay
-                stim_out.attrs['dur'] = stim['stim'].dur
-                stim_out.attrs['description'] = stim['description']
-        f[str(simiter)].create_group('rec')
-        for index, rec in enumerate(self.rec_list):
-            rec_out = f[str(simiter)]['rec'].create_dataset(str(index), compression='gzip', compression_opts=9,
-                                                            data=rec['vec'])
-            cell = rec['cell']
-            rec_out.attrs['cell'] = cell.gid
-            node = rec['node']
-            rec_out.attrs['index'] = node.index
-            rec_out.attrs['type'] = node.type
-            rec_out.attrs['loc'] = rec['loc']
-            distance = cell.get_distance_to_node(cell.tree.root, node, rec['loc'])
-            rec_out.attrs['soma_distance'] = distance
-            distance = cell.get_distance_to_node(cell.get_dendrite_origin(node), node, rec['loc'])
-            rec_out.attrs['branch_distance'] = distance
-            rec_out.attrs['ylabel'] = rec['ylabel']
-            rec_out.attrs['units'] = rec['units']
-            if 'description' in rec:
-                rec_out.attrs['description'] = rec['description']
+        with h5py.File(file_path, 'a') as f:
+            if simiter is None:
+                simiter = len(f)
+            if str(simiter) not in f:
+                f.create_group(str(simiter))
+            f[str(simiter)].create_dataset('time', compression='gzip', compression_opts=9, data=self.tvec)
+            f[str(simiter)]['time'].attrs['dt'] = self.dt
+            for parameter in self.parameters:
+                f[str(simiter)].attrs[parameter] = self.parameters[parameter]
+            if self.stim_list:
+                f[str(simiter)].create_group('stim')
+                for index, stim in enumerate(self.stim_list):
+                    stim_out = f[str(simiter)]['stim'].create_dataset(str(index), compression='gzip', compression_opts=9,
+                                                                      data=stim['vec'])
+                    cell = stim['cell']
+                    stim_out.attrs['cell'] = cell.gid
+                    node = stim['node']
+                    stim_out.attrs['index'] = node.index
+                    stim_out.attrs['type'] = node.type
+                    loc = stim['stim'].get_segment().x
+                    stim_out.attrs['loc'] = loc
+                    distance = cell.get_distance_to_node(cell.tree.root, node, loc)
+                    stim_out.attrs['soma_distance'] = distance
+                    distance = cell.get_distance_to_node(cell.get_dendrite_origin(node), node, loc)
+                    stim_out.attrs['branch_distance'] = distance
+                    stim_out.attrs['amp'] = stim['stim'].amp
+                    stim_out.attrs['delay'] = stim['stim'].delay
+                    stim_out.attrs['dur'] = stim['stim'].dur
+                    stim_out.attrs['description'] = stim['description']
+            f[str(simiter)].create_group('rec')
+            for index, rec in enumerate(self.rec_list):
+                rec_out = f[str(simiter)]['rec'].create_dataset(str(index), compression='gzip', compression_opts=9,
+                                                                data=rec['vec'])
+                cell = rec['cell']
+                rec_out.attrs['cell'] = cell.gid
+                node = rec['node']
+                rec_out.attrs['index'] = node.index
+                rec_out.attrs['type'] = node.type
+                rec_out.attrs['loc'] = rec['loc']
+                distance = cell.get_distance_to_node(cell.tree.root, node, rec['loc'])
+                rec_out.attrs['soma_distance'] = distance
+                distance = cell.get_distance_to_node(cell.get_dendrite_origin(node), node, rec['loc'])
+                rec_out.attrs['branch_distance'] = distance
+                rec_out.attrs['ylabel'] = rec['ylabel']
+                rec_out.attrs['units'] = rec['units']
+                if 'description' in rec:
+                    rec_out.attrs['description'] = rec['description']
         if self.verbose:
             print('Simulation ', simiter, ': exporting took: ', time.time()-start_time, ' s')
 
