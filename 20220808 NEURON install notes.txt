@@ -47,7 +47,7 @@ Or with a constant time step with:
 sim = QuickSim(duration, cvode=False, dt=0.025)
 
 sim.append_rec(cell, node=cell.tree.root, loc=0.5, description='soma')
-sim.append_stim(cell, node=cell.tree.root, loc=0.5, amp=0.2, delay=150., dur=200.)
+sim.append_stim(cell, node=cell.tree.root, loc=0.5, amp=0.4, delay=150., dur=200.)
 sim.run()
 sim.plot()
 
