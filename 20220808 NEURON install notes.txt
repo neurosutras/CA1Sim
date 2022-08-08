@@ -3,7 +3,7 @@
 2) pip install neuron
 
 3) clone the "minimal" branch of this repository into a location within your $PYTHONPATH with
-git clone https://github.com/neurosutras/CA1Sim.git -b minimal .
+git clone https://github.com/neurosutras/CA1Sim.git -b minimal
 
 Make sure to extend your $PYTHONPATH to include the parent directory one level above the repository directory
 
