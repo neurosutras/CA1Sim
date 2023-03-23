@@ -1,0 +1,91 @@
+1) install anaconda python, includes ipython, numpy, matplotlib, hdf5, h5py
+
+2) pip install neuron
+
+3) pip install click
+
+4) clone the "minimal" branch of this repository into a location within your $PYTHONPATH with
+git clone https://github.com/neurosutras/CA1Sim.git -b minimal .
+
+Make sure to extend your $PYTHONPATH to include the parent directory one level above the repository directory
+
+4) To run CA1 PYR cell model simulations, first make sure to execute nrnivmodl in the directory that contains the .mod files.
+
+Make sure to put .swc files in the /morphologies directory and expect to find .yaml and .hdf5 data output files in the /data directory
+
+5) To get started using the API for modifying cell biophysics, running simulations, and recording and exporting data, start an iPython session with:
+
+ipython
+
+from specify_cells import *
+
+To build a CA1_Pyr cell from a reconstructed morphology (including ~10,000 spine neck and head compartments) and tuned somatodendritic ion channel gradients:
+
+cell = CA1_Pyr(morph_filename='EB2-late-bifurcation.swc', mech_filename='20220808_default_biophysics.yaml', full_spines=True)
+
+Simulations are very slow with > 20,000 compartments. Depending on the use case, spine compartments can be omitted, and
+synapses can be inserted directly into dendritic branch compartments instead.
+
+Ion channel mechanisms and cable parameters for various types of compartments can be inserted or modified with commands like:
+
+cell.modify_mech_param('soma', 'cable', 'Ra', 150.)
+cell.modify_mech_param('soma', 'pas', 'g', 0.0002)
+cell.modify_mech_param('basal', 'h', 'ghbar', origin='soma')
+cell.modify_mech_param('trunk', 'kap', 'gkabar', origin='soma', slope=3.84e-4, max=0.24)
+
+Once you have a cell appropriately specified, you can save a file containing the mechanisms in the data directory with:
+
+cell.export_mech_dict('name_of_yaml_file.yaml'), or with no arg to automatically generate a unique filename with
+the data and timestamp. This .yaml file can then be used to instantiate a cell with customized biophysics.
+
+
+A quick simulation using adaptive timestep integration can be run with:
+
+duration = 400.  # ms
+sim = QuickSim(duration)
+
+Or with a constant time step with:
+
+sim = QuickSim(duration, cvode=False, dt=0.025)
+
+sim.append_rec(cell, node=cell.tree.root, loc=0.5, description='soma')
+sim.append_stim(cell, node=cell.tree.root, loc=0.5, amp=0.2, delay=150., dur=200.)
+sim.run()
+sim.plot()
+
+results can also be exported to an .hdf5 file with:
+
+sim.export_to_file('name_of_hdf5_file.hdf5')
+
+Later, results from multiple simulations saved to file can be superimposed and plotted with:
+
+from plot_results import *
+plot_superimpose_conditions('name_of_hdf5_file.hdf5')
+
+Ion channel gradients can be visualized with:
+
+from plot_results import *
+plot_mech_param_distribution(cell, mech_name='kap', param_name='gkabar')
+
+Once synapses are inserted, the somatodendritic gradient of AMPA conductances can be visualized with:
+plot_synaptic_param_distribution(cell, syn_type='AMPA_KIN', param_name='gmax')
+
+A full simulation of a place cell during place field traversal can be executed from the command line with:
+
+python simulate_place_cell.py --export
+
+This exports data to an .hdf5 file.
+
+There a number of other command line options:
+--debug  # does not execute a simulation
+--plot  # generates plots of input firing rates and output Vm
+--interactive  # keeps the python session alive after execution to allow object inspection
+--sim_duration=500  # during testing, you can limit the duration of the simulation in milliseconds
+--field_center=0  # by default, the CA1 place field peaks 0.6 of the way along the track. For testing, this can be moved
+--mech-filename=file_name.yaml  # if you want to execute a model with alternative biophysics, load an alternative .yaml
+--synapses-seed=1  # any integer will result in a different, independent but reproducible distribution of synapse locations
+--trial-seed=1  # any integer will result in different, independent but reproducible presynaptic spike times and release probabilities
+--label=any_str  # append a unique label to the name of the .hdf5 file used to export data for this simulation
+--mod_inh=1  # to reproduce the results of Grienberger et al., 2017, an integer determines where to mimic optogenetic
+    silencing of inhibitory interneurons (0 = no, 1 = out of field at track start, 2 = in field,
+        3 = entire length of track)

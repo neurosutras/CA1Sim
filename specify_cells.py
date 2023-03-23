@@ -2093,6 +2093,7 @@ class QuickSim(object):
             rec_dict['description'] = description
 
     def plot(self):
+        fig = plt.figure()
         for rec_dict in self.rec_list:
             if 'description' in rec_dict:
                 description = str(rec_dict['description'])
@@ -2105,8 +2106,8 @@ class QuickSim(object):
         plt.legend(loc='upper right')
         if 'description' in self.parameters:
             plt.title(self.parameters['description'])
-        plt.show()
-        plt.close()
+        fig.show()
+
 
     def export_to_file(self, file_path, simiter=None):
         """
@@ -2177,7 +2178,7 @@ class CA1_Pyr(HocCell):
 
     def insert_spines_in_subset(self, sec_type_list):
         """
-        This method populates the cell tree with spines following spine density information from Erk Bloss &
+        This method populates the cell tree with spines following spine density information from Erik Bloss &
         Nelson Spruston. Basal dendrites have no spines until the first branch point, and a higher density beyond the
         second branch point. Trunk dendrites have no spines until the first branch point, and an increasing density
         until the tuft branch point(s). Apical dendrites have a density that varies with the distance from the soma of
@@ -2261,10 +2262,85 @@ class CA1_Pyr(HocCell):
         head.sec.diam = 0.5
         self._init_cable(head)
 
-    def insert_inhibitory_synapses_in_subset(self, sec_type_list=None):
+    def get_syn_locs(self, node, density):
+        """
+        Given a mean synapse density in /um, return the location of synapses in the node at the specified density.
+        :param node: :class:'SHocNode'
+        :param density: float: mean density in /um
+        """
+        locs = []
+        L = node.sec.L
+        beta = 1./density
+        interval = self.random.exponential(beta)
+        while interval < L:
+            loc = interval/L
+            locs.append((node, loc))
+            interval += self.random.exponential(beta)
+        return locs
+
+    def get_excitatory_syn_locs(self, sec_type_list):
+        """
+        This method populates the cell tree with excitatory synapses following spine density information from Erik
+        Bloss & Nelson Spruston. Basal dendrites have no spines until the first branch point, and a higher density
+        beyond the second branch point. Trunk dendrites have no spines until the first branch point, and an increasing
+        density until the tuft branch point(s). Apical dendrites have a density that varies with the distance from the
+        soma of their original branch point from the trunk. Terminal tuft branches have a higher density than their
+        parents.
+        :param sec_type_list: list of str
+        """
+        densities = {'trunk': {'min': 0.2418, 'max': 3.8,
+                               'start': min([self.get_distance_to_node(self.tree.root, branch) for branch in
+                                                                                                self.apical]),
+                               'end': max([self.get_distance_to_node(self.tree.root, branch) for branch in
+                                                                                                self.trunk])},
+                     'basal': {'1': 0., '2': 0.4428, '>2': 1.891},
+                     'apical': {'min': 2.273, 'max': 2.688,
+                                'start': min([self.get_distance_to_node(self.tree.root, branch) for branch in
+                                                                                                self.apical]),
+                                'end': max([self.get_distance_to_node(self.tree.root, branch)
+                                            for branch in self.apical if self.get_branch_order(branch) == 1])},
+                     'tuft': {'parent': 1.354, 'terminal': 0.7157}
+                    }
+        exc_syn_locs = {sec_type: [] for sec_type in sec_type_list}
+        if 'basal' in sec_type_list:
+            sec_type = 'basal'
+            for node in self.basal:
+                order = self.get_branch_order(node)
+                if order == 2:
+                    exc_syn_locs[sec_type].extend(self.get_syn_locs(node, densities['basal']['2']))
+                elif order > 2:
+                    exc_syn_locs[sec_type].extend(self.get_syn_locs(node, densities['basal']['>2']))
+        if 'trunk' in sec_type_list:
+            sec_type = 'trunk'
+            for node in self.trunk:
+                distance = self.get_distance_to_node(self.tree.root, node)
+                if distance >= densities['trunk']['start']:
+                    slope = (densities['trunk']['max'] - densities['trunk']['min']) / \
+                            (densities['trunk']['end'] - densities['trunk']['start'])
+                    density = densities['trunk']['min'] + slope * (distance - densities['trunk']['start'])
+                    exc_syn_locs[sec_type].extend(self.get_syn_locs(node, density))
+        if 'apical' in sec_type_list:
+            sec_type = 'apical'
+            for node in self.apical:
+                distance = self.get_distance_to_node(self.tree.root, self.get_dendrite_origin(node), loc=1.)
+                slope = (densities['apical']['max'] - densities['apical']['min']) / \
+                        (densities['apical']['end'] - densities['apical']['start'])
+                density = densities['apical']['min'] + slope * (distance - densities['apical']['start'])
+                exc_syn_locs[sec_type].extend(self.get_syn_locs(node, density))
+        if 'tuft' in sec_type_list:
+            sec_type = 'tuft'
+            for node in self.tuft:
+                if self.is_terminal(node):
+                    exc_syn_locs[sec_type].extend(self.get_syn_locs(node, densities['tuft']['terminal']))
+                else:
+                    exc_syn_locs[sec_type].extend(self.get_syn_locs(node, densities['tuft']['parent']))
+        return exc_syn_locs
+
+    def get_inhibitory_syn_locs(self, sec_type_list=None):
         """
 
-        :param sec_type_list: str
+        :param sec_type_list: list of str
+        :return: dict {str; sec_type: list of float; loc}
         """
         if sec_type_list is None:
             sec_type_list = ['soma', 'ais', 'basal', 'trunk', 'apical', 'tuft']
@@ -2282,58 +2358,65 @@ class CA1_Pyr(HocCell):
                                             for branch in self.apical if self.get_branch_order(branch) == 1])},
                      'tuft': {'parent': 0.2104, 'terminal': 0.1619}
                     }
+        inh_syn_locs = {sec_type: [] for sec_type in sec_type_list}
         if 'soma' in sec_type_list:
+            sec_type = 'soma'
             for node in self.soma:
-                self.insert_inhibitory_synapse_every(node, densities['soma'])
+                inh_syn_locs[sec_type].extend(self.get_syn_locs(node, densities['soma']))
         if 'ais' in sec_type_list:
+            sec_type = 'ais'
             for node in self.get_nodes_of_subtype('ais'):
-                self.insert_inhibitory_synapse_every(node, densities['ais'])
+                inh_syn_locs[sec_type].extend(self.get_syn_locs(node, densities['ais']))
         if 'basal' in sec_type_list:
+            sec_type = 'basal'
             for node in self.basal:
                 if self.is_terminal(node):
-                    self.insert_inhibitory_synapse_every(node, densities['basal']['terminal'])
+                    inh_syn_locs[sec_type].extend(self.get_syn_locs(node, densities['basal']['terminal']))
                 else:
                     order = self.get_branch_order(node)
                     if order == 1:
-                        self.insert_inhibitory_synapse_every(node, densities['basal']['primary'])
+                        inh_syn_locs[sec_type].extend(self.get_syn_locs(node, densities['basal']['primary']))
                     else:
-                        self.insert_inhibitory_synapse_every(node, densities['basal']['intermediate'])
+                        inh_syn_locs[sec_type].extend(self.get_syn_locs(node, densities['basal']['intermediate']))
         if 'trunk' in sec_type_list:
+            sec_type = 'trunk'
             for node in self.trunk:
                 distance = self.get_distance_to_node(self.tree.root, node)
                 if distance >= densities['trunk']['start']:
                     slope = (densities['trunk']['max'] - densities['trunk']['min']) / \
                             (densities['trunk']['end'] - densities['trunk']['start'])
                     density = densities['trunk']['min'] + slope * (distance - densities['trunk']['start'])
-                    self.insert_inhibitory_synapse_every(node, density)
+                    inh_syn_locs[sec_type].extend(self.get_syn_locs(node, density))
         if 'apical' in sec_type_list:
+            sec_type = 'apical'
             for node in self.apical:
                 distance = self.get_distance_to_node(self.tree.root, self.get_dendrite_origin(node), loc=1.)
                 slope = (densities['apical']['max'] - densities['apical']['min']) / \
                         (densities['apical']['end'] - densities['apical']['start'])
                 density = densities['apical']['min'] + slope * (distance - densities['apical']['start'])
-                self.insert_inhibitory_synapse_every(node, density)
+                inh_syn_locs[sec_type].extend(self.get_syn_locs(node, density))
         if 'tuft' in sec_type_list:
+            sec_type = 'tuft'
             for node in self.tuft:
                 if self.is_terminal(node):
-                    self.insert_inhibitory_synapse_every(node, densities['tuft']['terminal'])
+                    inh_syn_locs[sec_type].extend(self.get_syn_locs(node, densities['tuft']['terminal']))
                 else:
-                    self.insert_inhibitory_synapse_every(node, densities['tuft']['parent'])
+                    inh_syn_locs[sec_type].extend(self.get_syn_locs(node, densities['tuft']['parent']))
+        return inh_syn_locs
 
-    def insert_inhibitory_synapse_every(self, node, density, syn_types=['GABA_A_KIN'], stochastic=0):
+    def insert_synapses_at_syn_locs(self, syn_locs, syn_types, stochastic=0):
         """
 
-        :param node: :class:'SHocNode'
-        :param density: float: mean density in /um
+        :param syn_locs: list of tuple: (int; node_index, float; loc)
         :param syn_types: list of str
-        :param stochastic: int
+        :param stochastic: int in [0, 1]
         """
-        L = node.sec.L
-        beta = 1./density
-        interval = self.random.exponential(beta)
-        while interval < L:
-            syn = Synapse(self, node, type_list=syn_types, stochastic=stochastic, loc=interval/L)
-            interval += self.random.exponential(beta)
+        syn_list = []
+        for node, loc in syn_locs:
+            syn = Synapse(self, node, type_list=syn_types, stochastic=stochastic, loc=loc)
+            syn_list.append(syn)
+
+        return syn_list
 
     def zero_na(self):
         """
