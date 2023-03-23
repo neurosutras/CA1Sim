@@ -3,7 +3,7 @@
 2) pip install neuron
 
 3) clone the "minimal" branch of this repository into a location within your $PYTHONPATH with
-git clone https://github.com/neurosutras/CA1Sim.git -b minimal .
+git clone https://github.com/neurosutras/CA1Sim.git -b minimal
 
 Make sure to extend your $PYTHONPATH to include the parent directory one level above the repository directory
 
@@ -47,7 +47,7 @@ Or with a constant time step with:
 sim = QuickSim(duration, cvode=False, dt=0.025)
 
 sim.append_rec(cell, node=cell.tree.root, loc=0.5, description='soma')
-sim.append_stim(cell, node=cell.tree.root, loc=0.5, amp=0.2, delay=150., dur=200.)
+sim.append_stim(cell, node=cell.tree.root, loc=0.5, amp=0.4, delay=150., dur=200.)
 sim.run()
 sim.plot()
 
