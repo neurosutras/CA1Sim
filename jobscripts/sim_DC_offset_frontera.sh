@@ -6,9 +6,9 @@ sbatch <<EOT
 #SBATCH -J $JOB_NAME
 #SBATCH -o /scratch1/06441/aaronmil/logs/CA1Sim/$JOB_NAME.%j.o
 #SBATCH -e /scratch1/06441/aaronmil/logs/CA1Sim/$JOB_NAME.%j.e
-#SBATCH -p normal
+#SBATCH -p small
 #SBATCH -N 1
-#SBATCH -n 56
+#SBATCH -n 4
 #SBATCH -t 24:00:00
 #SBATCH --mail-user=milstein@cabm.rutgers.edu
 #SBATCH --mail-type=ALL
