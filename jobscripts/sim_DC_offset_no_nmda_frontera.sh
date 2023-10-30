@@ -24,7 +24,7 @@ do
   ((j=i+10))
   export j
   ibrun -n 1 python3 20231029_simulate_place_cell_record_syn_currents_DC_offset_no_nmda.py $i 0.0 $SCRATCH/data/CA1Sim &
-  ibrun -n 1 python3 20231029_simulate_place_cell_record_syn_currents_DC_offsetno_nmda.py $j 0.18 $SCRATCH/data/CA1Sim &
+  ibrun -n 1 python3 20231029_simulate_place_cell_record_syn_currents_DC_offset_no_nmda.py $j 0.18 $SCRATCH/data/CA1Sim &
 done
 wait
 EOT

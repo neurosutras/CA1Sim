@@ -1565,7 +1565,60 @@ def get_patterned_input_r_inp(rec_filename, seperate=False):
                np.append(hypo_t_array, depo_t_array)
 
 
-def get_patterned_input_component_traces(rec_filename, dt=0.02):
+def get_patterned_input_component_traces(rec_filename, dt=None):
+    """
+
+    :param rec_file_name: str
+    # remember .attrs['phase_offset'] could be inside ['train'] for old files
+    """
+    with h5py.File(data_dir+rec_filename+'.hdf5', 'r') as f:
+        sim = next(iter(f.values()))
+        equilibrate = sim.attrs['equilibrate']
+        track_equilibrate = sim.attrs['track_equilibrate']
+        duration = sim.attrs['duration']
+        if dt is None:
+            if 'dt' in sim.attrs:
+                dt = sim.attrs['dt']
+            else:
+                dt = sim['time'][1] - sim['time'][0]
+        track_duration = duration - equilibrate - track_equilibrate
+        start = int((equilibrate + track_equilibrate)/dt)
+        vm_array = []
+        for sim in f.values():
+            t = np.arange(0., duration, dt)
+            vm = np.interp(t, sim['time'], sim['rec']['0'])
+            vm = vm[start:]
+            vm_array.append(vm)
+    rec_t = np.arange(0., track_duration, dt)
+    spikes_removed = get_removed_spikes(rec_filename, plot=0, dt=dt)
+    # down_sample traces to 2 kHz after clipping spikes for theta and ramp filtering
+    down_dt = 0.5
+    down_t = np.arange(0., track_duration, down_dt)
+    # 2000 ms Hamming window, ~2 Hz low-pass for ramp, ~5 - 10 Hz bandpass for theta
+    window_len = int(2000./down_dt)
+    pad_len = int(window_len/2.)
+    theta_filter = signal.firwin(window_len, [5., 10.], nyq=1000./2./down_dt, pass_zero=False)
+    ramp_filter = signal.firwin(window_len, 2., nyq=1000./2./down_dt)
+    theta_traces = []
+    ramp_traces = []
+    for trace in spikes_removed:
+        down_sampled = np.interp(down_t, rec_t, trace)
+        padded_trace = np.zeros(len(down_sampled)+window_len)
+        padded_trace[pad_len:-pad_len] = down_sampled
+        padded_trace[:pad_len] = down_sampled[::-1][-pad_len:]
+        padded_trace[-pad_len:] = down_sampled[::-1][:pad_len]
+        filtered = signal.filtfilt(theta_filter, [1.], padded_trace, padlen=pad_len)
+        filtered = filtered[pad_len:-pad_len]
+        up_sampled = np.interp(rec_t, down_t, filtered)
+        theta_traces.append(up_sampled)
+        filtered = signal.filtfilt(ramp_filter, [1.], padded_trace, padlen=pad_len)
+        filtered = filtered[pad_len:-pad_len]
+        up_sampled = np.interp(rec_t, down_t, filtered)
+        ramp_traces.append(up_sampled)
+    return rec_t, vm_array, theta_traces, ramp_traces
+
+
+def get_patterned_input_synaptic_currents(rec_filename, dt=0.02):
     """
 
     :param rec_file_name: str

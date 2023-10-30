@@ -3344,10 +3344,14 @@ def process_patterned_input_simulation_input_output(rec_filename, title, svg_tit
             # plt.close()
         else:
             plt.close()
+    pop_input_list = [pop_input[i][start:] for i in range(len(pop_input))]
+    inh_input_list = [inh_input[i][start:] for i in range(len(pop_input))]
+    successes_list = [successes[i][start:] for i in range(len(pop_input))]
+    output_list = [output[i] for i in range(len(pop_input))]
     if stochastic:
-        return stim_t[start:], mean_input[start:], mean_successes[start:], mean_inh_input[start:], mean_output
+        return stim_t[start:], pop_input_list, successes_list, inh_input_list, output_list
     else:
-        return stim_t[start:], mean_input[start:], mean_inh_input[start:], mean_output
+        return stim_t[start:], pop_input_list, inh_input_list, output_list
 
 
 def process_patterned_input_simulation_spatial_binning(rec_filename, title, dt=None):
