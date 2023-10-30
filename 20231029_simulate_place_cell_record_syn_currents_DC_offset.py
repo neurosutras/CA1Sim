@@ -404,7 +404,7 @@ for group in stim_exc_syns:
 # stim_inh_successes = [] will need this when inhibitory synapses become stochastic
 
 # modulate the weights of inputs with peak_locs along this stretch of the track
-modulated_field_center = track_duration * 0.6
+modulated_field_center = track_duration * 0.5
 cos_mod_weight = {}
 peak_mod_weight = 2.5
 tuning_amp = (peak_mod_weight - 1.) / 2.
