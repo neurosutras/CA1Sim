@@ -3,7 +3,6 @@ from specify_cells import *
 from plot_results import *
 import random
 import sys
-from collections import defaultdict
 """
 In this version of the simulation, phase precession of CA3 inputs is implemented using the method from Chadwick et al.,
 Elife, 2015, which uses a circular gaussian with a phase sensitivity factor that effectively compresses the range of
@@ -16,7 +15,7 @@ mech_filename = '043016 Type A - km2_NMDA_KIN5_Pr'
 
 
 synapses_seed = 0
-num_exc_syns = 3200
+num_exc_syns = 6900
 num_inh_syns = 600
 mod_inh = 0
 
@@ -41,7 +40,7 @@ else:
 
 rec_filename = 'output'+datetime.datetime.today().strftime('%m%d%Y%H%M')+'-pid'+str(os.getpid())+'-seed'+\
                str(synapses_seed)+'-e'+str(num_exc_syns)+'-i'+str(num_inh_syns)+\
-               '-DC_'+str(DC_offset)+'-seed_'+str(trial_seed)
+               '-no_NMDA-DC_'+str(DC_offset)+'-seed_'+str(trial_seed)
 print(rec_filename)
 sys.stdout.flush()
 
@@ -248,7 +247,7 @@ stim_dt = 0.05
 dt = 0.025
 v_init = -67.
 
-syn_types = ['AMPA_KIN', NMDA_type]
+syn_types = ['AMPA_KIN']  # , NMDA_type]
 
 local_random = random.Random()
 
