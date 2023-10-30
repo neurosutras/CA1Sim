@@ -3146,12 +3146,15 @@ def process_patterned_input_simulation_input_output_spatial_binning(rec_filename
         equilibrate = sim.attrs['equilibrate']
         track_equilibrate = sim.attrs['track_equilibrate']
         track_length = sim.attrs['track_length']
-        input_field_width = sim.attrs['input_field_width']
+        # input_field_width = sim.attrs['input_field_width']
         duration = sim.attrs['duration']
         stim_dt = sim.attrs['stim_dt']
         run_vel = sim.attrs['run_vel']
         if dt is None:
-            dt = sim.attrs['dt']
+            if 'dt' in sim.attrs:
+                dt = sim.attrs['dt']
+            else:
+                dt = sim['time'][1] - sim['time'][0]
         dx = dt * run_vel / 1000.
         bins = 100.
         track_duration = duration - equilibrate - track_equilibrate
@@ -3232,7 +3235,7 @@ def process_patterned_input_simulation_input_output_spatial_binning(rec_filename
         else:
             plt.show()
             plt.close()
-            plt.hist(intervals, bins=int(max(intervals)/3.), normed=True)
+            plt.hist(intervals, bins=int(max(intervals)/3.), density=True)
             plt.xlim(0., 200.)
             plt.ylabel('Probability')
             plt.xlabel('Inter-spike interval (ms)')
@@ -3245,7 +3248,7 @@ def process_patterned_input_simulation_input_output_spatial_binning(rec_filename
         return t, mean_input, mean_inh_input, mean_output
 
 
-def process_patterned_input_simulation_input_output(rec_filename, title, svg_title=None):
+def process_patterned_input_simulation_input_output(rec_filename, title, svg_title=None, show=True):
     """
 
     :param rec_file_name: str
@@ -3330,15 +3333,16 @@ def process_patterned_input_simulation_input_output(rec_filename, title, svg_tit
         if svg_title is not None:
             plt.savefig(data_dir+svg_title+' - input output - '+title+'.svg', format='svg')
             plt.close()
-        else:
-            plt.show()
-            plt.close()
-            plt.hist(intervals, bins=int(max(intervals)/3.), normed=True)
+        elif show:
+            plt.figure()
+            plt.hist(intervals, bins=int(max(intervals)/3.), density=True)
             plt.xlim(0., 200.)
             plt.ylabel('Probability')
             plt.xlabel('Inter-Spike Interval (ms)')
             plt.title('Distribution of Input Inter-Spike Intervals - '+title)
             plt.show()
+            # plt.close()
+        else:
             plt.close()
     if stochastic:
         return stim_t[start:], mean_input[start:], mean_successes[start:], mean_inh_input[start:], mean_output
@@ -3402,7 +3406,7 @@ def process_patterned_input_simulation_spatial_binning(rec_filename, title, dt=N
         right = np.where(pop_freq >= 11.)[0][0]
         pop_psd /= np.max(pop_psd[left:right])
         mean_output = np.mean(output, axis=0)
-        plt.hist(intervals, bins=int((max(intervals) - min(intervals)) / 3.), normed=True)
+        plt.hist(intervals, bins=int((max(intervals) - min(intervals)) / 3.), density=True)
         plt.xlim(0., 200.)
         plt.ylabel('Probability')
         plt.xlabel('Inter-spike interval (ms)')
@@ -3572,7 +3576,7 @@ def process_patterned_input_simulation(rec_filename, title, dt=0.02):
         right = np.where(pop_freq >= 11.)[0][0]
         pop_psd /= np.max(pop_psd[left:right])
         mean_output = np.mean(output, axis=0)
-        plt.hist(intervals, bins=int((max(intervals) - min(intervals)) / 3.), normed=True)
+        plt.hist(intervals, bins=int((max(intervals) - min(intervals)) / 3.), density=True)
         plt.xlim(0., 200.)
         plt.ylabel('Probability')
         plt.xlabel('Inter-Spike Interval (ms)')
@@ -3909,7 +3913,7 @@ def process_patterned_input_simulation_single_compartment(rec_filename, title, d
         left = np.where(pop_freq >= 4.)[0][0]
         right = np.where(pop_freq >= 11.)[0][0]
         pop_psd /= np.max(pop_psd[left:right])
-        plt.hist(intervals, bins=int((max(intervals)-min(intervals))/3.), normed=True)
+        plt.hist(intervals, bins=int((max(intervals)-min(intervals))/3.), density=True)
         plt.xlim(0., 200.)
         plt.ylabel('Probability')
         plt.xlabel('Inter-Spike Interval (ms)')
