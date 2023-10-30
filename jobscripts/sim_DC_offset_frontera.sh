@@ -17,14 +17,26 @@ set -x
 
 cd $WORK/CA1Sim
 
-export j=0
-for i in {0..9}
-do
-  export i
-  ((j=i+10))
-  export j
-  ibrun -n 1 python3 20231029_simulate_place_cell_record_syn_currents_DC_offset.py $i 0.0 $SCRATCH/data/CA1Sim &
-  ibrun -n 1 python3 20231029_simulate_place_cell_record_syn_currents_DC_offset.py $j 0.18 $SCRATCH/data/CA1Sim &
-done
+ibrun -n 1 python3 20231029_simulate_place_cell_record_syn_currents_DC_offset.py 0 0.0 $SCRATCH/data/CA1Sim &
+ibrun -n 1 python3 20231029_simulate_place_cell_record_syn_currents_DC_offset.py 1 0.0 $SCRATCH/data/CA1Sim &
+ibrun -n 1 python3 20231029_simulate_place_cell_record_syn_currents_DC_offset.py 2 0.0 $SCRATCH/data/CA1Sim &
+ibrun -n 1 python3 20231029_simulate_place_cell_record_syn_currents_DC_offset.py 3 0.0 $SCRATCH/data/CA1Sim &
+ibrun -n 1 python3 20231029_simulate_place_cell_record_syn_currents_DC_offset.py 4 0.0 $SCRATCH/data/CA1Sim &
+ibrun -n 1 python3 20231029_simulate_place_cell_record_syn_currents_DC_offset.py 5 0.0 $SCRATCH/data/CA1Sim &
+ibrun -n 1 python3 20231029_simulate_place_cell_record_syn_currents_DC_offset.py 6 0.0 $SCRATCH/data/CA1Sim &
+ibrun -n 1 python3 20231029_simulate_place_cell_record_syn_currents_DC_offset.py 7 0.0 $SCRATCH/data/CA1Sim &
+ibrun -n 1 python3 20231029_simulate_place_cell_record_syn_currents_DC_offset.py 8 0.0 $SCRATCH/data/CA1Sim &
+ibrun -n 1 python3 20231029_simulate_place_cell_record_syn_currents_DC_offset.py 9 0.0 $SCRATCH/data/CA1Sim &
+ibrun -n 1 python3 20231029_simulate_place_cell_record_syn_currents_DC_offset.py 10 0.18 $SCRATCH/data/CA1Sim &
+ibrun -n 1 python3 20231029_simulate_place_cell_record_syn_currents_DC_offset.py 11 0.18 $SCRATCH/data/CA1Sim &
+ibrun -n 1 python3 20231029_simulate_place_cell_record_syn_currents_DC_offset.py 12 0.18 $SCRATCH/data/CA1Sim &
+ibrun -n 1 python3 20231029_simulate_place_cell_record_syn_currents_DC_offset.py 13 0.18 $SCRATCH/data/CA1Sim &
+ibrun -n 1 python3 20231029_simulate_place_cell_record_syn_currents_DC_offset.py 14 0.18 $SCRATCH/data/CA1Sim &
+ibrun -n 1 python3 20231029_simulate_place_cell_record_syn_currents_DC_offset.py 15 0.18 $SCRATCH/data/CA1Sim &
+ibrun -n 1 python3 20231029_simulate_place_cell_record_syn_currents_DC_offset.py 16 0.18 $SCRATCH/data/CA1Sim &
+ibrun -n 1 python3 20231029_simulate_place_cell_record_syn_currents_DC_offset.py 17 0.18 $SCRATCH/data/CA1Sim &
+ibrun -n 1 python3 20231029_simulate_place_cell_record_syn_currents_DC_offset.py 18 0.18 $SCRATCH/data/CA1Sim &
+ibrun -n 1 python3 20231029_simulate_place_cell_record_syn_currents_DC_offset.py 19 0.18 $SCRATCH/data/CA1Sim
+
 wait
 EOT
