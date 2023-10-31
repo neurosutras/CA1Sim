@@ -1646,7 +1646,8 @@ def get_patterned_input_filtered_synaptic_currents(rec_filename, syn_types=['AMP
             for rec in sim['rec'].values():
                 for syn_type in syn_types:
                     if 'i_%s' % syn_type in rec.attrs['description']:
-                        i_syn_dict[syn_type] += rec[:]
+                        interp_rec = np.interp(t, sim['time'], rec[:])
+                        i_syn_dict[syn_type] += interp_rec
             for syn_type in syn_types:
                 i_syn_list_dict[syn_type].append(i_syn_dict[syn_type][start:])
     

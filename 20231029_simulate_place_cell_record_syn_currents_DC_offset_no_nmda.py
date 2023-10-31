@@ -395,7 +395,7 @@ for group in stim_exc_syns:
         # if syn.node.parent.parent not in [rec['node'] for rec in sim.rec_list]:
         #    sim.append_rec(cell, syn.node.parent.parent)
         sim.append_rec(cell, syn.node, object=syn.target('AMPA_KIN'), param='_ref_i', description='i_AMPA')
-        sim.append_rec(cell, syn.node, object=syn.target(NMDA_type), param='_ref_i', description='i_NMDA')
+        # sim.append_rec(cell, syn.node, object=syn.target(NMDA_type), param='_ref_i', description='i_NMDA')
         # remove this synapse from the pool, so that additional "modulated" inputs
         # can be selected from those that remain
         all_exc_syns[syn.node.parent.parent.type].remove(syn)
