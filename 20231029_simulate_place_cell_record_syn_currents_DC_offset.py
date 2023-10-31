@@ -101,7 +101,7 @@ def run_trial(simiter, run_sim=True):
     local_random.seed(simiter)
     global_phase_offset = local_random.uniform(-np.pi, np.pi)
     if run_sim:
-        with h5py.File(data_dir+rec_filename+'-working.hdf5', 'a') as f:
+        with h5py.File(data_dir+rec_filename+'.hdf5', 'a') as f:
             f.create_group(str(simiter))
             f[str(simiter)].create_group('train')
             f[str(simiter)].create_group('inh_train')
@@ -147,7 +147,7 @@ def run_trial(simiter, run_sim=True):
                 train = get_inhom_poisson_spike_times_by_thinning(stim_force, stim_t, dt=stim_dt,
                                                                   generator=local_random)
                 syn.source.play(h.Vector(np.add(train, equilibrate + track_equilibrate)))
-                with h5py.File(data_dir+rec_filename+'-working.hdf5', 'a') as f:
+                with h5py.File(data_dir+rec_filename+'.hdf5', 'a') as f:
                     f[str(simiter)]['train'].create_dataset(str(index), compression='gzip', compression_opts=9, data=train)
                     f[str(simiter)]['train'][str(index)].attrs['group'] = group
                     f[str(simiter)]['train'][str(index)].attrs['index'] = syn.node.index
@@ -178,7 +178,7 @@ def run_trial(simiter, run_sim=True):
                 train = get_inhom_poisson_spike_times_by_thinning(stim_force, stim_t, dt=stim_dt,
                                                                   generator=local_random)
                 syn.source.play(h.Vector(np.add(train, equilibrate + track_equilibrate)))
-                with h5py.File(data_dir+rec_filename+'-working.hdf5', 'a') as f:
+                with h5py.File(data_dir+rec_filename+'.hdf5', 'a') as f:
                     f[str(simiter)]['inh_train'].create_dataset(str(index), compression='gzip',
                                                                 data=train)
                     f[str(simiter)]['inh_train'][str(index)].attrs['group'] = group
@@ -187,7 +187,7 @@ def run_trial(simiter, run_sim=True):
                     f[str(simiter)]['inh_train'][str(index)].attrs['type'] = syn.node.type
                 index += 1
         sim.run(v_init)
-        with h5py.File(data_dir+rec_filename+'-working.hdf5', 'a') as f:
+        with h5py.File(data_dir+rec_filename+'.hdf5', 'a') as f:
             sim.export_to_file(f, simiter)
             if excitatory_stochastic:
                 f[str(simiter)].create_group('successes')
@@ -433,5 +433,11 @@ sim.append_stim(cell, cell.tree.root, 0.5, DC_offset, equilibrate, duration - eq
 run_trial(trial_seed)
 # exc_rate_maps = run_trial(trial_seed, run_sim=False)
 
-if os.path.isfile(data_dir+rec_filename+'-working.hdf5'):
-    os.rename(data_dir+rec_filename+'-working.hdf5', data_dir+rec_filename+'.hdf5')
+# if os.path.isfile(data_dir+rec_filename+'-working.hdf5'):
+#     os.rename(data_dir+rec_filename+'-working.hdf5', data_dir+rec_filename+'.hdf5')
+
+print('Completed exporting to %s.hdf5' % str(data_dir+rec_filename))
+sys.stdout.flush()
+
+del sim
+del cell
