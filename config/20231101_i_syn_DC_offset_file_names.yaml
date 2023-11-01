@@ -1,0 +1,44 @@
+nmda_control:
+    - output103020232055-pid168509-seed0-e3200-i600-DC_0.0-seed_0.hdf5
+    - output103120232122-pid180827-seed0-e3200-i600-DC_0.0-seed_1.hdf5
+    - output103120232122-pid180826-seed0-e3200-i600-DC_0.0-seed_2.hdf5
+    - output103120230932-pid51408-seed0-e3200-i600-DC_0.0-seed_3.hdf5
+    - output103120232122-pid180824-seed0-e3200-i600-DC_0.0-seed_4.hdf5
+    - output103120232122-pid180823-seed0-e3200-i600-DC_0.0-seed_5.hdf5
+    - output103020232055-pid168499-seed0-e3200-i600-DC_0.0-seed_6.hdf5
+    - output103120230932-pid51394-seed0-e3200-i600-DC_0.0-seed_7.hdf5
+    - output103020232055-pid168510-seed0-e3200-i600-DC_0.0-seed_8.hdf5
+    - output103120232122-pid180825-seed0-e3200-i600-DC_0.0-seed_9.hdf5
+nmda_depol:
+    - output103120232122-pid143255-seed0-e3200-i600-DC_0.18-seed_10.hdf5
+    - output103120232122-pid143256-seed0-e3200-i600-DC_0.18-seed_11.hdf5
+    - output103120232122-pid143257-seed0-e3200-i600-DC_0.18-seed_12.hdf5
+    - output103120230932-pid51402-seed0-e3200-i600-DC_0.18-seed_13.hdf5
+    - output103020232055-pid168504-seed0-e3200-i600-DC_0.18-seed_14.hdf5
+    - output103120232122-pid143254-seed0-e3200-i600-DC_0.18-seed_15.hdf5
+    - output103120232122-pid143258-seed0-e3200-i600-DC_0.18-seed_16.hdf5
+    - output103120230932-pid51412-seed0-e3200-i600-DC_0.18-seed_17.hdf5
+    - output103020232055-pid168495-seed0-e3200-i600-DC_0.18-seed_18.hdf5
+    - output103120232122-pid254536-seed0-e3200-i600-DC_0.18-seed_19.hdf5
+no_nmda_control:
+    - output103020232214-pid168602-seed0-e6900-i600-no_NMDA-DC_0.0-seed_20.hdf5
+    - output103020232214-pid168613-seed0-e6900-i600-no_NMDA-DC_0.0-seed_21.hdf5
+    - output103120232122-pid254535-seed0-e6900-i600-no_NMDA-DC_0.0-seed_22.hdf5
+    - output103120232122-pid254538-seed0-e6900-i600-no_NMDA-DC_0.0-seed_23.hdf5
+    - output103120232122-pid254534-seed0-e6900-i600-no_NMDA-DC_0.0-seed_24.hdf5
+    - output103120230932-pid51409-seed0-e6900-i600-no_NMDA-DC_0.0-seed_25.hdf5
+    - output103020232214-pid168605-seed0-e6900-i600-no_NMDA-DC_0.0-seed_26.hdf5
+    - output103120232122-pid254537-seed0-e6900-i600-no_NMDA-DC_0.0-seed_27.hdf5
+    - output103120232122-pid169930-seed0-e6900-i600-no_NMDA-DC_0.0-seed_28.hdf5
+    - output103120232122-pid169942-seed0-e6900-i600-no_NMDA-DC_0.0-seed_29.hdf5
+no_nmda_depol:
+    - output103120232122-pid169929-seed0-e6900-i600-no_NMDA-DC_0.18-seed_30.hdf5
+    - output103120232122-pid169928-seed0-e6900-i600-no_NMDA-DC_0.18-seed_31.hdf5
+    - output103120230932-pid51388-seed0-e6900-i600-no_NMDA-DC_0.18-seed_32.hdf5
+    - output103120232122-pid169941-seed0-e6900-i600-no_NMDA-DC_0.18-seed_33.hdf5
+    - output103120232144-pid65841-seed0-e6900-i600-no_NMDA-DC_0.18-seed_34.hdf5
+    - output103020232214-pid168601-seed0-e6900-i600-no_NMDA-DC_0.18-seed_35.hdf5
+    - output103120232144-pid65839-seed0-e6900-i600-no_NMDA-DC_0.18-seed_36.hdf5
+    - output103120232144-pid65842-seed0-e6900-i600-no_NMDA-DC_0.18-seed_37.hdf5
+    - output103120232144-pid65840-seed0-e6900-i600-no_NMDA-DC_0.18-seed_38.hdf5
+    - output103020232214-pid168604-seed0-e6900-i600-no_NMDA-DC_0.18-seed_39.hdf5

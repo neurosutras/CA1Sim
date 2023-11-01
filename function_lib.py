@@ -1272,7 +1272,7 @@ def get_theta_filtered_traces(rec_filename, dt=0.02):
     down_rec_t = np.arange(0., track_duration, down_dt)
     # 2000 ms Hamming window, ~3 Hz low-pass for ramp, ~5 - 10 Hz bandpass for theta
     window_len = min(int(2000./down_dt), len(down_rec_t) - 1)
-    theta_filter = signal.firwin(window_len, [5., 10.], nyq=1000./2./down_dt, pass_zero=False)
+    theta_filter = signal.firwin(window_len, [5., 10.], fs=1000./down_dt, pass_zero=False)
     pop_exc_theta = []
     pop_inh_theta = []
     intra_theta = []
@@ -1351,7 +1351,7 @@ def get_phase_precession(rec_filename, start_loc=None, end_loc=None, theta_durat
     # 2000 ms Hamming window, ~5 - 10 Hz bandpass for theta
     window_len = min(len(down_rec_t) - 1, int(2000. / down_dt))
     pad_len = int(window_len / 2.)
-    theta_filter = signal.firwin(window_len, [5., 10.], nyq=1000. / 2. / down_dt, pass_zero=False)
+    theta_filter = signal.firwin(window_len, [5., 10.], fs=1000. / down_dt, pass_zero=False)
     intra_theta = []
     for trace in spikes_removed:
         down_sampled = np.interp(down_rec_t, rec_t, trace)
@@ -1420,7 +1420,7 @@ def get_phase_precession_live(t, vm, spikes=None, time_offset=0., theta_duration
     # 2000 ms Hamming window, ~5 - 10 Hz bandpass for theta
     window_len = min(len(down_rec_t) - 1, int(2000. / down_dt))
     pad_len = int(window_len / 2.)
-    theta_filter = signal.firwin(window_len, [5., 10.], nyq=1000. / 2. / down_dt, pass_zero=False)
+    theta_filter = signal.firwin(window_len, [5., 10.], fs=1000. / down_dt, pass_zero=False)
     down_sampled = np.interp(down_rec_t, rec_t, spikes_removed)
     padded_trace = np.zeros(len(down_sampled) + window_len)
     padded_trace[pad_len:-pad_len] = down_sampled
@@ -1596,8 +1596,8 @@ def get_patterned_input_component_traces(rec_filename):
     # 2000 ms Hamming window, ~2 Hz low-pass for ramp, ~5 - 10 Hz bandpass for theta
     window_len = int(2000./down_dt)
     pad_len = int(window_len/2.)
-    theta_filter = signal.firwin(window_len, [5., 10.], nyq=1000./2./down_dt, pass_zero=False)
-    ramp_filter = signal.firwin(window_len, 2., nyq=1000./2./down_dt)
+    theta_filter = signal.firwin(window_len, [5., 10.], fs=1000./down_dt, pass_zero=False)
+    ramp_filter = signal.firwin(window_len, 2., fs=1000./down_dt)
     theta_traces = []
     ramp_traces = []
     for trace in spikes_removed:
@@ -1658,7 +1658,7 @@ def get_patterned_input_filtered_synaptic_currents(rec_filename, syn_types=['AMP
     # 2000 ms Hamming window, ~2 Hz low-pass for ramp, ~5 - 10 Hz bandpass for theta
     window_len = int(2000./down_dt)
     pad_len = int(window_len/2.)
-    ramp_filter = signal.firwin(window_len, 2., nyq=1000./2./down_dt)
+    ramp_filter = signal.firwin(window_len, 2., fs=1000./down_dt)
     filtered_i_syn_list_dict = {}
     for syn_type in syn_types:
         filtered_i_syn_list_dict[syn_type] = []
@@ -1702,9 +1702,9 @@ def alternative_binned_vm_variance_analysis(rec_filename, dt=0.02):
     # 2000 ms Hamming window, ~2 Hz low-pass for ramp, ~5 - 10 Hz bandpass for theta, ~0.2 Hz low-pass for residuals
     window_len = int(2000. / down_dt)
     pad_len = int(window_len / 2.)
-    theta_filter = signal.firwin(window_len, [5., 10.], nyq=1000./2./down_dt, pass_zero=False)
-    ramp_filter = signal.firwin(window_len, 2., nyq=1000./2./down_dt)
-    slow_vm_filter = signal.firwin(window_len, .2, nyq=1000./2./down_dt)
+    theta_filter = signal.firwin(window_len, [5., 10.], fs=1000./down_dt, pass_zero=False)
+    ramp_filter = signal.firwin(window_len, 2., fs=1000./down_dt)
+    slow_vm_filter = signal.firwin(window_len, .2, fs=1000./down_dt)
     theta_traces = []
     theta_removed = []
     ramp_traces = []
@@ -1901,7 +1901,7 @@ def process_i_syn_rec(rec_filename, description_list=['i_AMPA', 'i_NMDA', 'i_GAB
         # 2000 ms Hamming window, ~3 Hz low-pass filter
         window_len = int(2000./down_dt)
         pad_len = int(window_len / 2.)
-        ramp_filter = signal.firwin(window_len, 2., nyq=1000. / 2. / down_dt)
+        ramp_filter = signal.firwin(window_len, 2., fs=1000. / down_dt)
         group_low_pass_dict = {key: [] for key in group_dict}
         for key in group_dict:
             for group in group_dict[key]:
@@ -1956,7 +1956,7 @@ def process_special_rec_within_group(rec_filename, group_name='pre',
         # 2000 ms Hamming window, ~3 Hz low-pass filter
         window_len = int(2000./down_dt)
         print('This method hasn\'t been updated with appropriate signal padding before filtering.')
-        ramp_filter = signal.firwin(window_len, 2., nyq=1000./2./down_dt)
+        ramp_filter = signal.firwin(window_len, 2., fs=1000./down_dt)
         rec_low_pass_dict = {description: [] for description in rec_dict}
         for description in rec_dict:
             for rec in rec_dict[description]:
@@ -2182,7 +2182,7 @@ def low_pass_filter(source, freq, duration, dt, down_dt=0.5):
     # 2000 ms Hamming window
     window_len = int(2000. / down_dt)
     pad_len = int(window_len / 2.)
-    lp_filter = signal.firwin(window_len, freq, nyq=1000. / 2. / down_dt)
+    lp_filter = signal.firwin(window_len, freq, fs=1000. / down_dt)
     down_sampled = np.interp(down_t, t, source)
     padded_trace = np.zeros(len(down_sampled) + window_len)
     padded_trace[pad_len:-pad_len] = down_sampled
