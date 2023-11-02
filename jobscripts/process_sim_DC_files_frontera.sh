@@ -1,6 +1,6 @@
 #!/bin/bash -l
 export DATE=$(date +%Y%m%d_%H%M%S)
-export JOB_NAME=CA1Sim_DC_offset_"$DATE"
+export JOB_NAME=process_files_CA1Sim_DC_offset_"$DATE"
 sbatch <<EOT
 #!/bin/bash -l
 #SBATCH -J $JOB_NAME
@@ -20,5 +20,5 @@ cd $WORK/CA1Sim
 ibrun -n 1 python3 process_and_merge_i_syn_DC_offset_data.py \
   --source-data-config-file-path=config/20231101_i_syn_DC_offset_file_names.yaml \
   --source-data-dir=$SCRATCH/data/CA1Sim \
-  --target-file-path=data/20231101_merged_i_syn_DC_offset_data.hdf5
+  --target-file-path=$SCRATCH/data/CA1Sim/20231101_merged_i_syn_DC_offset_data.hdf5
 EOT
