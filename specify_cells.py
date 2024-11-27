@@ -2168,6 +2168,31 @@ class QuickSim(object):
             print('Simulation ', simiter, ': exporting took: ', time.time()-start_time, ' s')
 
 
+class Passive_Soma(HocCell):
+    def __init__(self, mech_filename=None, gid=0):
+        HocCell.__init__(self, morph_filename=None, mech_filename=mech_filename, gid=gid)
+        self.init_morphology()
+        self.reinit_mechanisms()
+        
+    def init_morphology(self):
+        soma_length = 14.
+        soma_diam = 9.
+        node = self.make_section('soma')
+        node.sec.L = soma_length
+        node.sec.diam = soma_diam
+        self._init_cable(node)  # consults the mech_dict to initialize Ra, cm, and nseg
+        self.tree.root = self.soma[0]
+        
+    def insert_synapse(self, syn_types, stochastic=False):
+        """
+
+        :param syn_locs: list of tuple: (int; node_index, float; loc)
+        :param syn_types: list of str
+        :param stochastic: int in [0, 1]
+        """
+        syn = Synapse(self, self.tree.root, type_list=syn_types, stochastic=stochastic)
+        return syn
+
 class CA1_Pyr(HocCell):
     def __init__(self, morph_filename=None, mech_filename=None, full_spines=True, gid=0):
         HocCell.__init__(self, morph_filename, mech_filename, gid)

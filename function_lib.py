@@ -1,6 +1,9 @@
 __author__ = 'Aaron D. Milstein'
 from mpi4py import MPI
-from collections import Iterable
+try:
+    from collections import Iterable
+except:
+    from collections.abc import Iterable
 import h5py
 import math
 import datetime

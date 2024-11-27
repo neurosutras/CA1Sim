@@ -1,0 +1,18 @@
+soma:
+    cable:
+        Ra:
+            value: 150.0
+        cm:
+            value: 1.0
+    pas:
+        e:
+            value: -65.0
+        g:
+            value: 1.52e-03
+    synapse:
+        AMPA_KIN:
+            gmax:
+                value: 0.00079
+        NMDA_KIN5:
+            gmax:
+                value: 0.003026
