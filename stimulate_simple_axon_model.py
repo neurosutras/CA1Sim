@@ -10,17 +10,11 @@ propagation of the fast and slow components can be quantified and visualized.
 
 """
 
-#morph_filename = 'EB1-early-bifurcation.swc'
 morph_filename = 'EB2-late-bifurcation.swc'
 
-#mech_filename = '102715_simple_axon_model_no_na_reduced_k.yaml'
-#mech_filename = '102715_simple_axon_model_no_na.yaml'
-mech_filename = '102715_simple_axon_model.yaml'
-
-
-# rec_filename = '102715_test simple_axon_model_no_na_reduced_k'
-# rec_filename = '102715_test simple_axon_model_no_na'
-rec_filename = '102715_test simple_axon_model'
+# mech_filename = '102715_simple_axon_model_no_na_reduced_k'
+# mech_filename = '102715_simple_axon_model_no_na'
+mech_filename = '102715_simple_axon_model'
 
 data_dir = 'data'
 
@@ -155,12 +149,9 @@ th_dvdt = 20.
 v_init = -65.
 
 
-if len(sys.argv) > 1:
-    mech_filename = str(sys.argv[1])
+rec_file_path = data_dir + '/' + 'output' + datetime.datetime.today().strftime('%m%d%Y%H%M') + mech_filename + '.hdf5'
 
-rec_filename = 'output'+datetime.datetime.today().strftime('%m%d%Y%H%M')+mech_filename
-
-cell = CA1_Pyr(morph_filename, mech_filename, full_spines=False)
+cell = CA1_Pyr(morph_filename, mech_filename + '.yaml', full_spines=False)
 
 #axon_seg_locs = [seg.x for seg in cell.axon[2].sec]
 axon_seg_locs = np.arange(30., 500., 30.) / 500.
@@ -178,4 +169,4 @@ sim.parameters['equilibrate'] = equilibrate
 
 offset_vm()
 
-stim_sweep(data_dir + '/' + rec_filename + '.hdf5')
+stim_sweep(rec_file_path)
