@@ -1,0 +1,69 @@
+#Targets for SOMA plateau with Theta burst stimulation
+targets:
+  plateau_area: 17.193741965716423
+  avg_spikes_per_cycle: 4.083333333333333
+
+parameters:
+  # Conductance Multipliers (Broadened Search)
+
+#20260321
+#   final_error: 0.1192
+# parameters:
+#   channels:
+#     cal: 0.4714
+#     calH: 1.0241
+#     car: 1.0653
+#     cat: 1.0844
+#     kca: 1.0622
+#     mykca: 1.1891
+#   synapses:
+#     exc_CA3: 100
+#     exc_ECIII: 102
+#     inh_CA3: 102
+#     inh_ECIII: 109
+
+  parameters:
+  # Conductance Multipliers (Now the only things being optimized)
+  cal:
+    initial_value: 0.4714
+    bounds: [0.1, 1.5]
+  calH:
+    initial_value: 1.0241
+    bounds: [0.5, 1.1] # TIGHTER: Prevents Depo Block
+  car:
+    initial_value: 1.0653
+    bounds: [0.5, 1.5]
+  cat:
+    initial_value: 1.0844
+    bounds: [0.5, 1.5]
+  mykca:
+    initial_value: 1.1891
+    bounds: [0.1, 2.0]
+  kca:
+    initial_value: 1.0622
+    bounds: [0.5, 2.0] # HIGHER FLOOR: Forces repolarization
+  exc_CA3:
+    initial_value: 100
+    bounds: [50, 150]
+  exc_ECIII:
+    initial_value: 102
+    bounds: [50, 150]
+  inh_CA3:
+    initial_value: 102
+    bounds: [50, 150]
+  inh_ECIII:
+    initial_value: 109
+    bounds: [50, 150]
+
+simulation:
+  morph_filename: EB2-late-bifurcation.swc
+  mech_filename: 20260319_default_biophysics_with_Calcium_Channels.yaml
+  equilibrate: 250.0
+  sim_duration: 2500.0
+  dt: 0.025
+  v_init: -70.0
+  tbs_times: [500., 510., 520., 530., 540., 650., 660., 670., 680., 690., 800., 810., 820., 830., 840., 950., 960., 970., 980., 990., 1100., 1110., 1120., 1130., 1140.]
+
+Optimizer: basinhopping
+num_iterations: 500
+num_evaluations: 324 #stopped at this point picked evaluation 61, with error 0.1192

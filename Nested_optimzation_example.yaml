@@ -1,0 +1,67 @@
+# uniform inhibition
+bounds:
+    AMPA_scaling_factor:
+        - 1.E-07
+        - 1.E-04
+    delta_weight_AMPA:
+        - 1.
+        - 10.
+    IE_ratio:
+        - 0.5
+        - 10.
+    NMDA_AMPA_ratio:
+        - 0.01
+        - 10.
+    nmda_sig_slope:
+        - 0.001
+        - 1.
+    nmda_sig_v_half:
+        - -80.
+        - -20.
+    v_rest:
+        - -80.
+        - -60.
+    CA3_phase:
+        - 100
+        - 180
+    inh_relative_phase_shift:
+        - -30
+        - 30
+kwargs:
+    num_trials: 5
+    seed_start: 15
+    num_seeds: 5
+    model_config_file_path: config/default_balanced_inhibition_config.yaml
+stages:
+    -   source: ca1_inh_tuning_models.optimize_model
+        get_args_static: get_seeds
+        compute_features: compute_features
+        filter_features: filter_features
+        get_objectives: get_objectives_reduced
+optimization_title: Balanced_Inhibition_with_nmda_optuna_NSGAIII_reduced
+param_gen: OptunaOptimizer
+param_gen_kwargs:
+    sampler: NSGAIIISampler
+objective_names:
+    -   control_phase_out
+    -   control_phase_precession_extent
+    -   control_ramp_amp
+    -   control_theta_envelope_delta_in_out
+    -   control_vm_out
+    -   place_field_amp_residuals
+    -   place_field_perturbation_slope
+    -   reduced_inh_delta_theta_envelope_in
+    -   reduced_inh_delta_theta_envelope_out
+    -   reduced_inh_delta_vm_in
+    -   reduced_inh_delta_vm_out
+    -   reduced_inh_phase_out
+x0:
+    AMPA_scaling_factor: 8.067532175e-05
+    delta_weight_AMPA: 3.76930584
+    IE_ratio: 2.7426793324192724
+    NMDA_AMPA_ratio: 1.5
+    nmda_sig_slope: 0.20714887
+    nmda_sig_v_half: -44.140649
+    v_rest: -70.0
+    CA3_phase: 160.0
+    inh_relative_phase_shift: 0.

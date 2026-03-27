@@ -1,0 +1,85 @@
+marder_groups:
+- Eval: 15
+  Total_Error: 350.3826947969511
+  params:
+    channels:
+      cal: 0.931041099971442
+      calH: 1.0580104132820254
+      car: 0.8427400015854688
+      cat: 1.270107012719088
+      kca: 0.856036704046161
+      mykca: 0.7024339316620545
+    synapses: {}
+- Eval: 19
+  Total_Error: 356.2966608677252
+  params:
+    channels:
+      cal: 0.931041099971442
+      calH: 1.0580104132820254
+      car: 0.8427400015854688
+      cat: 1.270107022719088
+      kca: 0.856036704046161
+      mykca: 0.7024339316620545
+    synapses: {}
+- Eval: 17
+  Total_Error: 358.51604232220143
+  params:
+    channels:
+      cal: 0.931041099971442
+      calH: 1.058010423282025
+      car: 0.8427400015854688
+      cat: 1.270107012719088
+      kca: 0.856036704046161
+      mykca: 0.7024339316620545
+    synapses: {}
+- Eval: 18
+  Total_Error: 358.7217205235329
+  params:
+    channels:
+      cal: 0.931041099971442
+      calH: 1.0580104132820254
+      car: 0.8427400115854689
+      cat: 1.270107012719088
+      kca: 0.856036704046161
+      mykca: 0.7024339316620545
+    synapses: {}
+- Eval: 20
+  Total_Error: 363.5718653613269
+  params:
+    channels:
+      cal: 0.931041099971442
+      calH: 1.0580104132820254
+      car: 0.8427400015854688
+      cat: 1.270107012719088
+      kca: 0.856036704046161
+      mykca: 0.7024339416620545
+    synapses: {}
+- Eval: 16
+  Total_Error: 365.1677487146621
+  params:
+    channels:
+      cal: 0.9310411099714422
+      calH: 1.0580104132820254
+      car: 0.8427400015854688
+      cat: 1.270107012719088
+      kca: 0.856036704046161
+      mykca: 0.7024339316620545
+    synapses: {}
+- Eval: 21
+  Total_Error: 365.7713790936383
+  params:
+    channels:
+      cal: 0.931041099971442
+      calH: 1.0580104132820254
+      car: 0.8427400015854688
+      cat: 1.270107012719088
+      kca: 0.856036714046161
+      mykca: 0.7024339316620545
+    synapses: {}
+metadata:
+  best_error_baseline: 350.3826947969511
+  log_file: optimization_log_20260322_0035.csv
+  num_evaluations: 60
+  num_iterations: 20
+  optimizer: L-BFGS-B
+  threshold_percentage: 50.0%

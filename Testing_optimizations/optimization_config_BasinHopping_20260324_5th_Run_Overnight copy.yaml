@@ -1,0 +1,53 @@
+#Targets for SOMA plateau with Theta burst stimulation
+targets:
+  target_plateau_per_cycle: [3.337, 3.5297, 4.356, 5.2235, 5.6729]
+  target_spikes_per_cycle: [6, 6, 7, 7, 7]
+  target_trough_per_cycle: [1.2946, 3.1996, 8.0606, 17.4871, 22.5451]
+
+parameters:
+#20260324_1912 Run
+#x_start = np.array([0.4, 1.116806, 1.4, 1.222622, 1.121581, 1.544094])
+#(0.35, 0.55),  # cal   — best was 0.4, give it room either side
+    # (1.0,  1.2),   # calH  — best was 1.1
+    # (1.3,  1.5),   # car   — best was 1.4
+    # (1.1,  1.35),  # cat   — best was 1.22
+    # (1.0,  1.25),  # mykca — best was 1.12
+    # (1.35, 1.65),  # kca   — best was 1.49
+
+  cal:
+    initial_value: 0.4
+    bounds: [0.35, 0.55]
+  calH:
+    initial_value: 1.116806
+    bounds: [1.0, 1.2]   # Tight: prevents depo block
+  car:
+    initial_value: 1.4
+    bounds: [1.3, 1.5]
+  cat:
+    initial_value: 1.222622
+    bounds: [1.1, 1.35]
+  mykca:
+    initial_value: 1.121581
+    bounds: [1.0, 1.25]
+  kca:
+    initial_value: 1.544094
+    bounds: [1.35, 1.65]  
+
+  # Synapse Counts (fixed constants)
+  exc_CA3: 100      # modest increase from 73
+  exc_ECIII: 160    # modest increase from 135
+  inh_CA3: 120      # between 79 and 200
+  inh_ECIII: 120    # between 118 and 200
+
+simulation:
+  morph_filename: EB2-late-bifurcation.swc
+  mech_filename: 20260319_default_biophysics_with_Calcium_Channels.yaml
+  equilibrate: 250.0
+  sim_duration: 2500.0
+  dt: 0.025
+  v_init: -70.0
+  tbs_times: [500., 510., 520., 530., 540., 650., 660., 670., 680., 690., 800., 810., 820., 830., 840., 950., 960., 970., 980., 990., 1100., 1110., 1120., 1130., 1140.]
+
+Optimizer: BasinHopping
+num_iterations: 3
+num_evaluations: 120

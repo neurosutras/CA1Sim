@@ -1,0 +1,1718 @@
+marder_groups:
+- Eval: 43
+  Total_Error: 95535.708891
+  features:
+    areas:
+      Area_C1: 1.8522
+      Area_C2: 2.3241
+      Area_C3: 2.5219
+      Area_C4: 3.1593
+      Area_C5: 4.2223
+    spikes:
+      Spks_C1: 6
+      Spks_C2: 5
+      Spks_C3: 5
+      Spks_C4: 4
+      Spks_C5: 4
+    troughs:
+      Trough_C1: -0.2035
+      Trough_C2: 5.5839
+      Trough_C3: 10.27
+      Trough_C4: 13.6991
+      Trough_C5: 9.1921
+  params:
+    channels:
+      cal: 0.4
+      calH: 1.155
+      car: 1.4
+      cat: 1.222622
+      kca: 1.492279
+      mykca: 1.121581
+    synapses: {}
+- Eval: 58
+  Total_Error: 99563.202515
+  features:
+    areas:
+      Area_C1: 1.7606
+      Area_C2: 2.3917
+      Area_C3: 2.4751
+      Area_C4: 3.1728
+      Area_C5: 2.8666
+    spikes:
+      Spks_C1: 6
+      Spks_C2: 5
+      Spks_C3: 4
+      Spks_C4: 4
+      Spks_C5: 4
+    troughs:
+      Trough_C1: -0.5906
+      Trough_C2: 7.0376
+      Trough_C3: 9.7133
+      Trough_C4: 13.751
+      Trough_C5: 9.2088
+  params:
+    channels:
+      cal: 0.4
+      calH: 1.116806
+      car: 1.4
+      cat: 1.222622
+      kca: 1.544094
+      mykca: 1.121581
+    synapses: {}
+- Eval: 50
+  Total_Error: 99727.820701
+  features:
+    areas:
+      Area_C1: 1.7543
+      Area_C2: 2.392
+      Area_C3: 2.4708
+      Area_C4: 3.1772
+      Area_C5: 2.8652
+    spikes:
+      Spks_C1: 6
+      Spks_C2: 5
+      Spks_C3: 4
+      Spks_C4: 4
+      Spks_C5: 4
+    troughs:
+      Trough_C1: -0.6122
+      Trough_C2: 7.0262
+      Trough_C3: 9.6483
+      Trough_C4: 13.7683
+      Trough_C5: 9.2177
+  params:
+    channels:
+      cal: 0.4
+      calH: 1.109167
+      car: 1.4
+      cat: 1.222622
+      kca: 1.554457
+      mykca: 1.121581
+    synapses: {}
+- Eval: 51
+  Total_Error: 99766.546956
+  features:
+    areas:
+      Area_C1: 1.7536
+      Area_C2: 2.393
+      Area_C3: 2.4736
+      Area_C4: 3.1828
+      Area_C5: 2.8657
+    spikes:
+      Spks_C1: 6
+      Spks_C2: 5
+      Spks_C3: 4
+      Spks_C4: 4
+      Spks_C5: 4
+    troughs:
+      Trough_C1: -0.6149
+      Trough_C2: 7.0493
+      Trough_C3: 9.6913
+      Trough_C4: 13.7927
+      Trough_C5: 9.2329
+  params:
+    channels:
+      cal: 0.4
+      calH: 1.109167
+      car: 1.4
+      cat: 1.222622
+      kca: 1.492279
+      mykca: 1.121581
+    synapses: {}
+- Eval: 52
+  Total_Error: 99770.027784
+  features:
+    areas:
+      Area_C1: 1.7535
+      Area_C2: 2.3931
+      Area_C3: 2.4739
+      Area_C4: 3.1836
+      Area_C5: 2.8657
+    spikes:
+      Spks_C1: 6
+      Spks_C2: 5
+      Spks_C3: 4
+      Spks_C4: 4
+      Spks_C5: 4
+    troughs:
+      Trough_C1: -0.6152
+      Trough_C2: 7.051
+      Trough_C3: 9.6961
+      Trough_C4: 13.7959
+      Trough_C5: 9.2349
+  params:
+    channels:
+      cal: 0.4
+      calH: 1.109167
+      car: 1.4
+      cat: 1.273565
+      kca: 1.492279
+      mykca: 1.121581
+    synapses: {}
+- Eval: 47
+  Total_Error: 99870.053705
+  features:
+    areas:
+      Area_C1: 1.7479
+      Area_C2: 2.3916
+      Area_C3: 2.4649
+      Area_C4: 3.1879
+      Area_C5: 2.8657
+    spikes:
+      Spks_C1: 6
+      Spks_C2: 5
+      Spks_C3: 4
+      Spks_C4: 4
+      Spks_C5: 4
+    troughs:
+      Trough_C1: -0.6337
+      Trough_C2: 6.998
+      Trough_C3: 9.5517
+      Trough_C4: 13.8107
+      Trough_C5: 9.2417
+  params:
+    channels:
+      cal: 0.4
+      calH: 1.1
+      car: 1.4
+      cat: 1.222622
+      kca: 1.566893
+      mykca: 1.121581
+    synapses: {}
+- Eval: 41
+  Total_Error: 99915.535236
+  features:
+    areas:
+      Area_C1: 1.7472
+      Area_C2: 2.3928
+      Area_C3: 2.4661
+      Area_C4: 3.1873
+      Area_C5: 2.8659
+    spikes:
+      Spks_C1: 6
+      Spks_C2: 5
+      Spks_C3: 4
+      Spks_C4: 4
+      Spks_C5: 4
+    troughs:
+      Trough_C1: -0.6363
+      Trough_C2: 7.0229
+      Trough_C3: 9.5717
+      Trough_C4: 13.8069
+      Trough_C5: 9.2396
+  params:
+    channels:
+      cal: 0.4
+      calH: 1.1
+      car: 1.4
+      cat: 1.222622
+      kca: 1.492279
+      mykca: 1.121581
+    synapses: {}
+- Eval: 45
+  Total_Error: 99917.805204
+  features:
+    areas:
+      Area_C1: 1.7471
+      Area_C2: 2.3928
+      Area_C3: 2.4662
+      Area_C4: 3.1872
+      Area_C5: 2.8659
+    spikes:
+      Spks_C1: 6
+      Spks_C2: 5
+      Spks_C3: 4
+      Spks_C4: 4
+      Spks_C5: 4
+    troughs:
+      Trough_C1: -0.6364
+      Trough_C2: 7.024
+      Trough_C3: 9.5741
+      Trough_C4: 13.8066
+      Trough_C5: 9.2395
+  params:
+    channels:
+      cal: 0.4
+      calH: 1.1
+      car: 1.4
+      cat: 1.283754
+      kca: 1.492279
+      mykca: 1.121581
+    synapses: {}
+- Eval: 42
+  Total_Error: 102748.97777
+  features:
+    areas:
+      Area_C1: 1.8016
+      Area_C2: 2.3271
+      Area_C3: 2.5293
+      Area_C4: 4.7486
+      Area_C5: 3.0754
+    spikes:
+      Spks_C1: 6
+      Spks_C2: 5
+      Spks_C3: 4
+      Spks_C4: 4
+      Spks_C5: 3
+    troughs:
+      Trough_C1: -0.3606
+      Trough_C2: 5.792
+      Trough_C3: 10.4117
+      Trough_C4: 30.5965
+      Trough_C5: 14.0237
+  params:
+    channels:
+      cal: 0.42
+      calH: 1.1
+      car: 1.4
+      cat: 1.222622
+      kca: 1.492279
+      mykca: 1.121581
+    synapses: {}
+- Eval: 53
+  Total_Error: 103501.385976
+  features:
+    areas:
+      Area_C1: 1.7899
+      Area_C2: 2.3427
+      Area_C3: 2.5439
+      Area_C4: 4.7378
+      Area_C5: 3.0297
+    spikes:
+      Spks_C1: 6
+      Spks_C2: 5
+      Spks_C3: 4
+      Spks_C4: 4
+      Spks_C5: 2
+    troughs:
+      Trough_C1: -0.4235
+      Trough_C2: 6.1058
+      Trough_C3: 10.6064
+      Trough_C4: 30.5451
+      Trough_C5: 13.9679
+  params:
+    channels:
+      cal: 0.416667
+      calH: 1.109167
+      car: 1.4
+      cat: 1.222622
+      kca: 1.492279
+      mykca: 1.121581
+    synapses: {}
+- Eval: 54
+  Total_Error: 103884.444728
+  features:
+    areas:
+      Area_C1: 1.588
+      Area_C2: 2.3505
+      Area_C3: 2.4293
+      Area_C4: 2.5708
+      Area_C5: 2.5245
+    spikes:
+      Spks_C1: 5
+      Spks_C2: 5
+      Spks_C3: 5
+      Spks_C4: 5
+      Spks_C5: 4
+    troughs:
+      Trough_C1: -1.0958
+      Trough_C2: 5.7025
+      Trough_C3: 9.2067
+      Trough_C4: 10.9077
+      Trough_C5: 7.668
+  params:
+    channels:
+      cal: 0.4
+      calH: 1.109167
+      car: 1.4
+      cat: 1.222622
+      kca: 1.492279
+      mykca: 1.168314
+    synapses: {}
+- Eval: 46
+  Total_Error: 103982.001184
+  features:
+    areas:
+      Area_C1: 1.5793
+      Area_C2: 2.3325
+      Area_C3: 2.3977
+      Area_C4: 2.4675
+      Area_C5: 2.5534
+    spikes:
+      Spks_C1: 5
+      Spks_C2: 5
+      Spks_C3: 5
+      Spks_C4: 5
+      Spks_C5: 5
+    troughs:
+      Trough_C1: -1.1027
+      Trough_C2: 5.2429
+      Trough_C3: 8.6888
+      Trough_C4: 9.8935
+      Trough_C5: 7.1632
+  params:
+    channels:
+      cal: 0.4
+      calH: 1.1
+      car: 1.4
+      cat: 1.222622
+      kca: 1.492279
+      mykca: 1.17766
+    synapses: {}
+- Eval: 87
+  Total_Error: 104021.01881
+  features:
+    areas:
+      Area_C1: 1.588
+      Area_C2: 2.3366
+      Area_C3: 2.4118
+      Area_C4: 2.4746
+      Area_C5: 2.5637
+    spikes:
+      Spks_C1: 5
+      Spks_C2: 5
+      Spks_C3: 5
+      Spks_C4: 5
+      Spks_C5: 5
+    troughs:
+      Trough_C1: -1.0813
+      Trough_C2: 5.7815
+      Trough_C3: 9.2115
+      Trough_C4: 10.198
+      Trough_C5: 7.3324
+  params:
+    channels:
+      cal: 0.407778
+      calH: 1.121389
+      car: 1.427222
+      cat: 1.101063
+      kca: 1.51769
+      mykca: 1.217409
+    synapses: {}
+- Eval: 86
+  Total_Error: 104184.657119
+  features:
+    areas:
+      Area_C1: 1.5574
+      Area_C2: 2.2851
+      Area_C3: 2.3443
+      Area_C4: 2.3809
+      Area_C5: 2.436
+    spikes:
+      Spks_C1: 5
+      Spks_C2: 5
+      Spks_C3: 5
+      Spks_C4: 5
+      Spks_C5: 5
+    troughs:
+      Trough_C1: -1.1077
+      Trough_C2: 4.4489
+      Trough_C3: 7.9464
+      Trough_C4: 8.981
+      Trough_C5: 6.7248
+  params:
+    channels:
+      cal: 0.406667
+      calH: 1.118333
+      car: 1.423333
+      cat: 1.098062
+      kca: 1.513554
+      mykca: 1.239148
+    synapses: {}
+- Eval: 88
+  Total_Error: 104427.622736
+  features:
+    areas:
+      Area_C1: 1.5413
+      Area_C2: 2.2437
+      Area_C3: 2.309
+      Area_C4: 2.3329
+      Area_C5: 2.3823
+    spikes:
+      Spks_C1: 5
+      Spks_C2: 5
+      Spks_C3: 5
+      Spks_C4: 5
+      Spks_C5: 5
+    troughs:
+      Trough_C1: -1.1141
+      Trough_C2: 3.6317
+      Trough_C3: 7.2381
+      Trough_C4: 8.2965
+      Trough_C5: 6.4048
+  params:
+    channels:
+      cal: 0.409259
+      calH: 1.125463
+      car: 1.432407
+      cat: 1.105063
+      kca: 1.423954
+      mykca: 1.275381
+    synapses: {}
+- Eval: 82
+  Total_Error: 104998.028807
+  features:
+    areas:
+      Area_C1: 1.5133
+      Area_C2: 2.1899
+      Area_C3: 2.2834
+      Area_C4: 2.2901
+      Area_C5: 2.3235
+    spikes:
+      Spks_C1: 5
+      Spks_C2: 5
+      Spks_C3: 5
+      Spks_C4: 5
+      Spks_C5: 5
+    troughs:
+      Trough_C1: -1.1309
+      Trough_C2: 2.6295
+      Trough_C3: 6.6568
+      Trough_C4: 7.6682
+      Trough_C5: 6.0941
+  params:
+    channels:
+      cal: 0.4
+      calH: 1.1
+      car: 1.47
+      cat: 1.080061
+      kca: 1.488742
+      mykca: 1.304367
+    synapses: {}
+- Eval: 44
+  Total_Error: 105010.829079
+  features:
+    areas:
+      Area_C1: 1.7712
+      Area_C2: 2.3992
+      Area_C3: 4.6666
+      Area_C4: 3.0502
+      Area_C5: 2.8862
+    spikes:
+      Spks_C1: 6
+      Spks_C2: 5
+      Spks_C3: 5
+      Spks_C4: 2
+      Spks_C5: 4
+    troughs:
+      Trough_C1: -0.4928
+      Trough_C2: 7.7998
+      Trough_C3: 25.736
+      Trough_C4: 14.1225
+      Trough_C5: 9.5484
+  params:
+    channels:
+      cal: 0.4
+      calH: 1.1
+      car: 1.47
+      cat: 1.222622
+      kca: 1.492279
+      mykca: 1.121581
+    synapses: {}
+- Eval: 80
+  Total_Error: 105027.114899
+  features:
+    areas:
+      Area_C1: 1.5364
+      Area_C2: 2.1815
+      Area_C3: 2.3073
+      Area_C4: 2.3019
+      Area_C5: 2.3272
+    spikes:
+      Spks_C1: 5
+      Spks_C2: 5
+      Spks_C3: 5
+      Spks_C4: 5
+      Spks_C5: 5
+    troughs:
+      Trough_C1: -1.1143
+      Trough_C2: 2.3439
+      Trough_C3: 6.8002
+      Trough_C4: 7.6295
+      Trough_C5: 6.0615
+  params:
+    channels:
+      cal: 0.42
+      calH: 1.1
+      car: 1.4
+      cat: 1.080061
+      kca: 1.488742
+      mykca: 1.304367
+    synapses: {}
+- Eval: 48
+  Total_Error: 106570.779248
+  features:
+    areas:
+      Area_C1: 1.5841
+      Area_C2: 2.3612
+      Area_C3: 2.4486
+      Area_C4: 4.6834
+      Area_C5: 3.0834
+    spikes:
+      Spks_C1: 5
+      Spks_C2: 5
+      Spks_C3: 5
+      Spks_C4: 4
+      Spks_C5: 2
+    troughs:
+      Trough_C1: -1.1082
+      Trough_C2: 5.434
+      Trough_C3: 9.0881
+      Trough_C4: 29.4564
+      Trough_C5: 13.8584
+  params:
+    channels:
+      cal: 0.406667
+      calH: 1.118333
+      car: 1.33
+      cat: 1.243
+      kca: 1.51715
+      mykca: 1.140274
+    synapses: {}
+- Eval: 55
+  Total_Error: 107322.085194
+  features:
+    areas:
+      Area_C1: 1.767
+      Area_C2: 2.4029
+      Area_C3: 4.6704
+      Area_C4: 3.0534
+      Area_C5: 2.8877
+    spikes:
+      Spks_C1: 6
+      Spks_C2: 5
+      Spks_C3: 5
+      Spks_C4: 2
+      Spks_C5: 4
+    troughs:
+      Trough_C1: -0.5192
+      Trough_C2: 7.7948
+      Trough_C3: 27.3593
+      Trough_C4: 14.0971
+      Trough_C5: 9.5235
+  params:
+    channels:
+      cal: 0.4
+      calH: 1.109167
+      car: 1.458333
+      cat: 1.222622
+      kca: 1.492279
+      mykca: 1.121581
+    synapses: {}
+- Eval: 56
+  Total_Error: 107449.90525
+  features:
+    areas:
+      Area_C1: 1.5932
+      Area_C2: 2.3766
+      Area_C3: 2.4832
+      Area_C4: 4.6782
+      Area_C5: 3.103
+    spikes:
+      Spks_C1: 5
+      Spks_C2: 5
+      Spks_C3: 5
+      Spks_C4: 4
+      Spks_C5: 3
+    troughs:
+      Trough_C1: -1.0996
+      Trough_C2: 5.9191
+      Trough_C3: 9.6479
+      Trough_C4: 29.9013
+      Trough_C5: 13.8498
+  params:
+    channels:
+      cal: 0.405556
+      calH: 1.124444
+      car: 1.341667
+      cat: 1.239603
+      kca: 1.513005
+      mykca: 1.137159
+    synapses: {}
+- Eval: 81
+  Total_Error: 108014.216354
+  features:
+    areas:
+      Area_C1: 1.4644
+      Area_C2: 2.0768
+      Area_C3: 2.3371
+      Area_C4: 2.2615
+      Area_C5: 2.2535
+    spikes:
+      Spks_C1: 5
+      Spks_C2: 5
+      Spks_C3: 5
+      Spks_C4: 5
+      Spks_C5: 5
+    troughs:
+      Trough_C1: -1.1575
+      Trough_C2: 0.4831
+      Trough_C3: 6.8535
+      Trough_C4: 6.7318
+      Trough_C5: 5.7685
+  params:
+    channels:
+      cal: 0.4
+      calH: 1.155
+      car: 1.4
+      cat: 1.080061
+      kca: 1.488742
+      mykca: 1.304367
+    synapses: {}
+- Eval: 83
+  Total_Error: 108068.012616
+  features:
+    areas:
+      Area_C1: 1.4723
+      Area_C2: 2.0725
+      Area_C3: 2.3517
+      Area_C4: 2.2713
+      Area_C5: 2.2634
+    spikes:
+      Spks_C1: 5
+      Spks_C2: 5
+      Spks_C3: 5
+      Spks_C4: 5
+      Spks_C5: 5
+    troughs:
+      Trough_C1: -1.1557
+      Trough_C2: 0.3972
+      Trough_C3: 7.1106
+      Trough_C4: 6.966
+      Trough_C5: 5.7794
+  params:
+    channels:
+      cal: 0.4
+      calH: 1.1
+      car: 1.4
+      cat: 1.134064
+      kca: 1.488742
+      mykca: 1.304367
+    synapses: {}
+- Eval: 79
+  Total_Error: 108079.820776
+  features:
+    areas:
+      Area_C1: 1.472
+      Area_C2: 2.072
+      Area_C3: 2.3521
+      Area_C4: 2.2715
+      Area_C5: 2.2636
+    spikes:
+      Spks_C1: 5
+      Spks_C2: 5
+      Spks_C3: 5
+      Spks_C4: 5
+      Spks_C5: 5
+    troughs:
+      Trough_C1: -1.1559
+      Trough_C2: 0.3902
+      Trough_C3: 7.1175
+      Trough_C4: 6.9725
+      Trough_C5: 5.7816
+  params:
+    channels:
+      cal: 0.4
+      calH: 1.1
+      car: 1.4
+      cat: 1.080061
+      kca: 1.488742
+      mykca: 1.304367
+    synapses: {}
+- Eval: 85
+  Total_Error: 108104.060004
+  features:
+    areas:
+      Area_C1: 1.4716
+      Area_C2: 2.0706
+      Area_C3: 2.3533
+      Area_C4: 2.2723
+      Area_C5: 2.2642
+    spikes:
+      Spks_C1: 5
+      Spks_C2: 5
+      Spks_C3: 5
+      Spks_C4: 5
+      Spks_C5: 5
+    troughs:
+      Trough_C1: -1.156
+      Trough_C2: 0.3733
+      Trough_C3: 7.1399
+      Trough_C4: 6.9942
+      Trough_C5: 5.7893
+  params:
+    channels:
+      cal: 0.4
+      calH: 1.1
+      car: 1.4
+      cat: 1.080061
+      kca: 1.563179
+      mykca: 1.304367
+    synapses: {}
+- Eval: 49
+  Total_Error: 110777.346275
+  features:
+    areas:
+      Area_C1: 1.7611
+      Area_C2: 2.3974
+      Area_C3: 4.6606
+      Area_C4: 3.0571
+      Area_C5: 2.882
+    spikes:
+      Spks_C1: 6
+      Spks_C2: 5
+      Spks_C3: 4
+      Spks_C4: 2
+      Spks_C5: 4
+    troughs:
+      Trough_C1: -0.5471
+      Trough_C2: 7.5742
+      Trough_C3: 29.0166
+      Trough_C4: 14.0716
+      Trough_C5: 9.4964
+  params:
+    channels:
+      cal: 0.401111
+      calH: 1.103056
+      car: 1.446667
+      cat: 1.226019
+      kca: 1.496424
+      mykca: 1.124697
+    synapses: {}
+- Eval: 57
+  Total_Error: 112281.126615
+  features:
+    areas:
+      Area_C1: 1.7603
+      Area_C2: 2.3996
+      Area_C3: 4.6602
+      Area_C4: 3.0562
+      Area_C5: 2.8847
+    spikes:
+      Spks_C1: 6
+      Spks_C2: 5
+      Spks_C3: 4
+      Spks_C4: 2
+      Spks_C5: 4
+    troughs:
+      Trough_C1: -0.557
+      Trough_C2: 7.5684
+      Trough_C3: 29.5891
+      Trough_C4: 14.0554
+      Trough_C5: 9.4825
+  params:
+    channels:
+      cal: 0.400926
+      calH: 1.111713
+      car: 1.438889
+      cat: 1.225453
+      kca: 1.495733
+      mykca: 1.124177
+    synapses: {}
+- Eval: 19
+  Total_Error: 112897.42616
+  features:
+    areas:
+      Area_C1: 1.4604
+      Area_C2: 2.0113
+      Area_C3: 2.2101
+      Area_C4: 2.1371
+      Area_C5: 2.0871
+    spikes:
+      Spks_C1: 5
+      Spks_C2: 5
+      Spks_C3: 4
+      Spks_C4: 5
+      Spks_C5: 5
+    troughs:
+      Trough_C1: -1.1533
+      Trough_C2: -0.2012
+      Trough_C3: 2.9476
+      Trough_C4: 3.1729
+      Trough_C5: 2.413
+  params:
+    channels:
+      cal: 0.407778
+      calH: 1.121389
+      car: 1.404936
+      cat: 1.380641
+      kca: 1.565516
+      mykca: 1.364
+    synapses: {}
+- Eval: 18
+  Total_Error: 121315.138361
+  features:
+    areas:
+      Area_C1: 1.4418
+      Area_C2: 1.9482
+      Area_C3: 1.7842
+      Area_C4: 1.9896
+      Area_C5: 2.2619
+    spikes:
+      Spks_C1: 5
+      Spks_C2: 5
+      Spks_C3: 4
+      Spks_C4: 4
+      Spks_C5: 5
+    troughs:
+      Trough_C1: -1.1609
+      Trough_C2: -0.8726
+      Trough_C3: -2.3798
+      Trough_C4: -0.0494
+      Trough_C5: -0.0596
+  params:
+    channels:
+      cal: 0.406667
+      calH: 1.118333
+      car: 1.401108
+      cat: 1.376879
+      kca: 1.56125
+      mykca: 1.388358
+    synapses: {}
+- Eval: 84
+  Total_Error: 122266.095355
+  features:
+    areas:
+      Area_C1: 1.4355
+      Area_C2: 1.945
+      Area_C3: 1.7732
+      Area_C4: 1.9603
+      Area_C5: 2.0939
+    spikes:
+      Spks_C1: 5
+      Spks_C2: 5
+      Spks_C3: 4
+      Spks_C4: 4
+      Spks_C5: 4
+    troughs:
+      Trough_C1: -1.1684
+      Trough_C2: -0.9755
+      Trough_C3: -2.5262
+      Trough_C4: -0.5795
+      Trough_C5: -0.5891
+  params:
+    channels:
+      cal: 0.4
+      calH: 1.1
+      car: 1.4
+      cat: 1.080061
+      kca: 1.488742
+      mykca: 1.369585
+    synapses: {}
+- Eval: 92
+  Total_Error: 123012.52386
+  features:
+    areas:
+      Area_C1: 1.4133
+      Area_C2: 1.7142
+      Area_C3: 1.8955
+      Area_C4: 2.4524
+      Area_C5: 2.2232
+    spikes:
+      Spks_C1: 5
+      Spks_C2: 5
+      Spks_C3: 4
+      Spks_C4: 4
+      Spks_C5: 5
+    troughs:
+      Trough_C1: -1.1892
+      Trough_C2: -2.5473
+      Trough_C3: -1.9738
+      Trough_C4: 8.202
+      Trough_C5: 4.8098
+  params:
+    channels:
+      cal: 0.425038
+      calH: 1.1
+      car: 1.184116
+      cat: 1.344569
+      kca: 1.574916
+      mykca: 1.328986
+    synapses: {}
+- Eval: 20
+  Total_Error: 125145.447724
+  features:
+    areas:
+      Area_C1: 1.4356
+      Area_C2: 1.9109
+      Area_C3: 1.7361
+      Area_C4: 1.8013
+      Area_C5: 1.8035
+    spikes:
+      Spks_C1: 5
+      Spks_C2: 5
+      Spks_C3: 4
+      Spks_C4: 4
+      Spks_C5: 4
+    troughs:
+      Trough_C1: -1.1616
+      Trough_C2: -1.3283
+      Trough_C3: -2.7013
+      Trough_C4: -2.3352
+      Trough_C5: -2.3415
+  params:
+    channels:
+      cal: 0.409259
+      calH: 1.05213
+      car: 1.410041
+      cat: 1.385657
+      kca: 1.571203
+      mykca: 1.428953
+    synapses: {}
+- Eval: 14
+  Total_Error: 126100.1548
+  features:
+    areas:
+      Area_C1: 1.4055
+      Area_C2: 1.9174
+      Area_C3: 1.6855
+      Area_C4: 1.7075
+      Area_C5: 1.6529
+    spikes:
+      Spks_C1: 5
+      Spks_C2: 5
+      Spks_C3: 4
+      Spks_C4: 4
+      Spks_C5: 4
+    troughs:
+      Trough_C1: -1.1721
+      Trough_C2: -1.2439
+      Trough_C3: -2.9589
+      Trough_C4: -3.0713
+      Trough_C5: -3.5418
+  params:
+    channels:
+      cal: 0.4
+      calH: 1.1
+      car: 1.447046
+      cat: 1.354307
+      kca: 1.535656
+      mykca: 1.461429
+    synapses: {}
+- Eval: 12
+  Total_Error: 127481.143123
+  features:
+    areas:
+      Area_C1: 1.4255
+      Area_C2: 1.8445
+      Area_C3: 1.7038
+      Area_C4: 1.7427
+      Area_C5: 1.739
+    spikes:
+      Spks_C1: 5
+      Spks_C2: 5
+      Spks_C3: 4
+      Spks_C4: 4
+      Spks_C5: 4
+    troughs:
+      Trough_C1: -1.1607
+      Trough_C2: -1.7973
+      Trough_C3: -2.8841
+      Trough_C4: -2.8505
+      Trough_C5: -2.9345
+  params:
+    channels:
+      cal: 0.42
+      calH: 1.1
+      car: 1.378139
+      cat: 1.354307
+      kca: 1.535656
+      mykca: 1.461429
+    synapses: {}
+- Eval: 91
+  Total_Error: 128300.225978
+  features:
+    areas:
+      Area_C1: 1.3792
+      Area_C2: 1.636
+      Area_C3: 1.8504
+      Area_C4: 2.1768
+      Area_C5: 1.9633
+    spikes:
+      Spks_C1: 5
+      Spks_C2: 5
+      Spks_C3: 4
+      Spks_C4: 4
+      Spks_C5: 5
+    troughs:
+      Trough_C1: -1.2077
+      Trough_C2: -2.7526
+      Trough_C3: -2.4838
+      Trough_C4: 1.8709
+      Trough_C5: -0.8982
+  params:
+    channels:
+      cal: 0.425038
+      calH: 1.155
+      car: 1.127729
+      cat: 1.344569
+      kca: 1.574916
+      mykca: 1.328986
+    synapses: {}
+- Eval: 29
+  Total_Error: 128995.961109
+  features:
+    areas:
+      Area_C1: 1.3975
+      Area_C2: 1.7892
+      Area_C3: 1.7331
+      Area_C4: 1.8393
+      Area_C5: 1.9083
+    spikes:
+      Spks_C1: 5
+      Spks_C2: 5
+      Spks_C3: 4
+      Spks_C4: 4
+      Spks_C5: 4
+    troughs:
+      Trough_C1: -1.1931
+      Trough_C2: -2.2256
+      Trough_C3: -2.9927
+      Trough_C4: -2.4294
+      Trough_C5: -2.4357
+  params:
+    channels:
+      cal: 0.407778
+      calH: 1.121389
+      car: 1.269863
+      cat: 1.275991
+      kca: 1.748672
+      mykca: 1.348667
+    synapses: {}
+- Eval: 97
+  Total_Error: 129796.207975
+  features:
+    areas:
+      Area_C1: 1.4104
+      Area_C2: 1.7809
+      Area_C3: 4.6881
+      Area_C4: 2.9717
+      Area_C5: 2.5418
+    spikes:
+      Spks_C1: 5
+      Spks_C2: 5
+      Spks_C3: 3
+      Spks_C4: 2
+      Spks_C5: 5
+    troughs:
+      Trough_C1: -1.1996
+      Trough_C2: -2.3853
+      Trough_C3: 30.4023
+      Trough_C4: 13.2617
+      Trough_C5: 8.5768
+  params:
+    channels:
+      cal: 0.417954
+      calH: 1.124444
+      car: 1.15279
+      cat: 1.374449
+      kca: 1.609914
+      mykca: 1.26992
+    synapses: {}
+- Eval: 15
+  Total_Error: 131057.250431
+  features:
+    areas:
+      Area_C1: 1.3756
+      Area_C2: 1.81
+      Area_C3: 1.5929
+      Area_C4: 1.4259
+      Area_C5: 1.3379
+    spikes:
+      Spks_C1: 5
+      Spks_C2: 5
+      Spks_C3: 4
+      Spks_C4: 4
+      Spks_C5: 4
+    troughs:
+      Trough_C1: -1.1908
+      Trough_C2: -2.1033
+      Trough_C3: -3.4576
+      Trough_C4: -4.1798
+      Trough_C5: -4.4303
+  params:
+    channels:
+      cal: 0.4
+      calH: 1.1
+      car: 1.378139
+      cat: 1.422023
+      kca: 1.535656
+      mykca: 1.461429
+    synapses: {}
+- Eval: 11
+  Total_Error: 131071.659355
+  features:
+    areas:
+      Area_C1: 1.3753
+      Area_C2: 1.8095
+      Area_C3: 1.5925
+      Area_C4: 1.4251
+      Area_C5: 1.3374
+    spikes:
+      Spks_C1: 5
+      Spks_C2: 5
+      Spks_C3: 4
+      Spks_C4: 4
+      Spks_C5: 4
+    troughs:
+      Trough_C1: -1.191
+      Trough_C2: -2.1059
+      Trough_C3: -3.4588
+      Trough_C4: -4.1806
+      Trough_C5: -4.4306
+  params:
+    channels:
+      cal: 0.4
+      calH: 1.1
+      car: 1.378139
+      cat: 1.354307
+      kca: 1.535656
+      mykca: 1.461429
+    synapses: {}
+- Eval: 17
+  Total_Error: 131107.214174
+  features:
+    areas:
+      Area_C1: 1.375
+      Area_C2: 1.808
+      Area_C3: 1.5918
+      Area_C4: 1.4231
+      Area_C5: 1.3363
+    spikes:
+      Spks_C1: 5
+      Spks_C2: 5
+      Spks_C3: 4
+      Spks_C4: 4
+      Spks_C5: 4
+    troughs:
+      Trough_C1: -1.191
+      Trough_C2: -2.1134
+      Trough_C3: -3.4614
+      Trough_C4: -4.1825
+      Trough_C5: -4.4313
+  params:
+    channels:
+      cal: 0.4
+      calH: 1.1
+      car: 1.378139
+      cat: 1.354307
+      kca: 1.612439
+      mykca: 1.461429
+    synapses: {}
+- Eval: 13
+  Total_Error: 131592.135701
+  features:
+    areas:
+      Area_C1: 1.3707
+      Area_C2: 1.7533
+      Area_C3: 1.5836
+      Area_C4: 1.4957
+      Area_C5: 1.4186
+    spikes:
+      Spks_C1: 5
+      Spks_C2: 5
+      Spks_C3: 4
+      Spks_C4: 4
+      Spks_C5: 4
+    troughs:
+      Trough_C1: -1.1906
+      Trough_C2: -2.2786
+      Trough_C3: -3.4861
+      Trough_C4: -4.0762
+      Trough_C5: -4.3749
+  params:
+    channels:
+      cal: 0.4
+      calH: 1.155
+      car: 1.378139
+      cat: 1.354307
+      kca: 1.535656
+      mykca: 1.461429
+    synapses: {}
+- Eval: 28
+  Total_Error: 131860.804593
+  features:
+    areas:
+      Area_C1: 1.3852
+      Area_C2: 1.7382
+      Area_C3: 1.6479
+      Area_C4: 1.6232
+      Area_C5: 1.5673
+    spikes:
+      Spks_C1: 5
+      Spks_C2: 5
+      Spks_C3: 4
+      Spks_C4: 4
+      Spks_C5: 4
+    troughs:
+      Trough_C1: -1.1982
+      Trough_C2: -2.4345
+      Trough_C3: -3.3861
+      Trough_C4: -3.8163
+      Trough_C5: -4.1588
+  params:
+    channels:
+      cal: 0.406667
+      calH: 1.118333
+      car: 1.266403
+      cat: 1.272514
+      kca: 1.743908
+      mykca: 1.372751
+    synapses: {}
+- Eval: 30
+  Total_Error: 133227.32439
+  features:
+    areas:
+      Area_C1: 1.3741
+      Area_C2: 1.6864
+      Area_C3: 1.5699
+      Area_C4: 1.4485
+      Area_C5: 1.3879
+    spikes:
+      Spks_C1: 5
+      Spks_C2: 5
+      Spks_C3: 4
+      Spks_C4: 4
+      Spks_C5: 4
+    troughs:
+      Trough_C1: -1.1983
+      Trough_C2: -2.5829
+      Trough_C3: -3.6013
+      Trough_C4: -4.1789
+      Trough_C5: -4.4156
+  params:
+    channels:
+      cal: 0.409259
+      calH: 1.125463
+      car: 1.274477
+      cat: 1.280627
+      kca: 1.640671
+      mykca: 1.41289
+    synapses: {}
+- Eval: 93
+  Total_Error: 133242.668426
+  features:
+    areas:
+      Area_C1: 1.3869
+      Area_C2: 1.6102
+      Area_C3: 1.7118
+      Area_C4: 1.6936
+      Area_C5: 1.6446
+    spikes:
+      Spks_C1: 5
+      Spks_C2: 5
+      Spks_C3: 4
+      Spks_C4: 4
+      Spks_C5: 4
+    troughs:
+      Trough_C1: -1.2067
+      Trough_C2: -2.7985
+      Trough_C3: -3.2891
+      Trough_C4: -3.6468
+      Trough_C5: -3.9972
+  params:
+    channels:
+      cal: 0.425038
+      calH: 1.1
+      car: 1.127729
+      cat: 1.411798
+      kca: 1.574916
+      mykca: 1.328986
+    synapses: {}
+- Eval: 89
+  Total_Error: 133259.901118
+  features:
+    areas:
+      Area_C1: 1.3866
+      Area_C2: 1.6096
+      Area_C3: 1.711
+      Area_C4: 1.6919
+      Area_C5: 1.6428
+    spikes:
+      Spks_C1: 5
+      Spks_C2: 5
+      Spks_C3: 4
+      Spks_C4: 4
+      Spks_C5: 4
+    troughs:
+      Trough_C1: -1.2069
+      Trough_C2: -2.7993
+      Trough_C3: -3.2926
+      Trough_C4: -3.6545
+      Trough_C5: -4.0043
+  params:
+    channels:
+      cal: 0.425038
+      calH: 1.1
+      car: 1.127729
+      cat: 1.344569
+      kca: 1.574916
+      mykca: 1.328986
+    synapses: {}
+- Eval: 95
+  Total_Error: 133302.654928
+  features:
+    areas:
+      Area_C1: 1.3863
+      Area_C2: 1.6079
+      Area_C3: 1.7091
+      Area_C4: 1.6872
+      Area_C5: 1.6368
+    spikes:
+      Spks_C1: 5
+      Spks_C2: 5
+      Spks_C3: 4
+      Spks_C4: 4
+      Spks_C5: 4
+    troughs:
+      Trough_C1: -1.2069
+      Trough_C2: -2.8015
+      Trough_C3: -3.3003
+      Trough_C4: -3.6748
+      Trough_C5: -4.0262
+  params:
+    channels:
+      cal: 0.425038
+      calH: 1.1
+      car: 1.127729
+      cat: 1.344569
+      kca: 1.653662
+      mykca: 1.328986
+    synapses: {}
+- Eval: 24
+  Total_Error: 133815.043874
+  features:
+    areas:
+      Area_C1: 1.3537
+      Area_C2: 1.6954
+      Area_C3: 1.498
+      Area_C4: 1.2772
+      Area_C5: 1.2538
+    spikes:
+      Spks_C1: 5
+      Spks_C2: 5
+      Spks_C3: 4
+      Spks_C4: 4
+      Spks_C5: 4
+    troughs:
+      Trough_C1: -1.207
+      Trough_C2: -2.6004
+      Trough_C3: -3.7258
+      Trough_C4: -4.2949
+      Trough_C5: -4.4923
+  params:
+    channels:
+      cal: 0.4
+      calH: 1.1
+      car: 1.307925
+      cat: 1.251653
+      kca: 1.715319
+      mykca: 1.445001
+    synapses: {}
+- Eval: 22
+  Total_Error: 134603.960164
+  features:
+    areas:
+      Area_C1: 1.3716
+      Area_C2: 1.6082
+      Area_C3: 1.4985
+      Area_C4: 1.2947
+      Area_C5: 1.2664
+    spikes:
+      Spks_C1: 5
+      Spks_C2: 5
+      Spks_C3: 4
+      Spks_C4: 4
+      Spks_C5: 4
+    troughs:
+      Trough_C1: -1.1961
+      Trough_C2: -2.7811
+      Trough_C3: -3.7367
+      Trough_C4: -4.286
+      Trough_C5: -4.485
+  params:
+    channels:
+      cal: 0.42
+      calH: 1.1
+      car: 1.245643
+      cat: 1.251653
+      kca: 1.715319
+      mykca: 1.445001
+    synapses: {}
+- Eval: 23
+  Total_Error: 134999.597107
+  features:
+    areas:
+      Area_C1: 1.327
+      Area_C2: 1.5832
+      Area_C3: 1.4106
+      Area_C4: 1.2476
+      Area_C5: 1.2473
+    spikes:
+      Spks_C1: 5
+      Spks_C2: 5
+      Spks_C3: 4
+      Spks_C4: 4
+      Spks_C5: 4
+    troughs:
+      Trough_C1: -1.2202
+      Trough_C2: -2.8089
+      Trough_C3: -3.8141
+      Trough_C4: -4.3113
+      Trough_C5: -4.4973
+  params:
+    channels:
+      cal: 0.4
+      calH: 1.155
+      car: 1.245643
+      cat: 1.251653
+      kca: 1.715319
+      mykca: 1.445001
+    synapses: {}
+- Eval: 96
+  Total_Error: 135045.004119
+  features:
+    areas:
+      Area_C1: 1.3398
+      Area_C2: 1.5874
+      Area_C3: 1.4842
+      Area_C4: 1.3361
+      Area_C5: 1.3533
+    spikes:
+      Spks_C1: 5
+      Spks_C2: 5
+      Spks_C3: 4
+      Spks_C4: 4
+      Spks_C5: 4
+    troughs:
+      Trough_C1: -1.2315
+      Trough_C2: -2.8351
+      Trough_C3: -3.79
+      Trough_C4: -4.273
+      Trough_C5: -4.4541
+  params:
+    channels:
+      cal: 0.403786
+      calH: 1.118333
+      car: 1.146525
+      cat: 1.366979
+      kca: 1.601165
+      mykca: 1.351136
+    synapses: {}
+- Eval: 25
+  Total_Error: 135077.380487
+  features:
+    areas:
+      Area_C1: 1.331
+      Area_C2: 1.6138
+      Area_C3: 1.4085
+      Area_C4: 1.216
+      Area_C5: 1.2057
+    spikes:
+      Spks_C1: 5
+      Spks_C2: 5
+      Spks_C3: 4
+      Spks_C4: 4
+      Spks_C5: 4
+    troughs:
+      Trough_C1: -1.2215
+      Trough_C2: -2.7967
+      Trough_C3: -3.8176
+      Trough_C4: -4.34
+      Trough_C5: -4.5212
+  params:
+    channels:
+      cal: 0.4
+      calH: 1.1
+      car: 1.245643
+      cat: 1.314236
+      kca: 1.715319
+      mykca: 1.445001
+    synapses: {}
+- Eval: 21
+  Total_Error: 135080.545828
+  features:
+    areas:
+      Area_C1: 1.3308
+      Area_C2: 1.6135
+      Area_C3: 1.4082
+      Area_C4: 1.2159
+      Area_C5: 1.2056
+    spikes:
+      Spks_C1: 5
+      Spks_C2: 5
+      Spks_C3: 4
+      Spks_C4: 4
+      Spks_C5: 4
+    troughs:
+      Trough_C1: -1.2216
+      Trough_C2: -2.7971
+      Trough_C3: -3.8178
+      Trough_C4: -4.3401
+      Trough_C5: -4.5212
+  params:
+    channels:
+      cal: 0.4
+      calH: 1.1
+      car: 1.245643
+      cat: 1.251653
+      kca: 1.715319
+      mykca: 1.445001
+    synapses: {}
+- Eval: 27
+  Total_Error: 135087.922562
+  features:
+    areas:
+      Area_C1: 1.3305
+      Area_C2: 1.6127
+      Area_C3: 1.4074
+      Area_C4: 1.2155
+      Area_C5: 1.2053
+    spikes:
+      Spks_C1: 5
+      Spks_C2: 5
+      Spks_C3: 4
+      Spks_C4: 4
+      Spks_C5: 4
+    troughs:
+      Trough_C1: -1.2215
+      Trough_C2: -2.7984
+      Trough_C3: -3.8183
+      Trough_C4: -4.3403
+      Trough_C5: -4.5212
+  params:
+    channels:
+      cal: 0.4
+      calH: 1.1
+      car: 1.245643
+      cat: 1.251653
+      kca: 1.801085
+      mykca: 1.445001
+    synapses: {}
+- Eval: 94
+  Total_Error: 135477.550623
+  features:
+    areas:
+      Area_C1: 1.3573
+      Area_C2: 1.5037
+      Area_C3: 1.4562
+      Area_C4: 1.297
+      Area_C5: 1.2666
+    spikes:
+      Spks_C1: 5
+      Spks_C2: 5
+      Spks_C3: 4
+      Spks_C4: 4
+      Spks_C5: 4
+    troughs:
+      Trough_C1: -1.2148
+      Trough_C2: -2.9035
+      Trough_C3: -3.8052
+      Trough_C4: -4.2913
+      Trough_C5: -4.497
+  params:
+    channels:
+      cal: 0.425038
+      calH: 1.1
+      car: 1.127729
+      cat: 1.344569
+      kca: 1.574916
+      mykca: 1.395436
+    synapses: {}
+- Eval: 16
+  Total_Error: 135983.41182
+  features:
+    areas:
+      Area_C1: 1.3418
+      Area_C2: 1.3607
+      Area_C3: 1.315
+      Area_C4: 1.1919
+      Area_C5: 1.1876
+    spikes:
+      Spks_C1: 5
+      Spks_C2: 4
+      Spks_C3: 4
+      Spks_C4: 4
+      Spks_C5: 4
+    troughs:
+      Trough_C1: -1.2002
+      Trough_C2: -2.9959
+      Trough_C3: -3.8678
+      Trough_C4: -4.3472
+      Trough_C5: -4.5167
+  params:
+    channels:
+      cal: 0.4
+      calH: 1.1
+      car: 1.378139
+      cat: 1.354307
+      kca: 1.535656
+      mykca: 1.534501
+    synapses: {}
+- Eval: 26
+  Total_Error: 136676.509564
+  features:
+    areas:
+      Area_C1: 1.3026
+      Area_C2: 1.315
+      Area_C3: 1.2435
+      Area_C4: 1.1487
+      Area_C5: 1.1457
+    spikes:
+      Spks_C1: 5
+      Spks_C2: 4
+      Spks_C3: 4
+      Spks_C4: 4
+      Spks_C5: 4
+    troughs:
+      Trough_C1: -1.2265
+      Trough_C2: -3.0425
+      Trough_C3: -3.9227
+      Trough_C4: -4.3759
+      Trough_C5: -4.5411
+  params:
+    channels:
+      cal: 0.4
+      calH: 1.1
+      car: 1.245643
+      cat: 1.251653
+      kca: 1.715319
+      mykca: 1.517251
+    synapses: {}
+- Eval: 90
+  Total_Error: 140825.48029
+  features:
+    areas:
+      Area_C1: 1.4366
+      Area_C2: 1.6298
+      Area_C3: 4.7392
+      Area_C4: 2.9654
+      Area_C5: 2.5453
+    spikes:
+      Spks_C1: 5
+      Spks_C2: 5
+      Spks_C3: 3
+      Spks_C4: 1
+      Spks_C5: 5
+    troughs:
+      Trough_C1: -1.176
+      Trough_C2: -2.7534
+      Trough_C3: 33.0144
+      Trough_C4: 13.176
+      Trough_C5: 8.4927
+  params:
+    channels:
+      cal: 0.446289
+      calH: 1.1
+      car: 1.127729
+      cat: 1.344569
+      kca: 1.574916
+      mykca: 1.328986
+    synapses: {}
+metadata:
+  best_error_baseline: 95535.708891
+  log_file: optimization_log_20260324_1912.csv
+  num_evaluations: 84
+  num_iterations: 5
+  optimizer: BasinHopping
+  threshold_percentage: 50.0%

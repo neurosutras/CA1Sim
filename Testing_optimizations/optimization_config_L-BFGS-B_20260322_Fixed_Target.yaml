@@ -1,0 +1,53 @@
+#Targets for SOMA plateau with Theta burst stimulation
+targets:
+  target_plateau_per_cycle: [3.337, 3.5297, 4.356, 5.2235, 5.6729]
+  target_spikes_per_cycle: [6, 6, 7, 7, 7]
+
+parameters:
+  # Conductance Multipliers (Broadened Search)
+
+#20260321 Run number 2 20260321_2350
+# cal: 0.5244
+# calH: 1.028
+# car: 1.0877
+# cat: 1.1058
+# kca: 1.133
+# mykca: 1.1105
+  # Conductance Multipliers (Now the only things being optimized)
+  cal:
+    initial_value: 0.5244
+    bounds: [0.1, 1.5]
+  calH:
+    initial_value: 1.028
+    bounds: [0.5, 1.1] # TIGHTER: Prevents Depo Block
+  car:
+    initial_value: 1.0877
+    bounds: [0.5, 1.5]
+  cat:
+    initial_value: 1.1058
+    bounds: [0.5, 1.5]
+  mykca:
+    initial_value: 1.1105
+    bounds: [0.1, 2.0]
+  kca:
+    initial_value: 1.133
+    bounds: [0.5, 2.0] # HIGHER FLOOR: Forces repolarization
+    
+  # Synapse Counts (SET AS CONSTANTS to stop the 'noise')
+  exc_CA3: 73
+  exc_ECIII: 135
+  inh_CA3: 79
+  inh_ECIII: 118
+
+simulation:
+  morph_filename: EB2-late-bifurcation.swc
+  mech_filename: 20260319_default_biophysics_with_Calcium_Channels.yaml
+  equilibrate: 250.0
+  sim_duration: 2500.0
+  dt: 0.025
+  v_init: -70.0
+  tbs_times: [500., 510., 520., 530., 540., 650., 660., 670., 680., 690., 800., 810., 820., 830., 840., 950., 960., 970., 980., 990., 1100., 1110., 1120., 1130., 1140.]
+
+Optimizer: L-BFGS-B
+num_iterations: 5
+num_evaluations: 60

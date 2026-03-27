@@ -1,0 +1,55 @@
+#Targets for SOMA plateau with Theta burst stimulation
+targets:
+  target_plateau_per_cycle: [3.337, 3.5297, 4.356, 5.2235, 5.6729]
+  target_spikes_per_cycle: [6, 6, 7, 7, 7]
+  target_trough_per_cycle: [1.2946, 3.1996, 8.0606, 17.4871, 22.5451]
+
+parameters:
+  # Conductance Multipliers
+  # Starting from Eval 26 (best biological result from run 5)
+  # cal: 0.599473
+  # calH: 1.03354
+  # car: 1.119427
+  # cat: 1.136134
+  # mykca: 1.05351
+  # kca: 1.063522
+  # Bounds tightened around Eval 26 basin
+  # mykca/kca upper bounds widened to allow repolarization
+
+  cal:
+    initial_value: 0.599473
+    bounds: [0.4, 0.8]
+  calH:
+    initial_value: 1.03354
+    bounds: [0.9, 1.1]   # Tight: prevents depo block
+  car:
+    initial_value: 1.119427
+    bounds: [0.9, 1.4]
+  cat:
+    initial_value: 1.136134
+    bounds: [0.9, 1.4]
+  mykca:
+    initial_value: 1.05351
+    bounds: [0.8, 2.0]   # Wide upward: needed for repolarization
+  kca:
+    initial_value: 1.063522
+    bounds: [0.8, 2.0]   # Wide upward: needed for repolarization
+
+  # Synapse Counts (fixed constants)
+  exc_CA3: 73
+  exc_ECIII: 135
+  inh_CA3: 79
+  inh_ECIII: 118
+
+simulation:
+  morph_filename: EB2-late-bifurcation.swc
+  mech_filename: 20260319_default_biophysics_with_Calcium_Channels.yaml
+  equilibrate: 250.0
+  sim_duration: 2500.0
+  dt: 0.025
+  v_init: -70.0
+  tbs_times: [500., 510., 520., 530., 540., 650., 660., 670., 680., 690., 800., 810., 820., 830., 840., 950., 960., 970., 980., 990., 1100., 1110., 1120., 1130., 1140.]
+
+Optimizer: BasinHopping
+num_iterations: 10
+num_evaluations: 40

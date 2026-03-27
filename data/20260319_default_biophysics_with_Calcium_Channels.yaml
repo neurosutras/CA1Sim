@@ -1,0 +1,585 @@
+ais:
+    cable:
+        Ra:
+            origin: soma
+        cm:
+            origin: soma
+    ions:
+        ek:
+            origin: soma
+    kap:
+        gkabar:
+            value: 0.090585
+    kdr:
+        gkdrbar:
+            origin: soma
+    km2:
+        gkmbar:
+            value: 0.0075
+    nax:
+        gbar:
+            value: 0.41184000000000004
+        sh:
+            origin: axon_hill
+        sha:
+            value: -3.6
+    pas:
+        e:
+            value: -67.0
+        g:
+            origin: soma
+apical:
+    cable:
+        Ra:
+            origin: soma
+        cm:
+            origin: soma
+    cad: null
+    calH:
+        gcalbar:
+            - max_loc: 50.0
+              origin: soma
+              value: 0.000031635  # L-type: 0.1 * soma_caLH in cell-setup.hoc:176
+            - min_loc: 50.0
+              origin: soma
+              value: 0.001455  # L-type: 4.6 * soma_caLH in cell-setup.hoc:174
+    car:
+        gcabar:
+            origin: trunk  # Inherits R-type HVAm from trunk
+    cat:
+        gcatbar:
+            - max_loc: 100.0
+              origin: soma
+              value: 0.0
+            - min_loc: 100.0
+              max_loc: 350.0
+              origin: soma
+              value: 0.0
+              slope: 0.0000016
+            - min_loc: 350.0
+              origin: soma
+              value: 0.0004
+    h:
+        eh:
+            origin: soma
+        ghbar:
+            origin: trunk
+        vhalfl:
+            - max_loc: 75.0
+              origin: soma
+            - min_loc: 75.0
+              origin: soma
+              value: -81.0
+    ions:
+        eca:
+            origin: soma
+        ek:
+            origin: soma
+    kad:
+        gkabar:
+            - max_loc: 75.0
+              origin: soma
+              value: 0.0
+            - max_loc: 300.0
+              min_loc: 75.0
+              origin: soma
+              slope: 0.00018299999999999998
+              value: 0.044225
+            - min_loc: 300.0
+              origin: soma
+              value: 0.08539999999999999
+    kap:
+        gkabar:
+            - min_loc: 75.0
+              origin: soma
+              value: 0.0
+            - max_loc: 75.0
+              origin: soma
+              slope: 0.00018299999999999998
+    kdr:
+        gkdrbar:
+            origin: soma
+    mykca:
+        gkbar: 
+            - max_loc: 50.0
+              origin: soma
+              value: 0.004125  # mAHP: 0.25 * 0.0165 (Line 132)
+            - min_loc: 50.0
+              max_loc: 200.0
+              origin: soma
+              value: 0.033     # mAHP: 2.0 * 0.0165 (Line 129)
+            - min_loc: 200.0
+              origin: soma
+              value: 0.004125  # mAHP: 0.25 * 0.0165 (Line 132)
+    kca:
+        gbar: # 0.00005 (0-50um), 0.0005 (50-200um), and 0.00005 (>200um).
+            - max_loc: 50.0
+              origin: soma
+              value: 0.00005  # sAHP: 0.5 * 0.0001 (Line 131)
+            - min_loc: 50.0
+              max_loc: 200.0
+              origin: soma
+              value: 0.0005   # sAHP: 5.0 * 0.0001 (Line 127)
+            - min_loc: 200.0
+              origin: soma
+              value: 0.00005  # sAHP: 0.5 * 0.0001 (Line 131)
+    nas:
+        ar:
+            value: 0.8
+        gbar:
+            min: 0.0
+            origin: trunk
+            slope: -0.0002
+        sh:
+            origin: soma
+        sha:
+            value: 5.0
+    pas:
+        e:
+            origin: trunk
+        g:
+            origin: trunk
+    synapse:
+        AMPA_KIN:
+            gmax:
+                origin: trunk
+        NMDA_KIN5:
+            gmax:
+                origin: trunk
+        GABAb:
+            gmax:
+                - max_loc: 100.0
+                  origin: soma
+                  value: 0.00001  # Proximal GABAb weight
+                - min_loc: 100.0
+                  origin: soma
+                  value: 0.00005  # Distal GABAb weight
+axon:
+    cable:
+        Ra:
+            origin: soma
+        cm:
+            origin: soma
+    ions:
+        ek:
+            origin: soma
+    kap:
+        gkabar:
+            value: 0.090585
+    kdr:
+        gkdrbar:
+            origin: soma
+    km2:
+        gkmbar:
+            origin: ais
+    nax:
+        gbar:
+            value: 0.0936
+        sh:
+            origin: axon_hill
+    pas:
+        e:
+            value: -67.0
+        g:
+            origin: soma
+axon_hill:
+    cable:
+        Ra:
+            origin: soma
+        cm:
+            origin: soma
+    ions:
+        ek:
+            origin: soma
+    kap:
+        gkabar:
+            origin: soma
+    kdr:
+        gkdrbar:
+            origin: soma
+    km2:
+        gkmbar:
+            origin: soma
+    nax:
+        gbar:
+            value: 0.04
+        sh:
+            value: 1.7
+    pas:
+        e:
+            value: -67.0
+        g:
+            origin: soma
+basal:
+    cable:
+        Ra:
+            origin: soma
+        cm:
+            origin: soma
+    cad: null
+    h:
+        eh:
+            origin: soma
+        ghbar:
+            origin: soma
+        vhalfl:
+            - max_loc: 75.0
+              origin: soma
+            - min_loc: 75.0
+              origin: soma
+              value: -81.0
+    ions:
+        ek:
+            origin: soma
+    kad:
+        gkabar:
+            - max_loc: 75.0
+              origin: soma
+              value: 0.0
+            - max_loc: 300.0
+              min_loc: 75.0
+              origin: soma
+              slope: 0.00018299999999999998
+              value: 0.044225
+            - min_loc: 300.0
+              origin: soma
+              value: 0.08539999999999999
+    kap:
+        gkabar:
+            - min_loc: 75.0
+              origin: soma
+              value: 0.0
+            - max_loc: 75.0
+              origin: soma
+              slope: 0.00018299999999999998
+    kdr:
+        gkdrbar:
+            origin: soma
+    nas:
+        ar:
+            value: 0.8
+        gbar:
+            min: 0.0
+            origin: soma
+            slope: -0.0002
+        sh:
+            origin: soma
+        sha:
+            value: 5.0
+    pas:
+        e:
+            value: -67.0
+        g:
+            origin: soma
+soma:
+    cable:
+        Ra:
+            value: 150.0
+        cm:
+            value: 1.0
+    cad: null
+    cal:
+        gcalbar:
+            value: 0.007  # L-type HVA: soma_caL/2 in cell-setup.hoc:494, 537
+    car:
+        gcabar:
+            value: 0.003  # R-type HVAm: gsomacar in cell-setup.hoc:496, 543
+    cat:
+        gcatbar:
+            value: 0.00005  # T-type LVA: soma_caT/2 in cell-setup.hoc:498, 540
+    h:
+        eh:
+            value: -30.0
+        ghbar:
+            value: 2.43e-09
+        vhalfl:
+            value: -73.0
+    ions:
+        eca:
+            value: 140.0
+        ek:
+            value: -77.0
+    kap:
+        gkabar:
+            value: 0.0305
+    kdr:
+        gkdrbar:
+            value: 0.0478
+    km2:
+        gkmbar:
+            value: 0.0015
+    mykca:
+        gkbar:
+            value: 0.09075  # mAHP: 5.5 * (1.1 * 0.015) in cell-setup.hoc:501, 549
+    kca:
+        gbar:
+            value: 0.0005  # sAHP: 5 * 0.0001 (Line 546)  
+    nas:
+        ar:
+            value: 1.0
+        gbar:
+            value: 0.04
+        sh:
+            value: 1.7
+    pas:
+        e:
+            value: -63.0
+        g:
+            value: 1.52e-06
+spine_head:
+    cable:
+        Ra:
+            origin: soma
+        cm:
+            origin: soma
+    pas:
+        e:
+            value: -67.0
+        g:
+            origin: parent
+spine_neck:
+    cable:
+        Ra:
+            origin: soma
+        cm:
+            origin: soma
+    pas:
+        e:
+            value: -67.0
+        g:
+            origin: parent
+trunk:
+    cable:
+        Ra:
+            origin: soma
+        cm:
+            origin: soma
+    cad: null
+    calH: #Optimizer over this section, Ca L-type channel with high treshold of activation
+        gcalbar:
+            - max_loc: 50.0
+              origin: soma
+              value: 0.000031635  # L-type: 0.1 * soma_caLH in cell-setup.hoc:176
+            - min_loc: 50.0
+              origin: soma
+              value: 0.001455  # L-type: 4.6 * soma_caLH in cell-setup.hoc:174
+    car:
+        gcabar:
+            value: 0.00003  # R-type: 0.1 * soma_car in cell-setup.hoc:170
+    cat: #Optimize over this
+        gcatbar:
+            - max_loc: 100.0
+              origin: soma
+              value: 0.0  # T-type: xdist < 100 in cell-setup.hoc:150
+            - min_loc: 100.0
+              max_loc: 350.0
+              origin: soma
+              value: 0.0
+              slope: 0.0000016  # T-type: 4 * soma_caT * (x / 350) in cell-setup.hoc:153 (Corrected slope)
+            - min_loc: 350.0
+              origin: soma
+              value: 0.0004  # T-type: peak factor 4 in cell-setup.hoc:143
+    h:
+        eh:
+            origin: soma
+        ghbar:
+            origin: soma
+            slope: 0.00185
+            tau: 383.1
+            xhalf: 260.7
+        vhalfl:
+            - max_loc: 75.0
+              origin: soma
+            - min_loc: 75.0
+              origin: soma
+              value: -81.0
+    ions:
+        eca:
+            origin: soma
+        ek:
+            origin: soma
+    kad:
+        gkabar:
+            - max_loc: 75.0
+              origin: soma
+              value: 0.0
+            - max_loc: 300.0
+              min_loc: 75.0
+              origin: soma
+              slope: 0.00018299999999999998
+              value: 0.044225
+            - min_loc: 300.0
+              origin: soma
+              value: 0.08539999999999999
+    kap:
+        gkabar:
+            - min_loc: 75.0
+              origin: soma
+              value: 0.0
+            - max_loc: 75.0
+              origin: soma
+              slope: 0.00018299999999999998
+    kdr:
+        gkdrbar:
+            origin: soma
+    kca:
+        gbar: # 0.00005 (0-50um), 0.0005 (50-200um), and 0.00005 (>200um).
+            - max_loc: 50.0
+              origin: soma
+              value: 0.00005  # sAHP: 0.5 * 0.0001 (Line 131)
+            - min_loc: 50.0
+              max_loc: 200.0
+              origin: soma
+              value: 0.0005   # sAHP: 5.0 * 0.0001 (Line 127)
+            - min_loc: 200.0
+              origin: soma
+              value: 0.00005  # sAHP: 0.5 * 0.0001 (Line 131)
+    mykca:
+        gkbar: 
+            - max_loc: 50.0
+              origin: soma
+              value: 0.004125  # mAHP: 0.25 * 0.0165 (Line 132)
+            - min_loc: 50.0
+              max_loc: 200.0
+              origin: soma
+              value: 0.033     # mAHP: 2.0 * 0.0165 (Line 129)
+            - min_loc: 200.0
+              origin: soma
+              value: 0.004125  # mAHP: 0.25 * 0.0165 (Line 132)
+    nas:
+        ar:
+            value: 0.8
+        gbar:
+            origin: soma
+        sh:
+            origin: soma
+        sha:
+            value: 5.0
+    pas:
+        e:
+            origin: soma
+            slope: -1.5827143250102864
+            tau: 121.9
+        g:
+            origin: soma
+            slope: 1.63e-05
+            tau: 121.9
+    synapse:
+        AMPA_KIN:
+            gmax:
+                origin: soma
+                slope: 0.000297
+                tau: 132.8
+                value: 0.00079
+        NMDA_KIN5:
+            gmax:
+                value: 0.003026
+        GABAb:
+            gmax:
+                - max_loc: 100.0
+                  origin: soma
+                  value: 0.00001  # Proximal GABAb weight
+                - min_loc: 100.0
+                  origin: soma
+                  value: 0.00005  # Distal GABAb weight
+tuft:
+    cable:
+        Ra:
+            origin: soma
+        cm:
+            origin: soma
+    cad: null
+    calH:
+        gcalbar:
+            - max_loc: 50.0
+              origin: soma
+              value: 0.000031635  # L-type: 0.1 * soma_caLH in cell-setup.hoc:176
+            - min_loc: 50.0
+              origin: soma
+              value: 0.001455  # L-type: 4.6 * soma_caLH in cell-setup.hoc:174
+    car:
+        gcabar:
+            origin: trunk  # Inherits R-type HVAm from trunk
+    cat:
+        gcatbar:
+            - max_loc: 100.0
+              origin: soma
+              value: 0.0
+            - min_loc: 100.0
+              max_loc: 350.0
+              origin: soma
+              value: 0.0
+              slope: 0.0000016
+            - min_loc: 350.0
+              origin: soma
+              value: 0.0004
+    h:
+        eh:
+            origin: soma
+        ghbar:
+            origin: trunk
+        vhalfl:
+            - max_loc: 75.0
+              origin: soma
+            - min_loc: 75.0
+              origin: soma
+              value: -81.0
+    ions:
+        eca:
+            origin: soma
+        ek:
+            origin: soma
+    kad:
+        gkabar:
+            - max_loc: 75.0
+              origin: soma
+              value: 0.0
+            - max_loc: 300.0
+              min_loc: 75.0
+              origin: soma
+              slope: 0.00018299999999999998
+              value: 0.044225
+            - min_loc: 300.0
+              origin: soma
+              value: 0.08539999999999999
+    kap:
+        gkabar:
+            - min_loc: 75.0
+              origin: soma
+              value: 0.0
+            - max_loc: 75.0
+              origin: soma
+              slope: 0.00018299999999999998
+    kdr:
+        gkdrbar:
+            origin: soma
+    mykca:
+        gkbar:
+            value: 0.01815  # mAHP: Distal oblique 1.1 * 0.0165 (Line 281)
+    kca:
+        gbar: 
+            value: 0.0005   # sAHP: Distal oblique 5 * 0.0001 (Line 289)
+    nas:
+        ar:
+            value: 0.8
+        gbar:
+            origin: trunk
+        sh:
+            origin: soma
+        sha:
+            value: 5.0
+    pas:
+        e:
+            origin: trunk
+        g:
+            origin: trunk
+    synapse:
+        AMPA_KIN:
+            gmax:
+                origin: trunk
+        NMDA_KIN5:
+            gmax:
+                origin: trunk
+        GABAb:
+            gmax:
+                value: 0.0002  # Tuft GABAb weight

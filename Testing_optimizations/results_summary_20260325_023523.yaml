@@ -1,0 +1,15 @@
+channels:
+  cal: 0.4
+  calH: 1.155
+  car: 1.4
+  cat: 1.222622
+  kca: 1.56689295
+  mykca: 1.121581
+final_error: 94189.46438484873
+opt_seed: 27738
+synapse_seed: 0
+synapses:
+  exc_CA3: 100
+  exc_ECIII: 160
+  inh_CA3: 120
+  inh_ECIII: 120

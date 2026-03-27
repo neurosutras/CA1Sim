@@ -1,0 +1,23 @@
+simulation:
+  morph_filename: EB2-late-bifurcation.swc
+  mech_filename: 20260319_default_biophysics_with_Calcium_Channels.yaml
+  equilibrate: 250.0
+  sim_duration: 2500.0
+  dt: 0.025
+  v_init: -70.0
+  tbs_times: [500., 510., 520., 530., 540., 650., 660., 670., 680., 690., 800., 810., 820., 830., 840., 950., 960., 970., 980., 990., 1100., 1110., 1120., 1130., 1140.]
+  burst_starts_ms: [500.0, 650.0, 800.0, 950.0, 1100.0]
+  burst_duration_ms: 150.0
+  trough_window_ms: 50.0
+  stim_win_start_ms: 500.0
+  stim_win_end_ms: 1250.0
+
+targets:
+  target_plateau_per_cycle: [3.337, 3.5297, 4.356, 5.2235, 5.6729]
+  target_spikes_per_cycle: [6, 6, 7, 7, 7]
+  target_trough_per_cycle: [1.2946, 3.1996, 8.0606, 17.4871, 22.5451]
+
+target_ranges:
+  target_plateau_per_cycle: [2.5, 6.5]
+  target_spikes_per_cycle: [5, 8]
+  target_trough_per_cycle: [1, 25]
