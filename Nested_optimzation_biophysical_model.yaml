@@ -1,64 +1,78 @@
 bounds:
-    cal_gcalbar_soma: #0.007 in default
-        - 0.001
-        - 0.01
-    cal_gcalbar_trunk: #0.007 in default
-        - 0.001
-        - 0.01
-    cal_gcalbar_apical: #0.007 in default
-        - 0.001
-        - 0.01
-    
-    
+    # --- L-type Calcium (cal) ---
+    cal_gcalbar_soma:   [0.001, 0.02]
+    cal_gcalbar_trunk:  [0.001, 0.02]
+    cal_gcalbar_apical: [0.001, 0.02]
+    cal_gcalbar_tuft:   [0.001, 0.02]
 
-        
-        
+    # --- High-Threshold L-type (calH) ---
+    # (Trunk/Apical values represent the distal maximum)
+    calH_gcalbar_soma:   [0.00001, 0.0001]
+    calH_gcalbar_trunk:  [0.0005, 0.005]
+    calH_gcalbar_apical: [0.0005, 0.005]
+    calH_gcalbar_tuft:   [0.0005, 0.005]
 
- 
+    # --- R-type Calcium (car) ---
+    car_gcabar_soma:    [0.001, 0.01]
+    car_gcabar_trunk:   [0.00001, 0.0001]
+    car_gcabar_apical:  [0.00001, 0.0001]
+    car_gcabar_tuft:    [0.00001, 0.0001]
 
+    # --- T-type Calcium (cat) ---
+    # (Trunk value represents the distal maximum at 350um)
+    cat_gcatbar_soma:   [0.00001, 0.0002]
+    cat_gcatbar_trunk:  [0.0001, 0.001]
+    cat_gcatbar_apical: [0.0001, 0.001]
+    cat_gcatbar_tuft:   [0.0001, 0.001]
 
-
-
-
-
-
-
+    # --- Synaptic Weights & Counts ---
+    gabab_gmax:        [0.00001, 0.0002]
+    num_exc_syns_CA3:   [50, 250]
+    num_exc_syns_ECIII: [80, 400]
+    num_inh_syns_CA3:   [60, 300]
+    num_inh_syns_ECIII: [60, 300]
 
 kwargs:
     num_trials: 5
-    seed_start: 15
-    num_seeds: 5
-    model_config_file_path: config/default_balanced_inhibition_config.yaml
+    seed_start: 0
+    num_seeds: 1
+    model_config_file_path: default_sim_config.yaml
+
 stages:
-    -   source: ca1_inh_tuning_models.optimize_model
-        get_args_static: get_seeds
-        compute_features: compute_features
-        filter_features: filter_features
-        get_objectives: get_objectives_reduced
-optimization_title: Balanced_Inhibition_with_nmda_optuna_NSGAIII_reduced
+    -   source: optimize_soma_plateaus_multi_nested.run_evaluation
+        compute_features: calculate_features
+        get_objectives: calculate_objective
+
+optimization_title: CA1_Biophysical_TBS_Optimization
 param_gen: OptunaOptimizer
 param_gen_kwargs:
     sampler: NSGAIIISampler
+
 objective_names:
-    -   control_phase_out
-    -   control_phase_precession_extent
-    -   control_ramp_amp
-    -   control_theta_envelope_delta_in_out
-    -   control_vm_out
-    -   place_field_amp_residuals
-    -   place_field_perturbation_slope
-    -   reduced_inh_delta_theta_envelope_in
-    -   reduced_inh_delta_theta_envelope_out
-    -   reduced_inh_delta_vm_in
-    -   reduced_inh_delta_vm_out
-    -   reduced_inh_phase_out
+    -   total_error
+    -   plateau_area_error
+    -   spike_count_error
+    -   trough_depol_error
+
 x0:
-    AMPA_scaling_factor: 8.067532175e-05
-    delta_weight_AMPA: 3.76930584
-    IE_ratio: 2.7426793324192724
-    NMDA_AMPA_ratio: 1.5
-    nmda_sig_slope: 0.20714887
-    nmda_sig_v_half: -44.140649
-    v_rest: -70.0
-    CA3_phase: 160.0
-    inh_relative_phase_shift: 0.
+    cal_gcalbar_soma:   0.007
+    cal_gcalbar_trunk:  0.007
+    cal_gcalbar_apical: 0.007
+    cal_gcalbar_tuft:   0.007
+    calH_gcalbar_soma:  0.0000316
+    calH_gcalbar_trunk: 0.001455
+    calH_gcalbar_apical: 0.001455
+    calH_gcalbar_tuft:  0.001455
+    car_gcabar_soma:    0.003
+    car_gcabar_trunk:   0.00003
+    car_gcabar_apical:  0.00003
+    car_gcabar_tuft:    0.00003
+    cat_gcatbar_soma:   0.00005
+    cat_gcatbar_trunk:  0.0004
+    cat_gcatbar_apical: 0.0004
+    cat_gcatbar_tuft:   0.0004
+    gabab_gmax:         0.00005
+    num_exc_syns_CA3:   100
+    num_exc_syns_ECIII: 160
+    num_inh_syns_CA3:   120
+    num_inh_syns_ECIII: 120

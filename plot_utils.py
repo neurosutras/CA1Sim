@@ -289,3 +289,16 @@ def clean_axes(axes):
         axis.spines['right'].set_visible(False)
         axis.get_xaxis().tick_bottom()
         axis.get_yaxis().tick_left()
+
+def add_scalebar(ax, scale_x=100, scale_y=20):
+    xlim = ax.get_xlim()
+    ylim = ax.get_ylim()
+    for spine in ax.spines.values():
+        spine.set_visible(False)
+    ax.set_xticks([]); ax.set_yticks([])
+    x_pos = xlim[1] - scale_x - 50 
+    y_pos = ylim[0] + (ylim[1] - ylim[0]) * 0.05 
+    ax.plot([x_pos, x_pos + scale_x], [y_pos, y_pos], color='black', lw=2)
+    ax.plot([x_pos, x_pos], [y_pos, y_pos + scale_y], color='black', lw=2)
+    ax.text(x_pos + scale_x/2, y_pos - (ylim[1] - ylim[0]) * 0.02, f'{scale_x} ms', ha='center', va='top')
+    ax.text(x_pos - (xlim[1] - xlim[0]) * 0.01, y_pos + scale_y/2, f'{scale_y} mV', ha='right', rotation=90)

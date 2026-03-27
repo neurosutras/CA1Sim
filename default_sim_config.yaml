@@ -12,6 +12,10 @@ simulation:
   stim_win_start_ms: 500.0
   stim_win_end_ms: 1250.0
 
+  num_exc_syns: {'CA3': 100, 'ECIII': 160}
+  num_inh_syns: {'CA3': 120, 'ECIII': 120}
+  excitatory_stochastic: True
+
 targets:
   target_plateau_per_cycle: [3.337, 3.5297, 4.356, 5.2235, 5.6729]
   target_spikes_per_cycle: [6, 6, 7, 7, 7]
