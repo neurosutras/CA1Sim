@@ -5,17 +5,20 @@ simulation:
   sim_duration: 2500.0
   dt: 0.025
   v_init: -70.0
+  # edit to be starting at 0 so it can be relative to a burst_start_time
   tbs_times: [500., 510., 520., 530., 540., 650., 660., 670., 680., 690., 800., 810., 820., 830., 840., 950., 960., 970., 980., 990., 1100., 1110., 1120., 1130., 1140.]
+  # this can be built programmatically given burst_start_time and burst_start_ms
   burst_starts_ms: [500.0, 650.0, 800.0, 950.0, 1100.0]
   burst_duration_ms: 150.0
   trough_window_ms: 50.0
   stim_win_start_ms: 500.0
   stim_win_end_ms: 1250.0
-
+  # we can search over a number of inputs and an E:I ratio during optimization to hit EPSP / IPSP (GABA-A) targets
   num_exc_syns: {'CA3': 100, 'ECIII': 160}
   num_inh_syns: {'CA3': 120, 'ECIII': 120}
   excitatory_stochastic: True
 
+# these can move to the nested_optimize_config
 targets:
   target_plateau_per_cycle: [3.337, 3.5297, 4.356, 5.2235, 5.6729]
   target_spikes_per_cycle: [6, 6, 7, 7, 7]

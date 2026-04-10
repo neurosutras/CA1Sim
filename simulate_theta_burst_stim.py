@@ -12,6 +12,7 @@ from specify_cells import CA1_Pyr, QuickSim, data_dir
 from plot_utils import *
 import click
 
+
 def assign_exc_and_inh_synapse_stims(cell, num_exc_syns, num_inh_syns, exc_syn_locs_by_sec_type, 
                                      inh_syn_locs_by_sec_type, exc_syn_types, 
                                      inh_syn_types, local_random, excitatory_stochastic):
@@ -154,6 +155,7 @@ def main(config_filename, mech_filename, synapses_seed, trial_seed, plot, intera
 
     if interactive:
         h.gui()
+
 
 if __name__ == "__main__":
     main()
