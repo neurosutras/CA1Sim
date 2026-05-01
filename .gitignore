@@ -1,0 +1,21 @@
+# Compiled Python
+__pycache__/
+*.pyc
+
+# NEURON compiled mechanisms
+x86_64/
+
+# Testing and scratch directories
+dev_optimization_testing/
+Initial_Nest_opt_testing/
+Simulating_Place_cell/
+scratch/
+
+# External library (separate git repo)
+nested/
+
+# OS files
+.DS_Store
+
+# Jupyter checkpoints
+.ipynb_checkpoints/

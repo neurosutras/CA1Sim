@@ -1,0 +1,36 @@
+simulation:
+  morph_filename: EB2-late-bifurcation.swc
+  mech_filename: optimized_biophysics_20260416.yaml
+  equilibrate: 250.0
+  baseline: 10
+  sim_duration: 1500.0
+  dt: 0.025
+  v_init: -70.0
+  input_resistance_test_start: 270.0
+  input_resistance_test_duration: 100.0
+  input_resistance_test_amp: -50.0
+  ec3_epsp_times:
+  - 500.0
+  - 600.0
+  - 700.0
+  ca3_epsp_times:
+  - 1000.0
+  - 1100.0
+  - 1200.0
+  burst_starts_ms:
+  - 500.0
+  - 650.0
+  - 800.0
+  - 950.0
+  - 1100.0
+  burst_duration_ms: 150.0
+  trough_window_ms: 50.0
+  theta_stim_win_start_ms: 500.0
+  theta_stim_win_end_ms: 1250.0
+  num_exc_syns:
+    CA3: 22
+    ECIII: 20
+  num_inh_syns:
+    CA3: 150
+    ECIII: 75
+  excitatory_stochastic: true

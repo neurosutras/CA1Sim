@@ -99,8 +99,8 @@ apical:
   kdr:
     gkdrbar:
       origin: soma
-  mykca:
-    gkbar:
+  CadepK:
+    gbkbar:
     - max_loc: 50.0
       origin: soma
       value: 0.004125
@@ -111,8 +111,7 @@ apical:
     - min_loc: 200.0
       origin: soma
       value: 0.004125
-  kca:
-    gbar:
+    gskbar:
     - max_loc: 50.0
       origin: soma
       value: 5.0e-05
@@ -308,11 +307,10 @@ soma:
   km2:
     gkmbar:
       value: 0.0015
-  mykca:
-    gkbar:
+  CadepK:
+    gbkbar:
       value: 0.09075
-  kca:
-    gbar:
+    gskbar:
       value: 0.0005
   nas:
     ar:
@@ -422,8 +420,8 @@ trunk:
   kdr:
     gkdrbar:
       origin: soma
-  kca:
-    gbar:
+  CadepK:
+    gskbar:
     - max_loc: 50.0
       origin: soma
       value: 5.0e-05
@@ -434,8 +432,7 @@ trunk:
     - min_loc: 200.0
       origin: soma
       value: 5.0e-05
-  mykca:
-    gkbar:
+    gbkbar:
     - max_loc: 50.0
       origin: soma
       value: 0.004125
@@ -553,11 +550,10 @@ tuft:
   kdr:
     gkdrbar:
       origin: soma
-  mykca:
-    gkbar:
+  CadepK:
+    gbkbar:
       value: 0.01815
-  kca:
-    gbar:
+    gskbar:
       value: 0.0005
   nas:
     ar:

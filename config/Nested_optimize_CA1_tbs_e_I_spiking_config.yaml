@@ -1,0 +1,225 @@
+bounds:
+  soma.gbar_nas: [0.01, 0.05]
+  soma.gkdrbar: [0.01, 0.05]
+  soma.gkabar: [0.01, 0.05]
+  ais.gbar_nax: [0.1, 0.5]
+  axon.gbar_nax: [0.01, 0.1]
+  ais.gkmbar: [0.001, 0.05]
+  axon.gkabar: [0.01, 0.1]
+  axon.gkdrbar: [0.01, 0.1]
+  soma.sh_nas/x: [0.0, 10.0]
+  soma.sha_nas/x: [-10.0, 0.0]
+  # Calcium
+  apical.Ca.gcalbar: [0.001, 0.02]
+  tuft.Ca.gcalbar: [0.001, 0.02]
+  apical.Ca.gcalHbar: [0.001, 0.02]
+  tuft.Ca.gcalHbar: [0.001, 0.02]
+  apical.Ca.gcabar: [0.0001, 0.001]
+  tuft.Ca.gcabar: [0.0001, 0.001]
+  apical.Ca.gcatbar: [0.0001, 0.001]
+  tuft.Ca.gcatbar: [0.0001, 0.001]
+  # Ca-dependent K
+  soma.gCa factor: [0.1, 2.0]
+  soma.gCadepK factor: [0.1, 5.0]
+  soma.tau_Cacum_2018: [10.0, 200.0]
+  # Synapse counts
+  num_exc_CA3: [50, 200]
+  num_exc_ECIII: [80, 300]
+  num_inh_CA3: [50, 250]
+  num_inh_ECIII: [50, 250]
+
+default_params:
+  soma.gbar_nas: 0.03
+  soma.gkdrbar: 0.03
+  soma.gkabar: 0.03
+  ais.gbar_nax: 0.3
+  axon.gbar_nax: 0.04
+  ais.gkmbar: 0.01
+  axon.gkabar: 0.04
+  axon.gkdrbar: 0.04
+  soma.sh_nas/x: 5.0
+  soma.sha_nas/x: -5.0
+  apical.Ca.gcalbar: 0.005
+  tuft.Ca.gcalbar: 0.005
+  apical.Ca.gcalHbar: 0.005
+  tuft.Ca.gcalHbar: 0.005
+  apical.Ca.gcabar: 0.0005
+  tuft.Ca.gcabar: 0.0005
+  apical.Ca.gcatbar: 0.0005
+  tuft.Ca.gcatbar: 0.0005
+  soma.gCa factor: 1.0
+  soma.gCadepK factor: 1.0
+  soma.tau_Cacum_2018: 50.0
+  num_exc_CA3: 100
+  num_exc_ECIII: 160
+  num_inh_CA3: 120
+  num_inh_ECIII: 120
+
+feature_names:
+- soma_rin
+- trunk_rin
+- soma_rheobase
+- fi_rate_rel_0
+- fi_rate_rel_1
+- fi_rate_rel_2
+- fi_rate_rel_3
+- fi_rate_rel_4
+- fi_rate_rel_5
+- fi_rate_rel_6
+- plateau_area_cycle_1
+- plateau_area_cycle_2
+- plateau_area_cycle_3
+- plateau_area_cycle_4
+- plateau_area_cycle_5
+- spike_count_cycle_1
+- spike_count_cycle_2
+- spike_count_cycle_3
+- spike_count_cycle_4
+- spike_count_cycle_5
+- trough_vm_cycle_1
+- trough_vm_cycle_2
+- trough_vm_cycle_3
+- trough_vm_cycle_4
+- trough_vm_cycle_5
+- plateau_area_cycle_1_i80t
+- plateau_area_cycle_2_i80t
+- plateau_area_cycle_3_i80t
+- plateau_area_cycle_4_i80t
+- plateau_area_cycle_5_i80t
+- spike_count_cycle_1_i80t
+- spike_count_cycle_2_i80t
+- spike_count_cycle_3_i80t
+- spike_count_cycle_4_i80t
+- spike_count_cycle_5_i80t
+- trough_vm_cycle_1_i80t
+- trough_vm_cycle_2_i80t
+- trough_vm_cycle_3_i80t
+- trough_vm_cycle_4_i80t
+- trough_vm_cycle_5_i80t
+- ca3_epsp_ctrl
+- ca3_epsp_gab
+- ca3_gab_area
+- ec3_epsp_ctrl
+- ec3_epsp_gab
+- ec3_gab_area
+
+update_context:
+  - source: Nested_optimize_CA1_tbs_e_I_spiking
+    function: get_picklable_context
+
+stages:
+  - source: Nested_optimize_CA1_tbs_e_I_spiking
+    compute_features: compute_features_rin_rheobase
+  - source: Nested_optimize_CA1_tbs_e_I_spiking
+    get_args_dynamic: get_args_dynamic_fi
+    compute_features: compute_features_fi_step
+  - source: Nested_optimize_CA1_tbs_e_I_spiking
+    compute_features: compute_features_unitary_serial
+  - source: Nested_optimize_CA1_tbs_e_I_spiking
+    get_args_static: get_args_static_tbs
+    compute_features: compute_features_tbs
+    get_objectives: get_objectives_nested
+
+kwargs:
+  morph_filename: EB2-late-bifurcation.swc
+  mech_filename: 20260426_default_biophysics_with_Poirazi_Ca_Ch_and_2018_Kca.yaml
+  cvode: False
+  equilibrate: 250.0
+  sim_duration: 1200.0
+  dt: 0.025
+  v_init: -65.0
+  input_resistance_test_duration: 100.0
+  rheobase_test_duration: 500.0
+  fi_current_steps_pA: [100.0, 150.0, 200.0, 250.0, 300.0, 350.0]
+  plot: False
+  verbose: 1
+
+optimization_title: PopulationAnnealing_CA1_excitability_combined
+
+x0:
+  soma.gbar_nas: 0.03
+  soma.gkdrbar: 0.03
+  soma.gkabar: 0.03
+  ais.gbar_nax: 0.3
+  axon.gbar_nax: 0.04
+  ais.gkmbar: 0.01
+  axon.gkabar: 0.04
+  axon.gkdrbar: 0.04
+  soma.sh_nas/x: 5.0
+  soma.sha_nas/x: -5.0
+  apical.Ca.gcalbar: 0.005
+  tuft.Ca.gcalbar: 0.005
+  apical.Ca.gcalHbar: 0.005
+  tuft.Ca.gcalHbar: 0.005
+  apical.Ca.gcabar: 0.0005
+  tuft.Ca.gcabar: 0.0005
+  apical.Ca.gcatbar: 0.0005
+  tuft.Ca.gcatbar: 0.0005
+  soma.gCa factor: 1.0
+  soma.gCadepK factor: 1.0
+  soma.tau_Cacum_2018: 50.0
+  num_exc_CA3: 100
+  num_exc_ECIII: 160
+  num_inh_CA3: 120
+  num_inh_ECIII: 120
+  
+param_gen: PopulationAnnealing
+objective_names:
+  - soma_rin
+  - trunk_rin
+  - soma_rheobase
+  - fi_rate
+  - plateau_area
+  - spike_count
+  - trough_vm
+  - epsp_amplitude
+  - gabab_area
+
+target_range:
+  soma_rin: 10.0
+  trunk_rin: 10.0
+  soma_rheobase: 25.0
+  fi_rate: 2.0
+  plateau_area: 0.5
+  spike_count: 1.0
+  trough_vm: 1.0
+  epsp_amplitude: 0.2
+  gabab_area: 0.05
+
+target_val:
+  soma_rin: 66.0
+  trunk_rin: 39.0
+  soma_rheobase: 128.0
+  fi_rate_50: 0.84
+  fi_rate_100: 6.88
+  fi_rate_150: 15.08
+  fi_rate_200: 23.30
+  fi_rate_250: 28.26
+  fi_rate_300: 33.88
+  fi_rate_350: 38.16
+  plateau_area_cycle_1: 0.78
+  plateau_area_cycle_2: 1.01
+  plateau_area_cycle_3: 1.41
+  plateau_area_cycle_4: 1.82
+  plateau_area_cycle_5: 1.77
+  spike_count_cycle_1: 7.86
+  spike_count_cycle_2: 5.82
+  spike_count_cycle_3: 3.58
+  spike_count_cycle_4: 4.78
+  spike_count_cycle_5: 0
+  plateau_area_cycle_1_i80t: 1.37
+  plateau_area_cycle_2_i80t: 2.11
+  plateau_area_cycle_3_i80t: 3.24
+  plateau_area_cycle_4_i80t: 3.95
+  plateau_area_cycle_5_i80t: 3.64
+  spike_count_cycle_1_i80t: 7.92
+  spike_count_cycle_2_i80t: 6.26
+  spike_count_cycle_3_i80t: 5.38
+  spike_count_cycle_4_i80t: 5.38
+  spike_count_cycle_5_i80t: 0.16
+  ca3_epsp_ctrl: 2
+  ca3_epsp_gab: 5
+  ca3_gab_area: -0.05
+  ec3_epsp_ctrl: 2
+  ec3_epsp_gab: 5
+  ec3_gab_area: -0.21
