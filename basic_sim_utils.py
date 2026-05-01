@@ -33,7 +33,7 @@ def assign_exc_and_inh_synapse_stims(cell, exc_syn_locs_by_sec_type, inh_syn_loc
     # 1. Place Excitatory Synapses
     for pathway, num_to_insert in num_exc_syns.items():
         # Pathway rules: ECIII on tuft; CA3 on trunk/apical/basal
-        valid_sec_types = ['tuft'] if pathway == 'ECIII' else ['trunk', 'apical', 'basal']
+        valid_sec_types = ['tuft'] if pathway == 'ECIII' else ['trunk', 'apical']
         
         # Calculate total valid locations for this pathway to get relative weights
         total_valid_locs = sum(len(exc_syn_locs_by_sec_type.get(st, [])) for st in valid_sec_types)
@@ -60,8 +60,8 @@ def assign_exc_and_inh_synapse_stims(cell, exc_syn_locs_by_sec_type, inh_syn_loc
 
     # 2. Place Inhibitory Synapses
     for pathway, num_to_insert in num_inh_syns.items():
-        # Pathway rules: ECIII on tuft; CA3 on soma/trunk/apical/basal
-        valid_sec_types = ['tuft'] if pathway == 'ECIII' else ['soma', 'trunk', 'apical', 'basal']
+        # Pathway rules: ECIII on tuft; CA3 on soma/trunk/apical
+        valid_sec_types = ['tuft'] if pathway == 'ECIII' else ['soma', 'trunk', 'apical']
         
         total_valid_locs = sum(len(inh_syn_locs_by_sec_type.get(st, [])) for st in valid_sec_types)
         

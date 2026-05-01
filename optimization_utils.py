@@ -15,8 +15,8 @@ def calculate_cycle_features(trace, dt, burst_starts=None, burst_duration=None):
     if burst_duration is None:
         burst_duration = 150.0
 
-    t = np.asarray(trace) if trace is not None else None
- 
+    t = np.asarray(trace, dtype=float) if trace is not None else None
+
     areas   = []
     spikes  = []
     troughs = []

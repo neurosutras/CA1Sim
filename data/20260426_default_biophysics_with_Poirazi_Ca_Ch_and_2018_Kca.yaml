@@ -34,7 +34,9 @@ apical:
       origin: soma
     cm:
       origin: soma
-  cad: null
+  Cacum:
+    tau:
+      origin: soma
   calH:
     gcalbar:
     - max_loc: 50.0
@@ -215,7 +217,9 @@ basal:
       origin: soma
     cm:
       origin: soma
-  cad: null
+  Cacum:
+    tau:
+      origin: soma
   h:
     eh:
       origin: soma
@@ -276,7 +280,9 @@ soma:
       value: 150.0
     cm:
       value: 1.0
-  cad: null
+  Cacum:
+    tau:
+      value: 100
   cal:
     gcalbar:
       value: 0.007
@@ -352,7 +358,9 @@ trunk:
       origin: soma
     cm:
       origin: soma
-  cad: null
+  Cacum:
+    tau:
+      origin: soma
   calH:
     gcalbar:
     - max_loc: 50.0
@@ -485,7 +493,9 @@ tuft:
       origin: soma
     cm:
       origin: soma
-  cad: null
+  Cacum:
+    tau:
+      origin: soma
   calH:
     gcalbar:
     - max_loc: 50.0

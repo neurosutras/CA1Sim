@@ -22,6 +22,10 @@ from basic_sim_utils import assign_exc_and_inh_synapse_stims
 from nested.optimize_utils import nested_optimize_init_controller_context
 
 
+# Global context for the nested framework
+context = Context()
+
+
 def log10_fit(x, a, b, c):
     """Logarithmic fit for f-I curves: f(i) = a * log10(i - b) + c"""
     return a * np.log10(np.maximum(1e-9, x - b)) + c
@@ -30,8 +34,7 @@ def inverse_log10_fit(y, a, b, c):
     """Inverse of log10_fit to find current (i) for a given frequency (f)."""
     return 10**((y - c) / a) + b
 
-# Global context for the nested framework
-context = Context()
+
 
 @click.command(context_settings=dict(ignore_unknown_options=True, allow_extra_args=True, ))
 @click.option("--config-file-path", type=click.Path(exists=True, file_okay=True, dir_okay=False),
@@ -120,66 +123,6 @@ def update_local_context(content):
     if content is not None:
         context.update(content)
 
-def get_picklable_context():
-    """
-    WHY THIS FUNCTION EXISTS:
-    -------------------------
-    When running in parallel (multiprocessing or MPI), the controller process needs to
-    send settings (dt, v_init, file paths, etc.) to worker processes. Python sends data
-    between processes using "pickling" — converting objects to bytes.
-
-    The problem: our context contains NEURON objects (cell, sim, h.Vector, h.Section)
-    that CANNOT be pickled. If you try to send the raw context, it crashes.
-
-    So this function extracts ONLY the plain-data settings (numbers, strings, lists,
-    numpy arrays) and skips anything that belongs to NEURON or HDF5.
-
-    Workers receive this dict and use it to set up their OWN local cell and simulator.
-
-    HOW IT WORKS:
-    -------------
-    1. We define a whitelist of safe types (numbers, strings, lists, numpy arrays).
-    2. We skip known NEURON/parallel keys by name.
-    3. For everything else, we do a quick pickle test — if it fails, skip it.
-    """
-    # Keys we know are NEURON objects or parallel infrastructure — never send these
-    skip_keys = {'cell', 'sim', 'spike_output_vec', 'env', 'interface', 'comm',
-                 'global_comm', 'controller_comm', 'worker_comm', 'executor',
-                 'i_holding', 'last_params_applied', 'previous_module'}
-
-    result = {}
-    for key, val in context().items():
-        # Skip known unpicklable keys
-        if key in skip_keys:
-            continue
-
-        # Skip NEURON and HDF5 objects by checking class name
-        type_name = str(type(val))
-        if 'nrn.' in type_name or 'neuron.' in type_name or 'h5py.' in type_name:
-            continue
-
-        # Accept simple types and numpy arrays directly
-        if isinstance(val, (int, float, str, bool, type(None), np.ndarray)):
-            result[key] = val
-            continue
-
-        # Accept lists/tuples/dicts if they can be pickled
-        if isinstance(val, (list, tuple, dict)):
-            try:
-                pickle.dumps(val)
-                result[key] = val
-            except Exception:
-                pass  # Contains something unpicklable — skip
-            continue
-
-        # For anything else, try a quick pickle test
-        try:
-            pickle.dumps(val)
-            result[key] = val
-        except Exception:
-            pass  # Not picklable — skip
-
-    return result
 
 def plot_sim_traces(sim, target_descriptions, save_path):
     """
@@ -477,137 +420,6 @@ def sync_worker_context(context_dict=None):
         if not hasattr(context, 'kwargs') or context.kwargs is None:
             context.kwargs = context()
 
-def compute_features_rin_rheobase(x, model_id=None, export=False, plot=False):
-    """
-    Serial evaluation of Rin and Rheobase. Required before parallel FI curve.
-    """
-    if getattr(context, 'verbose', 0) > 0:
-        print(f"      [Worker] Starting Stage 0 (Rin/Rheobase) for Model {model_id}...")
-    
-    # Auto-initialize if running on a fresh worker
-    if 'param_names' not in context() or not context.param_names:
-        config_sim_env(context)
-
-    try:
-        config_sim_env(context)
-        update_mechanisms_CA1(x)
-        
-        sim = context.sim
-        cell = context.cell
-        kwargs = context.kwargs
-        v_init = context.v_init
-        
-        features = {}
-
-        # 1. Input Resistance (Rin)
-        features.update(compute_features_input_resistance(x, section_name='soma', model_id=model_id, plot=plot))
-        features.update(compute_features_input_resistance(x, section_name='trunk', model_id=model_id, plot=plot))
-
-        # 2. Rheobase
-        features.update(compute_features_rheobase(x, model_id=model_id, plot=plot))
-
-        return features
-    except Exception as e:
-        print(f"      [Model {model_id}] Intrinsic Rin/Rheobase characterization failed: {e}")
-        traceback.print_exc()
-        return {'failed': True}
-
-def compute_features_intrinsic(x, model_id=None, export=False, plot=False):
-    """
-    Consolidated High-Speed Intrinsic Characterization: Rin -> Rheobase -> FI Curve.
-    Reuses cell state to minimize re-initialization overhead.
-    """
-    start_time = time.time()
-    try:
-        config_sim_env(context)
-        update_mechanisms_CA1(x)
-        
-        sim = context.sim
-        cell = context.cell
-        kwargs = context.kwargs
-        v_init = context.v_init
-        
-        features = {}
-
-        # 1. Input Resistance (Rin)
-        # Enable CVODE for subthreshold Rin calculation (massive speedup)
-        was_cvode = sim.cvode.active() if sim.cvode else False
-        if sim.cvode:
-            sim.cvode.active(1)
-        
-        rin_start = 260.0
-        rin_dur = kwargs.get('input_resistance_test_duration', 100.0)
-        rin_amp = -0.050 # -50 pA
-        
-        sim.tstop = rin_start + rin_dur + 40.0
-        sim.modify_stim('step', amp=rin_amp, delay=rin_start, dur=rin_dur)
-        sim.run(v_init=v_init)
-        
-        v_vec = np.array(context.sim.rec_list[0]['vec'].to_python())
-        t_vec = np.array(context.sim.tvec.to_python())
-        
-        baseline_v = np.mean(v_vec[(t_vec >= rin_start - 10.0) & (t_vec < rin_start)])
-        steady_state_v = np.mean(v_vec[(t_vec >= rin_start + rin_dur - 20.0) & (t_vec < rin_start + rin_dur)])
-        
-        features['soma_rin'] = (steady_state_v - baseline_v) / rin_amp # mV/nA = MOhm
-        
-        # Restore CVODE state if needed (usually off for spiking)
-        if sim.cvode and not was_cvode:
-            sim.cvode.active(0)
-
-        # 2. Rheobase Search (Binary Search)
-        rheo_amps = context.rheobase_test_amps
-        fi_dur = context.rheobase_test_duration
-        fi_start = 260.0
-        sim.tstop = fi_start + fi_dur + 50.0
-        
-        low = 0
-        high = len(rheo_amps) - 1
-        rheo_idx = high
-        found = False
-        
-        while low <= high:
-            mid = (low + high) // 2
-            amp_pA = rheo_amps[mid]
-            sim.modify_stim('step', amp=amp_pA/1000.0, delay=fi_start, dur=fi_dur)
-            context.spike_output_vec.resize(0)
-            sim.run(v_init=v_init)
-            if len(context.spike_output_vec) > 0:
-                rheo_idx = mid
-                found = True
-                high = mid - 1
-            else:
-                low = mid + 1
-        
-        rheobase = float(rheo_amps[rheo_idx]) if found else float(rheo_amps[-1] + 25.0)
-        features['soma_rheobase'] = rheobase
-        
-        # 3. FI Curve
-        fi_relative_amps = context.i_inj_relative_amp_array # nA
-        for i, rel_amp_nA in enumerate(fi_relative_amps):
-            amp_nA = (rheobase/1000.0) + rel_amp_nA
-            sim.modify_stim('step', amp=amp_nA, delay=fi_start, dur=fi_dur)
-            sim.run(v_init=v_init)
-            
-            spike_times = np.array(context.spike_output_vec.to_python())
-            indexes = np.where((spike_times > fi_start) & (spike_times < fi_start + fi_dur))[0]
-            rate = len(indexes) / (fi_dur / 1000.0)
-            features[f'fi_rate_rel_{i}'] = rate
-            
-        if getattr(context, 'verbose', 0) > 0:
-            print(f"    [Model {model_id}] Intrinsic complete: Rin={features['soma_rin']:.1f}, Rheo={features['soma_rheobase']:.1f}")
-            
-        return features
-
-    except Exception as e:
-        print(f"CRITICAL ERROR: compute_features_intrinsic failed for model {model_id}: {str(e)}")
-        import traceback
-        traceback.print_exc()
-        return {'failed': True}
-
-def get_args_static_rin():
-    pass
-
 def compute_features_input_resistance(x, section_name, model_id=None, export=False, plot=False):
     """
     Inject a hyperpolarizing step current into the specified section and measure local Rin.
@@ -749,31 +561,57 @@ def compute_features_rheobase(x, model_id=None, export=False, plot=False):
 
     return {'soma_rheobase': float(rheobase)}
 
+def get_objectives_rheobase(features, targets=None, model_id=None):
+    if hasattr(context, 'target_val'):
+        targets = context.target_val
+    else:
+        targets = context.kwargs.get('target_val', {})
+    objectives = {}
+    target_range = context.kwargs.get('target_range', {})
+    
+    if 'soma_rheobase' in features and 'soma_rheobase' in targets:
+        norm_range = target_range.get('soma_rheobase', 10.0)
+        objectives['soma_rheobase'] = ((features['soma_rheobase'] - targets['soma_rheobase']) / norm_range)**2
+        
+    return objectives
+
 def get_args_dynamic_fi(x, features):
     """
     Parallel Worker Mapping: Dynamically pulls the completed Rheobase metric from previously executed Stage 1.
     Distributes discrete tasks across distinct parallel workers, where each worker rapidly evaluates exactly 
     one step amplitude. Thus, a 7-step FI curve natively splits cleanly across 7 isolated computational workers!
     """
-    rheobase = features.get('soma_rheobase', 100.0)
+    rheobase = features['soma_rheobase']
     if 'i_inj_relative_amp_array' not in context():
-        init_context()
+        raise Exception('Error: Must initialize context before calling get_args_dynamic_fi')
     relative_amps = list(context.i_inj_relative_amp_array)
     # Pass rheobase, relative amps, and the filtered context dict to ensure workers are initialized
-    args = [[rheobase]*len(relative_amps), relative_amps, [get_picklable_context()]*len(relative_amps)]
+    args = [[rheobase]*len(relative_amps), relative_amps]
     return args
 
-def compute_features_fi_step(x, rheobase, relative_amp_nA, context_dict=None, model_id=None, export=False, plot=False):
+def filter_features_fi_rates(primitives, features, model_id=None, plot=False):
+    """
+    Collect FI rate results from parallel workers into a single flat dict.
+    
+    This filter merges all of them into one flat dict so that get_objectives_fi
+    can find all fi_rate_rel_N keys in features.
+
+    'primitives' is the list of per-worker result dicts (one per current step).
+    'features' is the dict of features already collected from previous stages.
+    """
+    fi_rates = {'fi_list': []}
+    for result in primitives:
+        if not result or 'failed' in result:
+            continue
+        for key, val in result.items():
+            if key.startswith('fi_rate_rel_'):
+                fi_rates['fi_list'].append(val)
+    return fi_rates
+
+def compute_features_fi_step(x, rheobase, relative_amp_nA, model_id=None, export=False, plot=False):
     """
     Evaluate the firing rate for a single current injection amplitude relative to Rheobase.
-    """
-    if context_dict is not None:
-        if 'param_names' not in context() or not context.param_names:
-            context.update(context_dict)
-    
-    if not hasattr(context, 'i_inj_relative_amp_array') or context.i_inj_relative_amp_array is None:
-        init_context()
-    
+    """    
     config_sim_env(context)
     update_mechanisms_CA1(x)
 
@@ -825,41 +663,31 @@ def get_objectives_fi(features, targets=None, model_id=None):
         else:
             targets = context.kwargs.get('target_val', {})
     objectives = {}
-    f_I_residuals = 0.0
-    count = 0
-    
+    f_I_residuals = 0.
     exp_rates = context.exp_rate_f_I_array
-    
-    for i in range(len(exp_rates)):
-        key = f'fi_rate_rel_{i}'
-        if key in features:
-            model_rate = features[key]
-            target_rate = exp_rates[i]
-            
-            # Residuals: (model - target)^2 / (tolerance)^2
-            # We use 10% of target as tolerance, min 1Hz
-            tol = max(1.0, 0.1 * target_rate)
-            f_I_residuals += ((model_rate - target_rate) / tol)**2
-            count += 1
 
-    if count > 0:
-        objectives['fi_rate'] = f_I_residuals / count
-    
+    for i, this_rate in enumerate(features['fi_list']):
+        tol = max(1.0, 0.1 * exp_rates[i])
+        f_I_residuals += ((this_rate - exp_rates[i]) / tol) ** 2
+
+    objectives['fi_rate_residuals'] = f_I_residuals
     return objectives
 
+
+#TODO: more granularity for Calcium channels and kCadepK..
 def update_mechanisms_CA1(params):
     """
     Apply optimized biophysical parameters to the CA1 cell.
-    Updates Excitability, Calcium channels, and dynamically intercepts GABA.
+    Every value passed to modify_mech_param comes from params_dict.
+    x0 in the config YAML matches the biophysics YAML defaults exactly.
+    Slopes are derived from endpoint params: slope = (val_max - val_min) / (dist_max - dist_min).
     """
     if isinstance(params, (list, np.ndarray)):
         if 'param_names' not in context() or context.param_names is None:
             update_param_names()
-        
         param_names = context().get('param_names')
         if param_names is None:
-            raise RuntimeError("update_mechanisms_CA1: param_names missing from context and could not be loaded.")
-            
+            raise RuntimeError("update_mechanisms_CA1: param_names missing from context.")
         params_dict = dict(zip(param_names, params))
         params_array = np.array(params)
     else:
@@ -868,108 +696,127 @@ def update_mechanisms_CA1(params):
         if param_names is None:
             update_param_names()
             param_names = context().get('param_names')
-        
-        if param_names is not None:
-            params_array = np.array([params.get(name, 0.0) for name in param_names])
-        else:
-            params_array = np.array(list(params.values())) # Fallback
+        params_array = np.array([params_dict[n] for n in param_names]) if param_names else np.array(list(params_dict.values()))
 
-    # Optimization: Skip update if parameters haven't changed for this cell instance
+    # Skip if params unchanged
     if hasattr(context, 'last_params_applied') and np.allclose(context.last_params_applied, params_array):
         return
     context.last_params_applied = params_array
 
     cell = context.cell
-    
-    # 1. Na and K channels
-    if 'soma.gbar_nas' in params_dict:
-        cell.modify_mech_param('soma', 'nas', 'gbar', value=params_dict['soma.gbar_nas'])
-    #if 'dend.gbar_nas' in params_dict:
-    #    cell.modify_mech_param('trunk', 'nas', 'gbar', value=params_dict['dend.gbar_nas'])
-    if 'soma.gkdrbar' in params_dict:
-        cell.modify_mech_param('soma', 'kdr', 'gkdrbar', value=params_dict['soma.gkdrbar'])
-    if 'soma.gkabar' in params_dict:
-        cell.modify_mech_param('soma', 'kap', 'gkabar', value=params_dict['soma.gkabar'])
-    if 'ais.gbar_nax' in params_dict:
-        cell.modify_mech_param('ais', 'nax', 'gbar', value=params_dict['ais.gbar_nax'])
-    if 'axon.gbar_nax' in params_dict:
-        cell.modify_mech_param('axon', 'nax', 'gbar', value=params_dict['axon.gbar_nax'])
-    if 'ais.gkmbar' in params_dict:
-        cell.modify_mech_param('ais', 'km2', 'gkmbar', value=params_dict['ais.gkmbar'])
-    if 'axon.gkabar' in params_dict:
-        cell.modify_mech_param('axon', 'kap', 'gkabar', value=params_dict['axon.gkabar'])
-    if 'axon.gkdrbar' in params_dict:
-        cell.modify_mech_param('axon', 'kdr', 'gkdrbar', value=params_dict['axon.gkdrbar'])
-    #if 'dend.gkdrbar' in params_dict:
-    #    cell.modify_mech_param('trunk', 'kdr', 'gkdrbar', value=params_dict['dend.gkdrbar'])
-    #if 'dend.gkabar' in params_dict:
-    #    cell.modify_mech_param('trunk', 'kap', 'gkabar', value=params_dict['dend.gkabar'])
-    if 'soma.sh_nas/x' in params_dict:
-        cell.modify_mech_param('soma', 'nas', 'sh', value=params_dict['soma.sh_nas/x'])
-    if 'ais.sha_nax' in params_dict:
-        cell.modify_mech_param('ais', 'nax', 'sha', value=params_dict['ais.sha_nax'])
 
-    # 2. Calcium Channels (Reverted to Legacy)
-    if 'soma.Ca.glcabar' in params_dict:
-        cell.modify_mech_param('soma', 'cal', 'gcalbar', value=params_dict['soma.Ca.glcabar'])
-    if 'trunk.Ca.glcabar' in params_dict:
-        cell.modify_mech_param('trunk', 'calH', 'gcalbar', value=3.1635e-05, max_loc=50.0, origin='soma')
-        cell.modify_mech_param('trunk', 'calH', 'gcalbar', value=params_dict['trunk.Ca.glcabar'], min_loc=50.0, replace=False, origin='soma')
-    if 'apical.Ca.glcabar' in params_dict:
-        cell.modify_mech_param('apical', 'calH', 'gcalbar', origin='trunk')
-    if 'tuft.Ca.glcabar' in params_dict:
-        cell.modify_mech_param('tuft', 'calH', 'gcalbar', origin='trunk')
+    # ------------------------------------------------------------------ #
+    # 1.  Na / K  (soma)                                                  #
+    # ------------------------------------------------------------------ #
+    cell.modify_mech_param('soma', 'nas', 'gbar',    value=params_dict['soma.gbar_nas'])
+    cell.modify_mech_param('soma', 'kdr', 'gkdrbar', value=params_dict['soma.gkdrbar'])
+    cell.modify_mech_param('soma', 'kap', 'gkabar',  value=params_dict['soma.gkabar'])
+    cell.modify_mech_param('soma', 'nas', 'sh',      value=params_dict['soma.sh_nas/x'])
+    cell.modify_mech_param('soma', 'nas', 'sha',     value=params_dict['soma.sha_nas/x'])
 
-    if 'soma.car.gcabar' in params_dict:
-        cell.modify_mech_param('soma', 'car', 'gcabar', value=params_dict['soma.car.gcabar'])
-    if 'trunk.car.gcabar' in params_dict:
-        cell.modify_mech_param('trunk', 'car', 'gcabar', value=params_dict['trunk.car.gcabar'])
+    # ------------------------------------------------------------------ #
+    # 2.  Soma Ca channels  (cal, car, cat — single-zone)                #
+    # ------------------------------------------------------------------ #
+    cell.modify_mech_param('soma', 'cal', 'gcalbar', value=params_dict['soma.cal.gcalbar'])
+    cell.modify_mech_param('soma', 'car', 'gcabar',  value=params_dict['soma.car.gcabar'])
+    cell.modify_mech_param('soma', 'cat', 'gcatbar', value=params_dict['soma.cat.gcatbar'])
+
+    # ------------------------------------------------------------------ #
+    # 3.  calH  (L-type, trunk/apical/tuft — two zones)                  #
+    #     zone 0: max_loc=50  (proximal)  <- trunk.calH.gcalbar_prox     #
+    #     zone 1: min_loc=50  (distal)    <- apical.Ca.gcalHbar / tuft   #
+    # ------------------------------------------------------------------ #
+    calH_prox = params_dict['trunk.calH.gcalbar_prox']
+
+    for sec, calH_dist in [('trunk',  params_dict['apical.Ca.gcalHbar']),
+                            ('apical', params_dict['apical.Ca.gcalHbar']),
+                            ('tuft',   params_dict['tuft.Ca.gcalHbar'])]:
+        cell.modify_mech_param(sec, 'calH', 'gcalbar',
+                               value=calH_prox, max_loc=50.0, origin='soma')
+        cell.modify_mech_param(sec, 'calH', 'gcalbar',
+                               value=calH_dist, min_loc=50.0, origin='soma', replace=False)
+
+    # ------------------------------------------------------------------ #
+    # 4.  car  (R-type — trunk value; apical/tuft inherit)               #
+    # ------------------------------------------------------------------ #
+    cell.modify_mech_param('trunk',  'car', 'gcabar', value=params_dict['apical.Ca.gcabar'])
     cell.modify_mech_param('apical', 'car', 'gcabar', origin='trunk')
-    cell.modify_mech_param('tuft', 'car', 'gcabar', origin='trunk')
+    cell.modify_mech_param('tuft',   'car', 'gcabar', origin='trunk')
 
-    if 'soma.Ca.gtcabar' in params_dict:
-        cell.modify_mech_param('soma', 'cat', 'gcatbar', value=params_dict['soma.Ca.gtcabar'])
-    if 'trunk.Ca.gtcabar' in params_dict:
-        cell.modify_mech_param('trunk', 'cat', 'gcatbar', value=params_dict['trunk.Ca.gtcabar'], origin='soma')
-    if 'apical.Ca.gtcabar' in params_dict:
-        cell.modify_mech_param('apical', 'cat', 'gcatbar', origin='trunk')
-    if 'tuft.Ca.gtcabar' in params_dict:
-        cell.modify_mech_param('tuft', 'cat', 'gcatbar', origin='trunk')
+    # ------------------------------------------------------------------ #
+    # 5.  cat  (T-type — three zones)                                     #
+    #     zone 0: val=0,          max_loc=100                             #
+    #     zone 1: slope-ramped,   min_loc=100, max_loc=350                #
+    #     zone 2: val=cat_dist,   min_loc=350                             #
+    #     slope = (cat_dist - 0) / (350 - 100)  derived from endpoint    #
+    # ------------------------------------------------------------------ #
+    for sec, cat_dist in [('trunk',  params_dict['apical.Ca.gcatbar']),
+                          ('apical', params_dict['apical.Ca.gcatbar']),
+                          ('tuft',   params_dict['tuft.Ca.gcatbar'])]:
+        cat_slope = cat_dist / 250.0   # (val_350 - val_100=0) / (350 - 100)
+        cell.modify_mech_param(sec, 'cat', 'gcatbar',
+                               value=0.0, max_loc=100.0, origin='soma')
+        cell.modify_mech_param(sec, 'cat', 'gcatbar',
+                               value=0.0, min_loc=100.0, max_loc=350.0,
+                               origin='soma', slope=cat_slope, replace=False)
+        cell.modify_mech_param(sec, 'cat', 'gcatbar',
+                               value=cat_dist, min_loc=350.0, origin='soma', replace=False)
 
-    # 5. BK and SK Channels (Using stable CadepK)
-    if 'soma.gCadepK factor' in params_dict:
-        bk_factor = params_dict['soma.gCadepK factor']
-        cell.modify_mech_param('soma', 'CadepK', 'gbkbar', value=0.09075 * bk_factor)
-        cell.modify_mech_param('soma', 'CadepK', 'gskbar', value=0.0005 * bk_factor)
-    
-        cell.modify_mech_param('trunk', 'CadepK', 'gbkbar', max_loc=50.0, origin='soma', value=0.004125 * bk_factor)
-        cell.modify_mech_param('trunk', 'CadepK', 'gbkbar', min_loc=50.0, max_loc=200.0, replace=False, origin='soma', value=0.033 * bk_factor)
-        cell.modify_mech_param('trunk', 'CadepK', 'gbkbar', min_loc=200.0, replace=False, origin='soma', value=0.004125 * bk_factor)
+    # ------------------------------------------------------------------ #
+    # 6.  Cacum tau — soma sets value; dendrites inherit                  #
+    # ------------------------------------------------------------------ #
+    cell.modify_mech_param('soma', 'Cacum', 'tau', value=params_dict['soma.tau_Cacum_2018'])
+    for sec in ['trunk', 'apical', 'tuft', 'basal']:
+        cell.modify_mech_param(sec, 'Cacum', 'tau', origin='soma')
 
-        cell.modify_mech_param('trunk', 'CadepK', 'gskbar', max_loc=50.0, origin='soma', value=5.0e-05 * bk_factor)
-        cell.modify_mech_param('trunk', 'CadepK', 'gskbar', min_loc=50.0, max_loc=200.0, replace=False, origin='soma', value=0.0005 * bk_factor)
-        cell.modify_mech_param('trunk', 'CadepK', 'gskbar', min_loc=200.0, replace=False, origin='soma', value=5.0e-05 * bk_factor)
+    # ------------------------------------------------------------------ #
+    # 7.  CadepK — gbkbar and gskbar                                      #
+    #     Soma: single zone.  Trunk: three zones.  Apical: inherits trunk #
+    #     Tuft: flat value.  All values come from params_dict directly.   #
+    # ------------------------------------------------------------------ #
+    # Soma
+    cell.modify_mech_param('soma', 'CadepK', 'gbkbar', value=params_dict['soma.CadepK.gbkbar'])
+    cell.modify_mech_param('soma', 'CadepK', 'gskbar', value=params_dict['soma.CadepK.gskbar'])
 
+    # Trunk — three zones (proximal < 50, mid 50-200, distal > 200)
+    cell.modify_mech_param('trunk', 'CadepK', 'gbkbar',
+                           value=params_dict['trunk.CadepK.gbkbar_prox'],
+                           max_loc=50.0, origin='soma')
+    cell.modify_mech_param('trunk', 'CadepK', 'gbkbar',
+                           value=params_dict['trunk.CadepK.gbkbar_mid'],
+                           min_loc=50.0, max_loc=200.0, origin='soma', replace=False)
+    cell.modify_mech_param('trunk', 'CadepK', 'gbkbar',
+                           value=params_dict['trunk.CadepK.gbkbar_dist'],
+                           min_loc=200.0, origin='soma', replace=False)
+
+    cell.modify_mech_param('trunk', 'CadepK', 'gskbar',
+                           value=params_dict['trunk.CadepK.gskbar_prox'],
+                           max_loc=50.0, origin='soma')
+    cell.modify_mech_param('trunk', 'CadepK', 'gskbar',
+                           value=params_dict['trunk.CadepK.gskbar_mid'],
+                           min_loc=50.0, max_loc=200.0, origin='soma', replace=False)
+    cell.modify_mech_param('trunk', 'CadepK', 'gskbar',
+                           value=params_dict['trunk.CadepK.gskbar_dist'],
+                           min_loc=200.0, origin='soma', replace=False)
+
+    # Apical inherits trunk three-zone profile
     cell.modify_mech_param('apical', 'CadepK', 'gbkbar', origin='trunk')
     cell.modify_mech_param('apical', 'CadepK', 'gskbar', origin='trunk')
-    cell.modify_mech_param('tuft', 'CadepK', 'gbkbar', origin='trunk')
-    cell.modify_mech_param('tuft', 'CadepK', 'gskbar', origin='trunk')
 
-    # Re-initialize only modified mechanisms in necessary subsets to push changes to NEURON
-    # Optimization: Grouping these by mechanism and section type only when they exist
-    mech_list = ['nas', 'nax', 'kdr', 'kap', 'cal', 'calH', 'car', 'cat', 'CadepK', 'cad']
-    sec_list = ['soma', 'ais', 'axon', 'trunk', 'basal', 'apical', 'tuft']
-    
+    # Tuft — flat values
+    cell.modify_mech_param('tuft', 'CadepK', 'gbkbar', value=params_dict['tuft.CadepK.gbkbar'])
+    cell.modify_mech_param('tuft', 'CadepK', 'gskbar', value=params_dict['tuft.CadepK.gskbar'])
+
+    # ------------------------------------------------------------------ #
+    # 8.  Reinitialize modified mechanisms                                #
+    # ------------------------------------------------------------------ #
+    mech_list = ['nas', 'kdr', 'kap', 'cal', 'calH', 'car', 'cat', 'CadepK', 'Cacum']
+    sec_list  = ['soma', 'trunk', 'basal', 'apical', 'tuft']
     for mech in mech_list:
-        # Check if mechanism was potentially modified in this params call
-        is_modified = any(mech in key for key in params_dict) or mech in ['calH', 'car', 'cat', 'CadepK'] # Inheritance cases
-        if is_modified:
-            for sec in sec_list:
-                if sec in cell.mech_dict and mech in cell.mech_dict[sec]:
-                    cell.reinitialize_subset_mechanisms(sec, mech)
+        for sec in sec_list:
+            if sec in cell.mech_dict and mech in cell.mech_dict[sec]:
+                cell.reinitialize_subset_mechanisms(sec, mech)
 
-    # 6. Safety check for GABA synapses if they exist in params_dict 
-    # (Typically applied inside setup_synapses_for_sim, but we catch it here just in case)
     if hasattr(cell, 'stim_inh_syns') and cell.stim_inh_syns:
         if 'gabab_gmax' in params_dict:
             for group in cell.stim_inh_syns.values():
@@ -981,6 +828,7 @@ def update_mechanisms_CA1(params):
                 for syn in group:
                     if hasattr(syn, '_syn') and 'GABA_A_KIN' in syn._syn:
                         syn._syn['GABA_A_KIN']['target'].gmax = params_dict['gabaa_gmax']
+
 
 def evaluate_single_model(parameters, model_id=None):
     """
@@ -1039,10 +887,10 @@ def setup_synapses_for_sim(params, config):
         exc_syn_locs = cell.get_excitatory_syn_locs(sec_type_list=['trunk', 'apical', 'tuft'])
         inh_syn_locs = cell.get_inhibitory_syn_locs(sec_type_list=['trunk', 'apical', 'tuft', 'soma'])
 
-        num_exc = {'CA3': int(params_dict.get('num_exc_syns_CA3', config.get('num_exc_syns_CA3', 54))),
-                   'ECIII': int(params_dict.get('num_exc_syns_ECIII', config.get('num_exc_syns_ECIII', 8)))}
-        num_inh = {'CA3': int(params_dict.get('num_inh_syns_CA3', config.get('num_inh_syns_CA3', 12))),
-                   'ECIII': int(params_dict.get('num_inh_syns_ECIII', config.get('num_inh_syns_ECIII', 2)))}
+        num_exc = {'CA3':   int(params_dict['num_exc_syns_CA3']),
+                   'ECIII': int(params_dict['num_exc_syns_ECIII'])}
+        num_inh = {'CA3':   int(params_dict['num_inh_syns_CA3']),
+                   'ECIII': int(params_dict['num_inh_syns_ECIII'])}
 
         excitatory_stochastic = config.get('excitatory_stochastic', True)
         exc, inh = assign_exc_and_inh_synapse_stims(
@@ -1114,7 +962,7 @@ def compute_features_unitary_serial(x, model_id=None, export=False, plot=False):
             results.update(res)
     return results
 
-def compute_features_unitary(x, pathway, condition, context_dict=None, model_id=None, export=False, plot=False):
+def compute_features_unitary(x, pathway, condition, model_id=None, export=False, plot=False):
     """
     Measure unitary EPSP amplitude and GABAb area for a single pathway/condition.
     Always runs as WT — genotype-specific tests (I80T) happen only in the TBS stage.
@@ -1239,23 +1087,23 @@ def get_args_static_tbs():
     Parallel Worker Mapping: Executes identical TBS stimulation protocols simultaneously across
     2 isolated processing workers: one for wild type ('WT'), and perfectly identical stimuli into 'I80T'.
     """
-    return [['WT', 'I80T'], [get_picklable_context()] * 2]
+    return [['WT', 'I80T']]
 
-def compute_features_tbs_serial(x, model_id=None, export=False, plot=False):
+def filter_features_tbs(primitives, features, model_id=None, plot=False):
     """
-    Serial evaluation of all TBS genotypes on a single worker.
+    Merge TBS results from 2 parallel workers (WT and I80T) into a single features dict.
+
+    'primitives' is a LIST of dicts — one per worker:
+        primitives[0] = {'plateau_area_cycle_WT': [...], 'spike_count_cycle_WT': [...], 'trough_vm_cycle_WT': [...]}
+
+    We simply merge all keys from each worker result into one flat dict.
     """
-    results = {}
-    for genotype in ['WT', 'I80T']:
-        res = compute_features_tbs(x, genotype, model_id=model_id, export=export, plot=plot)
-        results.update(res)
-    return results
+    features = {}
+    for result in primitives:
+        features.update(result)
+    return features
 
-def compute_features_tbs(x, genotype, context_dict=None, model_id=None, export=False, plot=False):
-    if context_dict is not None:
-        if 'param_names' not in context() or not context.param_names:
-            context.update(context_dict)
-
+def compute_features_tbs(x, genotype, model_id=None, export=False, plot=False):
     pathway = 'CA3' # TBS is restricted exclusively to CA3
     config_sim_env(context)
     update_mechanisms_CA1(x)
@@ -1325,20 +1173,13 @@ def compute_features_tbs(x, genotype, context_dict=None, model_id=None, export=F
     areas, spikes, troughs = calculate_cycle_features(v_norm, dt, burst_starts=burst_starts, 
                                     burst_duration=context.burst_duration_ms)
     
-    feats = {}
-    for i in range(len(burst_starts)):
-        # Normalize keys to match identical target formats implicitly
-        # i.e., plateau_area_cycle_1, or plateau_area_cycle_1_i80t
-        cycle_idx = i+1
-        suffix = '_i80t' if genotype == 'I80T' else ''
-        feats[f'plateau_area_cycle_{cycle_idx}{suffix}'] = float(areas[i])
-        feats[f'spike_count_cycle_{cycle_idx}{suffix}'] = float(spikes[i])
-        feats[f'trough_vm_cycle_{cycle_idx}{suffix}'] = float(troughs[i])
+    results_dict = {}
 
-    if (plot or context.kwargs.get('plot', False)) and (model_id == 0 or model_id == '0'):
-        plot_sim_traces(sim, ['soma', 'trunk'], f'data/tbs_{genotype}_model_{model_id}.png')
+    results_dict[f'plateau_area_cycle_{genotype}'] = areas
+    results_dict[f'spike_count_cycle_{genotype}'] = spikes
+    results_dict[f'trough_vm_cycle_{genotype}'] = troughs
 
-    return feats
+    return results_dict
 
 def get_objectives_unitary(features, targets=None, model_id=None):
     if targets is None:
@@ -1358,92 +1199,58 @@ def get_objectives_unitary(features, targets=None, model_id=None):
     return objectives
 
 def get_objectives_tbs(features, targets=None, model_id=None):
-    if targets is None:
-        if hasattr(context, 'target_val'):
-            targets = context.target_val
-        else:
-            targets = context.kwargs.get('target_val', {})
-    objectives = {}
-    target_range = context.kwargs.get('target_range', {})
-    area_range = target_range.get('plateau_area', 0.5)
-    spk_range = target_range.get('spike_count', 1.0)
-    trough_range = target_range.get('trough_vm', 1.0)
-    
-    for k, v in targets.items():
-        if k in features and ('cycle' in k):
-            if 'area' in k:
-                norm = area_range
-            elif 'spike' in k:
-                norm = spk_range
-            else:
-                norm = trough_range
-            objectives[k] = ((features[k] - v) / norm)**2
-    return objectives
-
-def get_objectives_rheobase(features, targets=None, model_id=None):
     """
-    Compute objective residuals for somatic rheobase.
+    Compute SSE objectives for TBS plateau area, spike count, and trough Vm
+    for both WT and I80T conditions.
+
+    features keys (from compute_features_tbs / filter_features_tbs):
+        'plateau_area_cycle_WT'  -> list of 5 floats
+        'spike_count_cycle_WT'   -> list of 5 floats
+        'trough_vm_cycle_WT'     -> list of 5 floats
+        'plateau_area_cycle_I80T' -> list of 5 floats  (etc.)
+
+    target_val keys (from YAML):
+        plateau_area_wt, spike_count_wt, trough_vm_wt  -> lists of 5
+        plateau_area_i80t, spike_count_i80t, trough_vm_i80t -> lists of 5
     """
     if targets is None:
         if hasattr(context, 'target_val'):
             targets = context.target_val
         else:
             targets = context.kwargs.get('target_val', {})
+
     objectives = {}
     target_range = context.kwargs.get('target_range', {})
-    rheo_range = target_range.get('soma_rheobase', 25.0)
-    
-    if 'soma_rheobase' in features and 'soma_rheobase' in targets:
-        objectives['soma_rheobase'] = ((features['soma_rheobase'] - targets['soma_rheobase']) / rheo_range)**2
-        
+    area_range   = target_range['plateau_area']
+    spk_range    = target_range['spike_count']
+    trough_range = target_range['trough_vm']
+
+    def _sse(model_list, target_list, norm):
+        """Normalised sum of squared errors across cycles."""
+        sse = 0.0
+        for m, t in zip(model_list, target_list):
+            sse += ((m - t) / norm) ** 2
+        return sse
+
+    # WT
+    for feat_key, tgt_key, norm, obj_key in [
+        ('plateau_area_cycle_WT',  'plateau_area_wt',  area_range,   'plateau_area_res_WT'),
+        ('spike_count_cycle_WT',   'spike_count_wt',   spk_range,    'spike_count_res_WT'),
+        ('trough_vm_cycle_WT',     'trough_vm_wt',     trough_range, 'trough_vm_res_WT'),
+    ]:
+        if feat_key in features and tgt_key in targets:
+            objectives[obj_key] = _sse(features[feat_key], targets[tgt_key], norm)
+
+    # I80T
+    for feat_key, tgt_key, norm, obj_key in [
+        ('plateau_area_cycle_I80T', 'plateau_area_i80t', area_range,   'plateau_area_res_i80t'),
+        ('spike_count_cycle_I80T',  'spike_count_i80t',  spk_range,    'spike_count_res_i80t'),
+        ('trough_vm_cycle_I80T',    'trough_vm_i80t',    trough_range, 'trough_vm_res_i80t'),
+    ]:
+        if feat_key in features and tgt_key in targets:
+            objectives[obj_key] = _sse(features[feat_key], targets[tgt_key], norm)
+
     return objectives
-
-def get_objectives_nested(features, model_id=None, export=False, plot=False):
-    """Recomputes unified objectives against target criteria efficiently matching the standard evaluate."""
-    if hasattr(context, 'target_val'):
-        targets = context.target_val
-    else:
-        targets = context.kwargs.get('target_val', {})
-    
-    raw_objectives = {}
-    if targets:
-        raw_objectives.update(get_objectives_input_resistance(features, targets))
-        raw_objectives.update(get_objectives_rheobase(features, targets))
-        raw_objectives.update(get_objectives_fi(features, targets))
-        raw_objectives.update(get_objectives_unitary(features, targets))
-        raw_objectives.update(get_objectives_tbs(features, targets))
-
-    if not raw_objectives:
-        return {'failed': True}, {'failed': True}
-
-    # Aggregate into categories expected by objective_names in config
-    objectives = {}
-    # 1. Direct pass-through
-    for k in ['soma_rin', 'trunk_rin', 'soma_rheobase']:
-        objectives[k] = raw_objectives.get(k, 100.0)
-
-    # 2. FI Rate aggregation
-    fi_res = [v for k, v in raw_objectives.items() if 'fi_rate' in k]
-    objectives['fi_rate'] = np.mean(fi_res) if fi_res else 100.0
-
-    # 3. TBS aggregation
-    plateau_res = [v for k, v in raw_objectives.items() if 'plateau_area' in k]
-    objectives['plateau_area'] = np.mean(plateau_res) if plateau_res else 100.0
-
-    spike_res = [v for k, v in raw_objectives.items() if 'spike_count' in k]
-    objectives['spike_count'] = np.mean(spike_res) if spike_res else 100.0
-
-    trough_res = [v for k, v in raw_objectives.items() if 'trough_vm' in k]
-    objectives['trough_vm'] = np.mean(trough_res) if trough_res else 100.0
-
-    # 4. Unitary aggregation
-    epsp_res = [v for k, v in raw_objectives.items() if 'epsp' in k]
-    objectives['epsp_amplitude'] = np.mean(epsp_res) if epsp_res else 100.0
-
-    gab_res = [v for k, v in raw_objectives.items() if 'gab_area' in k]
-    objectives['gabab_area'] = np.mean(gab_res) if gab_res else 100.0
-
-    return features, objectives
 
 def run_sim_tests():
     """
