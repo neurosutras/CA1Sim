@@ -1,3 +1,4 @@
+: Updated for CVODE compatibility on 2026-04-27
 TITLE stochastic release probability
 
 COMMENT
@@ -78,8 +79,7 @@ NET_RECEIVE(weight) {
 }
 
 VERBATIM
-double nrn_random_pick(void* r);
-void* nrn_random_arg(int argpos);
+#include "nrnran123.h"
 ENDVERBATIM
 
 FUNCTION randGen() {
@@ -90,7 +90,7 @@ VERBATIM
       : each instance. However, the corresponding hoc Random
       : distribution MUST be set to Random.uniform(0,1)
       */
-      _lrandGen = nrn_random_pick(_p_randObjPtr);
+      _lrandGen = nrn_random_pick((Rand*)_p_randObjPtr);
    }else{
       hoc_execerror("Random object ref not set correctly for randObjPtr"," only via hoc Random");
    }
@@ -99,11 +99,11 @@ ENDVERBATIM
 
 PROCEDURE setRandObjRef() {
 VERBATIM
-   void** pv4 = (void**)(&_p_randObjPtr);
+   Rand** pv4 = (Rand**)(&_p_randObjPtr);
    if (ifarg(1)) {
       *pv4 = nrn_random_arg(1);
    }else{
-      *pv4 = (void*)0;
+      *pv4 = (Rand*)0;
    }
 ENDVERBATIM
 }
