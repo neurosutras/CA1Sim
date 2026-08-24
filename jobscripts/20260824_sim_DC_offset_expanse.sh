@@ -3,7 +3,7 @@
 #SBATCH -o /expanse/lustre/scratch/aaronmil/temp_project/logs/CA1Sim/CA1Sim_DC_offset.%j.o
 #SBATCH -e /expanse/lustre/scratch/aaronmil/temp_project/logs/CA1Sim/CA1Sim_DC_offset.%j.o
 #SBATCH -p compute
-#SBATCH -N 1
+#SBATCH -N 2
 #SBATCH -n 100
 #SBATCH -t 6:00:00
 #SBATCH --mem=249208M
