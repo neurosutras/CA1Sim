@@ -4,7 +4,7 @@ __author__ = 'Aaron D. Milstein'
 from builtins import zip, map, str, range, object
 from past.builtins import basestring
 from mpi4py import MPI
-from collections import Iterable
+from collections.abc import Iterable
 import h5py
 import math
 import pickle

@@ -106,6 +106,7 @@ def run_trial(simiter, run_sim=True):
             f[str(simiter)].create_group('train')
             f[str(simiter)].create_group('inh_train')
             f[str(simiter)].attrs['phase_offset'] = global_phase_offset / 2. / np.pi * global_theta_cycle_duration
+            f[str(simiter)].attrs['DC_offset'] = DC_offset
     exc_rate_maps = {}
     if mod_inh > 0:
         if mod_inh == 1:
@@ -214,7 +215,7 @@ input_field_duration = input_field_width * global_theta_cycle_duration
 track_length = 2.5  # field widths
 track_duration = track_length * input_field_duration
 track_equilibrate = 2. * global_theta_cycle_duration
-duration = equilibrate + track_equilibrate + track_duration  # input_field_duration
+duration = equilibrate + track_equilibrate # + track_duration  # input_field_duration
 excitatory_peak_rate = {'CA3': 40., 'ECIII': 40.}
 excitatory_theta_modulation_depth = {'CA3': 0.7, 'ECIII': 0.7}
 # From Chadwick et al., ELife 2015
