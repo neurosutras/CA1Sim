@@ -19,7 +19,7 @@ source $HOME/cpu_py311_intelmpi.sh
 
 cd $PROJECT/CA1Sim
 
-MEM_PER_CPU="1946M"
+MEM_PER_CPU="4984M"
 
 declare seed=0
 
