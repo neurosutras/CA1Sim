@@ -6,7 +6,8 @@
 #SBATCH -N 2
 #SBATCH --ntasks-per-node=50
 #SBATCH -n 100
-#SBATCH -t 6:00:00
+#SBATCH -c 2
+#SBATCH -t 12:00:00
 #SBATCH --mem=249208M
 #SBATCH --account=sua199
 #SBATCH --export=ALL
@@ -19,7 +20,7 @@ source $HOME/cpu_py311_intelmpi.sh
 
 cd $PROJECT/CA1Sim
 
-MEM_PER_CPU="4984M"
+MEM_PER_CPU="2492M"
 
 declare seed=0
 
