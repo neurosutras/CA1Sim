@@ -4,7 +4,7 @@
 #SBATCH -e /expanse/lustre/scratch/aaronmil/temp_project/logs/CA1Sim/CA1Sim_DC_offset.%j.e
 #SBATCH -p compute
 #SBATCH -N 7
-#SBATCH --ntasks-per-node=50
+#SBATCH --ntasks-per-node=16
 #SBATCH -n 100
 #SBATCH -c 8
 #SBATCH -t 12:00:00
