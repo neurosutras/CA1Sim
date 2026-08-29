@@ -2,6 +2,7 @@ import numpy as np
 import sys, os
 import h5py
 import click
+import re
 import scipy.signal as signal
 from nested.utils import read_from_yaml
 from function_lib import get_binned_firing_rate, get_smoothed_firing_rate
@@ -255,27 +256,37 @@ def process_patterned_input_simulation_input_output(source_file_path):
 
 
 @click.command()
-@click.option('--source-data-config-file-path', type=click.Path(exists=True, file_okay=True, dir_okay=False),
-              default=None)
 @click.option('--source-data-dir', type=click.Path(exists=True, file_okay=False, dir_okay=True),
               default=None)
 @click.option('--target-file-path', type=str, default=None)
-def main(source_data_config_file_path, source_data_dir, target_file_path):
+@click.option('--i-syn', is_flag=True)
+def main(source_data_dir, target_file_path, i_syn):
     """
     
-    :param source_data_config_file_path:
-    :param source_data_dir:
-    :param target_file_path:
+    :param source_data_dir: str: dir path
+    :param target_file_path: str: file path
+    :param i_syn: bool: whether to process synaptic current recording data
     """
     target_data = dict()
-    source_data_file_name_dict = read_from_yaml(file_path=source_data_config_file_path)
+    source_data_file_path_dict = dict()
+    
+    for source_file_path in os.listdir(source_data_dir):
+        full_path = os.path.join(source_data_dir, source_file_path)
+        pattern = re.compile(r"DC_([-+]?\d*\.?\d+)-seed_(\d+)\.hdf5")
+        match = pattern.search(source_file_path)
+        if match:
+            dc_i_val = match.group(1)
+            seed = match.group(2)
+        if dc_i_val not in source_data_file_path_dict:
+            source_data_file_path_dict[dc_i_val] = []
+        source_data_file_path_dict[dc_i_val].append(full_path)
+    
     with h5py.File(target_file_path, 'a') as target_file:
-        for model_name, source_file_name_list in source_data_file_name_dict.items():
-            if model_name not in target_file:
-                target_file.create_group(model_name)
-            model_group = target_file[model_name]
-            for source_file_name in source_file_name_list:
-                source_file_path = source_data_dir + '/' + source_file_name
+        for dc_i_val, source_file_path_list in source_data_file_path_dict.items():
+            if dc_i_val not in target_file:
+                target_file.create_group(dc_i_val)
+            model_group = target_file[dc_i_val]
+            for source_file_path in source_file_path_list:
                 if not os.path.isfile(source_file_path):
                     raise Exception('Invalid file path: %s' % source_file_path)
                 with h5py.File(source_file_path, 'r') as source_file:
@@ -298,10 +309,12 @@ def main(source_data_config_file_path, source_data_dir, target_file_path):
                 seed_group.create_dataset('stim_t', data=stim_t, compression='gzip')
                 seed_group.create_dataset('firing_rate', data=output_list[0], compression='gzip')
                 
-                _, filtered_i_syn_list_dict = get_patterned_input_filtered_synaptic_currents(source_file_path)
-                for syn_type in filtered_i_syn_list_dict:
-                    i_syn_key = 'i_%s' % syn_type
-                    seed_group.create_dataset(i_syn_key, data=filtered_i_syn_list_dict[syn_type][0], compression='gzip')
+                if i_syn:
+                    _, filtered_i_syn_list_dict = get_patterned_input_filtered_synaptic_currents(source_file_path)
+                    for syn_type in filtered_i_syn_list_dict:
+                        i_syn_key = 'i_%s' % syn_type
+                        seed_group.create_dataset(i_syn_key, data=filtered_i_syn_list_dict[syn_type][0],
+                                                  compression='gzip')
                 print('Processed and exported data from %s' % source_file_path)
                 sys.stdout.flush()
     print('Finished exporting to %s' % target_file_path)

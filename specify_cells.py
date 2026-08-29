@@ -1963,6 +1963,23 @@ class SHocNode(SNode2):
         return self.content['synapses']
 
 
+class SumSources(object):
+    def __init__(self, rec_dict):
+        """
+        Requires a rec_dict constructed by QuickSim.append_ptr_rec. Performs a gather and sum operation on a PtrVector.
+        :param rec_dict:
+        """
+        self.rec_dict = rec_dict
+        self.initialized = False
+        self.previous_val = 0.
+        
+    def __call__(self):
+        self.rec_dict['ptr'].gather(self.rec_dict['buffer'])
+        syn_current_sum = np.sum(self.rec_dict['buffer'].as_numpy())
+        self.rec_dict['vec'].append(self.previous_val)
+        self.previous_val = syn_current_sum
+
+
 class QuickSim(object):
     """
     This method is used to run a quick simulation with a set of current injections and a set of recording sites.
@@ -1996,20 +2013,74 @@ class QuickSim(object):
         self.tvec = h.Vector()
         self.tvec.record(h._ref_t)
         self.parameters = {}
+        self.callbacks = []
 
-    def run(self, v_init=-65.):
+    def run(self, v_init=-65., fadvance=False):
         start_time = time.time()
         h.tstop = self.tstop
         if self.cvode is None:
             h.steps_per_ms = int(1. / self.dt)
             h.dt = self.dt
         h.v_init = v_init
-        h.init()
-        h.run()
+        h.finitialize(v_init)
+        
+        # this should trigger any registered callbacks
+        h.cvode.re_init()
+        if fadvance:
+            while h.t < self.tstop:
+                for callback in self.callbacks:
+                    callback()
+                h.fadvance()
+            for callback in self.callbacks:
+                callback()
+        else:
+            h.run()
         if self.verbose:
             print('Simulation runtime: ', time.time()-start_time, ' sec')
+    
+    def register_callbacks(self, callback):
+        self.callbacks.append(callback)
 
-    def append_rec(self, cell, node, loc=None, param='_ref_v', object=None, ylabel='Vm', units='mV', description=None):
+    def append_ptr_rec(self, cell, node, source_list, callback=None,
+                       loc=None, param='_ref_v', ylabel='Vm',
+                       units='mV', description=None):
+        """
+        A ptr is an efficient way to accumulate values from multiple sources. A callback function can be registered with
+        the solver to perform an operation on this recording at each integration step. The source_list of be the full
+        list of sources each with an attribute specified by param.
+        :param cell:
+        :param node:
+        :param source_list:
+        :param callback:
+        :param loc:
+        :param param:
+        :param ylabel:
+        :param units:
+        :param description:
+        """
+        rec_dict = {'cell': cell, 'node': node, 'ylabel': ylabel, 'units': units}
+        if description is None:
+            rec_dict['description'] = 'rec' + str(len(self.rec_list))
+        elif description in (rec['description'] for rec in self.rec_list):
+            rec_dict['description'] = description + str(len(self.rec_list))
+        else:
+            rec_dict['description'] = description
+        if loc is None:
+            loc = 0.5
+        rec_dict['loc'] = loc
+        rec_dict['vec'] = h.Vector()
+        rec_dict['ptr'] = h.PtrVector(len(source_list))
+        rec_dict['buffer'] = h.Vector(len(source_list))
+        for idx, source in enumerate(source_list):
+            rec_dict['ptr'].pset(idx, getattr(source, param))
+        # rec_dict['callback'] = callback(rec_dict)
+        if callback is None:
+            raise Exception('QuickSim.append_ptr_rec missing required callback function')
+        self.register_callbacks(callback(rec_dict))
+        self.rec_list.append(rec_dict)
+    
+    def append_rec(self, cell, node, loc=None, param='_ref_v', object=None, ylabel='Vm', units='mV',
+                   description=None):
         rec_dict = {'cell': cell, 'node': node, 'ylabel': ylabel, 'units': units}
         if description is None:
             rec_dict['description'] = 'rec'+str(len(self.rec_list))
