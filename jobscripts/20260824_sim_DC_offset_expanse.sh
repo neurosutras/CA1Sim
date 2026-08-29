@@ -3,10 +3,10 @@
 #SBATCH -o /expanse/lustre/scratch/aaronmil/temp_project/logs/CA1Sim/CA1Sim_DC_offset.%j.o
 #SBATCH -e /expanse/lustre/scratch/aaronmil/temp_project/logs/CA1Sim/CA1Sim_DC_offset.%j.e
 #SBATCH -p compute
-#SBATCH -N 13
-#SBATCH --ntasks-per-node=16
+#SBATCH -N 7
+#SBATCH --ntasks-per-node=32
 #SBATCH -n 200
-#SBATCH -c 8
+#SBATCH -c 4
 #SBATCH -t 6:00:00
 #SBATCH --mem=249208M
 #SBATCH --account=sua199
@@ -29,7 +29,7 @@ do
   current=$(awk -v i="$i" 'BEGIN { printf "%.3f", i * 0.026 }')
   for ((j=0; j<10; j++))
   do
-    srun --nodes=1 --ntasks=1 -c 8 --mem-per-cpu=$MEM_PER_CPU --exact --exclusive python \
+    srun --nodes=1 --ntasks=1 -c 4 --mem-per-cpu=$MEM_PER_CPU --exact --exclusive python \
       20260828_simulate_place_cell_record_summed_syn_currents_DC_offset.py $seed $current $SCRATCH/data/CA1Sim &
     ((++seed))
   done
