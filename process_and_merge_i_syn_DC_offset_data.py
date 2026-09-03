@@ -127,7 +127,7 @@ def get_patterned_input_component_traces(source_file_path):
         filtered = filtered[pad_len:-pad_len]
         up_sampled = np.interp(rec_t, down_t, filtered)
         ramp_traces.append(up_sampled)
-    return rec_t, vm_array, theta_traces, ramp_traces
+    return rec_t, vm_array, theta_traces, ramp_traces, spikes_removed
 
 
 def get_patterned_input_filtered_synaptic_currents(source_file_path, syn_types=['AMPA', 'NMDA', 'GABA']):
@@ -184,7 +184,7 @@ def get_patterned_input_filtered_synaptic_currents(source_file_path, syn_types=[
             filtered = filtered[pad_len:-pad_len]
             up_sampled = np.interp(rec_t, down_t, filtered)
             filtered_i_syn_list_dict[syn_type].append(up_sampled)
-    return rec_t, filtered_i_syn_list_dict
+    return rec_t, i_syn_list_dict, filtered_i_syn_list_dict
 
 
 def process_patterned_input_simulation_input_output(source_file_path):
@@ -281,7 +281,7 @@ def main(source_data_dir, target_file_path, i_syn):
             source_data_file_path_dict[dc_i_val] = []
         source_data_file_path_dict[dc_i_val].append(full_path)
     
-    with h5py.File(target_file_path, 'a') as target_file:
+    with (h5py.File(target_file_path, 'a') as target_file):
         for dc_i_val, source_file_path_list in source_data_file_path_dict.items():
             if dc_i_val not in target_file:
                 target_file.create_group(dc_i_val)
@@ -298,9 +298,10 @@ def main(source_data_dir, target_file_path, i_syn):
                     seed_group.attrs.update(data_group.attrs.items())
                     seed_group.create_dataset('spike_times', data=data_group['output'][:], compression='gzip')
                 
-                rec_t, vm_array, theta_traces, ramp_traces = get_patterned_input_component_traces(source_file_path)
+                rec_t, vm_array, theta_traces, ramp_traces, spikes_removed_traces = get_patterned_input_component_traces(source_file_path)
                 seed_group.create_dataset('rec_t', data=rec_t, compression='gzip')
                 seed_group.create_dataset('vm', data=vm_array[0], compression='gzip')
+                seed_group.create_dataset('vm_spikes_removed', data=spikes_removed_traces[0], compression='gzip')
                 seed_group.create_dataset('theta', data=theta_traces[0], compression='gzip')
                 seed_group.create_dataset('ramp', data=ramp_traces[0], compression='gzip')
                 
@@ -310,11 +311,14 @@ def main(source_data_dir, target_file_path, i_syn):
                 seed_group.create_dataset('firing_rate', data=output_list[0], compression='gzip')
                 
                 if i_syn:
-                    _, filtered_i_syn_list_dict = get_patterned_input_filtered_synaptic_currents(source_file_path)
+                    _, i_syn_list_dict, filtered_i_syn_list_dict = \
+                        get_patterned_input_filtered_synaptic_currents(source_file_path)
                     for syn_type in filtered_i_syn_list_dict:
-                        i_syn_key = 'i_%s' % syn_type
+                        i_syn_key = 'filtered_i_%s' % syn_type
                         seed_group.create_dataset(i_syn_key, data=filtered_i_syn_list_dict[syn_type][0],
                                                   compression='gzip')
+                        i_syn_key = 'i_%s' % syn_type
+                        seed_group.create_dataset(i_syn_key, data=i_syn_list_dict[syn_type][0], compression='gzip')
                 print('Processed and exported data from %s' % source_file_path)
                 sys.stdout.flush()
     print('Finished exporting to %s' % target_file_path)

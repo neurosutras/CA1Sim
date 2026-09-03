@@ -13,20 +13,16 @@ import click
 @click.option("--mech-filename", type=str, default='20220808_default_biophysics.yaml')
 @click.option("--synapses-seed", type=int, default=0)
 @click.option("--trial-seed", type=int, default=0)
-@click.option("--data-dir", click.Path(exists=True, file_okay=False, dir_okay=True, path_type=str))
 @click.option("--label", type=str, default=None)
 @click.option("--mod-inh", type=int, default=0)
-@click.option("--DC-offset", "DC_offset", type=float, default=0.0)
 @click.option("--sim-duration", type=float, default=None)
-@click.option("--field-center", type=float, default=0.5)
+@click.option("--field-center", type=float, default=0.6)
 @click.option("--spines", type=bool, default=True)
 @click.option("--export", is_flag=True)
 @click.option("--plot", is_flag=True)
 @click.option("--interactive", is_flag=True)
 @click.option("--debug", is_flag=True)
-def main(mech_filename, synapses_seed, trial_seed, data_dir,
-         label, mod_inh, DC_offset, sim_duration,
-         field_center, spines, export, plot,
+def main(mech_filename, synapses_seed, trial_seed, label, mod_inh, sim_duration, field_center, spines, export, plot,
          interactive, debug):
     """
 
@@ -38,13 +34,11 @@ def main(mech_filename, synapses_seed, trial_seed, data_dir,
     :param trial_seed:
         a unique random seed shuffles the input spike times and synaptic release probabilities to allows simulation of
         multiple independent trials
-    :param data_dir: str to directory path
     :param label: append a label when exporting data to .hdf5
     :param mod_inh:
         whether to decrease the firing rate of inhibitory inputs, mimicking the optogenetic silencing in
         Grienberger, Milstein et al., Nat. Neurosci., 2017. (0 = no, 1 = out of field at track start, 2 = in field,
         3 = entire length of track)
-    :param DC_offset: float (nA) - DC current offset
     :param sim_duration: float (ms) - sim duration can be truncated during testing
     :param field_center: float, value between 0 and 1, where along the track the CA1 place field peaks
     :param spines: bool, whether to include explicit spine neck and head compartments for every excitatory synapse
@@ -62,15 +56,13 @@ def main(mech_filename, synapses_seed, trial_seed, data_dir,
     # field, and decays with cosine spatial modulation away from the field
     mod_weights = 2.5
     
-    data_dir += '/'
-    
     if label is None:
         label = ''
     else:
         label = '-' + label
     rec_filename = 'output' + datetime.datetime.today().strftime('%m%d%Y%H%M') + '-pid' + str(os.getpid()) + \
                    label + '-seed' + str(synapses_seed) + '-e' + str(num_exc_syns) + '-i' + str(num_inh_syns) + \
-                   '-DC_' + str(DC_offset) + '-mod_inh' + str(mod_inh) + '-trial' + str(trial_seed) + '.hdf5'
+                   '-mod_inh' + str(mod_inh) + '-trial' + str(trial_seed) + '.hdf5'
     print(rec_filename)
     sys.stdout.flush()
     
@@ -135,7 +127,6 @@ def main(mech_filename, synapses_seed, trial_seed, data_dir,
                 f[str(simiter)].create_group('train')
                 f[str(simiter)].create_group('inh_train')
                 f[str(simiter)].attrs['phase_offset'] = global_phase_offset / 2. / np.pi * global_theta_cycle_duration
-                f[str(simiter)].attrs['DC_offset'] = DC_offset
         exc_rate_maps = {}
         if mod_inh > 0:
             if mod_inh == 1:
@@ -218,7 +209,7 @@ def main(mech_filename, synapses_seed, trial_seed, data_dir,
                             f[str(simiter)]['inh_train'][str(index)].attrs['loc'] = syn.loc
                             f[str(simiter)]['inh_train'][str(index)].attrs['type'] = syn.node.type
                     index += 1
-            sim.run(v_init, fadvance=True)
+            sim.run(v_init)
             if export:
                 sim.export_to_file(data_dir + rec_filename, simiter)
                 with h5py.File(data_dir+rec_filename, 'a') as f:
@@ -302,10 +293,7 @@ def main(mech_filename, synapses_seed, trial_seed, data_dir,
     local_random.seed(synapses_seed)
     
     cell = CA1_Pyr(morph_filename, mech_filename, full_spines=spines)
-    try:
-        cell.set_terminal_branch_na_gradient()
-    except:
-        pass
+    cell.set_terminal_branch_na_gradient()
 
     trunk_bifurcation = [trunk for trunk in cell.trunk if cell.is_bifurcation(trunk, 'trunk')]
     if trunk_bifurcation:
@@ -372,8 +360,6 @@ def main(mech_filename, synapses_seed, trial_seed, data_dir,
         else:
             stim_exc_syns['CA3'].extend(syn_list)
     
-    AMPA_syn_list = []
-    NMDA_syn_list = []
     for group in stim_exc_syns:
         for syn in stim_exc_syns[group]:
             if excitatory_stochastic:
@@ -381,18 +367,6 @@ def main(mech_filename, synapses_seed, trial_seed, data_dir,
                 stim_successes.append(success_vec)
                 syn.netcon(AMPA_type).record(success_vec)
                 rand_exc_seq_locs[group].append(syn.randObj.seq())
-            # sim.append_rec(cell, syn.node, object=syn.target(AMPA_type), param='_ref_i', description='i_AMPA')
-            AMPA_syn_list.append(syn.target(AMPA_type))
-            NMDA_syn_list.append(syn.target(NMDA_type))
-            # sim.append_rec(cell, syn.node, object=syn.target(NMDA_type), param='_ref_i', description='i_NMDA')
-    
-    sim.append_ptr_rec(cell, cell.tree.root, AMPA_syn_list, callback=SumSources, param='_ref_i',
-                       ylabel='i_AMPA', units='nA', description='summed_i_AMPA')
-    del AMPA_syn_list
-    
-    sim.append_ptr_rec(cell, cell.tree.root, NMDA_syn_list, callback=SumSources, param='_ref_i',
-                       ylabel='i_NMDA', units='nA', description='summed_i_NMDA')
-    del NMDA_syn_list
     
     inh_syn_locs_by_sec_type = cell.get_inhibitory_syn_locs(sec_type_list=inh_syns_sec_types)
     
@@ -401,7 +375,6 @@ def main(mech_filename, synapses_seed, trial_seed, data_dir,
     total_inh_syns = np.sum(list(inh_syn_count.values()))
     fraction_inh_syns = {sec_type: float(inh_syn_count[sec_type]) / float(total_inh_syns) for sec_type in inh_syn_count}
     
-    GABA_syn_list = []
     for sec_type in inh_syn_locs_by_sec_type:
         inh_syn_locs = local_random.sample(inh_syn_locs_by_sec_type[sec_type],
                                            int(num_inh_syns * fraction_inh_syns[sec_type]))
@@ -417,7 +390,6 @@ def main(mech_filename, synapses_seed, trial_seed, data_dir,
                     # GABAergic synapses on intermediate tuft branches are about 50% feedforward
                     group = local_random.choice(['tuft feedforward', 'tuft feedback'])
                 stim_inh_syns[group].append(syn)
-                GABA_syn_list.append(syn.target(GABA_A_type))
         elif sec_type == 'trunk':
             for syn in syn_list:
                 distance = cell.get_distance_to_node(cell.tree.root, syn.node, syn.loc)
@@ -429,18 +401,14 @@ def main(mech_filename, synapses_seed, trial_seed, data_dir,
                     group = local_random.choice(
                         ['apical dendritic', 'distal apical dendritic', 'distal apical dendritic'])
                 stim_inh_syns[group].append(syn)
-                GABA_syn_list.append(syn.target(GABA_A_type))
         elif sec_type == 'basal':
             for syn in syn_list:
                 distance = cell.get_distance_to_node(cell.tree.root, syn.node, syn.loc)
                 group = 'perisomatic' if distance <= 50. and not cell.is_terminal(syn.node) else 'apical dendritic'
                 stim_inh_syns[group].append(syn)
-                GABA_syn_list.append(syn.target(GABA_A_type))
         elif sec_type == 'soma':
             group = 'perisomatic'
             stim_inh_syns[group].extend(syn_list)
-            for syn in syn_list:
-                GABA_syn_list.append(syn.target(GABA_A_type))
         elif sec_type == 'apical':
             for syn in syn_list:
                 distance = cell.get_distance_to_node(cell.tree.root, cell.get_dendrite_origin(syn.node), loc=1.)
@@ -450,16 +418,9 @@ def main(mech_filename, synapses_seed, trial_seed, data_dir,
                     group = local_random.choice(
                         ['apical dendritic', 'distal apical dendritic', 'distal apical dendritic'])
                 stim_inh_syns[group].append(syn)
-                GABA_syn_list.append(syn.target(GABA_A_type))
         elif sec_type == 'ais':
             group = 'axo-axonic'
             stim_inh_syns[group].extend(syn_list)
-            for syn in syn_list:
-                GABA_syn_list.append(syn.target(GABA_A_type))
-    
-    sim.append_ptr_rec(cell, cell.tree.root, GABA_syn_list, callback=SumSources, param='_ref_i',
-                       ylabel='i_GABA', units='nA', description='summed_i_GABA')
-    del GABA_syn_list
     
     cell.init_synaptic_mechanisms()
     
@@ -493,8 +454,6 @@ def main(mech_filename, synapses_seed, trial_seed, data_dir,
         for i, syn in enumerate(stim_exc_syns[group]):
             syn.netcon(AMPA_type).weight[0] = cos_mod_weight[group][i]
     
-    sim.append_stim(cell, cell.tree.root, 0.5, DC_offset, equilibrate, duration - equilibrate)
-    
     if not debug:
         run_trial(trial_seed)
         if plot:
@@ -505,17 +464,16 @@ def main(mech_filename, synapses_seed, trial_seed, data_dir,
             for pop in ['CA3', 'ECIII']:
                 fig = plt.figure()
                 plt.imshow(exc_rate_maps[pop], aspect='auto', interpolation='none',
-                           extent=(-track_equilibrate / 1000., track_duration / 1000., len(exc_rate_maps[pop]) + 0.5,
-                                   -0.5))
+                           extent=(-track_equilibrate/1000., track_duration/1000., len(exc_rate_maps[pop])+0.5, -0.5))
                 plt.xlabel('Time (sec)')
                 plt.ylabel('Presynaptic unit ID')
                 fig.suptitle('%s Firing Rates' % pop)
                 plt.colorbar()
                 fig.show()
-    
+
     if interactive:
         globals().update(locals())
-    
+
 
 if __name__ == '__main__':
     main(standalone_mode=False)

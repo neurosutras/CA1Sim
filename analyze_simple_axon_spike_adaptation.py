@@ -19,7 +19,7 @@ with h5py.File(data_dir+rec_filename+'.hdf5', 'r') as f:
     distances = []
     spike_amp_array = []
     if not th_x.any():
-        print 'Does not cross threshold.'
+        print('Does not cross threshold.')
     else:
         i = 0
         while i < len(th_x):

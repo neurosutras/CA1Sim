@@ -189,7 +189,7 @@ def offset_vm(sec_type):
         i_holding[sec_type] += 0.025
         while offset:
             if sim.verbose:
-                print 'increasing i_holding to %.3f (%s)' % (i_holding[sec_type], sec_type)
+                print('increasing i_holding to %.3f (%s)' % (i_holding[sec_type], sec_type))
             sim.modify_stim(1, amp=i_holding[sec_type])
             sim.run(v_init)
             vm = np.interp(t, sim.tvec, rec)
@@ -202,7 +202,7 @@ def offset_vm(sec_type):
         i_holding[sec_type] -= 0.025
         while offset:
             if sim.verbose:
-                print 'decreasing i_holding to %.3f (%s)' % (i_holding[sec_type], sec_type)
+                print('decreasing i_holding to %.3f (%s)' % (i_holding[sec_type], sec_type))
             sim.modify_stim(1, amp=i_holding[sec_type])
             sim.run(v_init)
             vm = np.interp(t, sim.tvec, rec)
@@ -329,10 +329,10 @@ def pas_error(x, plot=0):
     Err = 0.
     for target in result:
         Err += ((target_val['pas'][target] - result[target])/target_range['pas'][target])**2.
-    print('Simulation took %.3f s' % (time.time()-start_time))
-    print 'Process %i: [soma g_pas, trunk slope, trunk tau]: [%.2E, %.2E, %.1f], soma R_inp: %.1f, trunk R_inp: %.1f,' \
-          ' tuft R_inp: %.1f' % (os.getpid(), x[0], x[1], x[2], result['soma'], result['trunk'], result['tuft'])
-    print 'Process %i: Error: %.4E' % (os.getpid(), Err)
+    print(('Simulation took %.3f s' % (time.time()-start_time)))
+    print('Process %i: [soma g_pas, trunk slope, trunk tau]: [%.2E, %.2E, %.1f], soma R_inp: %.1f, trunk R_inp: %.1f,' \
+          ' tuft R_inp: %.1f' % (os.getpid(), x[0], x[1], x[2], result['soma'], result['trunk'], result['tuft']))
+    print('Process %i: Error: %.4E' % (os.getpid(), Err))
     if plot:
         sim.plot()
     else:
@@ -389,12 +389,12 @@ def h_error(x, plot=0):
     Err = 0.
     for target in result:
         Err += ((target_val['h'][target] - result[target])/target_range['h'][target])**2.
-    print 'Simulation took %i s' % (time.time()-start_time)
-    print 'Process %i: [soma.ghbar, trunk ghbar slope, trunk ghbar tau, trunk ghbar xhalf]: [%.2E, %.2E, %.1f, %.1f],' \
+    print('Simulation took %i s' % (time.time()-start_time))
+    print('Process %i: [soma.ghbar, trunk ghbar slope, trunk ghbar tau, trunk ghbar xhalf]: [%.2E, %.2E, %.1f, %.1f],' \
           ' soma R_inp: %.1f, trunk R_inp: %.1f, tuft R_inp: %.1f, v_rest offset: %.1f, EPSP_dur delta: %.1f' % \
           (os.getpid(), x[0], x[1], x[2], x[3], result['soma'], result['trunk'], tuft_rinp, result['v_rest_offset'],
-          result['delta_EPSP_dur'])
-    print 'Process %i: Error: %.4E' % (os.getpid(), Err)
+          result['delta_EPSP_dur']))
+    print('Process %i: Error: %.4E' % (os.getpid(), Err))
     return Err
 
 
@@ -422,10 +422,10 @@ def v_rest_error(plot=0):
     Err = 0.
     for target in result:
         Err += ((target_val['v_rest'][target] - result[target])/target_range['v_rest'][target])**2.
-    print 'Simulation took %i s' % (time.time()-start_time)
-    print 'Process %i: soma v_rest: %.1f, trunk v_rest: %.1f, tuft v_rest: %.1f, tuft offset: %.1f' % (os.getpid(),
-                                                        result['soma'], trunk_rest, tuft_rest, result['tuft_offset'])
-    print 'Process %i: Error: %.4E' % (os.getpid(), Err)
+    print('Simulation took %i s' % (time.time()-start_time))
+    print('Process %i: soma v_rest: %.1f, trunk v_rest: %.1f, tuft v_rest: %.1f, tuft offset: %.1f' % (os.getpid(),
+                                                        result['soma'], trunk_rest, tuft_rest, result['tuft_offset']))
+    print('Process %i: Error: %.4E' % (os.getpid(), Err))
     if plot:
         sim.plot()
     else:
@@ -440,7 +440,7 @@ def na_ka_error(x, plot=0):
     :return: float
     """
     if not check_bounds(x, 'na_ka'):
-        print 'Process %i: Aborting - Parameters outside optimization bounds.' % (os.getpid())
+        print('Process %i: Aborting - Parameters outside optimization bounds.' % (os.getpid()))
         return 1e9
     start_time = time.time()
     update_na_ka(x)
@@ -456,14 +456,14 @@ def na_ka_error(x, plot=0):
         sim.run(v_init)
         vm = np.interp(t, sim.tvec, sim.rec_list[0]['vec'])
         if amp == 0.05 and np.any(vm[:int(equilibrate/dt)] > -30.):
-            print 'Process %i: Aborting - spontaneous firing' % (os.getpid())
+            print('Process %i: Aborting - spontaneous firing' % (os.getpid()))
             return 1e9
         if np.any(vm[int(equilibrate/dt):int((equilibrate+50.)/dt)] > -30.):
             spike = True
         else:
             amp += 0.05
             if sim.verbose:
-                print 'increasing amp to %.3f' % amp
+                print('increasing amp to %.3f' % amp)
     peak, threshold, ADP, AHP = get_spike_shape(vm)
     result = {'th_v': threshold, 'soma_peak': peak, 'ADP': ADP, 'AHP': AHP}
     trunk_vm = np.interp(t, sim.tvec, sim.rec_list[1]['vec'])
@@ -490,7 +490,7 @@ def na_ka_error(x, plot=0):
     slow_depo = 0.
     stability = 0.
     for new_amp in [0.5, 0.75, 1.0]:
-        print 'increasing amp to %.3f' % new_amp
+        print('increasing amp to %.3f' % new_amp)
         sim.modify_stim(0, amp=new_amp)
         sim.run(v_init)
         if plot:
@@ -518,12 +518,12 @@ def na_ka_error(x, plot=0):
         if not ((target == 'AHP' and result[target] < target_val['na_ka'][target]) or
                 (target == 'slow_depo' and result[target] < target_val['na_ka'][target])):
             Err += ((target_val['na_ka'][target] - result[target])/target_range['na_ka'][target])**2.
-    print 'Simulation took %i s' % (time.time()-start_time)
-    print 'Process %i: [soma.sh_nas, soma.gkabar, soma.gkdrbar, trunk.ka factor]: [%.1f, %.3E, %.3E, %.1f], amp: ' \
+    print('Simulation took %i s' % (time.time()-start_time))
+    print('Process %i: [soma.sh_nas, soma.gkabar, soma.gkdrbar, trunk.ka factor]: [%.1f, %.3E, %.3E, %.1f], amp: ' \
           '%.3f, threshold: %.1f, soma_peak: %.1f, trunk_amp: %.3f, ADP: %.1f, AHP: %.1f, stability: %.1f, ais_delay: ' \
           '%.2f, slow_depo: %.1f, v_rest: %.2f' % (os.getpid(), x[0], x[1], x[2], x[3], amp, threshold, peak,
-            result['trunk_amp'], ADP, AHP, result['stability'], result['ais_delay'], result['slow_depo'], v_rest)
-    print 'Process %i: Error: %.4E' % (os.getpid(), Err)
+            result['trunk_amp'], ADP, AHP, result['stability'], result['ais_delay'], result['slow_depo'], v_rest))
+    print('Process %i: Error: %.4E' % (os.getpid(), Err))
     sim.modify_rec(1, node=trunk, loc=1.)
     if not plot:
         return Err
@@ -537,7 +537,7 @@ def na_ka_error_soma(x, plot=0):
     :return: float
     """
     if x[1] > 0.05 or x[2] > 0.05:
-        print 'Process %i: Aborting - Parameters outside optimization bounds.' % (os.getpid())
+        print('Process %i: Aborting - Parameters outside optimization bounds.' % (os.getpid()))
         return 1e9
     start_time = time.time()
     update_na_ka_soma(x)
@@ -552,14 +552,14 @@ def na_ka_error_soma(x, plot=0):
         sim.run(v_init)
         vm = np.interp(t, sim.tvec, sim.rec_list[0]['vec'])
         if amp == 0.05 and np.any(vm[:int(equilibrate/dt)] > -30.):
-            print 'Process %i: Aborting - spontaneous firing' % (os.getpid())
+            print('Process %i: Aborting - spontaneous firing' % (os.getpid()))
             return 1e9
         if np.any(vm[int(equilibrate/dt):int((equilibrate+50.)/dt)] > -30.):
             spike = True
         else:
             amp += 0.05
             if sim.verbose:
-                print 'increasing amp to %.3f' % amp
+                print('increasing amp to %.3f' % amp)
     peak, threshold, ADP, AHP = get_spike_shape(vm)
     result = {'th_v': threshold, 'soma_peak': peak, 'ADP': ADP, 'AHP': AHP}
     th_x = np.where(vm[int(equilibrate/dt):] >= threshold)[0][0] + int(equilibrate/dt)
@@ -582,7 +582,7 @@ def na_ka_error_soma(x, plot=0):
     slow_depo = 0.
     stability = 0.
     for new_amp in [0.5, 0.75, 1.0]:
-        print 'increasing amp to %.3f' % new_amp
+        print('increasing amp to %.3f' % new_amp)
         sim.modify_stim(0, amp=new_amp)
         sim.run(v_init)
         if plot:
@@ -610,12 +610,12 @@ def na_ka_error_soma(x, plot=0):
         if not ((target == 'AHP' and result[target] < target_val['na_ka'][target]) or
                 (target == 'slow_depo' and result[target] < target_val['na_ka'][target])):
             Err += ((target_val['na_ka'][target] - result[target])/target_range['na_ka'][target])**2.
-    print 'Simulation took %i s' % (time.time()-start_time)
-    print 'Process %i: [soma.sh_nas, soma.gkabar, soma.gkdrbar]: [%.1f, %.3E, %.3E], amp: %.3f, threshold: %.1f, ' \
+    print('Simulation took %i s' % (time.time()-start_time))
+    print('Process %i: [soma.sh_nas, soma.gkabar, soma.gkdrbar]: [%.1f, %.3E, %.3E], amp: %.3f, threshold: %.1f, ' \
           'soma_peak: %.1f, ADP: %.1f, AHP: %.1f, stability: %.1f, ais_delay: %.2f, slow_depo: %.1f, ' \
           'v_rest: %.2f' % (os.getpid(), x[0], x[1], x[2], amp, threshold, peak, ADP, AHP,
-            result['stability'], result['ais_delay'], result['slow_depo'], v_rest)
-    print 'Process %i: Error: %.4E' % (os.getpid(), Err)
+            result['stability'], result['ais_delay'], result['slow_depo'], v_rest))
+    print('Process %i: Error: %.4E' % (os.getpid(), Err))
     if not plot:
         return Err
 
@@ -641,14 +641,14 @@ def na_ka_error_dend(x, plot=0):
         sim.run(v_init)
         vm = np.interp(t, sim.tvec, sim.rec_list[0]['vec'])
         if amp == 0.05 and np.any(vm[:int(equilibrate/dt)] > -30.):
-            print 'Process %i: Aborting - spontaneous firing' % (os.getpid())
+            print('Process %i: Aborting - spontaneous firing' % (os.getpid()))
             return 1e9
         if np.any(vm[int(equilibrate/dt):int((equilibrate+50.)/dt)] > -30.):
             spike = True
         else:
             amp += 0.05
             if sim.verbose:
-                print 'increasing amp to %.3f' % amp
+                print('increasing amp to %.3f' % amp)
     peak, threshold, ADP, AHP = get_spike_shape(vm)
     result = {'th_v': threshold}
     trunk_vm = np.interp(t, sim.tvec, sim.rec_list[1]['vec'])
@@ -661,16 +661,16 @@ def na_ka_error_dend(x, plot=0):
     Err = 0.
     for target in result:
         Err += ((target_val['na_ka'][target] - result[target])/target_range['na_ka'][target])**2.
-    print 'Simulation took %i s' % (time.time()-start_time)
-    print 'Process %i: [soma.sh_nas, trunk.ka factor]: [%.1f, %.1f], amp: %.3f, threshold: %.1f, trunk_amp: %.3f' % \
-          (os.getpid(), x[0], x[1], amp, threshold, result['trunk_amp'])
-    print 'Process %i: Error: %.4E' % (os.getpid(), Err)
+    print('Simulation took %i s' % (time.time()-start_time))
+    print('Process %i: [soma.sh_nas, trunk.ka factor]: [%.1f, %.1f], amp: %.3f, threshold: %.1f, trunk_amp: %.3f' % \
+          (os.getpid(), x[0], x[1], amp, threshold, result['trunk_amp']))
+    print('Process %i: Error: %.4E' % (os.getpid(), Err))
     sim.modify_rec(1, node=trunk, loc=1.)
     if not plot:
         return Err
 
 
-def optimize_polish((param_name, x), maxfev=None):
+def optimize_polish(param_name, x, maxfev=None):
     """
 
     :param param_name: str
@@ -693,12 +693,12 @@ def optimize_polish((param_name, x), maxfev=None):
     result = optimize.minimize(error_functions[param_name], x, method='Nelder-Mead', options={'ftol': 1e-3,
                                                     'xtol': 1e-3, 'disp': True, 'maxiter': maxfev})
     formatted_x = '['+', '.join(['%.2E' % xi for xi in result.x])+']'
-    print 'Process: %i optimized %s for %i iterations with Error: %.2f and x: %s' % (os.getpid(), param_name,
-                                                                            result.nit, result.fun, formatted_x)
+    print('Process: %i optimized %s for %i iterations with Error: %.2f and x: %s' % (os.getpid(), param_name,
+                                                                            result.nit, result.fun, formatted_x))
     return {param_name: {'x': result.x, 'Err': result.fun}}
 
 
-def optimize_explore((param_name, x, xmin, xmax), maxfev=None):
+def optimize_explore(param_name, x, xmin, xmax, maxfev=None):
     """
 
     :param param_name: str
@@ -723,8 +723,8 @@ def optimize_explore((param_name, x, xmin, xmax), maxfev=None):
     result = optimize.basinhopping(error_functions[param_name], x, niter=maxfev, niter_success=maxfev/2,
                                        disp=True, interval=20, minimizer_kwargs=minimizer_kwargs, take_step=take_step)
     formatted_x = '['+', '.join(['%.2E' % xi for xi in result.x])+']'
-    print 'Process: %i optimized %s for %i iterations with Error: %.2f and x: %s' % (os.getpid(), param_name,
-                                                                            result.nit, result.fun, formatted_x)
+    print('Process: %i optimized %s for %i iterations with Error: %.2f and x: %s' % (os.getpid(), param_name,
+                                                                            result.nit, result.fun, formatted_x))
     return {param_name: {'x': result.x, 'Err': result.fun}}
 
 
@@ -867,7 +867,7 @@ update_na_ka(x1['na_ka'])
 
 
 """
-result = optimize_explore(('na_ka', x1['na_ka'], xmin['na_ka'], xmax['na_ka']), 600)
+result = optimize_explore(*('na_ka', x1['na_ka'], xmin['na_ka'], xmax['na_ka']), 600)
 log.append(result)
 x1['na_ka'] = result['na_ka']['x']
 """

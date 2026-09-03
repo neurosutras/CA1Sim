@@ -3,7 +3,6 @@ __author__ = 'Aaron D. Milstein'
 # Includes an extension of BtMorph, created by Ben Torben-Nielsen and modified by Daniele Linaro.
 from function_lib import *
 from neuron import h  # must be found in system $PYTHONPATH
-import pprint
 
 
 # SWC files must use this nonstandard convention to exploit trunk and tuft categorization
@@ -676,8 +675,8 @@ class STree2(object):
 class HocCell(object):
     def __init__(self, morph_filename=None, mech_filename=None, gid=0):
         """
-        :param morph_filename: str : path to .swc file containing morphology
-        :param mech_filename: str : path to .pkl file specifying cable parameters and membrane mechanisms
+        :param morph_filename: str : file name of .swc file containing morphology
+        :param mech_filename: str : file name of .yaml file specifying cable parameters and membrane mechanisms
         """
         global local_gid_counter
         self._gid = gid
@@ -686,7 +685,7 @@ class HocCell(object):
         self.index = 0  # Keep track of number of nodes
         self._node_dict = {'soma': [], 'axon': [], 'basal': [], 'trunk': [], 'apical': [], 'tuft': [], 'spine': []}
         self.mech_dict = self.load_mech_dict(mech_filename)  # Refer to function_lib for description of structure of
-                                                             # mechanism dictionary. loads from .pkl or
+                                                             # mechanism dictionary. loads from .yaml or
                                                              # default_mech_dict in function_lib
         if not morph_filename is None:
             self.load_morphology_from_swc(morph_filename)
@@ -865,12 +864,12 @@ class HocCell(object):
 
     def load_mech_dict(self, mech_filename=None):
         """
-        This method loads the dictionary specifying membrane mechanism parameters. If a .pkl file is not provided, a
+        This method loads the dictionary specifying membrane mechanism parameters. If a .yaml file is not provided, a
         global variable default_mech_dict from function_lib is used.
         :param mech_filename: str
         """
         if not mech_filename is None:
-            return read_from_pkl(data_dir+mech_filename+'.pkl')
+            return read_from_yaml(mech_dir+mech_filename)
         else:
             local_mech_dict = copy.deepcopy(default_mech_dict)
             return local_mech_dict
@@ -1632,13 +1631,13 @@ class HocCell(object):
     def export_mech_dict(self, mech_filename=None):
         """
         Following modifications to the mechanism dictionary either during model specification or parameter optimization,
-        this method stores the current mech_dict to a pickle file stamped with the date and time. This allows the
+        this method stores the current mech_dict to a .yaml file stamped with the date and time. This allows the
         current set of mechanism parameters to be recalled later.
         """
         if mech_filename is None:
-            mech_filename = 'mech_dict_'+datetime.datetime.today().strftime('%m%d%Y%H%M')+'.pkl'
-        write_to_pkl(data_dir+mech_filename+'.pkl', self.mech_dict)
-        print("Exported mechanism dictionary to "+mech_filename+'.pkl')
+            mech_filename = 'mech_dict_'+datetime.datetime.today().strftime('%m%d%Y%H%M')+'.yaml'
+        write_to_yaml(data_dir+mech_filename, self.mech_dict)
+        print("Exported mechanism dictionary to "+mech_filename)
 
     def get_node_by_distance_to_soma(self, distance, sec_type):
         """
@@ -2165,6 +2164,7 @@ class QuickSim(object):
             rec_dict['description'] = description
 
     def plot(self):
+        fig = plt.figure()
         for rec_dict in self.rec_list:
             if 'description' in rec_dict:
                 description = str(rec_dict['description'])
@@ -2177,63 +2177,63 @@ class QuickSim(object):
         plt.legend(loc='upper right')
         if 'description' in self.parameters:
             plt.title(self.parameters['description'])
-        plt.show()
-        plt.close()
-
-    def export_to_file(self, f, simiter=None):
+        fig.show()
+    
+    def export_to_file(self, file_path, simiter=None):
         """
-        Extracts important parameters from the lists of stimulation and recording sites, and exports to an HDF5
-        database. Arrays are saved as datasets and metadata is saved as attributes.
-        :param f: :class:'h5py.File'
+        Extracts important parameters from the lists of stimulation and recording sites, and exports to an .hdf5 file.
+        Arrays are saved as datasets and metadata is saved as attributes.
+        :param file_path: str; path to .hdf5 file
         :param simiter: int
         """
         start_time = time.time()
-        if simiter is None:
-            simiter = len(f)
-        if str(simiter) not in f:
-            f.create_group(str(simiter))
-        f[str(simiter)].create_dataset('time', compression='gzip', compression_opts=9, data=self.tvec)
-        f[str(simiter)]['time'].attrs['dt'] = self.dt
-        for parameter in self.parameters:
-            f[str(simiter)].attrs[parameter] = self.parameters[parameter]
-        if self.stim_list:
-            f[str(simiter)].create_group('stim')
-            for index, stim in enumerate(self.stim_list):
-                stim_out = f[str(simiter)]['stim'].create_dataset(str(index), compression='gzip', compression_opts=9,
-                                                                  data=stim['vec'])
-                cell = stim['cell']
-                stim_out.attrs['cell'] = cell.gid
-                node = stim['node']
-                stim_out.attrs['index'] = node.index
-                stim_out.attrs['type'] = node.type
-                loc = stim['stim'].get_segment().x
-                stim_out.attrs['loc'] = loc
-                distance = cell.get_distance_to_node(cell.tree.root, node, loc)
-                stim_out.attrs['soma_distance'] = distance
-                distance = cell.get_distance_to_node(cell.get_dendrite_origin(node), node, loc)
-                stim_out.attrs['branch_distance'] = distance
-                stim_out.attrs['amp'] = stim['stim'].amp
-                stim_out.attrs['delay'] = stim['stim'].delay
-                stim_out.attrs['dur'] = stim['stim'].dur
-                stim_out.attrs['description'] = stim['description']
-        f[str(simiter)].create_group('rec')
-        for index, rec in enumerate(self.rec_list):
-            rec_out = f[str(simiter)]['rec'].create_dataset(str(index), compression='gzip', compression_opts=9,
-                                                            data=rec['vec'])
-            cell = rec['cell']
-            rec_out.attrs['cell'] = cell.gid
-            node = rec['node']
-            rec_out.attrs['index'] = node.index
-            rec_out.attrs['type'] = node.type
-            rec_out.attrs['loc'] = rec['loc']
-            distance = cell.get_distance_to_node(cell.tree.root, node, rec['loc'])
-            rec_out.attrs['soma_distance'] = distance
-            distance = cell.get_distance_to_node(cell.get_dendrite_origin(node), node, rec['loc'])
-            rec_out.attrs['branch_distance'] = distance
-            rec_out.attrs['ylabel'] = rec['ylabel']
-            rec_out.attrs['units'] = rec['units']
-            if 'description' in rec:
-                rec_out.attrs['description'] = rec['description']
+        with h5py.File(file_path, 'a') as f:
+            if simiter is None:
+                simiter = len(f)
+            if str(simiter) not in f:
+                f.create_group(str(simiter))
+            f[str(simiter)].create_dataset('time', compression='gzip', compression_opts=9, data=self.tvec)
+            f[str(simiter)]['time'].attrs['dt'] = self.dt
+            for parameter in self.parameters:
+                f[str(simiter)].attrs[parameter] = self.parameters[parameter]
+            if self.stim_list:
+                f[str(simiter)].create_group('stim')
+                for index, stim in enumerate(self.stim_list):
+                    stim_out = f[str(simiter)]['stim'].create_dataset(str(index), compression='gzip', compression_opts=9,
+                                                                      data=stim['vec'])
+                    cell = stim['cell']
+                    stim_out.attrs['cell'] = cell.gid
+                    node = stim['node']
+                    stim_out.attrs['index'] = node.index
+                    stim_out.attrs['type'] = node.type
+                    loc = stim['stim'].get_segment().x
+                    stim_out.attrs['loc'] = loc
+                    distance = cell.get_distance_to_node(cell.tree.root, node, loc)
+                    stim_out.attrs['soma_distance'] = distance
+                    distance = cell.get_distance_to_node(cell.get_dendrite_origin(node), node, loc)
+                    stim_out.attrs['branch_distance'] = distance
+                    stim_out.attrs['amp'] = stim['stim'].amp
+                    stim_out.attrs['delay'] = stim['stim'].delay
+                    stim_out.attrs['dur'] = stim['stim'].dur
+                    stim_out.attrs['description'] = stim['description']
+            f[str(simiter)].create_group('rec')
+            for index, rec in enumerate(self.rec_list):
+                rec_out = f[str(simiter)]['rec'].create_dataset(str(index), compression='gzip', compression_opts=9,
+                                                                data=rec['vec'])
+                cell = rec['cell']
+                rec_out.attrs['cell'] = cell.gid
+                node = rec['node']
+                rec_out.attrs['index'] = node.index
+                rec_out.attrs['type'] = node.type
+                rec_out.attrs['loc'] = rec['loc']
+                distance = cell.get_distance_to_node(cell.tree.root, node, rec['loc'])
+                rec_out.attrs['soma_distance'] = distance
+                distance = cell.get_distance_to_node(cell.get_dendrite_origin(node), node, rec['loc'])
+                rec_out.attrs['branch_distance'] = distance
+                rec_out.attrs['ylabel'] = rec['ylabel']
+                rec_out.attrs['units'] = rec['units']
+                if 'description' in rec:
+                    rec_out.attrs['description'] = rec['description']
         if self.verbose:
             print('Simulation ', simiter, ': exporting took: ', time.time()-start_time, ' s')
 
@@ -2248,7 +2248,7 @@ class CA1_Pyr(HocCell):
 
     def insert_spines_in_subset(self, sec_type_list):
         """
-        This method populates the cell tree with spines following spine density information from Erk Bloss &
+        This method populates the cell tree with spines following spine density information from Erik Bloss &
         Nelson Spruston. Basal dendrites have no spines until the first branch point, and a higher density beyond the
         second branch point. Trunk dendrites have no spines until the first branch point, and an increasing density
         until the tuft branch point(s). Apical dendrites have a density that varies with the distance from the soma of
@@ -2332,10 +2332,85 @@ class CA1_Pyr(HocCell):
         head.sec.diam = 0.5
         self._init_cable(head)
 
-    def insert_inhibitory_synapses_in_subset(self, sec_type_list=None):
+    def get_syn_locs(self, node, density):
+        """
+        Given a mean synapse density in /um, return the location of synapses in the node at the specified density.
+        :param node: :class:'SHocNode'
+        :param density: float: mean density in /um
+        """
+        locs = []
+        L = node.sec.L
+        beta = 1./density
+        interval = self.random.exponential(beta)
+        while interval < L:
+            loc = interval/L
+            locs.append((node, loc))
+            interval += self.random.exponential(beta)
+        return locs
+
+    def get_excitatory_syn_locs(self, sec_type_list):
+        """
+        This method populates the cell tree with excitatory synapses following spine density information from Erik
+        Bloss & Nelson Spruston. Basal dendrites have no spines until the first branch point, and a higher density
+        beyond the second branch point. Trunk dendrites have no spines until the first branch point, and an increasing
+        density until the tuft branch point(s). Apical dendrites have a density that varies with the distance from the
+        soma of their original branch point from the trunk. Terminal tuft branches have a higher density than their
+        parents.
+        :param sec_type_list: list of str
+        """
+        densities = {'trunk': {'min': 0.2418, 'max': 3.8,
+                               'start': min([self.get_distance_to_node(self.tree.root, branch) for branch in
+                                                                                                self.apical]),
+                               'end': max([self.get_distance_to_node(self.tree.root, branch) for branch in
+                                                                                                self.trunk])},
+                     'basal': {'1': 0., '2': 0.4428, '>2': 1.891},
+                     'apical': {'min': 2.273, 'max': 2.688,
+                                'start': min([self.get_distance_to_node(self.tree.root, branch) for branch in
+                                                                                                self.apical]),
+                                'end': max([self.get_distance_to_node(self.tree.root, branch)
+                                            for branch in self.apical if self.get_branch_order(branch) == 1])},
+                     'tuft': {'parent': 1.354, 'terminal': 0.7157}
+                    }
+        exc_syn_locs = {sec_type: [] for sec_type in sec_type_list}
+        if 'basal' in sec_type_list:
+            sec_type = 'basal'
+            for node in self.basal:
+                order = self.get_branch_order(node)
+                if order == 2:
+                    exc_syn_locs[sec_type].extend(self.get_syn_locs(node, densities['basal']['2']))
+                elif order > 2:
+                    exc_syn_locs[sec_type].extend(self.get_syn_locs(node, densities['basal']['>2']))
+        if 'trunk' in sec_type_list:
+            sec_type = 'trunk'
+            for node in self.trunk:
+                distance = self.get_distance_to_node(self.tree.root, node)
+                if distance >= densities['trunk']['start']:
+                    slope = (densities['trunk']['max'] - densities['trunk']['min']) / \
+                            (densities['trunk']['end'] - densities['trunk']['start'])
+                    density = densities['trunk']['min'] + slope * (distance - densities['trunk']['start'])
+                    exc_syn_locs[sec_type].extend(self.get_syn_locs(node, density))
+        if 'apical' in sec_type_list:
+            sec_type = 'apical'
+            for node in self.apical:
+                distance = self.get_distance_to_node(self.tree.root, self.get_dendrite_origin(node), loc=1.)
+                slope = (densities['apical']['max'] - densities['apical']['min']) / \
+                        (densities['apical']['end'] - densities['apical']['start'])
+                density = densities['apical']['min'] + slope * (distance - densities['apical']['start'])
+                exc_syn_locs[sec_type].extend(self.get_syn_locs(node, density))
+        if 'tuft' in sec_type_list:
+            sec_type = 'tuft'
+            for node in self.tuft:
+                if self.is_terminal(node):
+                    exc_syn_locs[sec_type].extend(self.get_syn_locs(node, densities['tuft']['terminal']))
+                else:
+                    exc_syn_locs[sec_type].extend(self.get_syn_locs(node, densities['tuft']['parent']))
+        return exc_syn_locs
+
+    def get_inhibitory_syn_locs(self, sec_type_list=None):
         """
 
-        :param sec_type_list: str
+        :param sec_type_list: list of str
+        :return: dict {str; sec_type: list of float; loc}
         """
         if sec_type_list is None:
             sec_type_list = ['soma', 'ais', 'basal', 'trunk', 'apical', 'tuft']
@@ -2353,58 +2428,65 @@ class CA1_Pyr(HocCell):
                                             for branch in self.apical if self.get_branch_order(branch) == 1])},
                      'tuft': {'parent': 0.2104, 'terminal': 0.1619}
                     }
+        inh_syn_locs = {sec_type: [] for sec_type in sec_type_list}
         if 'soma' in sec_type_list:
+            sec_type = 'soma'
             for node in self.soma:
-                self.insert_inhibitory_synapse_every(node, densities['soma'])
+                inh_syn_locs[sec_type].extend(self.get_syn_locs(node, densities['soma']))
         if 'ais' in sec_type_list:
+            sec_type = 'ais'
             for node in self.get_nodes_of_subtype('ais'):
-                self.insert_inhibitory_synapse_every(node, densities['ais'])
+                inh_syn_locs[sec_type].extend(self.get_syn_locs(node, densities['ais']))
         if 'basal' in sec_type_list:
+            sec_type = 'basal'
             for node in self.basal:
                 if self.is_terminal(node):
-                    self.insert_inhibitory_synapse_every(node, densities['basal']['terminal'])
+                    inh_syn_locs[sec_type].extend(self.get_syn_locs(node, densities['basal']['terminal']))
                 else:
                     order = self.get_branch_order(node)
                     if order == 1:
-                        self.insert_inhibitory_synapse_every(node, densities['basal']['primary'])
+                        inh_syn_locs[sec_type].extend(self.get_syn_locs(node, densities['basal']['primary']))
                     else:
-                        self.insert_inhibitory_synapse_every(node, densities['basal']['intermediate'])
+                        inh_syn_locs[sec_type].extend(self.get_syn_locs(node, densities['basal']['intermediate']))
         if 'trunk' in sec_type_list:
+            sec_type = 'trunk'
             for node in self.trunk:
                 distance = self.get_distance_to_node(self.tree.root, node)
                 if distance >= densities['trunk']['start']:
                     slope = (densities['trunk']['max'] - densities['trunk']['min']) / \
                             (densities['trunk']['end'] - densities['trunk']['start'])
                     density = densities['trunk']['min'] + slope * (distance - densities['trunk']['start'])
-                    self.insert_inhibitory_synapse_every(node, density)
+                    inh_syn_locs[sec_type].extend(self.get_syn_locs(node, density))
         if 'apical' in sec_type_list:
+            sec_type = 'apical'
             for node in self.apical:
                 distance = self.get_distance_to_node(self.tree.root, self.get_dendrite_origin(node), loc=1.)
                 slope = (densities['apical']['max'] - densities['apical']['min']) / \
                         (densities['apical']['end'] - densities['apical']['start'])
                 density = densities['apical']['min'] + slope * (distance - densities['apical']['start'])
-                self.insert_inhibitory_synapse_every(node, density)
+                inh_syn_locs[sec_type].extend(self.get_syn_locs(node, density))
         if 'tuft' in sec_type_list:
+            sec_type = 'tuft'
             for node in self.tuft:
                 if self.is_terminal(node):
-                    self.insert_inhibitory_synapse_every(node, densities['tuft']['terminal'])
+                    inh_syn_locs[sec_type].extend(self.get_syn_locs(node, densities['tuft']['terminal']))
                 else:
-                    self.insert_inhibitory_synapse_every(node, densities['tuft']['parent'])
+                    inh_syn_locs[sec_type].extend(self.get_syn_locs(node, densities['tuft']['parent']))
+        return inh_syn_locs
 
-    def insert_inhibitory_synapse_every(self, node, density, syn_types=['GABA_A_KIN'], stochastic=0):
+    def insert_synapses_at_syn_locs(self, syn_locs, syn_types, stochastic=0):
         """
 
-        :param node: :class:'SHocNode'
-        :param density: float: mean density in /um
+        :param syn_locs: list of tuple: (int; node_index, float; loc)
         :param syn_types: list of str
-        :param stochastic: int
+        :param stochastic: int in [0, 1]
         """
-        L = node.sec.L
-        beta = 1./density
-        interval = self.random.exponential(beta)
-        while interval < L:
-            syn = Synapse(self, node, type_list=syn_types, stochastic=stochastic, loc=interval/L)
-            interval += self.random.exponential(beta)
+        syn_list = []
+        for node, loc in syn_locs:
+            syn = Synapse(self, node, type_list=syn_types, stochastic=stochastic, loc=loc)
+            syn_list.append(syn)
+
+        return syn_list
 
     def zero_na(self):
         """

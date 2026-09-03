@@ -10,8 +10,13 @@ propagation of the fast and slow components can be quantified and visualized.
 
 """
 
-#morph_filename = 'EB1-early-bifurcation.swc'
 morph_filename = 'EB2-late-bifurcation.swc'
+
+# mech_filename = '102715_simple_axon_model_no_na_reduced_k'
+# mech_filename = '102715_simple_axon_model_no_na'
+mech_filename = '102715_simple_axon_model'
+
+data_dir = 'data'
 
 
 def zero_na():
@@ -73,11 +78,11 @@ def offset_vm():
         if v_rest < v_init - 0.25:
             i_holding += 0.005
             if sim.verbose:
-                print 'increasing i_holding to %.3f' % (i_holding)
+                print('increasing i_holding to %.3f' % (i_holding))
         elif v_rest > v_init + 0.25:
             i_holding -= 0.005
             if sim.verbose:
-                print 'decreasing i_holding to %.3f' % (i_holding)
+                print('decreasing i_holding to %.3f' % (i_holding))
         else:
             offset = False
     sim.tstop = duration
@@ -97,6 +102,7 @@ def get_plateau(vm):
     baseline = np.mean(vm[left:right])
     plateau = np.min(vm[start:end]) - baseline
     return plateau
+
 
 def stim_sweep(f, vm_amp_targets=[-5., 15., 40.], step_sizes=[0.01, 0.01, 0.01]):
     """
@@ -127,11 +133,11 @@ def stim_sweep(f, vm_amp_targets=[-5., 15., 40.], step_sizes=[0.01, 0.01, 0.01])
                 sim.parameters['amp'] = amp * direction
                 sim.parameters['plateau'] = plateau
                 sim.export_to_file(f, simiter)
-                print 'Simulation took %i s with amp %.2f' % (time.time()-start_time, amp*direction)
+                print('Simulation took %i s with amp %.2f' % (time.time()-start_time, amp*direction))
                 matched = True
             else:
                 amp += step_sizes[i]
-                print 'Changing amp to %.2f' % (amp*direction)
+                print('Changing amp to %.2f' % (amp*direction))
         simiter += 1
 
 
@@ -142,25 +148,10 @@ dt = 0.02
 th_dvdt = 20.
 v_init = -65.
 
-#mech_filename = '101815 simple_axon_model_uniform_km2'
-#mech_filename = '102615 simple_axon_model_tuning_thinner_axon'
-#mech_filename = '102615 simple_axon_model_tuning_thinner_axon_no_na'
-#mech_filename = '102615 simple_axon_model_tuning_thinner_axon_no_na_reduced_kap_kdr_km2'
 
-#mech_filename = '102715 simple_axon_model_no_na_reduced_k'
-#mech_filename = '102715 simple_axon_model_no_na'
-# mech_filename = '102715 simple_axon_model'
-mech_filename = '042717 simple_axon_model_no_na_no_k'
+rec_file_path = data_dir + '/' + 'output' + datetime.datetime.today().strftime('%m%d%Y%H%M') + mech_filename + '.hdf5'
 
-#mech_filename = '101815 simple_axon_model_uniform_km2_no_na'
-#mech_filename = '101815 simple_axon_model_uniform_km2_no_na_reduced_kap_kdr_km2'
-
-if len(sys.argv) > 1:
-    mech_filename = str(sys.argv[1])
-
-rec_filename = 'output'+datetime.datetime.today().strftime('%m%d%Y%H%M')+mech_filename
-
-cell = CA1_Pyr(morph_filename, mech_filename, full_spines=False)
+cell = CA1_Pyr(morph_filename, mech_filename + '.yaml', full_spines=False)
 
 #axon_seg_locs = [seg.x for seg in cell.axon[2].sec]
 axon_seg_locs = np.arange(30., 500., 30.) / 500.
@@ -178,14 +169,4 @@ sim.parameters['equilibrate'] = equilibrate
 
 offset_vm()
 
-#[soma.sh_nax, soma.gkabar, soma.gkdrbar, trunk.ka factor]
-#x0['na_ka'] = [2.7, 4.367E-02, 1.282E-02, 1.5]
-
-#rec_filename = '102715 test simple_axon_model_no_na_reduced_k'
-#rec_filename = '102715 test simple_axon_model_no_na'
-# rec_filename = '102715 test simple_axon_model'
-#rec_filename = '102815 test simple_axon_model_spike_height'
-rec_filename = '042717 test simple_axon_model_no_na_no_k'
-
-with h5py.File(data_dir+rec_filename+'.hdf5', 'w') as f:
-    stim_sweep(f)
+stim_sweep(rec_file_path)

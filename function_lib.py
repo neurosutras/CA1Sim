@@ -1,8 +1,4 @@
-from __future__ import absolute_import
-
 __author__ = 'Aaron D. Milstein'
-from builtins import zip, map, str, range, object
-from past.builtins import basestring
 from mpi4py import MPI
 from collections.abc import Iterable
 import h5py
@@ -13,8 +9,6 @@ import copy
 import time
 import numpy as np
 import matplotlib.pyplot as plt
-# import matplotlib.mlab as mm
-import scipy.optimize as optimize
 import scipy.signal as signal
 import random
 import pprint
@@ -27,6 +21,7 @@ import yaml
 
 data_dir = 'data/'
 morph_dir = 'morphologies/'
+mech_dir = 'mech_config/'
 
 freq = 100      # Hz, frequency at which AC length constant will be computed
 d_lambda = 0.1  # no segment will be longer than this fraction of the AC length constant
@@ -291,7 +286,7 @@ def nested_convert_scalars(data):
     if isinstance(data, dict):
         for key in data:
             data[key] = nested_convert_scalars(data[key])
-    elif isinstance(data, Iterable) and not isinstance(data, (basestring, tuple)):
+    elif isinstance(data, Iterable) and not isinstance(data, (str, tuple)):
         data = list(data)
         for i in range(len(data)):
             data[i] = nested_convert_scalars(data[i])
@@ -330,99 +325,6 @@ def read_from_yaml(file_path, include_loader=None):
         return data
     else:
         raise IOError('read_from_yaml: invalid file_path: %s' % file_path)
-
-
-class CheckBounds(object):
-    """
-
-    """
-
-    def __init__(self, xmin, xmax):
-        """
-
-        :param xmin: dict of float
-        :param xmax: dict of float
-        """
-        self.xmin = xmin
-        self.xmax = xmax
-
-    def within_bounds(self, x, param_name):
-        """
-        For optimize_polish, based on simplex algorithm, check that the current set of parameters are within the bounds.
-        :param x: array
-        :param param_name: str
-        :return: bool
-        """
-        for i in range(len(x)):
-            if ((self.xmin[param_name][i] is not None and x[i] < self.xmin[param_name][i]) or
-                    (self.xmax[param_name][i] is not None and x[i] > self.xmax[param_name][i])):
-                return False
-        return True
-
-
-class Normalized_Step(object):
-    """
-    For use with scipy.optimize packages like basinhopping that allow a customized step-taking method.
-    Converts basinhopping absolute stepsize into different stepsizes for each parameter such that the stepsizes are
-    some fraction of the ranges specified by xmin and xmax. Also enforces bounds for x, and explores the range in
-    log10 space when the range is greater than 2 orders of magnitude.
-    xmin and xmax are delivered as raw, not relative values. Can handle negative values and ranges that cross zero. If
-    xmin and xmax are not provided, or contain None as values, the default is 0.1 and 10. * x0.
-    """
-    def __init__(self, x0, xmin=None, xmax=None, stepsize=0.5):
-        self.stepsize = stepsize
-        if xmin is None:
-            xmin = [None for i in range(len(x0))]
-        if xmax is None:
-            xmax = [None for i in range(len(x0))]
-        for i in range(len(x0)):
-            if xmin[i] is None:
-                if x0[i] > 0.:
-                    xmin[i] = 0.1 * x0[i]
-                else:
-                    xmin[i] = 10. * x0[i]
-            if xmax[i] is None:
-                if x0[i] > 0.:
-                    xmax[i] = 10. * x0[i]
-                else:
-                    xmax[i] = 0.1 * x0[i]
-        self.x0 = x0
-        self.x_range = np.subtract(xmax, xmin)
-        self.order_mag = np.ones_like(x0)
-        if not np.any(np.array(xmin) == 0.):
-            self.order_mag = np.abs(np.log10(np.abs(np.divide(xmax, xmin))))
-        else:
-            for i in range(len(x0)):
-                if xmin[i] == 0.:
-                    self.order_mag[i] = int(xmax[i] / 10)
-                else:
-                    self.order_mag[i] = abs(np.log10(abs(xmax[i] / xmin[i])))
-        self.log10_range = np.log10(np.add(1., self.x_range))
-        self.x_offset = np.subtract(1., xmin)
-
-    def __call__(self, current_x):
-        x = np.add(current_x, self.x_offset)
-        x = np.maximum(x, 1.)
-        x = np.minimum(x, np.add(1., self.x_range))
-        for i in range(len(x)):
-            if self.order_mag[i] >= 2.:
-                x[i] = self.log10_step(i, x[i])
-            else:
-                x[i] = self.linear_step(i, x[i])
-        new_x = np.subtract(x, self.x_offset)
-        return new_x
-
-    def linear_step(self, i, xi):
-        step = self.stepsize * self.x_range[i] / 2.
-        new_xi = np.random.uniform(max(1., xi-step), min(xi+step, 1.+self.x_range[i]))
-        return new_xi
-
-    def log10_step(self, i, xi):
-        step = self.stepsize * self.log10_range[i] / 2.
-        xi = np.log10(xi)
-        new_xi = np.random.uniform(max(0., xi-step), min(xi+step, self.log10_range[i]))
-        new_xi = np.power(10., new_xi)
-        return new_xi
 
 
 def combine_output_files(rec_file_list, new_rec_filename=None, local_data_dir=data_dir):
@@ -557,39 +459,6 @@ def null_minimizer(fun, x0, *args, **options):
     just catches and passes all local minima so basinhopping can proceed.
     """
     return optimize.OptimizeResult(x=x0, fun=fun(x0, *args), success=True, nfev=1)
-
-
-class MyTakeStep(object):
-    """
-    For use with scipy.optimize packages like basinhopping that allow a customized step-taking method.
-    Converts basinhopping absolute stepsize into different stepsizes for each parameter such that the stepsizes are
-    some fraction of the ranges specified by xmin and xmax. Also enforces bounds for x, and explores the range in
-    log space when the range is greater than 3 orders of magnitude.
-    """
-    def __init__(self, blocksize, xmin, xmax, stepsize=0.5):
-        self.stepsize = stepsize
-        self.blocksize = blocksize
-        self.xmin = xmin
-        self.xmax = xmax
-        self.xrange = []
-        for i in range(len(self.xmin)):
-            self.xrange.append(self.xmax[i] - self.xmin[i])
-
-    def __call__(self, x):
-        for i in range(len(x)):
-            if x[i] < self.xmin[i]:
-                x[i] = self.xmin[i]
-            if x[i] > self.xmax[i]:
-                x[i] = self.xmax[i]
-            snew = self.stepsize / 0.5 * self.blocksize * self.xrange[i] / 2.
-            sinc = min(self.xmax[i] - x[i], snew)
-            sdec = min(x[i]-self.xmin[i], snew)
-            #  chooses new value in log space to allow fair sampling across orders of magnitude
-            if np.log10(self.xmax[i]) - np.log10(self.xmin[i]) >= 3.:
-                x[i] = np.power(10, np.random.uniform(np.log10(x[i]-sdec), np.log10(x[i]+sinc)))
-            else:
-                x[i] += np.random.uniform(-sdec, sinc)
-        return x
 
 
 def get_expected_spine_index_map(sim_file):
@@ -820,32 +689,6 @@ def get_instantaneous_spike_probability(rate, dt=0.02, generator=None):
     rate /= 1000.
     p = 1. - np.exp(-rate * dt)
     return bool(x < p)
-
-
-def get_inhom_poisson_spike_times(rate, t, dt=0.02, refractory=3., generator=None):
-    """
-    Given a time series of instantaneous spike rates in Hz, produce a spike train consistent with an inhomogeneous
-    Poisson process with a refractory period after each spike.
-    :param rate: instantaneous rates in time (Hz)
-    :param t: corresponding time values (ms)
-    :param dt: temporal resolution for spike times (ms)
-    :param refractory: absolute deadtime following a spike (ms)
-    :param generator: :class:'random.Random()'
-    :return: list of m spike times (ms)
-    """
-    if generator is None:
-        generator = random
-    interp_t = np.arange(t[0], t[-1]+dt, dt)
-    interp_rate = np.interp(interp_t, t, rate)
-    spike_times = []
-    i = 0
-    while i < len(interp_t):
-        if get_instantaneous_spike_probability(interp_rate[i], dt, generator):
-            spike_times.append(interp_t[i])
-            i += int(refractory / dt)
-        else:
-            i += 1
-    return spike_times
 
 
 def get_inhom_poisson_spike_times_by_thinning(rate, t, dt=0.02, refractory=3., generator=None):
@@ -1272,7 +1115,7 @@ def get_theta_filtered_traces(rec_filename, dt=0.02):
     down_rec_t = np.arange(0., track_duration, down_dt)
     # 2000 ms Hamming window, ~3 Hz low-pass for ramp, ~5 - 10 Hz bandpass for theta
     window_len = min(int(2000./down_dt), len(down_rec_t) - 1)
-    theta_filter = signal.firwin(window_len, [5., 10.], fs=1000./down_dt, pass_zero=False)
+    theta_filter = signal.firwin(window_len, [5., 10.], nyq=1000./2./down_dt, pass_zero=False)
     pop_exc_theta = []
     pop_inh_theta = []
     intra_theta = []
@@ -1351,7 +1194,7 @@ def get_phase_precession(rec_filename, start_loc=None, end_loc=None, theta_durat
     # 2000 ms Hamming window, ~5 - 10 Hz bandpass for theta
     window_len = min(len(down_rec_t) - 1, int(2000. / down_dt))
     pad_len = int(window_len / 2.)
-    theta_filter = signal.firwin(window_len, [5., 10.], fs=1000. / down_dt, pass_zero=False)
+    theta_filter = signal.firwin(window_len, [5., 10.], nyq=1000./2./down_dt, pass_zero=False)
     intra_theta = []
     for trace in spikes_removed:
         down_sampled = np.interp(down_rec_t, rec_t, trace)
@@ -1420,7 +1263,7 @@ def get_phase_precession_live(t, vm, spikes=None, time_offset=0., theta_duration
     # 2000 ms Hamming window, ~5 - 10 Hz bandpass for theta
     window_len = min(len(down_rec_t) - 1, int(2000. / down_dt))
     pad_len = int(window_len / 2.)
-    theta_filter = signal.firwin(window_len, [5., 10.], fs=1000. / down_dt, pass_zero=False)
+    theta_filter = signal.firwin(window_len, [5., 10.], nyq=1000./2./down_dt, pass_zero=False)
     down_sampled = np.interp(down_rec_t, rec_t, spikes_removed)
     padded_trace = np.zeros(len(down_sampled) + window_len)
     padded_trace[pad_len:-pad_len] = down_sampled
@@ -1565,7 +1408,7 @@ def get_patterned_input_r_inp(rec_filename, seperate=False):
                np.append(hypo_t_array, depo_t_array)
 
 
-def get_patterned_input_component_traces(rec_filename):
+def get_patterned_input_component_traces(rec_filename, dt=None):
     """
 
     :param rec_file_name: str
@@ -1576,7 +1419,9 @@ def get_patterned_input_component_traces(rec_filename):
         equilibrate = sim.attrs['equilibrate']
         track_equilibrate = sim.attrs['track_equilibrate']
         duration = sim.attrs['duration']
-        if 'dt' in sim.attrs:
+        if dt is not None:
+            dt = dt
+        elif 'dt' in sim.attrs:
             dt = sim.attrs['dt']
         else:
             dt = sim['time'][1] - sim['time'][0]
@@ -1596,8 +1441,8 @@ def get_patterned_input_component_traces(rec_filename):
     # 2000 ms Hamming window, ~2 Hz low-pass for ramp, ~5 - 10 Hz bandpass for theta
     window_len = int(2000./down_dt)
     pad_len = int(window_len/2.)
-    theta_filter = signal.firwin(window_len, [5., 10.], fs=1000./down_dt, pass_zero=False)
-    ramp_filter = signal.firwin(window_len, 2., fs=1000./down_dt)
+    theta_filter = signal.firwin(window_len, [5., 10.], nyq=1000./2./down_dt, pass_zero=False)
+    ramp_filter = signal.firwin(window_len, 2., nyq=1000./2./down_dt)
     theta_traces = []
     ramp_traces = []
     for trace in spikes_removed:
@@ -1658,7 +1503,7 @@ def get_patterned_input_filtered_synaptic_currents(rec_filename, syn_types=['AMP
     # 2000 ms Hamming window, ~2 Hz low-pass for ramp, ~5 - 10 Hz bandpass for theta
     window_len = int(2000./down_dt)
     pad_len = int(window_len/2.)
-    ramp_filter = signal.firwin(window_len, 2., fs=1000./down_dt)
+    ramp_filter = signal.firwin(window_len, 2., nyq=1000./2./down_dt)
     filtered_i_syn_list_dict = {}
     for syn_type in syn_types:
         filtered_i_syn_list_dict[syn_type] = []
@@ -1702,9 +1547,9 @@ def alternative_binned_vm_variance_analysis(rec_filename, dt=0.02):
     # 2000 ms Hamming window, ~2 Hz low-pass for ramp, ~5 - 10 Hz bandpass for theta, ~0.2 Hz low-pass for residuals
     window_len = int(2000. / down_dt)
     pad_len = int(window_len / 2.)
-    theta_filter = signal.firwin(window_len, [5., 10.], fs=1000./down_dt, pass_zero=False)
-    ramp_filter = signal.firwin(window_len, 2., fs=1000./down_dt)
-    slow_vm_filter = signal.firwin(window_len, .2, fs=1000./down_dt)
+    theta_filter = signal.firwin(window_len, [5., 10.], nyq=1000./2./down_dt, pass_zero=False)
+    ramp_filter = signal.firwin(window_len, 2., nyq=1000./2./down_dt)
+    slow_vm_filter = signal.firwin(window_len, .2, nyq=1000./2./down_dt)
     theta_traces = []
     theta_removed = []
     ramp_traces = []
@@ -1901,7 +1746,7 @@ def process_i_syn_rec(rec_filename, description_list=['i_AMPA', 'i_NMDA', 'i_GAB
         # 2000 ms Hamming window, ~3 Hz low-pass filter
         window_len = int(2000./down_dt)
         pad_len = int(window_len / 2.)
-        ramp_filter = signal.firwin(window_len, 2., fs=1000. / down_dt)
+        ramp_filter = signal.firwin(window_len, 2., nyq=1000./2./down_dt)
         group_low_pass_dict = {key: [] for key in group_dict}
         for key in group_dict:
             for group in group_dict[key]:
@@ -1956,7 +1801,7 @@ def process_special_rec_within_group(rec_filename, group_name='pre',
         # 2000 ms Hamming window, ~3 Hz low-pass filter
         window_len = int(2000./down_dt)
         print('This method hasn\'t been updated with appropriate signal padding before filtering.')
-        ramp_filter = signal.firwin(window_len, 2., fs=1000./down_dt)
+        ramp_filter = signal.firwin(window_len, 2., nyq=1000./2./down_dt)
         rec_low_pass_dict = {description: [] for description in rec_dict}
         for description in rec_dict:
             for rec in rec_dict[description]:
@@ -2182,7 +2027,7 @@ def low_pass_filter(source, freq, duration, dt, down_dt=0.5):
     # 2000 ms Hamming window
     window_len = int(2000. / down_dt)
     pad_len = int(window_len / 2.)
-    lp_filter = signal.firwin(window_len, freq, fs=1000. / down_dt)
+    lp_filter = signal.firwin(window_len, freq, nyq=1000./2./down_dt)
     down_sampled = np.interp(down_t, t, source)
     padded_trace = np.zeros(len(down_sampled) + window_len)
     padded_trace[pad_len:-pad_len] = down_sampled
@@ -2307,96 +2152,6 @@ def process_plasticity_rule_continuous(output_filename, plot=False):
                     plt.title(cell_id)
                     plt.show()
                     plt.close()
-
-
-class optimize_history(object):
-    def __init__(self):
-        """
-
-        """
-        self.xlabels = []
-        self.x_values = []
-        self.error_values = []
-        self.features = {}
-
-    def report_best(self):
-        """
-        Report the input parameters and output values with the lowest error.
-        :param feature: string
-        :return:
-        """
-        lowest_Err = min(self.error_values)
-        index = self.error_values.index(lowest_Err)
-        best_x = self.x_values[index]
-        formatted_x = '[' + ', '.join(['%.3E' % xi for xi in best_x]) + ']'
-        print('best x: %s' % formatted_x)
-        print('lowest Err: %.3E' % lowest_Err)
-        return best_x
-
-    def export_to_pkl(self, hist_filename):
-        """
-        Save the history to .pkl
-        :param hist_filename: str
-        """
-        saved_history = {'xlabels': self.xlabels, 'x_values': self.x_values, 'error_values': self.error_values,
-                         'features': self.features}
-        write_to_pkl(data_dir+hist_filename+'.pkl', saved_history)
-
-    def import_from_pkl(self, hist_filename):
-        """
-        Update a history object with data from a .pkl file
-        :param hist_filename: str
-        """
-        previous_history = read_from_pkl(data_dir+hist_filename +'.pkl')
-        self.xlabels = previous_history['xlabels']
-        #self.xlabels = ['soma.g_pas', 'dend.g_pas slope']
-        self.x_values = previous_history['x_values']
-        self.error_values = previous_history['error_values']
-        self.features = previous_history['features']
-
-    def plot(self):
-        """
-        Plots each value in x_values against error
-        """
-        num_x_param = len(self.xlabels)
-        num_plot_rows = math.floor(math.sqrt(num_x_param))
-        num_plot_cols = math.ceil(num_x_param/num_plot_rows)
-
-        #plot x-values against error
-        plt.figure(1)
-        for i, x_param in enumerate(self.xlabels):
-            plt.subplot(num_plot_rows, num_plot_cols, i+1)
-            x_param_vals = [x_val[i] for x_val in self.x_values]
-            range_param_vals = max(x_param_vals) - min(x_param_vals)
-            plt.scatter(x_param_vals, self.error_values)
-            plt.xlim((min(x_param_vals)-0.1*range_param_vals, max(x_param_vals)+0.1*range_param_vals))
-            plt.xlabel(x_param)
-            plt.ylabel("Error values")
-        plt.show()
-        plt.close()
-
-    def plot_features(self, feat_list=None, x_indices=None):
-        if feat_list is None:
-            feat_list = list(self.features.keys())
-        if x_indices is None:
-            x_indices = list(range(0, len(self.xlabels)))
-        num_x_param = len(x_indices)
-        num_plot_rows = math.floor(math.sqrt(num_x_param))
-        num_plot_cols = math.ceil(num_x_param/num_plot_rows)
-
-        for i, feature in enumerate(feat_list):
-            plt.figure(i+1)
-            for index in x_indices:
-                plt.subplot(num_plot_rows, num_plot_cols, i+1)
-                x_param_vals = [x_val[index] for x_val in self.x_values]
-                range_param_vals = max(x_param_vals) - min(x_param_vals)
-                plt.scatter([x_param_vals], self.features[feature])
-                plt.xlim((min(x_param_vals) - 0.1 * range_param_vals, max(x_param_vals) + 0.1 * range_param_vals))
-                plt.xlabel(self.xlabels[index])
-                plt.ylabel(feature)
-                plt.legend(loc='upper right', scatterpoints=1, frameon=False, framealpha=0.5)
-        plt.show()
-        plt.close()
 
 
 def sigmoid(p, x):
@@ -2660,61 +2415,3 @@ def flush_engine_buffer(result):
             for line in stdout.splitlines():
                 print(line)
     sys.stdout.flush()
-
-
-class Context(object):
-    """
-    A container replacement for global variables to be shared and modified by any function in a module.
-    """
-    def __init__(self):
-        self.ignore = []
-        self.ignore.extend(dir(self))
-
-    def update(self, namespace_dict):
-        """
-        Converts items in a dictionary (such as globals() or locals()) into context object internals.
-        :param namespace_dict: dict
-        """
-        for key, value in namespace_dict.items():
-            setattr(self, key, value)
-
-    def __call__(self):
-        keys = dir(self)
-        for key in self.ignore:
-            keys.remove(key)
-        return {key: getattr(self, key) for key in keys}
-
-
-def find_param_value(param_name, x, param_indexes, default_params):
-    """
-
-    :param param_name: str
-    :param x: arr
-    :param param_indexes: dict
-    :param default_params: dict
-    :return:
-    """
-    if param_name in param_indexes:
-        return float(x[param_indexes[param_name]])
-    else:
-        return float(default_params[param_name])
-
-
-def param_array_to_dict(x, param_names):
-    """
-
-    :param x: arr
-    :param param_names: list
-    :return:
-    """
-    return {param_name: x[ind] for ind, param_name in enumerate(param_names)}
-
-
-def param_dict_to_array(x_dict, param_names):
-    """
-
-    :param x_dict: dict
-    :param param_names: list
-    :return:
-    """
-    return np.array([x_dict[param_name] for param_name in param_names])
