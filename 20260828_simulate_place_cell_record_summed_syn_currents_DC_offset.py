@@ -13,7 +13,8 @@ import click
 @click.option("--mech-filename", type=str, default='20220808_default_biophysics.yaml')
 @click.option("--synapses-seed", type=int, default=0)
 @click.option("--trial-seed", type=int, default=0)
-@click.option("--data-dir", click.Path(exists=True, file_okay=False, dir_okay=True, path_type=str))
+@click.option("--data-dir", type=click.Path(exists=True, file_okay=False, dir_okay=True, path_type=str),
+              default='data')
 @click.option("--label", type=str, default=None)
 @click.option("--mod-inh", type=int, default=0)
 @click.option("--DC-offset", "DC_offset", type=float, default=0.0)
