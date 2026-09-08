@@ -6,7 +6,42 @@ import re
 import scipy.signal as signal
 from nested.utils import read_from_yaml
 from function_lib import get_binned_firing_rate, get_smoothed_firing_rate
+import matplotlib.pyplot as plt
 
+
+def plot_ramp_from_sim(sim, equilibrate, track_equilibrate, duration):
+    dt = sim.dt
+    track_duration = duration - equilibrate - track_equilibrate
+    start = int((equilibrate + track_equilibrate) / dt)
+    t = sim.tvec.to_python()
+    t = np.arange(0., duration, dt)
+    vm = np.interp(t, sim.tvec.to_python(), sim.get_rec('soma')['vec'].to_python())
+    vm = vm[start:]
+    
+    rec_t = np.arange(0., track_duration, dt)
+    
+    # down_sample traces to 2 kHz after clipping spikes for theta and ramp filtering
+    down_dt = 0.5
+    down_t = np.arange(0., track_duration, down_dt)
+    # 2000 ms Hamming window, ~2 Hz low-pass for ramp, ~5 - 10 Hz bandpass for theta
+    window_len = int(2000. / down_dt)
+    pad_len = int(window_len / 2.)
+    ramp_filter = signal.firwin(window_len, 2., fs=1000. / down_dt)
+    
+    down_sampled = np.interp(down_t, rec_t, vm)
+    padded_trace = np.zeros(len(down_sampled) + window_len)
+    padded_trace[pad_len:-pad_len] = down_sampled
+    padded_trace[:pad_len] = down_sampled[::-1][-pad_len:]
+    padded_trace[-pad_len:] = down_sampled[::-1][:pad_len]
+    filtered = signal.filtfilt(ramp_filter, [1.], padded_trace, padlen=pad_len)
+    filtered = filtered[pad_len:-pad_len]
+    ramp = np.interp(rec_t, down_t, filtered)
+    
+    fig = plt.figure()
+    plt.plot(rec_t, vm)
+    plt.plot(rec_t, ramp)
+    fig.show()
+    
 
 def get_removed_spikes(source_file_path, before=1.6, after=6., dt=0.02, th=10.):
     """
@@ -270,18 +305,21 @@ def main(source_data_dir, target_file_path, i_syn):
     target_data = dict()
     source_data_file_path_dict = dict()
     
-    for source_file_path in os.listdir(source_data_dir):
-        full_path = os.path.join(source_data_dir, source_file_path)
-        pattern = re.compile(r"DC_([-+]?\d*\.?\d+)-seed_(\d+)\.hdf5")
-        match = pattern.search(source_file_path)
+    for source_file_name in os.listdir(source_data_dir):
+        source_file_path = os.path.join(source_data_dir, source_file_name)
+        pattern = re.compile(r"DC_([-+]?\d*\.?\d+)-")
+        match = pattern.search(source_file_name)
         if match:
             dc_i_val = match.group(1)
-            seed = match.group(2)
+        pattern = re.compile(r"trial_(\d+)\.")
+        match = pattern.search(source_file_name)
+        if match:
+            seed = match.group(1)
         if dc_i_val not in source_data_file_path_dict:
             source_data_file_path_dict[dc_i_val] = []
-        source_data_file_path_dict[dc_i_val].append(full_path)
+        source_data_file_path_dict[dc_i_val].append(source_file_path)
     
-    with (h5py.File(target_file_path, 'a') as target_file):
+    with h5py.File(target_file_path, 'a') as target_file:
         for dc_i_val, source_file_path_list in source_data_file_path_dict.items():
             if dc_i_val not in target_file:
                 target_file.create_group(dc_i_val)
@@ -298,7 +336,8 @@ def main(source_data_dir, target_file_path, i_syn):
                     seed_group.attrs.update(data_group.attrs.items())
                     seed_group.create_dataset('spike_times', data=data_group['output'][:], compression='gzip')
                 
-                rec_t, vm_array, theta_traces, ramp_traces, spikes_removed_traces = get_patterned_input_component_traces(source_file_path)
+                rec_t, vm_array, theta_traces, ramp_traces, spikes_removed_traces = \
+                    get_patterned_input_component_traces(source_file_path)
                 seed_group.create_dataset('rec_t', data=rec_t, compression='gzip')
                 seed_group.create_dataset('vm', data=vm_array[0], compression='gzip')
                 seed_group.create_dataset('vm_spikes_removed', data=spikes_removed_traces[0], compression='gzip')

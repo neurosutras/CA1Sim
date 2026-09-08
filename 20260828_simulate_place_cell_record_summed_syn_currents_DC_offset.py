@@ -17,6 +17,7 @@ import click
               default='data')
 @click.option("--label", type=str, default=None)
 @click.option("--mod-inh", type=int, default=0)
+@click.option("--mod-weights", type=float, default=2.5)
 @click.option("--DC-offset", "DC_offset", type=float, default=0.0)
 @click.option("--sim-duration", type=float, default=None)
 @click.option("--field-center", type=float, default=0.5)
@@ -26,7 +27,7 @@ import click
 @click.option("--interactive", is_flag=True)
 @click.option("--debug", is_flag=True)
 def main(mech_filename, synapses_seed, trial_seed, data_dir,
-         label, mod_inh, DC_offset, sim_duration,
+         label, mod_inh, mod_weights, DC_offset, sim_duration,
          field_center, spines, export, plot,
          interactive, debug):
     """
@@ -45,6 +46,8 @@ def main(mech_filename, synapses_seed, trial_seed, data_dir,
         whether to decrease the firing rate of inhibitory inputs, mimicking the optogenetic silencing in
         Grienberger, Milstein et al., Nat. Neurosci., 2017. (0 = no, 1 = out of field at track start, 2 = in field,
         3 = entire length of track)
+    :param mod_weights: float - the synaptic AMPAR conductances at in-field inputs are multiplied by a factor
+        with this value at the peak of the field, and decays with cosine spatial modulation away from the field
     :param DC_offset: float (nA) - DC current offset
     :param sim_duration: float (ms) - sim duration can be truncated during testing
     :param field_center: float, value between 0 and 1, where along the track the CA1 place field peaks
@@ -58,10 +61,6 @@ def main(mech_filename, synapses_seed, trial_seed, data_dir,
 
     num_exc_syns = 3200
     num_inh_syns = 600
-    
-    # the synaptic AMPAR conductances at in-field inputs are multiplied by a factor with this value at the peak of the
-    # field, and decays with cosine spatial modulation away from the field
-    mod_weights = 2.5
     
     data_dir += '/'
     
@@ -236,7 +235,7 @@ def main(mech_filename, synapses_seed, trial_seed, data_dir,
                     f[str(simiter)].create_dataset('output', compression='gzip',
                                                 data=np.subtract(cell.spike_detector.get_recordvec().to_python(),
                                                                  equilibrate + track_equilibrate))
-                print('Completed exporting to %s.hdf5' % str(data_dir + rec_filename))
+                print('Completed exporting to %s' % str(data_dir + rec_filename))
                 sys.stdout.flush()
         if debug:
             return exc_rate_maps

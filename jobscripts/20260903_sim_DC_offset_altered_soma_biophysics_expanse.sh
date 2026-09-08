@@ -30,8 +30,8 @@ do
   do
     srun --nodes=1 --ntasks=1 --mem-per-cpu=$MEM_PER_CPU --exact --exclusive python \
       20260828_simulate_place_cell_record_summed_syn_currents_DC_offset.py --trial-seed=$seed --DC-offset=$current \
-      --data-dir=$SCRATCH/data/CA1Sim --mech-filename=20260903_altered_soma_biophysics.yaml \
-      --label=altered_soma_biophysics &
+      --data-dir=$SCRATCH/data/CA1Sim --mech-filename=20260903_altered_soma_biophysics2.yaml \
+      --label=altered_soma_biophysics2 --mod-weights=2.0 --export &
     ((++seed))
   done
 done
