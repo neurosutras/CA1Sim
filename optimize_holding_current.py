@@ -12,8 +12,9 @@ absence of ih.
 morph_filename = 'EB2-late-bifurcation.swc'
 #mech_filename = '031815 calibrate nmda gmax.pkl'
 #mech_filename = '040815 kap_kad_ampar_scale low mg kd pas no_ih no_na'
-mech_filename = '050715 pas_exp_scale kdr ka_scale no_ih ampar_exp_scale - EB2'
+#mech_filename = '050715 pas_exp_scale kdr ka_scale no_ih ampar_exp_scale - EB2'
 #rec_filename = '041315 calibrate holding i_inj - EB2'
+mech_filename = '043015 pas_exp_scale kdr ka_scale ih_sig_scale - EB2.yaml'
 
 
 def holding_current_error(x, plot=0):
@@ -22,7 +23,7 @@ def holding_current_error(x, plot=0):
     :param plot: int or bool: method can be called manually to compare actual to target and fit waveforms
     :return: float: Error
     """
-    print('Holding I_inj: %.6f' % (x[0]))
+    print(('Holding I_inj: %.6f' % (x[0])))
     sim.modify_stim(0, amp=x[0])
     sim.run(v_init)
     t = np.array(sim.tvec)
@@ -32,7 +33,7 @@ def holding_current_error(x, plot=0):
     Err = 0.
     for target in result:
         Err += ((target_val[target] - result[target])/target_range[target])**2.
-    print 'Error:', Err, ', Vm_Rest:', result['Vm_Rest']
+    print('Error:', Err, ', Vm_Rest:', result['Vm_Rest'])
     if plot:
         sim.plot()
     else:
@@ -55,11 +56,11 @@ trunk_bifurcation = [trunk for trunk in cell.trunk if len(trunk.children) > 1 an
 # get where the thickest trunk branch gives rise to the tuft
 if trunk_bifurcation:  # follow the thicker trunk
     trunk = max(trunk_bifurcation[0].children[:2], key=lambda node: node.sec(0.).diam)
-    trunk = (node for node in cell.trunk if cell.node_in_subtree(trunk, node) and 'tuft' in (child.type for child in
-                                                                                             node.children)).next()
+    trunk = next((node for node in cell.trunk if cell.node_in_subtree(trunk, node) and 'tuft' in (child.type for child in
+                                                                                             node.children)))
 else:
-    trunk = (node for node in cell.trunk if 'tuft' in (child.type for child in node.children)).next()
-tuft = (child for child in trunk.children if child.type == 'tuft').next()
+    trunk = next((node for node in cell.trunk if 'tuft' in (child.type for child in node.children)))
+tuft = next((child for child in trunk.children if child.type == 'tuft'))
 sim.append_rec(cell, trunk, description='trunk', loc=0.)
 sim.append_stim(cell, trunk, loc=0., amp=amp, delay=delay, dur=duration-delay, description='Holding I_inj')
 

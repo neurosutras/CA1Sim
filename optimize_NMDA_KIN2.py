@@ -79,9 +79,9 @@ def synaptic_kinetics_error(x, plot=0):
     Err = 0.
     for target in result:
         Err += ((target_val[target] - result[target])/target_range[target])**2.
-    print('[kon, koff, CC, CO, Beta, Alpha]: [%.3f, %.3f, %.3f, %.3f, %.3f, %.3f], Error: %.3E, Rise: %.3f, Decay: '
+    print(('[kon, koff, CC, CO, Beta, Alpha]: [%.3f, %.3f, %.3f, %.3f, %.3f, %.3f], Error: %.3E, Rise: %.3f, Decay: '
           '%.3f, facilitation: %.2f' % (x[0], x[1], x[2], x[3], x[4], x[5], Err, rise_tau, decay_tau,
-            result['facilitation']))
+            result['facilitation'])))
     if plot:
         plt.plot(interp_t, y)
         plt.plot(interp_t, yf)
@@ -109,11 +109,11 @@ trunk_bifurcation = [trunk for trunk in cell.trunk if len(trunk.children) > 1 an
 # get where the thickest trunk branch gives rise to the tuft
 if trunk_bifurcation:  # follow the thicker trunk
     trunk = max(trunk_bifurcation[0].children[:2], key=lambda node: node.sec(0.).diam)
-    trunk = (node for node in cell.trunk if cell.node_in_subtree(trunk, node) and 'tuft' in (child.type for child in
-                                                                                             node.children)).next()
+    trunk = next((node for node in cell.trunk if cell.node_in_subtree(trunk, node) and 'tuft' in (child.type for child in
+                                                                                             node.children)))
 else:
-    trunk = (node for node in cell.trunk if 'tuft' in (child.type for child in node.children)).next()
-tuft = (child for child in trunk.children if child.type == 'tuft').next()
+    trunk = next((node for node in cell.trunk if 'tuft' in (child.type for child in node.children)))
+tuft = next((child for child in trunk.children if child.type == 'tuft'))
 trunk = trunk_bifurcation[0]
 
 #sim.append_rec(cell, trunk, loc=1., description='trunk vm')
@@ -125,7 +125,7 @@ for spine in spine_list:
 
 local_random = random.Random()
 local_random.seed(0)
-stim_syn_list = [spine_list[i].synapses[0] for i in local_random.sample(range(len(spine_list)), num_syns)]
+stim_syn_list = [spine_list[i].synapses[0] for i in local_random.sample(list(range(len(spine_list))), num_syns)]
 
 for i, syn in enumerate(stim_syn_list):
     syn.target(syn_type).mg = 0.1

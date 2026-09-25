@@ -43,7 +43,7 @@ def offset_vm(description, vm_target=None):
         i_holding[description] += 0.01
         while offset:
             if sim.verbose:
-                print 'increasing i_holding to %.3f (%s)' % (i_holding[description], description)
+                print('increasing i_holding to %.3f (%s)' % (i_holding[description], description))
             sim.modify_stim(1, amp=i_holding[description])
             sim.run(vm_target)
             vm = np.interp(t, sim.tvec, rec)
@@ -56,7 +56,7 @@ def offset_vm(description, vm_target=None):
         i_holding[description] -= 0.01
         while offset:
             if sim.verbose:
-                print 'decreasing i_holding to %.3f (%s)' % (i_holding[description], description)
+                print('decreasing i_holding to %.3f (%s)' % (i_holding[description], description))
             sim.modify_stim(1, amp=i_holding[description])
             sim.run(vm_target)
             vm = np.interp(t, sim.tvec, rec)
@@ -120,10 +120,10 @@ def ais_delay_error(x, plot=0):
     :return: float
     """
     formatted_x = '[' + ', '.join(['%.3E' % xi for xi in x]) + ']'
-    print 'Trying x: %s: %s' % (str(xlabels['ais_delay']), formatted_x)
+    print('Trying x: %s: %s' % (str(xlabels['ais_delay']), formatted_x))
     hist.x_values.append(x)
     if not check_bounds.within_bounds(x, 'ais_delay'):
-        print 'Process %i: Aborting - Parameters outside optimization bounds.' % (os.getpid())
+        print('Process %i: Aborting - Parameters outside optimization bounds.' % (os.getpid()))
         Err = 1e9
         hist.error_values.append(Err)
         return Err
@@ -142,14 +142,14 @@ def ais_delay_error(x, plot=0):
         sim.run(v_active)
         vm = np.interp(t, sim.tvec, sim.get_rec('soma')['vec'])
         if np.any(vm[:int(equilibrate/dt)] > -30.):
-            print 'Process %i: Aborting - spontaneous firing' % (os.getpid())
+            print('Process %i: Aborting - spontaneous firing' % (os.getpid()))
             return 1e9
         if np.any(vm[int(equilibrate/dt):int((equilibrate+50.)/dt)] > -30.):
             spike = True
         else:
             amp += d_amp
             if sim.verbose:
-                print 'increasing amp to %.3f' % amp
+                print('increasing amp to %.3f' % amp)
     i_th['soma'] = amp
     peak, threshold, ADP, AHP = get_spike_shape(vm)
     result = {}
@@ -182,10 +182,10 @@ def ais_delay_error(x, plot=0):
         hist.features[target].append(result[target])
     for i, x_i in enumerate(x):
         Err += ((x_i - xmin['ais_delay'][i])/(0.05*(abs(xmin['ais_delay'][i]) - abs(xmax['ais_delay'][i]))))**2.
-    print 'Simulation took %i s' % (time.time()-start_time)
-    print 'Process %i: [ais.sha_nas, ais.gbar_nas]: [%.3E, %.3E], ais_delay: %.3E, soma_peak: %.1f, ' \
-          'threshold: %.1f' % (os.getpid(), x[0], x[1], result['ais_delay'], peak, threshold)
-    print 'Process %i: Error: %.4E' % (os.getpid(), Err)
+    print('Simulation took %i s' % (time.time()-start_time))
+    print('Process %i: [ais.sha_nas, ais.gbar_nas]: [%.3E, %.3E], ais_delay: %.3E, soma_peak: %.1f, ' \
+          'threshold: %.1f' % (os.getpid(), x[0], x[1], result['ais_delay'], peak, threshold))
+    print('Process %i: Error: %.4E' % (os.getpid(), Err))
     hist.error_values.append(Err)
     sys.stdout.flush()
     return Err
@@ -209,7 +209,7 @@ def optimize_ais_delay(x):
         candidate_x = list(x)
         candidate_x[index] += perturb[index]
         if not check_bounds.within_bounds(candidate_x, 'ais_delay'):
-            print 'Process %i: Iteration %i - Parameters outside optimization bounds.' % (os.getpid(), iter)
+            print('Process %i: Iteration %i - Parameters outside optimization bounds.' % (os.getpid(), iter))
         else:
             x = list(candidate_x)
             start_time = time.time()
@@ -227,14 +227,14 @@ def optimize_ais_delay(x):
                 sim.run(v_active)
                 vm = np.interp(t, sim.tvec, sim.get_rec('soma')['vec'])
                 if amp == np.any(vm[:int(equilibrate / dt)] > -30.):
-                    print 'Process %i: Aborting - spontaneous firing' % (os.getpid())
+                    print('Process %i: Aborting - spontaneous firing' % (os.getpid()))
                     return 1e9
                 if np.any(vm[int(equilibrate / dt):int((equilibrate + 50.) / dt)] > -30.):
                     spike = True
                 else:
                     amp += d_amp
                     if sim.verbose:
-                        print 'increasing amp to %.3f' % amp
+                        print('increasing amp to %.3f' % amp)
             i_th['soma'] = amp
             peak, threshold, ADP, AHP = get_spike_shape(vm)
             result = {}
@@ -259,11 +259,11 @@ def optimize_ais_delay(x):
             target = 'ais_delay'
             Err += ((target_val['na_ka'][target] - result[target]) / target_range['na_ka'][target]) ** 2.
             # attempt to find the minimal combination that produces the desired delay
-            print 'Simulation took %i s' % (time.time() - start_time)
-            print 'Process %i (Iter %i): [ais.sha_nas, ais.gbar_nas]: [%.3E, %.3E], ais_delay: %.3E, ' \
+            print('Simulation took %i s' % (time.time() - start_time))
+            print('Process %i (Iter %i): [ais.sha_nas, ais.gbar_nas]: [%.3E, %.3E], ais_delay: %.3E, ' \
                   'soma_peak: %.1f, threshold: %.1f' % (os.getpid(), iter, x[0], x[1], result['ais_delay'], peak,
-                                                        threshold)
-            print 'Process %i: Error: %.4E' % (os.getpid(), Err)
+                                                        threshold))
+            print('Process %i: Error: %.4E' % (os.getpid(), Err))
             if Err == 0.:
                 return x
             if Err < min_Err:
@@ -297,7 +297,7 @@ sim = QuickSim(duration, cvode=False, dt=dt, verbose=False)
 sim.append_stim(cell, cell.tree.root, loc=0., amp=0., delay=equilibrate, dur=stim_dur)
 sim.append_stim(cell, cell.tree.root, loc=0., amp=0., delay=0., dur=duration)
 
-for description, node in rec_nodes.iteritems():
+for description, node in rec_nodes.items():
     sim.append_rec(cell, node, loc=rec_locs[description], description=description)
 
 i_holding = {'soma': 0.00}

@@ -10,7 +10,8 @@ This simulation uses scipy.optimize to iterate through AMPA_KIN mechanism parame
 morph_filename = 'EB2-late-bifurcation.swc'
 
 #mech_filename = '043015 pas_exp_scale kdr ka_scale ih_sig_scale - EB2'
-mech_filename = '072515 optimized basal ka_scale dend_sh_ar_nas - EB2'
+#mech_filename = '072515 optimized basal ka_scale dend_sh_ar_nas - EB2'
+mech_filename = '043015 pas_exp_scale kdr ka_scale ih_sig_scale - EB2.yaml'
 
 
 def synaptic_kinetics_error(x, plot=0):
@@ -70,8 +71,8 @@ def synaptic_kinetics_error(x, plot=0):
     Err = 0.
     for target in result:
         Err += ((target_val[target] - result[target])/target_range[target])**2.
-    print('kon: %.3f, koff: %.3f, CC: %.3f, CO: %.3f, Beta: %.3f, Alpha: %.3f, Error: %.4E, Rise: %.3f, Decay: %.3f, '
-        'Rc_max: %.3f' % (x[0], x[1], x[2], x[3], x[4], x[5], Err, rise_tau, decay_tau, Rc_max))
+    print(('kon: %.3f, koff: %.3f, CC: %.3f, CO: %.3f, Beta: %.3f, Alpha: %.3f, Error: %.4E, Rise: %.3f, Decay: %.3f, '
+        'Rc_max: %.3f' % (x[0], x[1], x[2], x[3], x[4], x[5], Err, rise_tau, decay_tau, Rc_max)))
     if plot:
         #fit_rise = model_exp_rise(interp_t[:t_peak], rise_tau)
         #fit_decay = model_exp_decay(interp_t[:-t_peak], decay_tau)
@@ -108,11 +109,11 @@ trunk_bifurcation = [trunk for trunk in cell.trunk if len(trunk.children) > 1 an
 # get where the thickest trunk branch gives rise to the tuft
 if trunk_bifurcation:  # follow the thicker trunk
     trunk = max(trunk_bifurcation[0].children[:2], key=lambda node: node.sec(0.).diam)
-    trunk = (node for node in cell.trunk if cell.node_in_subtree(trunk, node) and 'tuft' in (child.type for child in
-                                                                                             node.children)).next()
+    trunk = next((node for node in cell.trunk if cell.node_in_subtree(trunk, node) and 'tuft' in (child.type for child in
+                                                                                             node.children)))
 else:
-    trunk = (node for node in cell.trunk if 'tuft' in (child.type for child in node.children)).next()
-tuft = (child for child in trunk.children if child.type == 'tuft').next()
+    trunk = next((node for node in cell.trunk if 'tuft' in (child.type for child in node.children)))
+tuft = next((child for child in trunk.children if child.type == 'tuft'))
 trunk = trunk_bifurcation[0]
 
 #sim.append_rec(cell, trunk, loc=1., description='trunk vm')
@@ -123,7 +124,9 @@ for spine in spine_list:
     syn = Synapse(cell, spine, [syn_type], stochastic=0)
 
 random.seed(0)
-stim_syn_list = [spine_list[i].synapses[0] for i in random.sample(range(len(spine_list)), num_syns)]
+print("Number of spines:", len(spine_list))
+print("num_syns:", num_syns)
+stim_syn_list = [spine_list[i].synapses[0] for i in random.sample(list(range(len(spine_list))), num_syns)]
 
 for i, syn in enumerate(stim_syn_list):
     syn.source.play(spike_times)
@@ -153,16 +156,15 @@ xbounds = [(low, high) for low, high in zip(xmin, xmax)]
 blocksize = 0.5  # defines the fraction of the xrange that will be explored at each step
                  #  basinhopping starts with this value and reduces it by 10% every 'interval' iterations
 
-mytakestep = MyTakeStep(blocksize, xmin, xmax)
+#mytakestep = MyTakeStep(blocksize, xmin, xmax)
 
 minimizer_kwargs = dict(method=null_minimizer)
-"""
-result = optimize.basinhopping(synaptic_kinetics_error, x0, niter= 720, niter_success=100, disp=True, interval=20,
-                                                            minimizer_kwargs=minimizer_kwargs, take_step=mytakestep)
+#"""
+#result = optimize.basinhopping(synaptic_kinetics_error, x0, niter= 720, niter_success=100, disp=True, interval=20,
+                                                            #minimizer_kwargs=minimizer_kwargs, take_step=mytakestep)
 #synaptic_kinetics_error(result.x, plot=1)
-"""
-polished_result = optimize.minimize(synaptic_kinetics_error, x1, method='Nelder-Mead', options={'ftol': 1e-3,
-                                                                                        'xtol': 1e-3, 'disp': True})
-synaptic_kinetics_error(polished_result.x, plot=1)
+#"""
+#polished_result = optimize.minimize(synaptic_kinetics_error, x1, method='Nelder-Mead', options={'ftol': 1e-3,'xtol': 1e-3, 'disp': True})
+#synaptic_kinetics_error(polished_result.x, plot=1)
+synaptic_kinetics_error(x1, plot=1)
 
-#synaptic_kinetics_error(x1, plot=1)

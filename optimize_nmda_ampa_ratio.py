@@ -11,7 +11,8 @@ This simulation uses scipy.optimize to iterate through NMDAR peak conductance to
 morph_filename = 'EB2-late-bifurcation.swc'
 #mech_filename = '031815 calibrate nmda gmax.pkl'
 #mech_filename = '040815 kap_kad_ampar_scale low mg kd pas no_ih no_na'
-mech_filename = '050715 pas_exp_scale kdr ka_scale no_ih ampar_exp_scale nmda - EB2'
+#mech_filename = '050715 pas_exp_scale kdr ka_scale no_ih ampar_exp_scale nmda - EB2'
+mech_filename = '043015 pas_exp_scale kdr ka_scale ih_sig_scale - EB2.yaml'
 #rec_filename = '050715 calibrate_nmda_gmax - apical - EB2'
 rec_filename = '050715 calibrate_nmda_gmax - tuft - EB2'
 
@@ -22,7 +23,7 @@ def nmda_ampa_area_error(x, plot=0):
     :param plot: int or bool: method can be called manually to compare actual to target and fit waveforms
     :return: float: Error
     """
-    print('%s.gmax: %.4E' % (syn_types[1], x[0]))
+    print(('%s.gmax: %.4E' % (syn_types[1], x[0])))
     for syn in stim_syn_list:
         syn.target(syn_types[1]).gmax = x[0]
     sim.parameters['description'] = syn_types[0]+' + '+syn_types[1]
@@ -36,7 +37,7 @@ def nmda_ampa_area_error(x, plot=0):
     depolarized = np.where(vm[right:] > 0)[0]
     start = depolarized[0] + right
     end = depolarized[-1] + right
-    areas.append(integrate.trapz(vm[start:end], t[start:end]))
+    areas.append(np.trapz(vm[start:end], t[start:end]))
     if plot:
         with h5py.File(data_dir+rec_filename+'.hdf5', 'w') as f:
             sim.export_to_file(f, 0)
@@ -52,12 +53,12 @@ def nmda_ampa_area_error(x, plot=0):
     depolarized = np.where(vm[right:] > 0)[0]
     start = depolarized[0] + right
     end = depolarized[-1] + right
-    areas.append(integrate.trapz(vm[start:end], t[start:end]))
+    areas.append(np.trapz(vm[start:end], t[start:end]))
     result = {'%Area': (areas[0]-areas[1])/areas[0]}
     Err = 0.
     for target in result:
         Err += ((target_val[target] - result[target])/target_range[target])**2.
-    print 'Error:', Err, ', %Area (NMDA):', result['%Area']
+    print('Error:', Err, ', %Area (NMDA):', result['%Area'])
     if plot:
         with h5py.File(data_dir+rec_filename+'.hdf5', 'a') as f:
             sim.export_to_file(f, 1)
@@ -88,11 +89,11 @@ trunk_bifurcation = [trunk for trunk in cell.trunk if len(trunk.children) > 1 an
 # get where the thickest trunk branch gives rise to the tuft
 if trunk_bifurcation:  # follow the thicker trunk
     trunk = max(trunk_bifurcation[0].children[:2], key=lambda node: node.sec(0.).diam)
-    trunk = (node for node in cell.trunk if cell.node_in_subtree(trunk, node) and 'tuft' in (child.type for child in
-                                                                                             node.children)).next()
+    trunk = next((node for node in cell.trunk if cell.node_in_subtree(trunk, node) and 'tuft' in (child.type for child in
+                                                                                             node.children)))
 else:
-    trunk = (node for node in cell.trunk if 'tuft' in (child.type for child in node.children)).next()
-tuft = (child for child in trunk.children if child.type == 'tuft').next()
+    trunk = next((node for node in cell.trunk if 'tuft' in (child.type for child in node.children)))
+tuft = next((child for child in trunk.children if child.type == 'tuft'))
 
 sim.append_rec(cell, trunk, description='trunk', loc=0.)
 # Holding current calibrated to return Vm to -65
@@ -118,7 +119,7 @@ for branch in cell.trunk+cell.tuft:
 cell.init_synaptic_mechanisms()
 
 random.seed(0)
-stim_syn_list = [syn_list[i] for i in random.sample(range(len(syn_list)), num_stim)]
+stim_syn_list = [syn_list[i] for i in random.sample(list(range(len(syn_list))), num_stim)]
 for syn in stim_syn_list:
     syn.source.play(spike_times)
     syn.target(syn_types[1]).mg = 0.1
@@ -141,12 +142,12 @@ xmax = [0.1]
 xbounds = [(low, high) for low, high in zip(xmin, xmax)]
 """
 result = optimize.minimize(nmda_ampa_area_error, x0, method='L-BFGS-B', bounds=xbounds,
-                           options={'ftol': 1e-3, 'eps': 1e-6})
+                           options={'fatol': 1e-3, 'eps': 1e-6})
 
 print('%s.gmax: %.6f' % (syn_types[1], result.x[0]))
 """
-result = optimize.minimize(nmda_ampa_area_error, x0, method='Nelder-Mead', options={'ftol': 1e-3, 'disp': True})
-print result
+result = optimize.minimize(nmda_ampa_area_error, x0, method='Nelder-Mead', options={'fatol': 1e-3, 'disp': True})
+print(result)
 nmda_ampa_area_error(result.x, plot=1)
 """
 nmda_ampa_area_error(x0, plot=1)

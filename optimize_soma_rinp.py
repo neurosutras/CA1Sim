@@ -29,8 +29,8 @@ def rinp_error(x, plot=0):
     Err = 0.
     for target in result:
         Err += ((target_val[target] - result[target])/target_range[target])**2.
-    print('Simulation took %.3f s' % (time.time()-start_time))
-    print('g_pas: %.4E, Error: %.4E, R_Inp: soma: %.3f' % (x[0], Err, result['soma']))
+    print(('Simulation took %.3f s' % (time.time()-start_time)))
+    print(('g_pas: %.4E, Error: %.4E, R_Inp: soma: %.3f' % (x[0], Err, result['soma'])))
     if plot:
         sim.plot()
     else:

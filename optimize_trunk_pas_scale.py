@@ -41,9 +41,9 @@ def rinp_error(x, plot=0):
     Err = 0.
     for target in result:
         Err += ((target_val[target] - result[target])/target_range[target])**2.
-    print('Simulation took %.3f s' % (time.time()-start_time))
-    print('soma g_pas: %.4E, trunk slope: %.4E, Error: %.4E, soma R_inp: %.3f, '
-          'V_rest: %.3f, trunk R_inp: %.3f' % (x[0], x[1], Err, result['soma'], v_rest, result['trunk']))
+    print(('Simulation took %.3f s' % (time.time()-start_time)))
+    print(('soma g_pas: %.4E, trunk slope: %.4E, Error: %.4E, soma R_inp: %.3f, '
+          'V_rest: %.3f, trunk R_inp: %.3f' % (x[0], x[1], Err, result['soma'], v_rest, result['trunk'])))
     if plot:
         sim.plot()
     else:
@@ -70,10 +70,10 @@ trunk_bifurcation = [trunk for trunk in cell.trunk if len(trunk.children) > 1 an
 # get where the thickest trunk branch gives rise to the tuft
 if trunk_bifurcation:  # follow the thicker trunk
     trunk = max(trunk_bifurcation[0].children[:2], key=lambda node: node.sec(0.).diam)
-    trunk = (node for node in cell.trunk if cell.node_in_subtree(trunk, node) and 'tuft' in (child.type for child in
-                                                                                             node.children)).next()
+    trunk = next((node for node in cell.trunk if cell.node_in_subtree(trunk, node) and 'tuft' in (child.type for child in
+                                                                                             node.children)))
 else:
-    trunk = (node for node in cell.trunk if 'tuft' in (child.type for child in node.children)).next()
+    trunk = next((node for node in cell.trunk if 'tuft' in (child.type for child in node.children)))
 
 sim = QuickSim(duration, verbose=False)
 sim.parameters['description'] = 'RInp'

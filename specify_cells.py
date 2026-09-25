@@ -1146,6 +1146,7 @@ class HocCell(object):
             elif mech_name == 'synapse':
                 self._specify_synaptic_parameter(node, param_name, baseline, rules, syn_type)
             else:
+                #print("Trying to insert mechanism:", mech_name)
                 node.sec.insert(mech_name)
                 setattr(node.sec, param_name+"_"+mech_name, baseline)
 

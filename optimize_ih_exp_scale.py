@@ -11,7 +11,8 @@ is inherited by apical and tuft.
 morph_filename = 'EB2-late-bifurcation.swc'
 
 #mech_filename = '042115 pas_ka_ih_scale kdr - EB2.pkl'
-mech_filename = '042215 pas_exp_scale kdr ka_scale ih - EB2.pkl'
+#mech_filename = '042215 pas_exp_scale kdr ka_scale ih - EB2.pkl'
+mech_filename = '043015 pas_exp_scale kdr ka_scale ih_sig_scale - EB2.yaml'
 
 
 def rinp_error(x, plot=0):
@@ -51,10 +52,10 @@ def rinp_error(x, plot=0):
     Err = 0.
     for target in result:
         Err += ((target_val[target] - result[target])/target_range[target])**2.
-    print('Simulation took %.3f s' % (time.time()-start_time))
-    print('soma ghbar: %.4E, trunk slope: %.4E, trunk tau: %.3f, Error: %.4E, soma R_inp: %.3f, V_rest: %.3f, '
+    print(('Simulation took %.3f s' % (time.time()-start_time)))
+    print(('soma ghbar: %.4E, trunk slope: %.4E, trunk tau: %.3f, Error: %.4E, soma R_inp: %.3f, V_rest: %.3f, '
           'trunk R_inp: %.3f, sag: %.3f' % (x[0], x[1], x[2], Err, result['r_soma'], result['v_rest_trunk'],
-                                            result['r_trunk'], result['sag']))
+                                            result['r_trunk'], result['sag'])))
     if plot:
         sim.plot()
     else:
@@ -78,10 +79,10 @@ trunk_bifurcation = [trunk for trunk in cell.trunk if len(trunk.children) > 1 an
 # get where the thickest trunk branch gives rise to the tuft
 if trunk_bifurcation:  # follow the thicker trunk
     trunk = max(trunk_bifurcation[0].children[:2], key=lambda node: node.sec(0.).diam)
-    trunk = (node for node in cell.trunk if cell.node_in_subtree(trunk, node) and 'tuft' in (child.type for child in
-                                                                                             node.children)).next()
+    trunk = next((node for node in cell.trunk if cell.node_in_subtree(trunk, node) and 'tuft' in (child.type for child in
+                                                                                             node.children)))
 else:
-    trunk = (node for node in cell.trunk if 'tuft' in (child.type for child in node.children)).next()
+    trunk = next((node for node in cell.trunk if 'tuft' in (child.type for child in node.children)))
 
 sim = QuickSim(duration, verbose=False)
 sim.parameters['description'] = 'RInp'
