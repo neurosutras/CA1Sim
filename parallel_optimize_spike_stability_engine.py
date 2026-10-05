@@ -103,7 +103,7 @@ def offset_vm(description, vm_target=None):
         i_holding[description] += 0.01
         while offset:
             if sim.verbose:
-                print 'increasing i_holding to %.3f (%s)' % (i_holding[description], description)
+                print('increasing i_holding to %.3f (%s)' % (i_holding[description], description))
             sim.modify_stim(1, amp=i_holding[description])
             sim.run(vm_target)
             vm = np.interp(t, sim.tvec, rec)
@@ -116,7 +116,7 @@ def offset_vm(description, vm_target=None):
         i_holding[description] -= 0.01
         while offset:
             if sim.verbose:
-                print 'decreasing i_holding to %.3f (%s)' % (i_holding[description], description)
+                print('decreasing i_holding to %.3f (%s)' % (i_holding[description], description))
             sim.modify_stim(1, amp=i_holding[description])
             sim.run(vm_target)
             vm = np.interp(t, sim.tvec, rec)
@@ -207,17 +207,17 @@ def compute_spike_shape_features(local_x=None, plot=False):
         sim.run(v_active)
         vm = np.interp(t, sim.tvec, sim.get_rec('soma')['vec'])
         if np.any(vm[:int(equilibrate/dt)] > -30.):
-            print 'Process %i: Aborting - spontaneous firing' % (os.getpid())
+            print('Process %i: Aborting - spontaneous firing' % (os.getpid()))
             return None
         if np.any(vm[int(equilibrate/dt):int((equilibrate+50.)/dt)] > -30.):
             spike = True
         elif amp >= 0.4: #this was implemented in spike_adaptation_engine; is it also applicable here?
-            print 'Process %i: Aborting - rheobase outside target range' % (os.getpid())
+            print('Process %i: Aborting - rheobase outside target range' % (os.getpid()))
             return None
         else:
             amp += d_amp
             if sim.verbose:
-                print 'increasing amp to %.3f' % amp
+                print('increasing amp to %.3f' % amp)
     sim.parameters['amp'] = amp
     i_th['soma'] = amp
     spike_times = cell.spike_detector.get_recordvec().to_python()
@@ -248,7 +248,7 @@ def compute_spike_shape_features(local_x=None, plot=False):
     else:
         result['ais_delay'] = ais_peak_t + dt - axon_peak_t
 
-    print 'Process %i took %.1f s to find spike rheobase at amp: %.3f' % (os.getpid(), time.time() - start_time, amp)
+    print('Process %i took %.1f s to find spike rheobase at amp: %.3f' % (os.getpid(), time.time() - start_time, amp))
     if plot:
         sim.plot()
     result['v_th'] = threshold
@@ -301,7 +301,7 @@ def compute_spike_stability_features(input_param, local_x=None, plot=False):
     v_min_late = np.min(vm[int((equilibrate + stim_dur - 20.)/dt):int((equilibrate + stim_dur - 1.)/dt)])
     result['stability'] = stability
     result['v_min_late'] = v_min_late
-    print 'Process %i took %.1f s to test spike stability with amp: %.3f' % (os.getpid(), time.time()-start_time, amp)
+    print('Process %i took %.1f s to test spike stability with amp: %.3f' % (os.getpid(), time.time()-start_time, amp))
     return result
 
 
@@ -356,7 +356,7 @@ sim = QuickSim(duration, cvode=False, dt=dt, verbose=False)
 sim.append_stim(cell, cell.tree.root, loc=0., amp=0., delay=equilibrate, dur=stim_dur)
 sim.append_stim(cell, cell.tree.root, loc=0., amp=0., delay=0., dur=duration)
 
-for description, node in rec_nodes.iteritems():
+for description, node in rec_nodes.items():
     sim.append_rec(cell, node, loc=rec_locs[description], description=description)
 
 i_holding = {'soma': 0.}

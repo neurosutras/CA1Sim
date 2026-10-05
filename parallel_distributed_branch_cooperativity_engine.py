@@ -17,12 +17,13 @@ mech_filename = '050715 pas_exp_scale kdr ka_scale ih_sig_scale ampar_exp_scale 
 rec_filename = 'output'+datetime.datetime.today().strftime('%m%d%Y%H%M')+'-pid'+str(os.getpid())
 
 
-def stimulate_synapse_group((path_index, num_syns)):
+def stimulate_synapse_group(xxx_todo_changeme):
     """
     :param path_index: int
     :param num_syns: int
     :return: str
     """
+    (path_index, num_syns) = xxx_todo_changeme
     start_time = time.time()
     path = path_list[path_index]
     sim.parameters['path_type'] = path['branch'].type
@@ -30,7 +31,7 @@ def stimulate_synapse_group((path_index, num_syns)):
     sim.modify_rec(2, cell.get_dendrite_origin(path['branch']))
     sim.parameters['syn_indexes'] = []
     local_random.seed(path['branch'].index)
-    stim_syn_indexes = local_random.sample(range(0, len(path['spines'])), len(path['spines']))
+    stim_syn_indexes = local_random.sample(list(range(0, len(path['spines']))), len(path['spines']))
     for num, i in enumerate(stim_syn_indexes[:num_syns]):
         syn = path['spines'][i].synapses[0]
         sim.parameters['syn_indexes'].append(path['spines'][i].index)
@@ -44,8 +45,8 @@ def stimulate_synapse_group((path_index, num_syns)):
         syn = path['spines'][i].synapses[0]
         syn.source.play(h.Vector())     # playing an empty vector turns this synapse off for future runs while keeping
                                         # the VecStim source object in existence so it can be activated again
-    print 'Process:', os.getpid(), 'completed Iteration:', path_index, 'Spines:', num_syns, 'Terminal Branch:', \
-        path['branch'].name, 'in %.3f s' % (time.time() - start_time)
+    print('Process:', os.getpid(), 'completed Iteration:', path_index, 'Spines:', num_syns, 'Terminal Branch:', \
+        path['branch'].name, 'in %.3f s' % (time.time() - start_time))
     return rec_filename
     #return {'pid': os.getpid(), 'rank': MPI.COMM_WORLD.Get_rank(), 'path':path_index, 'num_syns': num_syns}
 
@@ -78,16 +79,16 @@ trunk_bifurcation = [trunk for trunk in cell.trunk if cell.is_bifurcation(trunk,
 if trunk_bifurcation:
     trunk_branches = [branch for branch in trunk_bifurcation[0].children if branch.type == 'trunk']
     for branch in trunk_branches:
-        terminal_trunk = (node for node in cell.trunk if cell.node_in_subtree(branch, node) and 'tuft' in (child.type
-                                                                                    for child in node.children)).next()
+        terminal_trunk = next((node for node in cell.trunk if cell.node_in_subtree(branch, node) and 'tuft' in (child.type
+                                                                                    for child in node.children)))
         branch_path = cell.tree.path_between_nodes(terminal_trunk, branch)
         path_list.append({'branch': terminal_trunk, 'spines': []})
         for node in branch_path:
             path_list[-1]['spines'].extend(node.spines)
     # get where the thickest trunk branch gives rise to the tuft
     trunk = max(trunk_branches, key=lambda node: node.sec(0.).diam)
-    trunk = (node for node in cell.trunk if cell.node_in_subtree(trunk, node) and 'tuft' in (child.type
-                                                                                    for child in node.children)).next()
+    trunk = next((node for node in cell.trunk if cell.node_in_subtree(trunk, node) and 'tuft' in (child.type
+                                                                                    for child in node.children)))
 else:
     trunk_bifurcation = [node for node in cell.trunk if 'tuft' in (child.type for child in node.children)]
     trunk = trunk_bifurcation[0]

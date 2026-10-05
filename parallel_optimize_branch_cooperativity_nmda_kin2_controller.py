@@ -40,14 +40,14 @@ def create_no_nmda_expected_file():
     """
     dv['gmax'] = 0.
     num_spines = min(max_spines, len(parallel_optimize_branch_cooperativity_nmda_kin2_engine.spine_list))
-    result = v.map_async(parallel_optimize_branch_cooperativity_nmda_kin2_engine.stim_expected, range(num_spines))
+    result = v.map_async(parallel_optimize_branch_cooperativity_nmda_kin2_engine.stim_expected, list(range(num_spines)))
     while not result.ready():
         time.sleep(30)
         clear_output()
         for stdout in [stdout for stdout in result.stdout if stdout][-len(c):]:
             lines = stdout.split('\n')
             if lines[-2]:
-                print lines[-2]
+                print(lines[-2])
         sys.stdout.flush()
     rec_file_list = [filename for filename in dv['rec_filename'] if os.path.isfile(data_dir+filename+'.hdf5')]
     combine_output_files(rec_file_list, new_rec_filename+'_no_nmda_expected')
@@ -70,14 +70,14 @@ def branch_cooperativity_error(x, plot=0):
     dv['sh'] = x[3]
     #dv['kin_scale'] = x[4]
     num_spines = min(max_spines, len(parallel_optimize_branch_cooperativity_nmda_kin2_engine.spine_list))
-    result = v.map_async(parallel_optimize_branch_cooperativity_nmda_kin2_engine.stim_expected, range(num_spines))
+    result = v.map_async(parallel_optimize_branch_cooperativity_nmda_kin2_engine.stim_expected, list(range(num_spines)))
     while not result.ready():
         time.sleep(30)
         clear_output()
         for stdout in [stdout for stdout in result.stdout if stdout][-len(c):]:
             lines = stdout.split('\n')
             if lines[-2]:
-                print lines[-2]
+                print(lines[-2])
         sys.stdout.flush()
     rec_file_list = [filename for filename in dv['rec_filename'] if os.path.isfile(data_dir+filename+'.hdf5')]
     combine_output_files(rec_file_list, new_rec_filename+'_expected')
@@ -85,7 +85,7 @@ def branch_cooperativity_error(x, plot=0):
         os.remove(data_dir+filename+'.hdf5')
     instructions = []
     for group in range(1, num_spines+1):
-        instructions.append(range(group))
+        instructions.append(list(range(group)))
     result = v.map_async(parallel_optimize_branch_cooperativity_nmda_kin2_engine.stim_actual, instructions)
     while not result.ready():
         time.sleep(30)
@@ -93,7 +93,7 @@ def branch_cooperativity_error(x, plot=0):
         for stdout in [stdout for stdout in result.stdout if stdout][-len(c):]:
             lines = stdout.split('\n')
             if lines[-2]:
-                print lines[-2]
+                print(lines[-2])
         sys.stdout.flush()
     rec_file_list = [filename for filename in dv['rec_filename'] if os.path.isfile(data_dir+filename+'.hdf5')]
     combine_output_files(rec_file_list, new_rec_filename+'_actual')
@@ -119,9 +119,9 @@ def branch_cooperativity_error(x, plot=0):
     result = {'unitary_nmda_contribution': (np.max(unit_with_nmda) - np.max(unit_no_nmda)) /
                                            np.max(unit_no_nmda) * 100.}
     with h5py.File(data_dir+new_rec_filename+'_expected.hdf5', 'r') as expected_file:
-        expected_index_map = get_expected_spine_index_map(expected_file).itervalues().next()
+        expected_index_map = next(iter(get_expected_spine_index_map(expected_file).values()))
         with h5py.File(data_dir+new_rec_filename+'_actual.hdf5', 'r') as actual_file:
-            sorted_sim_keys = actual_file.keys()
+            sorted_sim_keys = list(actual_file.keys())
             sorted_sim_keys.sort(key=lambda x: len(actual_file[x].attrs['syn_indexes']))
             expected_dict, actual_dict = get_expected_vs_actual(expected_file, actual_file, expected_index_map,
                                                                 sorted_sim_keys)
@@ -149,10 +149,10 @@ def branch_cooperativity_error(x, plot=0):
                 target_range['peak_supralinearity'])**2.
     # penalize increases in gmax to avoid uncontrolled parallel increases in gmax and kin_factor without change in Err
     #Err += ((x[0] - xmin[0]) / 0.0003)**2.
-    print '[gmax, gamma, Kd, sh]: [%.3E, %.3E, %.3E, %.3E]' % (x[0], x[1], x[2], x[3])
-    print 'Peak Supralinearity: %.2f, Min Supralinearity: %.2f, Unitary %% NMDA: %.3f' % \
-          (result['peak_supralinearity'], result['min_supralinearity'], result['unitary_nmda_contribution'])
-    print 'Parallel simulation took %i s, Error: %.4E' % (time.time()-start_time, Err)
+    print('[gmax, gamma, Kd, sh]: [%.3E, %.3E, %.3E, %.3E]' % (x[0], x[1], x[2], x[3]))
+    print('Peak Supralinearity: %.2f, Min Supralinearity: %.2f, Unitary %% NMDA: %.3f' % \
+          (result['peak_supralinearity'], result['min_supralinearity'], result['unitary_nmda_contribution']))
+    print('Parallel simulation took %i s, Error: %.4E' % (time.time()-start_time, Err))
     if plot:
         plt.plot(expected, actual)
         plt.xlabel('Expected EPSP (mV)')

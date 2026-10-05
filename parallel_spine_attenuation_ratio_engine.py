@@ -41,8 +41,8 @@ def calculate_single_attenuation_ratio(syn_index):
         sim.export_to_file(f, syn_index*2+1)
     syn.source.play(h.Vector())  # playing an empty vector turns this synapse off for future runs while keeping the
                                  # VecStim source object in existence so it can be activated again
-    print 'Process:', os.getpid(), 'completed Iteration:', syn_index, 'Spine:', spine.index, 'Node:', \
-        branch.name, 'in', time.time() - start_time, 's'
+    print('Process:', os.getpid(), 'completed Iteration:', syn_index, 'Spine:', spine.index, 'Node:', \
+        branch.name, 'in', time.time() - start_time, 's')
     return rec_filename
 
 
@@ -62,11 +62,11 @@ for branch in cell.basal+cell.trunk+cell.apical+cell.tuft:
     node_list = []
     if len(branch.spines) > 1:
         if branch.sec.L <= 10.:
-            node = branch.spines[random.sample(range(0, len(branch.spines)), 1)[0]]
+            node = branch.spines[random.sample(list(range(0, len(branch.spines))), 1)[0]]
             node_list.append(node)
         else:
             num_syns = min(len(branch.spines), int(branch.sec.L//10.))  # a random synapse every 10 um
-            for i in random.sample(range(0, len(branch.spines)), num_syns):
+            for i in random.sample(list(range(0, len(branch.spines))), num_syns):
                 node = branch.spines[i]
                 node_list.append(node)
     elif branch.spines:

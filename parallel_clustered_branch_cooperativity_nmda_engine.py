@@ -86,7 +86,7 @@ def get_clustered_spines(cell, branch_origin, spine_list, min_num, length, direc
         return []
 
 
-def stim_actual_group((group_index, num_spines)):
+def stim_actual_group(xxx_todo_changeme):
     """
     Called by controller, mapped to each engine. Activates random spines of increasing number until max cooperativity
     is reached.
@@ -94,6 +94,7 @@ def stim_actual_group((group_index, num_spines)):
     :param num_spines: int
     :return: str
     """
+    (group_index, num_spines) = xxx_todo_changeme
     spine_group = groups_to_stim[group_index]
     path_type = spine_group['path_type']
     path_index = spine_group['path_index']
@@ -117,15 +118,15 @@ def stim_actual_group((group_index, num_spines)):
     sim.run(v_init)
     with h5py.File(data_dir+rec_filename+'.hdf5', 'a') as f:
         sim.export_to_file(f, int(group_index*1e6+num_spines))
-    print 'Process: %i took %i s to stimulate %i synapses in path %i' % (os.getpid(), time.time() - start_time,
-                                                                         num_spines, path_index)
+    print('Process: %i took %i s to stimulate %i synapses in path %i' % (os.getpid(), time.time() - start_time,
+                                                                         num_spines, path_index))
     for spine in spine_group['spines'][:num_spines]:
         syn = spine.synapses[0]
         syn.source.play(h.Vector())
     return rec_filename
 
 
-def stim_single_expected((group_index, spine_index)):
+def stim_single_expected(xxx_todo_changeme1):
     """
     Called by controller, mapped to each engine. Activates a single spine specified by an index and saves the
     resulting output to a file.
@@ -133,6 +134,7 @@ def stim_single_expected((group_index, spine_index)):
     :param spine_index: int
     :return: str
     """
+    (group_index, spine_index) = xxx_todo_changeme1
     spine_group = groups_to_stim[group_index]
     path_type = spine_group['path_type']
     spine = spine_group['spines'][spine_index]
@@ -154,7 +156,7 @@ def stim_single_expected((group_index, spine_index)):
     with h5py.File(data_dir+rec_filename+'.hdf5', 'a') as f:
         sim.export_to_file(f, int(group_index*1e6+spine_index))
     syn.source.play(h.Vector())
-    print 'Process: %i stimulated spine: %i in %i s' % (os.getpid(), spine.index, time.time() - start_time)
+    print('Process: %i stimulated spine: %i in %i s' % (os.getpid(), spine.index, time.time() - start_time))
     return rec_filename
 
 
@@ -173,7 +175,7 @@ grouped_spines = {sec_type: [] for sec_type in ['basal', 'trunk', 'apical', 'tuf
 for sec_type in ['basal', 'apical', 'tuft']:
     for branch in (branch for branch in cell._node_dict[sec_type] if branch.sec.L >= max_length and
                     len(branch.spines) >= min_num_spines):
-        print branch.name, ', len: ', branch.sec.L, ', spines: ', len(branch.spines)
+        print(branch.name, ', len: ', branch.sec.L, ', spines: ', len(branch.spines))
         branch_origin = cell.get_dendrite_origin(branch)
         if cell.is_terminal(branch):
             spine_list = get_clustered_spines(cell, branch_origin, branch.spines, min_num_spines, max_length, 1)
@@ -220,7 +222,7 @@ for trunk_path in trunk_paths:
     spines_in_path = []
     for trunk in trunk_path:
         spines_in_path.extend(trunk.spines)
-    print trunk.name, ', spines: ', len(spines_in_path)
+    print(trunk.name, ', spines: ', len(spines_in_path))
     branch_origin = cell.tree.root
     spine_list = get_clustered_spines(cell, branch_origin, spines_in_path, min_num_spines, max_length, 1)
     if spine_list:
@@ -278,8 +280,8 @@ if trunk_bifurcation:
     trunk_branches = [branch for branch in trunk_bifurcation[0].children if branch.type == 'trunk']
     # get where the thickest trunk branch gives rise to the tuft
     trunk = max(trunk_branches, key=lambda node: node.sec(0.).diam)
-    trunk = (node for node in cell.trunk if cell.node_in_subtree(trunk, node) and 'tuft' in (child.type
-                                                                                    for child in node.children)).next()
+    trunk = next((node for node in cell.trunk if cell.node_in_subtree(trunk, node) and 'tuft' in (child.type
+                                                                                    for child in node.children)))
 else:
     trunk_bifurcation = [node for node in cell.trunk if 'tuft' in (child.type for child in node.children)]
     trunk = trunk_bifurcation[0]

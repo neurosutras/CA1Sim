@@ -21,17 +21,17 @@ start_time = time.time()
 dv.execute('from parallel_optimize_EPSP_amp_engine import *')
 v = c.load_balanced_view()
 map_result = v.map_async(parallel_optimize_EPSP_amp_engine.optimize_single_synapse,
-                         range(len(parallel_optimize_EPSP_amp_engine.syn_list)))
+                         list(range(len(parallel_optimize_EPSP_amp_engine.syn_list))))
 while not map_result.ready():
     time.sleep(30)
     for stdout in [stdout for stdout in map_result.stdout if stdout][-len(c):]:
         lines = stdout.split('\n')
         if lines[-2]:
-            print lines[-2]
+            print(lines[-2])
     sys.stdout.flush()
     clear_output()
 results = map_result.get()
-print 'Parallel execution took:', time.time()-start_time, 's'
+print('Parallel execution took:', time.time()-start_time, 's')
 distances = {}
 param_vals = {}
 for result in results:

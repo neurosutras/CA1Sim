@@ -41,9 +41,9 @@ def epsp_amp_error(x, syn):
     Err = 0.
     for target in result:
         Err += ((target_val[target] - result[target])/target_range[target])**2.
-    print 'Process:', os.getpid(), 'Spine:', syn.node.index, 'Node:', syn.node.parent.parent.name, 'Time: %.3f s, x: ' \
+    print('Process:', os.getpid(), 'Spine:', syn.node.index, 'Node:', syn.node.parent.parent.name, 'Time: %.3f s, x: ' \
                                                             '%.2E, Amp: %.3f, Error: %.2E' % (time.time() - start_time,
-                                                            x[0], amp, Err)
+                                                            x[0], amp, Err))
     return Err
 
 
@@ -64,9 +64,9 @@ def optimize_single_synapse(syn_index):
                                                                                     'fatol': 1e-3, 'maxiter': 20})
     syn.source.play(h.Vector())  # playing an empty vector turns this synapse off for future runs while keeping the
                                  # VecStim source object in existence so it can be activated again
-    print 'Process:', os.getpid(), 'optimized Spine:', syn.node.index, 'on Node:', syn.node.parent.parent.name, ' in ' \
+    print('Process:', os.getpid(), 'optimized Spine:', syn.node.index, 'on Node:', syn.node.parent.parent.name, ' in ' \
                                                 '%.3f s, x: %.2E, after %i iterations with Err: %.2E' % \
-                                                (time.time() - start_time, result.x[0], result.nfev, result.fun)
+                                                (time.time() - start_time, result.x[0], result.nfev, result.fun))
     distance = cell.get_distance_to_node(cell.tree.root, syn.node.parent.parent, syn.loc)
     param_vals = [p for p in result.x]
     return {'distance': distance, 'result': param_vals, 'sec_type': syn.node.parent.parent.type}
@@ -88,12 +88,12 @@ local_random.seed(0)
 for branch in cell.trunk:  # cell.basal+cell.trunk+cell.apical+cell.tuft:
     if len(branch.spines) > 1:
         if branch.sec.L <= 10.:
-            node = branch.spines[local_random.sample(range(0, len(branch.spines)), 1)[0]]
+            node = branch.spines[local_random.sample(list(range(0, len(branch.spines))), 1)[0]]
             syn = Synapse(cell, node, [syn_type], stochastic=0)
             syn_list.append(syn)
         else:
             num_syns = min(len(branch.spines), int(branch.sec.L//10.))  # a random synapse every 10 um
-            for i in local_random.sample(range(0, len(branch.spines)), num_syns):
+            for i in local_random.sample(list(range(0, len(branch.spines))), num_syns):
                 node = branch.spines[i]
                 syn = Synapse(cell, node, [syn_type], stochastic=0)
                 syn_list.append(syn)

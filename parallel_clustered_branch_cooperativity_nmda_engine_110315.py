@@ -16,13 +16,14 @@ NMDA_type = 'NMDA_KIN5'
 ISI = 0.3
 
 
-def stim_actual_group((group_index, num_spines)):
+def stim_actual_group(xxx_todo_changeme):
     """
     Called by controller, mapped to each engine. Activates the specified number of spines in the specified group.
     :param group_index: int
     :param num_spines: int
     :return: str
     """
+    (group_index, num_spines) = xxx_todo_changeme
     spine_group = groups_to_stim[group_index]
     loc = np.median([spine.synapses[0].loc for spine in spine_group['spines']])
     path_type = spine_group['path_type']
@@ -47,15 +48,15 @@ def stim_actual_group((group_index, num_spines)):
     sim.run(v_init)
     with h5py.File(data_dir+rec_filename+'.hdf5', 'a') as f:
         sim.export_to_file(f, int(group_index*1e6+num_spines))
-    print 'Process: %i took %i s to stimulate %i synapses in path %i' % (os.getpid(), time.time() - start_time,
-                                                                         num_spines, path_index)
+    print('Process: %i took %i s to stimulate %i synapses in path %i' % (os.getpid(), time.time() - start_time,
+                                                                         num_spines, path_index))
     for spine in spine_group['spines'][:num_spines]:
         syn = spine.synapses[0]
         syn.source.play(h.Vector())
     return rec_filename
 
 
-def stim_single_expected((group_index, spine_index)):
+def stim_single_expected(xxx_todo_changeme1):
     """
     Called by controller, mapped to each engine. Activates a single spine specified by an index and saves the
     resulting output to a file.
@@ -63,6 +64,7 @@ def stim_single_expected((group_index, spine_index)):
     :param spine_index: int
     :return: str
     """
+    (group_index, spine_index) = xxx_todo_changeme1
     spine_group = groups_to_stim[group_index]
     path_type = spine_group['path_type']
     loc = np.median([spine.synapses[0].loc for spine in spine_group['spines']])
@@ -85,7 +87,7 @@ def stim_single_expected((group_index, spine_index)):
     with h5py.File(data_dir+rec_filename+'.hdf5', 'a') as f:
         sim.export_to_file(f, int(group_index*1e6+spine_index))
     syn.source.play(h.Vector())
-    print 'Process: %i stimulated spine: %i in %i s' % (os.getpid(), spine.index, time.time() - start_time)
+    print('Process: %i stimulated spine: %i in %i s' % (os.getpid(), spine.index, time.time() - start_time))
     return rec_filename
 
 
@@ -140,8 +142,8 @@ if trunk_bifurcation:
     trunk_branches = [branch for branch in trunk_bifurcation[0].children if branch.type == 'trunk']
     # get where the thickest trunk branch gives rise to the tuft
     trunk = max(trunk_branches, key=lambda node: node.sec(0.).diam)
-    trunk = (node for node in cell.trunk if cell.node_in_subtree(trunk, node) and 'tuft' in (child.type
-                                                                                    for child in node.children)).next()
+    trunk = next((node for node in cell.trunk if cell.node_in_subtree(trunk, node) and 'tuft' in (child.type
+                                                                                    for child in node.children)))
 else:
     trunk_bifurcation = [node for node in cell.trunk if 'tuft' in (child.type for child in node.children)]
     trunk = trunk_bifurcation[0]

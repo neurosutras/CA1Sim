@@ -46,8 +46,8 @@ def test_single_section(sec_index, loc=None):
                                             equilibrate + delay + stim_dur)
     with h5py.File(data_dir+rec_filename+'.hdf5', 'a') as f:
         sim.export_to_file(f, sec_index)
-    print 'Process:', os.getpid(), 'completed Iteration:', sec_index, 'Node:', node.name, 'in', \
-        time.time() - start_time, 's'
+    print('Process:', os.getpid(), 'completed Iteration:', sec_index, 'Node:', node.name, 'in', \
+        time.time() - start_time, 's')
     if cell.is_terminal(node):
         test_single_section(sec_index, 1.)
     return rec_filename

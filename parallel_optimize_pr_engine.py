@@ -40,7 +40,7 @@ def sim_stim_train_dynamics(ISI):
     for stim_time in stim_times:
         P = this_Pr.stim(stim_time)
         # P_list.append(P)
-        for j in local_random.sample(range(N), int(P * N)):
+        for j in local_random.sample(list(range(N)), int(P * N)):
             stim_time_array[j].append(stim_time)
     stim_time_vector_array = [h.Vector(stim_time_list) for stim_time_list in stim_time_array]
     interp_t = np.arange(0., duration, interp_dt)
@@ -58,7 +58,7 @@ def sim_stim_train_dynamics(ISI):
     baseline = np.average(vm[left:right])
     vm -= baseline
     rec = np.interp(interp_t, t, vm)
-    print 'Process:', os.getpid(), 'ISI:', ISI, 'synapses:', N, 'took', time.time() - start_time, 's'
+    print('Process:', os.getpid(), 'ISI:', ISI, 'synapses:', N, 'took', time.time() - start_time, 's')
     left, right = time2index(interp_t, equilibrate-2.0, duration)
     return {ISI: rec[left:right]}
 
@@ -78,7 +78,7 @@ def sim_stim_train_basal(x):
     N = len(syn_list.syns_to_stim)
     stim_time_array = [[] for i in range(N)]
     for stim_time in [equilibrate + ISI * i for i in range(num_stims)]:
-        for j in local_random.sample(range(N), int(P0 * N)):
+        for j in local_random.sample(list(range(N)), int(P0 * N)):
             stim_time_array[j].append(stim_time)
     stim_time_vector_array = [h.Vector(stim_time_list) for stim_time_list in stim_time_array]
     interp_t = np.arange(0., duration, interp_dt)
@@ -96,7 +96,7 @@ def sim_stim_train_basal(x):
     baseline = np.average(vm[left:right])
     vm -= baseline
     rec = np.interp(interp_t, t, vm)
-    print 'Process:', os.getpid(), 'ISI:', ISI, 'synapses:', N, 'took', time.time() - start_time, 's'
+    print('Process:', os.getpid(), 'ISI:', ISI, 'synapses:', N, 'took', time.time() - start_time, 's')
     left, right = time2index(interp_t, equilibrate-2.0, duration)
     return rec[left:right]
 
@@ -170,7 +170,7 @@ class SynList(object):
                             self.all_syns_in_range[sec_type].append(syn)
         self.num_syns_in_range = {sec_type: len(self.all_syns_in_range[sec_type]) for sec_type in self.sec_type_list}
         self.fraction_syns_in_range = {sec_type: float(self.num_syns_in_range[sec_type]) /
-                                            float(np.sum(self.num_syns_in_range.values())) for sec_type in
+                                            float(np.sum(list(self.num_syns_in_range.values()))) for sec_type in
                                             self.sec_type_list}
 
     def choose_syns_to_stim(self, N):
@@ -227,8 +227,8 @@ if trunk_bifurcation:
     trunk_branches = [branch for branch in trunk_bifurcation[0].children if branch.type == 'trunk']
     # get where the thickest trunk branch gives rise to the tuft
     trunk = max(trunk_branches, key=lambda node: node.sec(0.).diam)
-    trunk = (node for node in cell.trunk if cell.node_in_subtree(trunk, node) and 'tuft' in (child.type
-                                                                                    for child in node.children)).next()
+    trunk = next((node for node in cell.trunk if cell.node_in_subtree(trunk, node) and 'tuft' in (child.type
+                                                                                    for child in node.children)))
 else:
     trunk_bifurcation = [node for node in cell.trunk if 'tuft' in (child.type for child in node.children)]
     trunk = trunk_bifurcation[0]

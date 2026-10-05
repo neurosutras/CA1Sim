@@ -33,7 +33,7 @@ def offset_vm(node, loc, index):
         if v_rest < v_init - 1.:
             i_holding += 0.005
             if sim.verbose:
-                print 'increasing i_holding to %.3f' % (i_holding)
+                print('increasing i_holding to %.3f' % (i_holding))
             if direction is None:
                 direction = 1
             elif direction == -1:
@@ -41,7 +41,7 @@ def offset_vm(node, loc, index):
         elif v_rest > v_init + 1.:
             i_holding -= 0.005
             if sim.verbose:
-                print 'decreasing i_holding to %.3f' % (i_holding)
+                print('decreasing i_holding to %.3f' % (i_holding))
             if direction is None:
                 direction = -1
             elif direction == 1:
@@ -70,8 +70,8 @@ def stimulate_single_synapse(syn_index):
         sim.export_to_file(f, syn_index)
     syn.source.play(h.Vector())  # playing an empty vector turns this synapse off for future runs while keeping the
                                  # VecStim source object in existence so it can be activated again
-    print 'Process:', os.getpid(), 'completed Iteration:', syn_index, 'Spine:', syn.node.index, 'Node:', \
-        syn.node.parent.parent.name, 'in %.3f s' % (time.time() - start_time)
+    print('Process:', os.getpid(), 'completed Iteration:', syn_index, 'Spine:', syn.node.index, 'Node:', \
+        syn.node.parent.parent.name, 'in %.3f s' % (time.time() - start_time))
     return rec_filename
 
 
@@ -94,13 +94,13 @@ local_random.seed(0)
 for branch in cell.basal+cell.trunk+cell.apical+cell.tuft:
     if len(branch.spines) > 1:
         if branch.sec.L <= 10.:
-            node = branch.spines[local_random.sample(range(0, len(branch.spines)), 1)[0]]
+            node = branch.spines[local_random.sample(list(range(0, len(branch.spines))), 1)[0]]
             #syn = Synapse(cell, node, [syn_type], stochastic=0)
             syn = Synapse(cell, node, syn_types, stochastic=0)
             syn_list.append(syn)
         else:
             num_syns = min(len(branch.spines), int(branch.sec.L//10.))  # a random synapse every 10 um
-            for i in local_random.sample(range(0, len(branch.spines)), num_syns):
+            for i in local_random.sample(list(range(0, len(branch.spines))), num_syns):
                 node = branch.spines[i]
                 #syn = Synapse(cell, node, [syn_type], stochastic=0)
                 syn = Synapse(cell, node, syn_types, stochastic=0)
@@ -123,12 +123,12 @@ if trunk_bifurcation:
     trunk_branches = [branch for branch in trunk_bifurcation[0].children if branch.type == 'trunk']
     # get where the thickest trunk branch gives rise to the tuft
     trunk = max(trunk_branches, key=lambda node: node.sec(0.).diam)
-    trunk = (node for node in cell.trunk if cell.node_in_subtree(trunk, node) and 'tuft' in (child.type
-                                                                            for child in node.children)).next()
+    trunk = next((node for node in cell.trunk if cell.node_in_subtree(trunk, node) and 'tuft' in (child.type
+                                                                            for child in node.children)))
 else:
     trunk_bifurcation = [node for node in cell.trunk if 'tuft' in (child.type for child in node.children)]
     trunk = trunk_bifurcation[0]
-tuft = (child for child in trunk.children if child.type == 'tuft').next()
+tuft = next((child for child in trunk.children if child.type == 'tuft'))
 #distal_trunk = trunk
 #trunk = trunk_bifurcation[0]
 

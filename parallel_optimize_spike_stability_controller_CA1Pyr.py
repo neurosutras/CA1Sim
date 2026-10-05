@@ -32,9 +32,9 @@ def na_ka_stability_error(x, plot=0):
     """
     hist.x_values.append(x)
     formatted_x = '[' + ', '.join(['%.3E' % xi for xi in x]) + ']'
-    print 'Trying x: %s: %s' % (str(xlabels['na_ka_stability']), formatted_x)
+    print('Trying x: %s: %s' % (str(xlabels['na_ka_stability']), formatted_x))
     if not check_bounds.within_bounds(x, 'na_ka_stability'):
-        print 'Process %i: Aborting - Parameters outside optimization bounds.' % (os.getpid())
+        print('Process %i: Aborting - Parameters outside optimization bounds.' % (os.getpid()))
         Err = 1e9
         hist.error_values.append(Err)
         return Err
@@ -50,12 +50,12 @@ def na_ka_stability_error(x, plot=0):
             lines = stdout.splitlines()
             if len(lines) > last_buffer_len:
                 for line in lines[last_buffer_len:]:
-                    print line
+                    print(line)
                 last_buffer_len = len(lines)
         sys.stdout.flush()
     result = result.get()
     if result is None:
-        print 'Process %i: Aborting - Cell is spontaneously firing.'
+        print('Process %i: Aborting - Cell is spontaneously firing.')
         Err = 1e9
         hist.error_values.append(Err)
         return Err
@@ -76,7 +76,7 @@ def na_ka_stability_error(x, plot=0):
                 lines = stdout.splitlines()
                 if len(lines) > last_buffer_len[i]:
                     for line in lines[last_buffer_len[i]:]:
-                        print line
+                        print(line)
                     last_buffer_len[i] = len(lines)
         sys.stdout.flush()
     result = result.get()
@@ -94,10 +94,10 @@ def na_ka_stability_error(x, plot=0):
             final_result['slow_depo'] = this_dict['v_min_late'] - final_result['v_th']
         else:
             final_result['slow_depo'] += this_dict['v_min_late'] - final_result['v_th']
-    indexes = range(len(temp_dict['rate']))
+    indexes = list(range(len(temp_dict['rate'])))
     indexes.sort(key=temp_dict['amp'].__getitem__)
-    temp_dict['amp'] = map(temp_dict['amp'].__getitem__, indexes)
-    temp_dict['rate'] = map(temp_dict['rate'].__getitem__, indexes)
+    temp_dict['amp'] = list(map(temp_dict['amp'].__getitem__, indexes))
+    temp_dict['rate'] = list(map(temp_dict['rate'].__getitem__, indexes))
     target_f_I = experimental_f_I_slope * np.log(temp_dict['amp'][0] / rheobase)
     final_result['rate'] = temp_dict['rate'][0]
     f_I_Err = ((final_result['rate'] - target_f_I) / (0.001 * target_f_I))**2.
@@ -119,14 +119,14 @@ def na_ka_stability_error(x, plot=0):
         hist.features['rate'] = []
     hist.features['rate'].append(final_result['rate'])
 
-    print 'Simulation took %i s' % (time.time()-start_time)
-    print 'Process %i: [soma.gkabar, soma.gkdrbar, soma.sh_nas/x, axon.gkbar factor, dend.gkabar factor, ' \
+    print('Simulation took %i s' % (time.time()-start_time))
+    print('Process %i: [soma.gkabar, soma.gkdrbar, soma.sh_nas/x, axon.gkbar factor, dend.gkabar factor, ' \
           'soma.gCa factor, soma.gCadepK factor, soma.gkmbar]: %s, amp: %.3f, v_rest: %.1f, threshold: %.1f, ' \
           'ADP: %.1f, AHP: %.1f, stability: %.2f, slow_depo: %.2f, dend_amp: %.2f, rate %.3f, ais_delay %.3f' % \
           (os.getpid(), formatted_x, final_result['amp'], final_result['v_rest'], final_result['v_th'],
            final_result['ADP'], final_result['AHP'], final_result['stability'], final_result['slow_depo'],
-           final_result['dend_amp'], final_result['rate'], final_result['ais_delay'])
-    print 'Process %i: f_I Error: %.4E, Error: %.4E' % (os.getpid(), f_I_Err, Err)
+           final_result['dend_amp'], final_result['rate'], final_result['ais_delay']))
+    print('Process %i: f_I Error: %.4E, Error: %.4E' % (os.getpid(), f_I_Err, Err))
     hist.error_values.append(Err)
     sys.stdout.flush()
     return Err
@@ -149,10 +149,10 @@ def plot_best(x=None, discard=True):
     rec_file_list = [filename for filename in dv['rec_filename'] if os.path.isfile(data_dir + filename + '.hdf5')]
     for i, rec_filename in enumerate(rec_file_list):
         with h5py.File(data_dir+rec_filename+'.hdf5', 'r') as f:
-            for trial in f.itervalues():
+            for trial in f.values():
                 amplitude = trial.attrs['amp']
                 fig, axes = plt.subplots(1)
-                for rec in trial['rec'].itervalues():
+                for rec in trial['rec'].values():
                     axes.plot(trial['time'], rec, label=rec.attrs['description'])
                 axes.legend(loc='best', frameon=False, framealpha=0.5)
                 axes.set_xlabel('Time (ms)')

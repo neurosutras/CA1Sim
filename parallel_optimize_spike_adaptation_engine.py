@@ -90,7 +90,7 @@ def offset_vm(description, vm_target=None):
         i_holding[description] += 0.01
         while offset:
             if sim.verbose:
-                print 'increasing i_holding to %.3f (%s)' % (i_holding[description], description)
+                print('increasing i_holding to %.3f (%s)' % (i_holding[description], description))
             sim.modify_stim(1, amp=i_holding[description])
             sim.run(vm_target)
             vm = np.interp(t, sim.tvec, rec)
@@ -103,7 +103,7 @@ def offset_vm(description, vm_target=None):
         i_holding[description] -= 0.01
         while offset:
             if sim.verbose:
-                print 'decreasing i_holding to %.3f (%s)' % (i_holding[description], description)
+                print('decreasing i_holding to %.3f (%s)' % (i_holding[description], description))
             sim.modify_stim(1, amp=i_holding[description])
             sim.run(vm_target)
             vm = np.interp(t, sim.tvec, rec)
@@ -126,7 +126,7 @@ def get_rheobase(local_x=None, plot=False):
     if local_x is None:
         local_x = x
     if not check_bounds.within_bounds(local_x, 'spike_adaptation'):
-        print 'Process %i: Aborting - Parameters outside optimization bounds.' % (os.getpid())
+        print('Process %i: Aborting - Parameters outside optimization bounds.' % (os.getpid()))
         return None
     start_time = time.time()
     update_spike_adaptation(local_x)
@@ -145,19 +145,19 @@ def get_rheobase(local_x=None, plot=False):
         sim.run(v_active)
         vm = np.interp(t, sim.tvec, sim.get_rec('soma')['vec'])
         if np.any(vm[:int(equilibrate/dt)] > -30.):
-            print 'Process %i: Aborting - spontaneous firing' % (os.getpid())
+            print('Process %i: Aborting - spontaneous firing' % (os.getpid()))
             return None
         if np.any(vm[int(equilibrate/dt):int((equilibrate+50.)/dt)] > -30.):
             spike = True
         elif amp >= 0.4:
-            print 'Process %i: Aborting - rheobase outside target range' % (os.getpid())
+            print('Process %i: Aborting - rheobase outside target range' % (os.getpid()))
             return None
         else:
             amp += d_amp
             if sim.verbose:
-                print 'increasing amp to %.3f' % amp
+                print('increasing amp to %.3f' % amp)
     i_th['soma'] = amp
-    print 'Process %i took %i s to find spike rheobase at amp: %.3f' % (os.getpid(), time.time() - start_time, amp)
+    print('Process %i took %i s to find spike rheobase at amp: %.3f' % (os.getpid(), time.time() - start_time, amp))
     if plot:
         sim.plot()
     return amp
@@ -175,7 +175,7 @@ def sim_f_I(amp, local_x=None, plot=False):
     if local_x is None:
         local_x = x
     if not check_bounds.within_bounds(local_x, 'spike_adaptation'):
-        print 'Process %i: Aborting - Parameters outside optimization bounds.' % (os.getpid())
+        print('Process %i: Aborting - Parameters outside optimization bounds.' % (os.getpid()))
         return None
     update_spike_adaptation(local_x)
     # sim.cvode_state = True
@@ -194,7 +194,7 @@ def sim_f_I(amp, local_x=None, plot=False):
     result = {}
     result['spike_times'] = spike_times
     result['amp'] = amp
-    print 'Process %i took %i s to run simulation with I_inj amp: %.3f' % (os.getpid(), time.time() - start_time, amp)
+    print('Process %i took %i s to run simulation with I_inj amp: %.3f' % (os.getpid(), time.time() - start_time, amp))
     return result
 
 
@@ -232,7 +232,7 @@ sim = QuickSim(duration, verbose=False, cvode=False, dt=dt)
 sim.append_stim(cell, cell.tree.root, loc=0., amp=0., delay=equilibrate, dur=stim_dur)
 sim.append_stim(cell, cell.tree.root, loc=0., amp=0., delay=0., dur=duration)
 
-for description, node in rec_nodes.iteritems():
+for description, node in rec_nodes.items():
     sim.append_rec(cell, node, loc=rec_locs[description], description=description)
 
 i_holding = {'soma': 0.}

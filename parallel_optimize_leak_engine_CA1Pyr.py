@@ -68,7 +68,7 @@ def offset_vm(description, vm_target=None):
         i_holding[description] += 0.01
         while offset:
             if sim.verbose:
-                print 'increasing i_holding to %.3f (%s)' % (i_holding[description], description)
+                print('increasing i_holding to %.3f (%s)' % (i_holding[description], description))
             sim.modify_stim(1, amp=i_holding[description])
             sim.run(vm_target)
             vm = np.interp(t, sim.tvec, rec)
@@ -81,7 +81,7 @@ def offset_vm(description, vm_target=None):
         i_holding[description] -= 0.01
         while offset:
             if sim.verbose:
-                print 'decreasing i_holding to %.3f (%s)' % (i_holding[description], description)
+                print('decreasing i_holding to %.3f (%s)' % (i_holding[description], description))
             sim.modify_stim(1, amp=i_holding[description])
             sim.run(vm_target)
             vm = np.interp(t, sim.tvec, rec)
@@ -128,9 +128,9 @@ def print_gpas_cm_values():
             h.pop_section()
             gpas_values['apical'].append(node.sec(segment.x).g_pas)
             cm_values['apical'].append(node.sec(segment.x).cm)
-    print 'g_pas: '
+    print('g_pas: ')
     pprint.pprint(gpas_values)
-    print 'cm '
+    print('cm ')
     pprint.pprint(cm_values)
 
 
@@ -161,8 +161,8 @@ def get_Rinp_for_section(section, local_x=None):
     sim.run(v_init)
     Rinp = get_Rinp(np.array(sim.tvec), np.array(rec['vec']), equilibrate, duration, amp)[2]
     result = {section: Rinp}
-    print 'Process:', os.getpid(), 'calculated Rinp for %s in %.1f s, Rinp: %.1f' % (section, time.time() - start_time,
-                                                                                    Rinp)
+    print('Process:', os.getpid(), 'calculated Rinp for %s in %.1f s, Rinp: %.1f' % (section, time.time() - start_time,
+                                                                                    Rinp))
     return result
 
 
@@ -228,5 +228,5 @@ sim = QuickSim(duration, verbose=False)
 sim.append_stim(cell, cell.tree.root, loc=0., amp=0., delay=equilibrate, dur=stim_dur)
 sim.append_stim(cell, cell.tree.root, loc=0., amp=0., delay=0., dur=duration)
 
-for description, node in rec_nodes.iteritems():
+for description, node in rec_nodes.items():
     sim.append_rec(cell, node, loc=rec_locs[description], description=description)

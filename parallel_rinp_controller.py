@@ -42,7 +42,7 @@ v = c.load_balanced_view()
 
 num_secs = len(parallel_rinp_engine.nodes)
 
-result = v.map_async(parallel_rinp_engine.test_single_section, range(num_secs))
+result = v.map_async(parallel_rinp_engine.test_single_section, list(range(num_secs)))
 #result = v.map_async(parallel_rinp_engine.test_single_section, range(40))
 last = []
 while not result.ready():
@@ -51,12 +51,12 @@ while not result.ready():
     for i, stdout in enumerate([stdout for stdout in result.stdout if stdout][-num_secs:]):
         line = stdout.splitlines()[-1]
         if line not in last:
-            print line
+            print(line)
             last.append(line)
     if len(last) > num_secs:
         last = last[-num_secs:]
     sys.stdout.flush()
-print 'Parallel execution took: ', time.time()-start_time, ' s'
+print('Parallel execution took: ', time.time()-start_time, ' s')
 rec_file_list = [filename for filename in dv['rec_filename'] if os.path.isfile(data_dir+filename+'.hdf5')]
 
 with h5py.File(data_dir+new_rec_filename+'.hdf5', 'w') as f:
@@ -68,14 +68,14 @@ with h5py.File(data_dir+new_rec_filename+'.hdf5', 'w') as f:
     trial_ind = 0
     for filename in rec_file_list:
         with h5py.File(data_dir + filename + '.hdf5', 'r') as r:
-            for trial in r.itervalues():
+            for trial in r.values():
                 f['Rinp_data'].create_group(str(trial_ind))
                 # 'Rinp_peak', 'decay_50', 'Rinp_baseline', 'Rinp_steady'
-                for key, value in trial.attrs.iteritems():
+                for key, value in trial.attrs.items():
                     f['Rinp_data'][str(trial_ind)].attrs[key] = value
-                rec = trial['rec'].itervalues().next()
+                rec = next(iter(trial['rec'].values()))
                 # adds 'cell', 'index', 'type', 'loc', 'soma_distance', 'branch_distance'
-                for key, value in rec.attrs.iteritems():
+                for key, value in rec.attrs.items():
                     f['Rinp_data'][str(trial_ind)].attrs[key] = value
                 sec_type = rec.attrs['type']
                 if sec_type in ['ais', 'axon_hill']:

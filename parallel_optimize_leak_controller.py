@@ -52,9 +52,9 @@ class History(object):
         best_x = self.x_values[index]
         best_Rinp_values = {section: self.Rinp_values[section][index] for section in self.Rinp_values}
         formatted_x = '[' + ', '.join(['%.3E' % xi for xi in best_x]) + ']'
-        print 'best x: %s' % formatted_x
-        print 'lowest Err: %.3E' % lowest_Err
-        print 'Rinp:', ['%s: %.1f' % (section, Rinp) for (section, Rinp) in best_Rinp_values.iteritems()]
+        print('best x: %s' % formatted_x)
+        print('lowest Err: %.3E' % lowest_Err)
+        print('Rinp:', ['%s: %.1f' % (section, Rinp) for (section, Rinp) in best_Rinp_values.items()])
         return best_x
 
     def export_to_pkl(self, hist_filename):
@@ -127,7 +127,7 @@ def pas_error(x):
     :return: float
     """
     if not check_bounds.within_bounds(x, 'pas'):
-        print 'Aborting: Invalid parameter values.'
+        print('Aborting: Invalid parameter values.')
         return 1e9
     start_time = time.time()
     dv['x'] = x
@@ -135,7 +135,7 @@ def pas_error(x):
 
     sec_list = ['soma', 'dend', 'distal_dend']
     formatted_x = '[' + ', '.join(['%.3E' % xi for xi in x]) + ']'
-    print 'Process %i using current x: %s: %s' % (os.getpid(), str(xlabels['pas']), formatted_x)
+    print('Process %i using current x: %s: %s' % (os.getpid(), str(xlabels['pas']), formatted_x))
     result = v.map_async(parallel_optimize_leak_engine.get_Rinp_for_section, sec_list)
     last = []
     while not result.ready():
@@ -144,7 +144,7 @@ def pas_error(x):
         for i, stdout in enumerate([stdout for stdout in result.stdout if stdout][-len(sec_list):]):
             line = stdout.splitlines()[-1]
             if line not in last:
-                print line
+                print(line)
                 last.append(line)
         if len(last) > len(sec_list):
             last = last[-len(sec_list):]
@@ -169,12 +169,12 @@ def pas_error(x):
         Err += ((final_result['dend'] - final_result['distal_dend']) / target_range['pas']['dend']) ** 2.
     hist.error_values.append(Err)
 
-    print('Simulation took %.3f s' % (time.time() - start_time))
-    print 'Process %i: %s: %s; soma R_inp: %.1f, dend R_inp: %.1f, distal_dend R_inp: %.1f; Err: %.3E' % (os.getpid(),
+    print(('Simulation took %.3f s' % (time.time() - start_time)))
+    print('Process %i: %s: %s; soma R_inp: %.1f, dend R_inp: %.1f, distal_dend R_inp: %.1f; Err: %.3E' % (os.getpid(),
                                                                                 str(xlabels['pas']), formatted_x,
                                                                                 final_result['soma'],
                                                                                 final_result['dend'],
-                                                                                final_result['distal_dend'], Err)
+                                                                                final_result['distal_dend'], Err))
     return Err
 
 
@@ -195,12 +195,12 @@ def plot_best(x=None, discard=True):
     rec_file_list = [filename for filename in dv['rec_filename'] if os.path.isfile(data_dir + filename + '.hdf5')]
     for rec_filename in rec_file_list:
         with h5py.File(data_dir+rec_filename+'.hdf5', 'r') as f:
-            for trial in f.itervalues():
+            for trial in f.values():
                 target = trial.attrs['target']
                 section = trial.attrs['section']
                 optimization = trial.attrs['optimization']
                 fig, axes = plt.subplots(1)
-                for rec in trial['rec'].itervalues():
+                for rec in trial['rec'].values():
                     axes.plot(trial['time'], rec, label=rec.attrs['description'])
                 axes.legend(loc='best', frameon=False, framealpha=0.5)
                 axes.set_xlabel('Time (ms)')
@@ -288,7 +288,7 @@ polished_result = optimize.minimize(pas_error, x0['pas'], method='Nelder-Mead', 
                                                                                          'disp': True,
                                                                                          'maxiter': polish_niter})
 
-print polished_result
+print(polished_result)
 best_x = hist.report_best()
 # hist.export_to_pkl(history_filename)
 

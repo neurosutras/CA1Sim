@@ -28,16 +28,16 @@ dv.block = True
 start_time = time.time()
 dv.execute('from parallel_spine_attenuation_ratio_engine import *')
 v = c.load_balanced_view()
-result = v.map_async(parallel_spine_attenuation_ratio_engine.calculate_single_attenuation_ratio, range(num_syns))
+result = v.map_async(parallel_spine_attenuation_ratio_engine.calculate_single_attenuation_ratio, list(range(num_syns)))
 while not result.ready():
     time.sleep(30)
     clear_output()
     for stdout in [stdout for stdout in result.stdout if stdout][-len(c):]:
         lines = stdout.split('\n')
         if lines[-2]:
-            print lines[-2]
+            print(lines[-2])
     sys.stdout.flush()
-print 'Parallel execution took:', time.time()-start_time, 's'
+print('Parallel execution took:', time.time()-start_time, 's')
 rec_file_list = [filename for filename in dv['rec_filename'] if os.path.isfile(data_dir+filename+'.hdf5')]
 combine_output_files(rec_file_list, new_rec_filename)
 for filename in rec_file_list:

@@ -39,7 +39,7 @@ while not result.ready():
     for stdout in [stdout for stdout in result.stdout if stdout][-len(c):]:
         lines = stdout.split('\n')
         if lines[-2]:
-            print lines[-2]
+            print(lines[-2])
     sys.stdout.flush()
 rec_file_list = [filename for filename in dv['rec_filename'] if os.path.isfile(data_dir+filename+'.hdf5')]
 combine_output_files(rec_file_list, new_rec_filename+'_expected')
@@ -57,11 +57,11 @@ while not result.ready():
     for stdout in [stdout for stdout in result.stdout if stdout][-len(c):]:
         lines = stdout.split('\n')
         if lines[-2]:
-            print lines[-2]
+            print(lines[-2])
     sys.stdout.flush()
 rec_file_list = [filename for filename in dv['rec_filename'] if os.path.isfile(data_dir+filename+'.hdf5')]
 combine_output_files(rec_file_list, new_rec_filename+'_actual')
 for filename in rec_file_list:
     os.remove(data_dir+filename+'.hdf5')
-print 'Parallel simulation took %i s to stimulate %i groups of spines' % (time.time() - start_time,
-                                                len(parallel_clustered_branch_cooperativity_nmda_engine.groups_to_stim))
+print('Parallel simulation took %i s to stimulate %i groups of spines' % (time.time() - start_time,
+                                                len(parallel_clustered_branch_cooperativity_nmda_engine.groups_to_stim)))

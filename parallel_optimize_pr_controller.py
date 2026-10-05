@@ -32,7 +32,7 @@ def basal_release_error(x, plot=0):
         for stdout in [stdout for stdout in map_result.stdout if stdout][-len(c):]:
             lines = stdout.split('\n')
             if lines[-2]:
-                print lines[-2]
+                print(lines[-2])
         sys.stdout.flush()
     unit_amps = []
     interp_dt = parallel_optimize_pr_engine.interp_dt
@@ -55,8 +55,8 @@ def basal_release_error(x, plot=0):
     Err = 0.
     Err += round(((target_val[300] - mean_unit_amp)/target_range[300])**2., 10)
     P0 = parallel_optimize_pr_engine.P0
-    print 'Parallel simulation took %i s, Error: %.4E' % (time.time()-start_time, Err)
-    print '[x, P0]: [%4E, %.3f], Num synapses: %i, unit amp: %.3f' % (x[0], P0, int(x[0]*10000.), mean_unit_amp)
+    print('Parallel simulation took %i s, Error: %.4E' % (time.time()-start_time, Err))
+    print('[x, P0]: [%4E, %.3f], Num synapses: %i, unit amp: %.3f' % (x[0], P0, int(x[0]*10000.), mean_unit_amp))
     if plot:
         interp_dt = parallel_optimize_pr_engine.interp_dt
         interp_t = np.arange(0., interp_dt*len(mean_trace), interp_dt)
@@ -91,7 +91,7 @@ def release_dynamics_error(x, plot=0):
         for stdout in [stdout for stdout in map_result.stdout if stdout][-len(c):]:
             lines = stdout.split('\n')
             if lines[-2]:
-                print lines[-2]
+                print(lines[-2])
         sys.stdout.flush()
     results = {}
     unit_amps = []
@@ -125,7 +125,7 @@ def release_dynamics_error(x, plot=0):
     Err = 0.
     for ISI in results:
         if ISI == 300:
-            print 'ISI:', ISI, 'Amp:', mean_unit_amp
+            print('ISI:', ISI, 'Amp:', mean_unit_amp)
             Err += round(((target_val[ISI] - mean_unit_amp)/target_range[ISI])**2., 10)
             Err += round(((target_val['unit_slope'] - mean_unit_slope)/target_range['unit_slope'])**2., 10)
         elif ISI == 10:
@@ -133,7 +133,7 @@ def release_dynamics_error(x, plot=0):
             left = 0
             right = int((2.+ISI*3)/interp_dt)
             amp = np.max(results[ISI][left:right])
-            print 'ISI:', ISI, 'Amp:', amp
+            print('ISI:', ISI, 'Amp:', amp)
             #print '3rd pulse amp:', amp
             Err += round(((target_val[ISI] - amp)/target_range[ISI])**2., 10)
             # 5th pulse in burst of 5
@@ -150,19 +150,19 @@ def release_dynamics_error(x, plot=0):
             Err += round(((target_val['recovery'] - recovery)/target_range['recovery'])**2., 10)
         else:
             amp = np.max(results[ISI])
-            print 'ISI:', ISI, 'Amp:', amp
+            print('ISI:', ISI, 'Amp:', amp)
             Err += round(((target_val[ISI] - amp)/target_range[ISI])**2., 10)
     N = int(x0['basal'][0] * 10000.)
     P0 = parallel_optimize_pr_engine.P0
-    print 'Parallel simulation took %i s, Error: %.4E' % (time.time()-start_time, Err)
+    print('Parallel simulation took %i s, Error: %.4E' % (time.time()-start_time, Err))
     if len(x) <= 4:
-        print '[Num synapses, P0, f, tau_F, d, tau_D]: [%i, %.3f, %.3f, %.3f, %.3f, %.3f], unit amp: %.3f, ' \
+        print('[Num synapses, P0, f, tau_F, d, tau_D]: [%i, %.3f, %.3f, %.3f, %.3f, %.3f], unit amp: %.3f, ' \
               'unit slope: %.3E, recovery unit amp: %.3f' % (N, P0, x[0], x[1], x[2], x[3], mean_unit_amp,
-                                                             mean_unit_slope, recovery)
+                                                             mean_unit_slope, recovery))
     else:
-        print '[Num synapses, P0, f, tau_F, d1, tau_D1, d2, tau_D2]: [%i, %.3f, %.3f, %.3f, %.3f, %.3f, %.3f, %.3f], ' \
+        print('[Num synapses, P0, f, tau_F, d1, tau_D1, d2, tau_D2]: [%i, %.3f, %.3f, %.3f, %.3f, %.3f, %.3f, %.3f], ' \
               'unit amp: %.3f, unit slope: %.3E, recovery unit amp: %.3f' % (N, P0, x[0], x[1], x[2], x[3], x[4], x[5],
-                                                                             mean_unit_amp, mean_unit_slope, recovery)
+                                                                             mean_unit_amp, mean_unit_slope, recovery))
     interp_t = {}
     if plot:
         interp_dt = parallel_optimize_pr_engine.interp_dt
@@ -192,10 +192,10 @@ def release_dynamics_error_average(x, *args):
     repeats = int(args[0])
     Err = []
     for i in range(repeats):
-        print 'Iteration %i: ' % (i)
+        print('Iteration %i: ' % (i))
         Err.append(release_dynamics_error(x))
     av_Err = np.mean(Err)
-    print 'Error (average of %i repeats): %.4E' % (repeats, av_Err)
+    print('Error (average of %i repeats): %.4E' % (repeats, av_Err))
     return av_Err
 
 
@@ -206,14 +206,14 @@ def basal_release_error_average(x, *args):
     :param args: tuple
     :return: float
     """
-    print 'Next x: [%.4E]' % (x[0])
+    print('Next x: [%.4E]' % (x[0]))
     repeats = int(args[0])
     Err = []
     for i in range(repeats):
-        print 'Iteration %i: ' % (i)
+        print('Iteration %i: ' % (i))
         Err.append(basal_release_error(x))
     av_Err = np.mean(Err)
-    print 'x: [%.4E], Error (average of %i repeats): %.4E' % (x[0], repeats, av_Err)
+    print('x: [%.4E], Error (average of %i repeats): %.4E' % (x[0], repeats, av_Err))
     return av_Err
 
 
@@ -323,7 +323,7 @@ print result
 
 polished_result = optimize.minimize(release_dynamics_error_average, x0['dynamics'], args=(4,), method='Nelder-Mead',
                                     options={'xtol': 1e-3, 'ftol': 1e-3, 'maxiter': 200, 'disp': True})
-print polished_result
+print(polished_result)
 
 
 

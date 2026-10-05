@@ -49,8 +49,8 @@ def stim_actual(spine_indexes):
         spine = spine_list[index]
         syn = spine.synapses[0]
         syn.source.play(h.Vector())
-    print 'Process: %i stimulated %i synapses in %i s with gmax: %.3E' % (os.getpid(), len(spine_indexes),
-                                                                          time.time() - start_time, gmax)
+    print('Process: %i stimulated %i synapses in %i s with gmax: %.3E' % (os.getpid(), len(spine_indexes),
+                                                                          time.time() - start_time, gmax))
     return rec_filename
 
 
@@ -76,8 +76,8 @@ def stim_expected(spine_index):
     with h5py.File(data_dir+rec_filename+'.hdf5', 'a') as f:
         sim.export_to_file(f, spine_index)
     syn.source.play(h.Vector())
-    print 'Process: %i stimulated spine: %i in %i s with gmax: %.3E' % (os.getpid(), spine.index,
-                                                                        time.time() - start_time, gmax)
+    print('Process: %i stimulated spine: %i in %i s with gmax: %.3E' % (os.getpid(), spine.index,
+                                                                        time.time() - start_time, gmax))
     return rec_filename
 
 

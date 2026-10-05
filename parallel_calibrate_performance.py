@@ -45,10 +45,10 @@ def split_simulation(piece_index):
         sim.modify_rec(0, node=node)
         sim.modify_stim(0, node=node)
         sim.run(v_init)
-        print 'Process:', os.getpid(), 'Iteration:', simiter, 'Section:', node.name, 'took', time.time() - \
-                                                                            iteration_time, 's'
+        print('Process:', os.getpid(), 'Iteration:', simiter, 'Section:', node.name, 'took', time.time() - \
+                                                                            iteration_time, 's')
         simiter += 1
-    print 'Process:', os.getpid(), 'completed', simiter, 'iterations in', time.time() - start_time, 's'
+    print('Process:', os.getpid(), 'completed', simiter, 'iterations in', time.time() - start_time, 's')
     return simiter
 
 if __name__ == '__main__':
@@ -62,18 +62,18 @@ if __name__ == '__main__':
     v.block=True
     start_time = time.time()
     v.execute('from parallel_calibrate_performance import *')
-    result = v.map_async(split_simulation, range(len(c)))
+    result = v.map_async(split_simulation, list(range(len(c))))
     while not result.ready():
         clear_output()
         for stdout in [stdout for stdout in result.stdout if stdout][-len(c):]:
             lines = stdout.split('\n')
             if lines[-2]:
-                print lines[-2]
+                print(lines[-2])
         sys.stdout.flush()
         time.sleep(60)
     for stdout in result.stdout:
         if stdout:
             lines = stdout.split('\n')
             if lines[-2]:
-                print lines[-2]
-    print 'Parallel execution took: ', time.time()-start_time, ' s'
+                print(lines[-2])
+    print('Parallel execution took: ', time.time()-start_time, ' s')

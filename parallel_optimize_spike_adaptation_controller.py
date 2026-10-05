@@ -61,7 +61,7 @@ def spike_adaptation_error(x, full_output=False):
     :return: float
     """
     if not check_bounds.within_bounds(x, 'spike_adaptation'):
-        print 'Process %i: Aborting - Parameters outside optimization bounds.' % (os.getpid())
+        print('Process %i: Aborting - Parameters outside optimization bounds.' % (os.getpid()))
         hist.x_values.append(x)
         Err = 1e9
         hist.error_values.append(Err)
@@ -70,7 +70,7 @@ def spike_adaptation_error(x, full_output=False):
     dv['x'] = x
     hist.x_values.append(x)
     formatted_x = '[' + ', '.join(['%.4E' % xi for xi in x]) + ']'
-    print 'Controller: using current x: %s: %s' % (str(xlabels['spike_adaptation']), formatted_x)
+    print('Controller: using current x: %s: %s' % (str(xlabels['spike_adaptation']), formatted_x))
     # rheobase: the current to cross threshold for a single spike; uses a 100 ms injection
     result = c[0].apply(parallel_optimize_spike_adaptation_engine.get_rheobase)
     last_buffer_len = 0
@@ -82,12 +82,12 @@ def spike_adaptation_error(x, full_output=False):
             lines = stdout.splitlines()
             if len(lines) > last_buffer_len:
                 for line in lines[last_buffer_len:]:
-                    print line
+                    print(line)
                 last_buffer_len = len(lines)
         sys.stdout.flush()
     result = result.get()
     if result is None:
-        print 'Cell is spontaneously firing, or rheobase is outside target range.'
+        print('Cell is spontaneously firing, or rheobase is outside target range.')
         Err = 1e9
         hist.error_values.append(Err)
         return Err
@@ -107,7 +107,7 @@ def spike_adaptation_error(x, full_output=False):
                 lines = stdout.splitlines()
                 if len(lines) > last_buffer_len[i]:
                     for line in lines[last_buffer_len[i]:]:
-                        print line
+                        print(line)
                     last_buffer_len[i] = len(lines)
         sys.stdout.flush()
     result = result.get()
@@ -125,11 +125,11 @@ def spike_adaptation_error(x, full_output=False):
         final_result['adi'].append(this_adi)
         this_rate = len(spike_times) / stim_dur * 1000.
         final_result['f_I'].append(this_rate)
-    indexes = range(len(final_result['f_I']))
+    indexes = list(range(len(final_result['f_I'])))
     indexes.sort(key=final_result['amp'].__getitem__)
-    final_result['amp'] = map(final_result['amp'].__getitem__, indexes)
-    final_result['adi'] = map(final_result['adi'].__getitem__, indexes)
-    final_result['f_I'] = map(final_result['f_I'].__getitem__, indexes)
+    final_result['amp'] = list(map(final_result['amp'].__getitem__, indexes))
+    final_result['adi'] = list(map(final_result['adi'].__getitem__, indexes))
+    final_result['f_I'] = list(map(final_result['f_I'].__getitem__, indexes))
     f_I_Err = 0.
     target_f_I = [experimental_f_I_slope * np.log((rheobase + i_inj_increment * (i + 1)) / rheobase)
                   for i in range(num_increments)]
@@ -140,9 +140,9 @@ def spike_adaptation_error(x, full_output=False):
         if feature not in hist.features:
             hist.features[feature] = []
         hist.features[feature].append(final_result[feature])
-    print 'Simulation took %i s' % (time.time() - start_time)
-    print '[soma.gCa factor, soma.gCadepK factor, soma.gkmbar]: %s' % formatted_x
-    print 'Process %i: adi error %.4E, f_I error %.4E, Total error: %.4E' % (os.getpid(), adi_Err, f_I_Err, Err)
+    print('Simulation took %i s' % (time.time() - start_time))
+    print('[soma.gCa factor, soma.gCadepK factor, soma.gkmbar]: %s' % formatted_x)
+    print('Process %i: adi error %.4E, f_I error %.4E, Total error: %.4E' % (os.getpid(), adi_Err, f_I_Err, Err))
     hist.error_values.append(Err)
     sys.stdout.flush()
     if full_output:
@@ -168,10 +168,10 @@ def plot_best(x=None, discard=True):
     rec_file_list = [filename for filename in dv['rec_filename'] if os.path.isfile(data_dir + filename + '.hdf5')]
     for i, rec_filename in enumerate(rec_file_list):
         with h5py.File(data_dir+rec_filename+'.hdf5', 'r') as f:
-            for trial in f.itervalues():
+            for trial in f.values():
                 amplitude = trial.attrs['amp']
                 fig, axes = plt.subplots(1)
-                for rec in trial['rec'].itervalues():
+                for rec in trial['rec'].values():
                     axes.plot(trial['time'], rec, label=rec.attrs['description'])
                 axes.legend(loc='best', frameon=False, framealpha=0.5)
                 axes.set_xlabel('Time (ms)')
@@ -254,7 +254,7 @@ v = c.load_balanced_view()
 result = optimize.basinhopping(spike_adaptation_error, x0['spike_adaptation'], niter=max_niter,
                                niter_success=niter_success, disp=True, interval=40,
                                minimizer_kwargs=minimizer_kwargs, take_step=take_step)
-print result
+print(result)
 
 
 best_x = hist.report_best()

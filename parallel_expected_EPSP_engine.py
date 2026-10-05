@@ -32,8 +32,8 @@ def stimulate_single_synapse(syn_index):
         sim.export_to_file(f, syn_index)
     syn.source.play(h.Vector())  # playing an empty vector turns this synapse off for future runs while keeping the
                                  # VecStim source object in existence so it can be activated again
-    print 'Process:', os.getpid(), 'completed Iteration:', syn_index, 'Spine:', syn.node.index, 'Node:', \
-        syn.node.parent.parent.name, 'in %.3f s' % (time.time() - start_time)
+    print('Process:', os.getpid(), 'completed Iteration:', syn_index, 'Spine:', syn.node.index, 'Node:', \
+        syn.node.parent.parent.name, 'in %.3f s' % (time.time() - start_time))
     return rec_filename
 
 
@@ -62,8 +62,8 @@ if trunk_bifurcation:
     trunk_branches = [branch for branch in trunk_bifurcation[0].children if branch.type == 'trunk']
     # get where the thickest trunk branch gives rise to the tuft
     trunk = max(trunk_branches, key=lambda node: node.sec(0.).diam)
-    trunk = (node for node in cell.trunk if cell.node_in_subtree(trunk, node) and 'tuft' in (child.type
-                                                                                    for child in node.children)).next()
+    trunk = next((node for node in cell.trunk if cell.node_in_subtree(trunk, node) and 'tuft' in (child.type
+                                                                                    for child in node.children)))
 else:
     trunk_bifurcation = [node for node in cell.trunk if 'tuft' in (child.type for child in node.children)]
     trunk = trunk_bifurcation[0]
