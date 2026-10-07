@@ -6,11 +6,8 @@ import random
 """
 This simulation uses scipy.optimize to iterate through GABA_A_KIN mechanism parameters to fit target IPSG kinetics.
 """
-#morph_filename = 'EB1-early-bifurcation.swc'
 morph_filename = 'EB2-late-bifurcation.swc'
-
-mech_filename = '080615 rebalanced na_ka ampa nmda - EB2'
-
+mech_filename = '20220808_default_biophysics.yaml'
 
 
 def synaptic_kinetics_error(x, plot=0):
@@ -140,10 +137,9 @@ target_range = {'rise_tau': 0.01, 'decay_tau': 0.1, 'Rc_max': 0.01}
 #x0 = [60., 10., 60., 5., 100., 60.]
 #x0 = [12.88, 6.47, 69.97, 6.16, 100.63, 173.04]
 x0 = [5.655, 1.276, 126.608, 15.053, 105.914, 234.470] # Error: 9.1212E+02, Rise: 0.230, Decay: 22.990, Rc_max: 0.808
+# These are not the final values used in the CA1Pyr model...
 xmin = [.1, .1, 10., 1., 10., 10.]
 xmax = [100., 100., 500., 300., 500., 500.]
-
-take_step = Normalized_Step(x0, xmin, xmax)
 
 minimizer_kwargs = dict(method=null_minimizer)
 """
@@ -157,4 +153,4 @@ polished_result = optimize.minimize(synaptic_kinetics_error, x1, method='Nelder-
                                                                                         'xtol': 1e-3, 'disp': True})
 synaptic_kinetics_error(polished_result.x, plot=1)
 """
-#synaptic_kinetics_error(x0, plot=1)
+synaptic_kinetics_error(x0, plot=1)
