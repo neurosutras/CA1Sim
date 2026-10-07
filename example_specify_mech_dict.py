@@ -2,9 +2,8 @@ __author__ = 'milsteina'
 from specify_cells import *
 from plot_results import *
 
-#morph_filename = 'EB1-early-bifurcation.swc'
 morph_filename = 'EB2-late-bifurcation.swc'
-mech_filename = '041515 soma_pas spines - EB2.pkl'
+mech_filename = '20220808_default_biophysics.yaml'
 
 cell = CA1_Pyr(morph_filename, mech_filename, full_spines=True)
 for sec_type in ['spine_head', 'spine_neck']:
@@ -30,5 +29,5 @@ cell.modify_mech_param('tuft', 'kad', 'gkabar', origin='trunk')
 for sec_type in ['basal', 'axon', 'ais', 'trunk', 'apical', 'tuft']:
     cell.modify_mech_param(sec_type, 'kdr', 'gkdrbar', origin='soma')
     cell.modify_mech_param(sec_type, 'ions', 'ek', origin='soma')
-#cell.reinit_mechanisms()
+
 plot_mech_param_distribution(cell, 'kad', 'gkabar')

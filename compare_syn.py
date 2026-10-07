@@ -12,8 +12,8 @@ their time course and amplitude.
 
 #morph_filename = 'EB1-early-bifurcation.swc'
 morph_filename = 'EB2-late-bifurcation.swc'
-mech_filename = '022315 kap_scale kd ih_scale no_na.pkl'
-rec_filename = 'quick_test'
+mech_filename = '20220808_default_biophysics.yaml'
+rec_filename = '20261007_test_compare_syn'
 
 amp, equilibrate, duration = 1., 200., 500
 
@@ -38,26 +38,27 @@ sim.append_rec(cell, trunk, 0.5)
 sim.append_rec(cell, branch, 0.5)
 sim.append_rec(cell, head, 0.5)
 
-f = h5py.File(data_dir+rec_filename+'.hdf5', 'w')
+export_file_path = default_data_dir+'/'+rec_filename+'.hdf5'
 
 simiter = 0
 sim.parameters['description'] = 'EPSC'
 sim.run()
-sim.export_to_file(f, simiter)
+sim.export_to_file(export_file_path, simiter)
 
 del syn
 del head.synapses[0]
-syn = Synapse(cell, head, ['NMDA_D'], stochastic=0)
-syn.target('NMDA_D').mg = 0.1
+NMDA_type = 'NMDA_KIN5'
+syn = Synapse(cell, head, [NMDA_type], stochastic=0)
+syn.target(NMDA_type).mg = 0.1
 syn.source.play(spike_times)
 
-sim.parameters['description'] = 'NMDA_D'
+sim.parameters['description'] = NMDA_type
 gmax_factors = {1: 2, 2: 1, 3: 0.5}
-old_gmax = syn.target('NMDA_D').gmax
+old_gmax = syn.target(NMDA_type).gmax
 for simiter in range(1,4):
-    syn.target('NMDA_D').gmax = old_gmax * gmax_factors[simiter]
-    sim.parameters['description'] = 'NMDA_D: gmax: '+str(syn.target('NMDA_D').gmax)
+    syn.target(NMDA_type).gmax = old_gmax * gmax_factors[simiter]
+    sim.parameters['description'] = 'NMDA_D: gmax: '+str(syn.target(NMDA_type).gmax)
     sim.run()
-    sim.export_to_file(f, simiter)
-f.close()
-plot_superimpose_conditions(rec_filename)
+    sim.export_to_file(export_file_path, simiter)
+
+plot_superimpose_conditions(rec_filename, legend=True)
