@@ -11,11 +11,18 @@ import click
 
 @click.command()
 @click.option("--mech-filename", type=str, default='20220808_default_biophysics.yaml')
+@click.option("--morph-filename", type=str, default='EB2-late-bifurcation.swc')
 @click.option("--synapses-seed", type=int, default=0)
 @click.option("--trial-seed", type=int, default=0)
 @click.option("--data-dir", type=click.Path(exists=True, file_okay=False, dir_okay=True, path_type=str),
               default='data')
+@click.option("--morph-dir", type=click.Path(exists=True, file_okay=False, dir_okay=True, path_type=str),
+              default='morphologies')
+@click.option("--mech-dir", type=click.Path(exists=True, file_okay=False, dir_okay=True, path_type=str),
+              default='mech_config')
 @click.option("--label", type=str, default=None)
+@click.option("--num-exc-syns", type=int, default=3200)
+@click.option("--num-inh-syns", type=int, default=600)
 @click.option("--mod-inh", type=int, default=0)
 @click.option("--mod-weights", type=float, default=2.5)
 @click.option("--DC-offset", "DC_offset", type=float, default=0.0)
@@ -26,14 +33,16 @@ import click
 @click.option("--plot", is_flag=True)
 @click.option("--interactive", is_flag=True)
 @click.option("--debug", is_flag=True)
-def main(mech_filename, synapses_seed, trial_seed, data_dir,
-         label, mod_inh, mod_weights, DC_offset, sim_duration,
+def main(mech_filename, morph_filename, synapses_seed, trial_seed, data_dir, morph_dir, mech_dir,
+         label, num_exc_syns, num_inh_syns, mod_inh, mod_weights, DC_offset, sim_duration,
          field_center, spines, export, plot,
          interactive, debug):
     """
 
     :param mech_filename:
         .yaml file must be located in the data subdirectory
+    :param morph_filename:
+        .swc file must be located in the morphologies subdirectory
     :param synapses_seed:
         a unique random seed can be used to shuffle the number and locations of synapses, and the place field locs of
         the presynaptic CA3 inputs (like simulating a different cell with the same morphology)
@@ -41,7 +50,11 @@ def main(mech_filename, synapses_seed, trial_seed, data_dir,
         a unique random seed shuffles the input spike times and synaptic release probabilities to allows simulation of
         multiple independent trials
     :param data_dir: str to directory path
+    :param morph_dir: str to directory path
+    :param mech_dir: str to directory path
     :param label: append a label when exporting data to .hdf5
+    :param num_exc_syns: int
+    :param num_inh_syns: int
     :param mod_inh:
         whether to decrease the firing rate of inhibitory inputs, mimicking the optogenetic silencing in
         Grienberger, Milstein et al., Nat. Neurosci., 2017. (0 = no, 1 = out of field at track start, 2 = in field,
@@ -57,13 +70,6 @@ def main(mech_filename, synapses_seed, trial_seed, data_dir,
     :param interactive: bool, whether to enable live object inspection after simulation
     :param debug: bool, does not run simulation in debug mode
     """
-    morph_filename = 'EB2-late-bifurcation.swc'
-
-    num_exc_syns = 3200
-    num_inh_syns = 600
-    
-    data_dir += '/'
-    
     if label is None:
         label = ''
     else:
@@ -130,7 +136,7 @@ def main(mech_filename, synapses_seed, trial_seed, data_dir,
         local_random.seed(simiter)
         global_phase_offset = local_random.uniform(-np.pi, np.pi)
         if not debug and export:
-            with h5py.File(data_dir+rec_filename, 'a') as f:
+            with h5py.File(data_dir+'/'+rec_filename, 'a') as f:
                 f.create_group(str(simiter))
                 f[str(simiter)].create_group('train')
                 f[str(simiter)].create_group('inh_train')
@@ -178,7 +184,7 @@ def main(mech_filename, synapses_seed, trial_seed, data_dir,
                                                                       generator=local_random)
                     syn.source.play(h.Vector(np.add(train, equilibrate + track_equilibrate)))
                     if export:
-                        with h5py.File(data_dir+rec_filename, 'a') as f:
+                        with h5py.File(data_dir+'/'+rec_filename, 'a') as f:
                             f[str(simiter)]['train'].create_dataset(str(index), compression='gzip', compression_opts=9, data=train)
                             f[str(simiter)]['train'][str(index)].attrs['group'] = group
                             f[str(simiter)]['train'][str(index)].attrs['index'] = syn.node.index
@@ -210,7 +216,7 @@ def main(mech_filename, synapses_seed, trial_seed, data_dir,
                                                                       generator=local_random)
                     syn.source.play(h.Vector(np.add(train, equilibrate + track_equilibrate)))
                     if export:
-                        with h5py.File(data_dir+rec_filename, 'a') as f:
+                        with h5py.File(data_dir+'/'+rec_filename, 'a') as f:
                             f[str(simiter)]['inh_train'].create_dataset(str(index), compression='gzip',
                                                                         data=train)
                             f[str(simiter)]['inh_train'][str(index)].attrs['group'] = group
@@ -220,8 +226,8 @@ def main(mech_filename, synapses_seed, trial_seed, data_dir,
                     index += 1
             sim.run(v_init, fadvance=True)
             if export:
-                sim.export_to_file(data_dir + rec_filename, simiter)
-                with h5py.File(data_dir+rec_filename, 'a') as f:
+                sim.export_to_file(data_dir + '/' + rec_filename, simiter)
+                with h5py.File(data_dir+'/'+rec_filename, 'a') as f:
                     if excitatory_stochastic:
                         f[str(simiter)].create_group('successes')
                         index = 0
@@ -235,7 +241,7 @@ def main(mech_filename, synapses_seed, trial_seed, data_dir,
                     f[str(simiter)].create_dataset('output', compression='gzip',
                                                 data=np.subtract(cell.spike_detector.get_recordvec().to_python(),
                                                                  equilibrate + track_equilibrate))
-                print('Completed exporting to %s' % str(data_dir + rec_filename))
+                print('Completed exporting to %s' % str(data_dir + '/' + rec_filename))
                 sys.stdout.flush()
         if debug:
             return exc_rate_maps
@@ -301,7 +307,7 @@ def main(mech_filename, synapses_seed, trial_seed, data_dir,
     # choose a subset of synapses to stimulate with inhomogeneous poisson rates
     local_random.seed(synapses_seed)
     
-    cell = CA1_Pyr(morph_filename, mech_filename, full_spines=spines)
+    cell = CA1_Pyr(morph_filename, mech_filename, full_spines=spines, morph_dir=morph_dir, mech_dir=mech_dir)
     try:
         cell.set_terminal_branch_na_gradient()
     except:

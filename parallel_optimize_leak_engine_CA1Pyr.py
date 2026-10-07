@@ -1,5 +1,7 @@
 __author__ = 'Aaron D. Milstein'
-from specify_cells2 import *
+# from specify_cells2 import *
+from specify_cells import *
+
 from function_lib import *
 from ipyparallel import interactive
 
@@ -28,11 +30,12 @@ else:
 if len(sys.argv) > 2:
     mech_filename = str(sys.argv[2])
 else:
-    if spines:
-        mech_filename = '120116 DG_GC pas spines'
-    else:
-        # mech_filename = '030217 GC optimizing excitability'
-        mech_filename = '042617 GC retuning leak'
+    # if spines:
+    #     mech_filename = '120116 DG_GC pas spines'
+    # else:
+    #     # mech_filename = '030217 GC optimizing excitability'
+    #     mech_filename = '042617 GC retuning leak'
+    mech_filename = '20220808_default_biophysics.yaml'
 
 i_holding = {'soma': 0., 'dend': 0., 'distal_dend': 0.}
 

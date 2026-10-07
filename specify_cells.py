@@ -673,10 +673,14 @@ class STree2(object):
 
 
 class HocCell(object):
-    def __init__(self, morph_filename=None, mech_filename=None, gid=0):
+    def __init__(self, morph_filename=None, mech_filename=None, gid=0, morph_dir=default_morph_dir,
+                 mech_dir=default_mech_dir):
         """
         :param morph_filename: str : file name of .swc file containing morphology
         :param mech_filename: str : file name of .yaml file specifying cable parameters and membrane mechanisms
+        :param gid: int
+        :param morph_dir: str : directory containing morphology files
+        :param mech_dir: str : directory containing mechanism files
         """
         global local_gid_counter
         self._gid = gid
@@ -684,11 +688,11 @@ class HocCell(object):
         self.tree = STree2()  # Builds a simple tree to store nodes of type 'SHocNode'
         self.index = 0  # Keep track of number of nodes
         self._node_dict = {'soma': [], 'axon': [], 'basal': [], 'trunk': [], 'apical': [], 'tuft': [], 'spine': []}
-        self.mech_dict = self.load_mech_dict(mech_filename)  # Refer to function_lib for description of structure of
+        self.mech_dict = self.load_mech_dict(mech_filename, mech_dir)  # Refer to function_lib for description of structure of
                                                              # mechanism dictionary. loads from .yaml or
                                                              # default_mech_dict in function_lib
         if not morph_filename is None:
-            self.load_morphology_from_swc(morph_filename)
+            self.load_morphology_from_swc(morph_filename, morph_dir)
             self.reinit_mechanisms()  # Membrane mechanisms must be reinitialized whenever cable properties (Ra, cm) or
                                       # spatial resolution (nseg) changes.
         self.spike_detector = None
@@ -696,7 +700,7 @@ class HocCell(object):
             self.init_spike_detector()
         self.random = np.random.RandomState()
 
-    def load_morphology_from_swc(self, morph_filename):
+    def load_morphology_from_swc(self, morph_filename, morph_dir=default_morph_dir):
         """
         This method builds an STree2 comprised of SHocNode nodes associated with hoc sections, connects the hoc
         sections, and initializes various parameters: Ra, cm, L, diam, nseg
@@ -709,7 +713,7 @@ class HocCell(object):
             3) axon[2] : a cylindrical 'axon' section connected to axon[1](1)
         """
         raw_tree = STree2()  # import the full tree from an SWC file
-        raw_tree.read_SWC_tree_from_file(morph_dir+morph_filename, types=list(range(10)))
+        raw_tree.read_SWC_tree_from_file(morph_dir+'/'+morph_filename, types=list(range(10)))
         soma_length = 14.
         soma_diam = 9.
         for index in range(2):
@@ -862,14 +866,15 @@ class HocCell(object):
         else:
             return self._node_dict[sec_type]
 
-    def load_mech_dict(self, mech_filename=None):
+    def load_mech_dict(self, mech_filename=None, mech_dir=default_mech_dir):
         """
         This method loads the dictionary specifying membrane mechanism parameters. If a .yaml file is not provided, a
         global variable default_mech_dict from function_lib is used.
         :param mech_filename: str
+        :param mech_dir: str
         """
         if not mech_filename is None:
-            return read_from_yaml(mech_dir+mech_filename)
+            return read_from_yaml(mech_dir+'/'+mech_filename)
         else:
             local_mech_dict = copy.deepcopy(default_mech_dict)
             return local_mech_dict
@@ -1629,7 +1634,7 @@ class HocCell(object):
             if verbose:
                 pprint.pprint(self.mech_dict)
 
-    def export_mech_dict(self, mech_filename=None):
+    def export_mech_dict(self, mech_filename=None, mech_dir=default_mech_dir):
         """
         Following modifications to the mechanism dictionary either during model specification or parameter optimization,
         this method stores the current mech_dict to a .yaml file stamped with the date and time. This allows the
@@ -1637,8 +1642,8 @@ class HocCell(object):
         """
         if mech_filename is None:
             mech_filename = 'mech_dict_'+datetime.datetime.today().strftime('%m%d%Y%H%M')+'.yaml'
-        write_to_yaml(data_dir+mech_filename, self.mech_dict)
-        print("Exported mechanism dictionary to "+mech_filename)
+        write_to_yaml(mech_dir+'/'+mech_filename, self.mech_dict)
+        print("Exported mechanism dictionary to "+mech_dir+'/'+mech_filename)
 
     def get_node_by_distance_to_soma(self, distance, sec_type):
         """
@@ -2193,15 +2198,14 @@ class QuickSim(object):
                 simiter = len(f)
             if str(simiter) not in f:
                 f.create_group(str(simiter))
-            f[str(simiter)].create_dataset('time', compression='gzip', compression_opts=9, data=self.tvec)
+            f[str(simiter)].create_dataset('time', compression='gzip', data=self.tvec)
             f[str(simiter)]['time'].attrs['dt'] = self.dt
             for parameter in self.parameters:
                 f[str(simiter)].attrs[parameter] = self.parameters[parameter]
             if self.stim_list:
                 f[str(simiter)].create_group('stim')
                 for index, stim in enumerate(self.stim_list):
-                    stim_out = f[str(simiter)]['stim'].create_dataset(str(index), compression='gzip', compression_opts=9,
-                                                                      data=stim['vec'])
+                    stim_out = f[str(simiter)]['stim'].create_dataset(str(index), compression='gzip', data=stim['vec'])
                     cell = stim['cell']
                     stim_out.attrs['cell'] = cell.gid
                     node = stim['node']
@@ -2219,8 +2223,7 @@ class QuickSim(object):
                     stim_out.attrs['description'] = stim['description']
             f[str(simiter)].create_group('rec')
             for index, rec in enumerate(self.rec_list):
-                rec_out = f[str(simiter)]['rec'].create_dataset(str(index), compression='gzip', compression_opts=9,
-                                                                data=rec['vec'])
+                rec_out = f[str(simiter)]['rec'].create_dataset(str(index), compression='gzip', data=rec['vec'])
                 cell = rec['cell']
                 rec_out.attrs['cell'] = cell.gid
                 node = rec['node']
@@ -2240,8 +2243,18 @@ class QuickSim(object):
 
 
 class CA1_Pyr(HocCell):
-    def __init__(self, morph_filename=None, mech_filename=None, full_spines=True, gid=0):
-        HocCell.__init__(self, morph_filename, mech_filename, gid)
+    def __init__(self, morph_filename=None, mech_filename=None, full_spines=True, gid=0,
+                 morph_dir=default_morph_dir, mech_dir=default_mech_dir):
+        """
+        
+        :param morph_filename:
+        :param mech_filename:
+        :param full_spines:
+        :param gid:
+        :param morph_dir:
+        :param mech_dir:
+        """
+        HocCell.__init__(self, morph_filename, mech_filename, gid, morph_dir, mech_dir)
         self.random.seed(self.gid)  # This cell will always have the same spine and GABA_A synapse locations as long as
                                     # they are inserted in the same order
         if full_spines:
