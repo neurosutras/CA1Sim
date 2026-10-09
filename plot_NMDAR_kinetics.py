@@ -7,7 +7,8 @@ import sys
 This simulation checks the voltage dependence of NMDAR kinetics while clamping the trunk voltage.
 """
 morph_filename = 'EB2-late-bifurcation.swc'
-mech_filename = '043016 Type A - km2_NMDA_KIN5_Pr'
+# mech_filename = '043016 Type A - km2_NMDA_KIN5_Pr'
+mech_filename = '20220808_default_biophysics.yaml'
 
 if len(sys.argv) > 1:
     svg_title = str(sys.argv[1])
@@ -34,11 +35,11 @@ trunk_bifurcation = [trunk for trunk in cell.trunk if len(trunk.children) > 1 an
 # get where the thickest trunk branch gives rise to the tuft
 if trunk_bifurcation:  # follow the thicker trunk
     trunk = max(trunk_bifurcation[0].children[:2], key=lambda node: node.sec(0.).diam)
-    trunk = (node for node in cell.trunk if cell.node_in_subtree(trunk, node) and 'tuft' in (child.type for child in
-                                                                                             node.children)).next()
+    trunk = next(node for node in cell.trunk if cell.node_in_subtree(trunk, node) and 'tuft' in (child.type for child in
+                                                                                             node.children))
 else:
-    trunk = (node for node in cell.trunk if 'tuft' in (child.type for child in node.children)).next()
-tuft = (child for child in trunk.children if child.type == 'tuft').next()
+    trunk = next(node for node in cell.trunk if 'tuft' in (child.type for child in node.children))
+tuft = next(child for child in trunk.children if child.type == 'tuft')
 trunk = trunk_bifurcation[0]
 
 syn_list = []
@@ -64,7 +65,7 @@ dt = 0.02
 t = np.arange(0., duration, dt)
 
 for vc in vc_range:
-    print 'Holding Voltage:', vc
+    print('Holding Voltage:', vc)
     clamp.amp1 = vc
     sim.run(v_init)
     result = np.interp(t, sim.tvec, sim.rec_list[0]['vec'])

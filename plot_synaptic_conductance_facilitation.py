@@ -23,7 +23,8 @@ else:
     svg_title = None
 
 morph_filename = 'EB2-late-bifurcation.swc'
-mech_filename = '043016 Type A - km2_NMDA_KIN5_Pr'
+# mech_filename = '043016 Type A - km2_NMDA_KIN5_Pr'
+mech_filename = '20220808_default_biophysics.yaml'
 
 
 def plot_facilitation(syn_type, title=None, svg_title=None):
@@ -58,7 +59,7 @@ def plot_facilitation(syn_type, title=None, svg_title=None):
     unit_gmax = np.max(g[left:right])
     g /= unit_gmax
     O_max = np.max(O[left:right])
-    print '%s 1st pulse occupancy: %.4f' % (syn_type, O_max)
+    print('%s 1st pulse occupancy: %.4f' % (syn_type, O_max))
     t -= equilibrate
     start = int((equilibrate - 5.)/dt)
     fig, axes = plt.subplots(1)
@@ -101,11 +102,11 @@ trunk_bifurcation = [trunk for trunk in cell.trunk if len(trunk.children) > 1 an
 # get where the thickest trunk branch gives rise to the tuft
 if trunk_bifurcation:  # follow the thicker trunk
     trunk = max(trunk_bifurcation[0].children[:2], key=lambda node: node.sec(0.).diam)
-    trunk = (node for node in cell.trunk if cell.node_in_subtree(trunk, node) and 'tuft' in (child.type for child in
-                                                                                             node.children)).next()
+    trunk = next(node for node in cell.trunk if cell.node_in_subtree(trunk, node) and 'tuft' in (child.type for child in
+                                                                                             node.children))
 else:
-    trunk = (node for node in cell.trunk if 'tuft' in (child.type for child in node.children)).next()
-tuft = (child for child in trunk.children if child.type == 'tuft').next()
+    trunk = next(node for node in cell.trunk if 'tuft' in (child.type for child in node.children))
+tuft = next(child for child in trunk.children if child.type == 'tuft')
 trunk = trunk_bifurcation[0]
 
 spine_list = []
@@ -114,8 +115,13 @@ if syn_type in ['AMPA_KIN', 'NMDA_KIN5']:
         for spine in branch.spines:
             syn = Synapse(cell, spine, [syn_type], stochastic=0)
     spine_list.extend(trunk.spines)
+
+if syn_type == 'GABA_A_KIN':
+    inh_syn_locs_by_sec_type = cell.get_inhibitory_syn_locs(sec_type_list=['trunk'])
+    inh_syn_locs = inh_syn_locs_by_sec_type['trunk']
+    syn_list = cell.insert_synapses_at_syn_locs(inh_syn_locs, [syn_type])
+
 cell.init_synaptic_mechanisms()
-cell.insert_inhibitory_synapses_in_subset(['trunk'])
 
 local_random = random.Random()
 local_random.seed(0)

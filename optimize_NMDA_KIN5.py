@@ -6,12 +6,8 @@ import random
 """
 This simulation uses scipy.optimize to iterate through NMDA_KIN mechanism parameters to fit target EPSP kinetics.
 """
-#morph_filename = 'EB1-early-bifurcation.swc'
 morph_filename = 'EB2-late-bifurcation.swc'
-
-#mech_filename = '043015 pas_exp_scale kdr ka_scale ih_sig_scale - EB2'
-#mech_filename = '072515 optimized basal ka_scale dend_sh_ar_nas - EB2'
-mech_filename = '102915 interim dendritic excitability'
+mech_filename = '20220808_default_biophysics.yaml'
 
 
 def synaptic_kinetics_error(x, plot=0):
@@ -98,7 +94,7 @@ num_syns = 1
 cell = CA1_Pyr(morph_filename, mech_filename, full_spines=True)
 cell.zero_na()
 
-syn_type = 'NMDA_KIN2'
+syn_type = 'NMDA_KIN5'
 
 sim = QuickSim(duration)
 
@@ -125,7 +121,10 @@ for spine in spine_list:
 
 local_random = random.Random()
 local_random.seed(0)
-stim_syn_list = [spine_list[i].synapses[0] for i in local_random.sample(list(range(len(spine_list))), num_syns)]
+# stim_syn_list = [spine_list[i].synapses[0] for i in local_random.sample(list(range(len(spine_list))), num_syns)]
+
+stim_syn_list = [spine.synapses[0] for spine in spine_list]
+
 
 for i, syn in enumerate(stim_syn_list):
     syn.target(syn_type).mg = 0.1
@@ -143,30 +142,10 @@ target_range = {'rise_tau': 0.1, 'decay_tau': .5, 'Rc_max': 0.01, 'facilitation'
 
 #the initial guess and bounds
 #x = [kon, koff, CC, CO, Beta, Alpha)
-#x0 = [10., .02, 1., 0.1, 0.04, 0.09]
-#x0 = [26.414, 1.903, 3.185, 5.119, 0.274, 0.0299]
-#x0 = [44.35, 2.46, 10.34, 1.06, 0.40, 0.045]
 x0 = [85.47, 0.68, 9.48, 2.56, 0.72, 0.078]
 xmin = [10., .01, .1, .1, .01, .01]
 xmax = [100., 10., 20., 20., 1., 1.]
-#x1 = [1099.70, 0.07, 1.70, 14.12, 4.64, 0.19]  # old NMDA_KIN2, unrealistic kon
-x1 = [68.74, 1.43, 5.86, 3.32, 0.270, 0.034]
+# x1 = [68.74, 1.43, 5.86, 3.32, 0.270, 0.034]
+x1 = [86.89, 0.69, 9.64, 2.60, 0.68, 0.079]
 
-
-mytakestep = Normalized_Step(x0, xmin, xmax)
-
-minimizer_kwargs = dict(method=null_minimizer)
-"""
-result = optimize.basinhopping(synaptic_kinetics_error, x0, niter=720, niter_success=200, disp=True, interval=20,
-                                                            minimizer_kwargs=minimizer_kwargs, take_step=mytakestep)
-synaptic_kinetics_error(result.x, plot=1)
-
-
-polished_result = optimize.minimize(synaptic_kinetics_error, result.x, method='Nelder-Mead', options={'ftol': 1e-3,
-                                                                                            'xtol': 1e-3, 'disp': True})
-"""
-
-polished_result = optimize.minimize(synaptic_kinetics_error, x0, method='Nelder-Mead', options={'ftol': 1e-3,
-                                                                                            'xtol': 1e-3, 'disp': True})
-synaptic_kinetics_error(polished_result.x, plot=1)
-#synaptic_kinetics_error(x1, plot=1)
+synaptic_kinetics_error(x1, plot=1)
