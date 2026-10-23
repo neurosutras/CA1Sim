@@ -14,7 +14,8 @@ morph_filename = 'EB2-late-bifurcation.swc'
 #mech_filename = '040815 kap_kad_ampar_scale low mg kd pas no_ih no_na'
 #mech_filename = '050715 pas_exp_scale kdr ka_scale no_ih ampar_exp_scale - EB2'
 #rec_filename = '041315 calibrate holding i_inj - EB2'
-mech_filename = '043015 pas_exp_scale kdr ka_scale ih_sig_scale - EB2.yaml'
+# mech_filename = '043015 pas_exp_scale kdr ka_scale ih_sig_scale - EB2.yaml'
+mech_filename = '20220808_default_biophysics.yaml'
 
 
 def holding_current_error(x, plot=0):

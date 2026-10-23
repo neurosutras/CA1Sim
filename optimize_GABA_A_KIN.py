@@ -154,3 +154,5 @@ polished_result = optimize.minimize(synaptic_kinetics_error, x1, method='Nelder-
 synaptic_kinetics_error(polished_result.x, plot=1)
 """
 synaptic_kinetics_error(x0, plot=1)
+#kon: 5.655, koff: 1.276, CC: 126.608, CO: 15.053, Beta: 105.914, Alpha: 234.470, Error: 4.3056E+02, Rise: 0.320, Decay: 22.980, Rc_max: 0.932
+

@@ -18,8 +18,10 @@ IV) optimize gbar_nax/nas/sh, gkabar_kap/d, gkdrbar for target na spike threshol
 """
 
 morph_filename = 'EB2-late-bifurcation.swc'
+mech_filename = '20220808_default_biophysics.yaml'
+#mech_filename = '080615 rebalanced na_ka ampa nmda - EB2'
 
-mech_filename = '080615 rebalanced na_ka ampa nmda - EB2'
+
 #mech_filename = '100215 template dendritic excitability'
 
 
@@ -88,7 +90,7 @@ def update_na_ka(x):
 
     :param x: array [soma.sh_nas, soma.gkabar, soma.gkdrbar, trunk.ka factor]
     """
-    cell.modify_mech_param('soma', 'nas', 'gbar', soma_na_gbar)
+    # cell.modify_mech_param('soma', 'nas', 'gbar', soma_na_gbar)
     cell.modify_mech_param('soma', 'nas', 'sh', x[0])
     cell.modify_mech_param('soma', 'kdr', 'gkdrbar', x[2])
     cell.modify_mech_param('soma', 'kap', 'gkabar', x[1])
@@ -103,20 +105,20 @@ def update_na_ka(x):
                                replace=False)
         cell.modify_mech_param(sec_type, 'nas', 'sh', origin='soma')
         cell.modify_mech_param(sec_type, 'kdr', 'gkdrbar', origin='soma')
-    cell.modify_mech_param('trunk', 'nas', 'gbar', origin='soma')
-    cell.modify_mech_param('basal', 'nas', 'gbar', origin='soma', slope=-1.*soma_na_gbar/200., min=0.)
-    cell.modify_mech_param('apical', 'nas', 'gbar', origin='trunk', slope=-1.*soma_na_gbar/200., min=0.)
-    cell.modify_mech_param('tuft', 'nas', 'gbar', origin='trunk')
-    cell.modify_mech_param('axon_hill', 'nax', 'gbar', soma_na_gbar * 2.)
+    # cell.modify_mech_param('trunk', 'nas', 'gbar', origin='soma')
+    # cell.modify_mech_param('basal', 'nas', 'gbar', origin='soma', slope=-1.*soma_na_gbar/200., min=0.)
+    # cell.modify_mech_param('apical', 'nas', 'gbar', origin='trunk', slope=-1.*soma_na_gbar/200., min=0.)
+    # cell.modify_mech_param('tuft', 'nas', 'gbar', origin='trunk')
+    # cell.modify_mech_param('axon_hill', 'nax', 'gbar', soma_na_gbar * 2.)
     cell.modify_mech_param('axon_hill', 'nax', 'sh', x[0])
-    cell.modify_mech_param('ais', 'nax', 'gbar', soma_na_gbar * 2. * 5.)
-    cell.modify_mech_param('axon', 'nax', 'gbar', origin='axon_hill')
+    # cell.modify_mech_param('ais', 'nax', 'gbar', soma_na_gbar * 2. * 5.)
+    # cell.modify_mech_param('axon', 'nax', 'gbar', origin='axon_hill')
     for sec_type in ['ais', 'axon']:
         cell.modify_mech_param(sec_type, 'nax', 'sh', origin='axon_hill')
     for sec_type in ['axon_hill', 'ais', 'axon']:
         cell.modify_mech_param(sec_type, 'kdr', 'gkdrbar', origin='soma')
         cell.modify_mech_param(sec_type, 'kap', 'gkabar', origin='soma')
-
+    cell.set_terminal_branch_na_gradient()
 
 def update_na_ka_soma(x):
     """
@@ -298,7 +300,7 @@ def get_EPSP_dur(t, vm, equilibrate, duration):
     return decay_dur
 
 
-def pas_error(x, plot=0):
+def pas_error(x, plot=1):
     """
     :param x: array (soma.g_pas, trunk.g_pas slope, trunk.g_pas tau)
     :param plot: int
@@ -335,11 +337,10 @@ def pas_error(x, plot=0):
     print(('Process %i: Error: %.4E' % (os.getpid(), Err)))
     if plot:
         sim.plot()
-    else:
-        return Err
+    return Err
 
 
-def h_error(x, plot=0):
+def h_error(x, plot=1):
     """
 
     :param x: array (soma.ghbar_h, trunk.ghbar_h slope, trunk.ghbar_h tau, trunk.ghbar_h xhalf)
@@ -398,7 +399,7 @@ def h_error(x, plot=0):
     return Err
 
 
-def v_rest_error(plot=0):
+def v_rest_error(plot=1):
     """
 
     :param plot: int
@@ -428,11 +429,10 @@ def v_rest_error(plot=0):
     print(('Process %i: Error: %.4E' % (os.getpid(), Err)))
     if plot:
         sim.plot()
-    else:
-        return Err
+    return Err
 
 
-def na_ka_error(x, plot=0):
+def na_ka_error(x, plot=1):
     """
 
     :param x: array [soma.sh_nas, soma.gkabar, soma.gkdrbar, trunk.ka factor]
@@ -472,9 +472,9 @@ def na_ka_error(x, plot=0):
     trunk_pre = np.mean(trunk_vm[th_x-int(0.2/dt):th_x-int(0.1/dt)])
     result['trunk_amp'] = (trunk_peak - trunk_pre) / (peak - threshold)
     ais_vm = np.interp(t, sim.tvec, sim.rec_list[3]['vec'])
-    ais_dvdt = np.gradient(ais_vm, [dt])
+    ais_dvdt = np.gradient(ais_vm, dt)
     axon_vm = np.interp(t, sim.tvec, sim.rec_list[4]['vec'])
-    axon_dvdt = np.gradient(axon_vm, [dt])
+    axon_dvdt = np.gradient(axon_vm, dt)
     left = th_x - int(2./dt)
     right = th_x + int(2./dt)
     ais_peak = np.max(ais_dvdt[left:right])
@@ -525,11 +525,10 @@ def na_ka_error(x, plot=0):
             result['trunk_amp'], ADP, AHP, result['stability'], result['ais_delay'], result['slow_depo'], v_rest)))
     print(('Process %i: Error: %.4E' % (os.getpid(), Err)))
     sim.modify_rec(1, node=trunk, loc=1.)
-    if not plot:
-        return Err
+    return Err
 
 
-def na_ka_error_soma(x, plot=0):
+def na_ka_error_soma(x, plot=1):
     """
 
     :param x: array [soma.sh_nas, soma.gkabar, soma.gkdrbar]
@@ -564,9 +563,9 @@ def na_ka_error_soma(x, plot=0):
     result = {'th_v': threshold, 'soma_peak': peak, 'ADP': ADP, 'AHP': AHP}
     th_x = np.where(vm[int(equilibrate/dt):] >= threshold)[0][0] + int(equilibrate/dt)
     ais_vm = np.interp(t, sim.tvec, sim.rec_list[3]['vec'])
-    ais_dvdt = np.gradient(ais_vm, [dt])
+    ais_dvdt = np.gradient(ais_vm, dt)
     axon_vm = np.interp(t, sim.tvec, sim.rec_list[4]['vec'])
-    axon_dvdt = np.gradient(axon_vm, [dt])
+    axon_dvdt = np.gradient(axon_vm, dt)
     left = th_x - int(2./dt)
     right = th_x + int(2./dt)
     ais_peak = np.max(ais_dvdt[left:right])
@@ -616,11 +615,11 @@ def na_ka_error_soma(x, plot=0):
           'v_rest: %.2f' % (os.getpid(), x[0], x[1], x[2], amp, threshold, peak, ADP, AHP,
             result['stability'], result['ais_delay'], result['slow_depo'], v_rest)))
     print(('Process %i: Error: %.4E' % (os.getpid(), Err)))
-    if not plot:
-        return Err
+
+    return Err
 
 
-def na_ka_error_dend(x, plot=0):
+def na_ka_error_dend(x, plot=1):
     """
 
     :param x: array [soma.sh_nas, trunk.ka factor]
@@ -666,8 +665,7 @@ def na_ka_error_dend(x, plot=0):
           (os.getpid(), x[0], x[1], amp, threshold, result['trunk_amp'])))
     print(('Process %i: Error: %.4E' % (os.getpid(), Err)))
     sim.modify_rec(1, node=trunk, loc=1.)
-    if not plot:
-        return Err
+    return Err
 
 
 def optimize_polish(param_name, x, maxfev=None):
@@ -711,21 +709,33 @@ def optimize_explore(param_name, x, xmin, xmax, maxfev=None):
     if maxfev is None:
         maxfev = 200
     error_functions = {}
-    error_functions['pas'] = pas_error
-    error_functions['h'] = h_error
-    error_functions['v_rest'] = v_rest_error
+    error_functions['pas'] = lambda x: pas_error(x, plot=1)
+    error_functions['h'] = lambda x: h_error(x, plot=1)
+    error_functions['na_ka'] = lambda x: na_ka_error(x, plot=1)
     error_functions['na_ka'] = na_ka_error
     error_functions['na_ka_soma'] = na_ka_error_soma
     error_functions['na_ka_dend'] = na_ka_error_dend
 
     take_step = Normalized_Step(x, xmin, xmax)
     minimizer_kwargs = dict(method=null_minimizer)
-    result = optimize.basinhopping(error_functions[param_name], x, niter=maxfev, niter_success=maxfev/2,
+    print("Currently optimizing:", param_name)
+    result = optimize.basinhopping(error_functions[param_name], x, niter=maxfev, niter_success=maxfev//2,
                                        disp=True, interval=20, minimizer_kwargs=minimizer_kwargs, take_step=take_step)
     formatted_x = '['+', '.join(['%.2E' % xi for xi in result.x])+']'
     print(('Process: %i optimized %s for %i iterations with Error: %.2f and x: %s' % (os.getpid(), param_name,
                                                                             result.nit, result.fun, formatted_x)))
     return {param_name: {'x': result.x, 'Err': result.fun}}
+
+
+def check_updates(name, actual, expected):
+    if np.isclose(actual, expected, rtol=1e-6, atol=1e-12):
+        print("PASS:", name, "=", actual)
+    else:
+        print("FAIL:", name)
+        print("  Expected:", expected)
+        print("  Actual:", actual)
+        raise AssertionError(name + " was not updated correctly")
+
 
 
 equilibrate = 250.  # time to steady-state
@@ -780,23 +790,23 @@ cell.modify_mech_param('soma', 'ions', 'ek', -77.)
 cell.reinit_mechanisms()
 """
 
-cell.modify_mech_param('soma', 'nas', 'ar', 1.)
-for sec_type in ['basal', 'trunk', 'apical', 'tuft']:
-    cell.modify_mech_param(sec_type, 'nas', 'ar', 0.8)
-cell.modify_mech_param('soma', 'pas', 'e', v_init)
-for sec_type in ['spine_neck', 'spine_head']:
-    cell.modify_mech_param(sec_type, 'pas', 'e', origin='soma')
-
-soma_na_gbar = 0.04
-cell.modify_mech_param('ais', 'nax', 'sha', -5.)
-for sec_type in ['basal', 'trunk', 'apical', 'tuft']:
-    cell.modify_mech_param(sec_type, 'nas', 'sha', 5.)
-cell.modify_mech_param('soma', 'km2', 'gkmbar', 0.002)
-cell.modify_mech_param('axon_hill', 'km2', 'gkmbar', 0.004)
-for sec_type in ['ais', 'axon']:
-    cell.modify_mech_param(sec_type, 'km2', 'gkmbar', origin='axon_hill')
-
-cell.reinit_mechanisms()
+# cell.modify_mech_param('soma', 'nas', 'ar', 1.)
+# for sec_type in ['basal', 'trunk', 'apical', 'tuft']:
+#     cell.modify_mech_param(sec_type, 'nas', 'ar', 0.8)
+# cell.modify_mech_param('soma', 'pas', 'e', v_init)
+# for sec_type in ['spine_neck', 'spine_head']:
+#     cell.modify_mech_param(sec_type, 'pas', 'e', origin='soma')
+#
+# soma_na_gbar = 0.04
+# cell.modify_mech_param('ais', 'nax', 'sha', -5.)
+# for sec_type in ['basal', 'trunk', 'apical', 'tuft']:
+#     cell.modify_mech_param(sec_type, 'nas', 'sha', 5.)
+# cell.modify_mech_param('soma', 'km2', 'gkmbar', 0.002)
+# cell.modify_mech_param('axon_hill', 'km2', 'gkmbar', 0.004)
+# for sec_type in ['ais', 'axon']:
+#     cell.modify_mech_param(sec_type, 'km2', 'gkmbar', origin='axon_hill')
+#
+# cell.reinit_mechanisms()
 
 sim = QuickSim(duration)  # , verbose=False)
 sim.append_stim(cell, cell.tree.root, loc=0., amp=0., delay=equilibrate, dur=stim_dur)
@@ -846,7 +856,7 @@ xmax['pas'] = [2.0E-5, 2.0E-05, 200.]
 #x0['h'] = [3.75E-08, 4.99E-03, 96.3, 405.3]
 x0['h'] = [5.93E-08, 4.88E-03, 114.4, 459.0]
 xmin['h'] = [1.0E-9, 1.e-4, 25., 50.]
-xmax['h'] = [1.0E-7, 5.e-2, 200., 500.]
+xmax['h'] = [1.0E-7, 5.e-2, 400., 500.]
 
 # [soma.sh_nas, soma.gkabar, soma.gkdrbar, trunk.ka factor]
 #x0['na_ka'] = [3.9, 1.468E-02, 9.518E-03, ]
@@ -855,19 +865,138 @@ xmax['h'] = [1.0E-7, 5.e-2, 200., 500.]
 #x0['na_ka'] = [2.4, 3.5e-2, 3.5e-2, 2.3]
 x0['na_ka'] = [2.5, 3.097E-02, 3.101E-02, 2.9]
 xmin['na_ka'] = [1., 0.005, 0.005, 1.]
-xmax['na_ka'] = [5., 0.04, 0.04, 5.]
+xmax['na_ka'] = [5., 0.04, 0.05, 5.]
 
-x1 = dict(x0)
-log = []
-niter = 200
+x1['pas'] = np.array([1.52e-06, 1.63e-05, 121.9])
+x1['h'] = np.array([2.43e-09, 0.00185, 383.1, 260.7])
+x1['na_ka'] = np.array([1.7, 0.0305, 0.0478, 2.8])
+# soma = cell.tree.root.sec(0.5)
 
-update_pas(x1['pas'])
-update_h(x1['h'])
-update_na_ka(x1['na_ka'])
+run_pas = True
+run_h = True
+run_na_ka = True
+
+# 1. Passive membrane
+if run_pas:
+    print("\nTesting passive membrane")
+    pas_err = pas_error(x1['pas'], plot=1)
+    # check_updates("Soma leak conductance",
+    #               soma.pas.g, x1['pas'][0])
+    #
+    # check_updates("Trunk leak slope",
+    #               cell.mech_dict['trunk']['pas']['g']['slope'],
+    #               x1['pas'][1])
+    #
+    # check_updates("Trunk leak tau",
+    #               cell.mech_dict['trunk']['pas']['g']['tau'],
+    #               x1['pas'][2])
+    print("Passive membrane error:", pas_err)
+
+# 2. HCN
+if run_h:
+    print("\nTesting HCN")
+    h_err = h_error(x1['h'], plot=1)
+    # check_updates("Soma HCN conductance",
+    #               soma.h.ghbar, x1['h'][0])
+    #
+    # check_updates("Trunk HCN slope",
+    #               cell.mech_dict['trunk']['h']['ghbar']['slope'],
+    #               x1['h'][1])
+    #
+    # check_updates("Trunk HCN tau",
+    #               cell.mech_dict['trunk']['h']['ghbar']['tau'],
+    #               x1['h'][2])
+    #
+    # check_updates("Trunk HCN xhalf",
+    #               cell.mech_dict['trunk']['h']['ghbar']['xhalf'],
+    #               x1['h'][3])
+    print("HCN error:", h_err)
+
+# 3. Sodium and potassium
+if run_na_ka:
+    print("\nTesting Na/K")
+    na_ka_err = na_ka_error(x1['na_ka'], plot=1)
+
+    # check_updates("Soma sodium shift",
+    #               soma.nas.sh, x1['na_ka'][0])
+    #
+    # check_updates("Soma KA conductance",
+    #               soma.kap.gkabar, x1['na_ka'][1])
+    #
+    # check_updates("Soma KDR conductance",
+    #               soma.kdr.gkdrbar, x1['na_ka'][2])
+    #
+    # expected_slope = (
+    #         (x1['na_ka'][3] - 1.) * x1['na_ka'][1] / 300.
+    # )
+    #
+    # print("Expected dendritic KA slope:", expected_slope)
+    # print("Expected from YAML: 0.000183")
+    #
+    # ka_pieces = cell.mech_dict['trunk']['kad']['gkabar']
+    # print("Stored dendritic KA rules:", ka_pieces)
+    #
+    # check_updates(
+    #     "Dendritic KA slope",
+    #     ka_pieces[1]['slope'],
+    #     expected_slope
+    # )
+    print("Na/K error:", na_ka_err)
 
 
-"""
-result = optimize_explore(*('na_ka', x1['na_ka'], xmin['na_ka'], xmax['na_ka']), 600)
-log.append(result)
-x1['na_ka'] = result['na_ka']['x']
-"""
+# Display voltage plots
+plt.show()
+
+
+
+# #result = optimize_explore(*('na_ka', x1['na_ka'], xmin['na_ka'], xmax['na_ka']), 2)
+# if __name__ == "__main__":
+#     # result = optimize_explore(
+#     #     'na_ka',
+#     #     x1['na_ka'],
+#     #     xmin['na_ka'],
+#     #     xmax['na_ka'],
+#     #     2)
+#     # log.append(result)
+#     # x1['na_ka'] = result['na_ka']['x']
+
+
+# PASSIVE MEMBRANE RESULTS
+
+# Target vs. simulated input resistance (MOhm):
+#
+# Location       Target      Simulated
+# Soma           110.0       114.3
+# Trunk           97.0        94.3
+# Tuft           121.0       121.1
+#
+# Passive error: 25.6054
+
+
+# 3. HCN RESULTS
+
+
+# Target vs. simulated input resistance (MOhm):
+#
+# Location       Target      Simulated
+# Soma            66.0        73.5
+# Trunk           39.0        53.8
+# Tuft            42.0        73.7
+
+# HCN error: 334.8960
+
+
+# 4. SODIUM / POTASSIUM RESULTS
+
+
+# Measurement            Target       Simulated
+# Spike threshold (mV)   -52.0        -52.4
+# Soma spike peak (mV)    40.0         25.6
+# Trunk amplitude ratio    0.60         0.678
+# ADP                      0.0          0.0
+# AHP (mV)                 4.0         10.3
+# Stability                0.0          0.4
+# AIS delay                0.0          0.00
+# Slow depolarization     25.0         32.4
+#
+# Na/K error: 1147.6762

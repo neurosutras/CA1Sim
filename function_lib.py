@@ -22,7 +22,7 @@ import yaml
 default_data_dir = 'data'
 default_morph_dir = 'morphologies'
 default_mech_dir = 'mech_config'
-
+import scipy.optimize as optimize
 freq = 100      # Hz, frequency at which AC length constant will be computed
 d_lambda = 0.1  # no segment will be longer than this fraction of the AC length constant
 
@@ -2462,3 +2462,68 @@ def flush_engine_buffer(result):
             for line in stdout.splitlines():
                 print(line)
     sys.stdout.flush()
+class Normalized_Step(object):
+    """
+    For use with scipy.optimize packages like basinhopping that allow a customized step-taking method.
+    Converts basinhopping absolute stepsize into different stepsizes for each parameter such that the stepsizes are
+    some fraction of the ranges specified by xmin and xmax. Also enforces bounds for x, and explores the range in
+    log10 space when the range is greater than 2 orders of magnitude.
+    xmin and xmax are delivered as raw, not relative values. Can handle negative values and ranges that cross zero. If
+    xmin and xmax are not provided, or contain None as values, the default is 0.1 and 10. * x0.
+    """
+    def __init__(self, x0, xmin=None, xmax=None, stepsize=0.5):
+        self.stepsize = stepsize
+        if xmin is None:
+            xmin = [None for i in range(len(x0))]
+        if xmax is None:
+            xmax = [None for i in range(len(x0))]
+        for i in range(len(x0)):
+            if xmin[i] is None:
+                if x0[i] > 0.:
+                    xmin[i] = 0.1 * x0[i]
+                else:
+                    xmin[i] = 10. * x0[i]
+            if xmax[i] is None:
+                if x0[i] > 0.:
+                    xmax[i] = 10. * x0[i]
+                else:
+                    xmax[i] = 0.1 * x0[i]
+        self.x0 = x0
+        self.x_range = np.subtract(xmax, xmin)
+        self.order_mag = np.ones_like(x0)
+        if not np.any(np.array(xmin) == 0.):
+            self.order_mag = np.abs(np.log10(np.abs(np.divide(xmax, xmin))))
+        else:
+            for i in range(len(x0)):
+                if xmin[i] == 0.:
+                    self.order_mag[i] = int(xmax[i] / 10)
+                else:
+                    self.order_mag[i] = abs(np.log10(abs(xmax[i] / xmin[i])))
+        self.log10_range = np.log10(np.add(1., self.x_range))
+        self.x_offset = np.subtract(1., xmin)
+
+    def __call__(self, current_x):
+        x = np.add(current_x, self.x_offset)
+        x = np.maximum(x, 1.)
+        x = np.minimum(x, np.add(1., self.x_range))
+        for i in range(len(x)):
+            if self.order_mag[i] >= 2.:
+                x[i] = self.log10_step(i, x[i])
+            else:
+                x[i] = self.linear_step(i, x[i])
+        new_x = np.subtract(x, self.x_offset)
+        return new_x
+
+    def linear_step(self, i, xi):
+        step = self.stepsize * self.x_range[i] / 2.
+        new_xi = np.random.uniform(max(1., xi-step), min(xi+step, 1.+self.x_range[i]))
+        return new_xi
+
+    def log10_step(self, i, xi):
+        step = self.stepsize * self.log10_range[i] / 2.
+        xi = np.log10(xi)
+        new_xi = np.random.uniform(max(0., xi-step), min(xi+step, self.log10_range[i]))
+        new_xi = np.power(10., new_xi)
+        return new_xi
+
+

@@ -11,7 +11,8 @@ is inherited by apical and tuft.
 morph_filename = 'EB2-late-bifurcation.swc'
 
 #mech_filename = '042115 pas_ka_ih_scale kdr - EB2.pkl'
-mech_filename = '042215 pas_exp_scale kdr ka_scale ih - EB2.pkl'
+# mech_filename = '042215 pas_exp_scale kdr ka_scale ih - EB2.pkl'
+mech_filename = '20220808_default_biophysics.yaml'
 
 
 def rinp_error(x, plot=0):
@@ -108,7 +109,7 @@ xbounds = [(low, high) for low, high in zip(xmin, xmax)]
 blocksize = 0.5  # defines the fraction of the xrange that will be explored at each step
                  #  basinhopping starts with this value and reduces it by 10% every 'interval' iterations
 
-mytakestep = MyTakeStep(blocksize, xmin, xmax)
+#mytakestep = MyTakeStep(blocksize, xmin, xmax)
 
 minimizer_kwargs = dict(method=null_minimizer)
 """
@@ -124,3 +125,5 @@ rinp_error(polished_result.x, plot=1)
 sim.append_rec(cell, cell.soma[0])
 sim.append_rec(cell, cell.tuft[-1])
 rinp_error(x1, plot=1)
+# soma ghbar: 1.1484E-05, trunk slope: 9.9955E-07,
+# Error: 1.2083E+03, soma R_inp: 68.062, V_rest: -67.986, trunk R_inp: 69.773, sag: 11.245

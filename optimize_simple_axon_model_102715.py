@@ -17,7 +17,8 @@ II) optimize gbar_nax, gkabar_kap/d, gkdrbar_kdr for target na spike shape
 
 #morph_filename = 'EB1-early-bifurcation.swc'
 morph_filename = 'EB2-late-bifurcation.swc'
-mech_filename = '101415 simple_axon_model'
+# mech_filename = '101415 simple_axon_model'
+mech_filename = '20220808_default_biophysics.yaml'
 
 
 def check_bounds(x, param_name):
@@ -634,14 +635,14 @@ def optimize_explore(xxx_todo_changeme1, maxfev=None):
     error_functions['na_ka_soma'] = na_ka_error_soma
     error_functions['na_ka_dend'] = na_ka_error_dend
 
-    take_step = Normalized_Step(x, xmin, xmax)
+    # take_step = Normalized_Step(x, xmin, xmax)
     minimizer_kwargs = dict(method=null_minimizer)
-    result = optimize.basinhopping(error_functions[param_name], x, niter=maxfev, niter_success=maxfev/2, disp=True,
-                                   interval=20, minimizer_kwargs=minimizer_kwargs, take_step=take_step)
-    formatted_x = '['+', '.join(['%.2E' % xi for xi in result.x])+']'
-    print('Process: %i optimized %s for %i iterations with Error: %.2f and x: %s' % (os.getpid(), param_name,
-                                                                            result.nit, result.fun, formatted_x))
-    return {param_name: {'x': result.x, 'Err': result.fun}}
+    # result = optimize.basinhopping(error_functions[param_name], x, niter=maxfev, niter_success=maxfev/2, disp=True,
+    #                                interval=20, minimizer_kwargs=minimizer_kwargs, take_step=take_step)
+    # formatted_x = '['+', '.join(['%.2E' % xi for xi in result.x])+']'
+    # print('Process: %i optimized %s for %i iterations with Error: %.2f and x: %s' % (os.getpid(), param_name,
+    #                                                                         result.nit, result.fun, formatted_x))
+    # return {param_name: {'x': result.x, 'Err': result.fun}}
 
 
 equilibrate = 250.  # time to steady-state
@@ -741,14 +742,14 @@ log = []
 update_pas(x1['pas'])
 update_na_ka(x1['na_ka'])
 
-#update_na_ka_soma([3.1, 4.433E-02, 1.215E-02])
-#update_na_ka(x1['na_ka'])
-#result = optimize_explore(('na_ka', x1['na_ka'], xmin['na_ka'], xmax['na_ka']), 600)
-#result = optimize_polish(('na_ka', x1['na_ka']), 400)
-#log.append(result)
-#x1['na_ka'] = result['na_ka']['x']
-#update_na_ka(x1['na_ka'])
+update_na_ka_soma([3.1, 4.433E-02, 1.215E-02])
+update_na_ka(x1['na_ka'])
+result = optimize_explore(('na_ka', x1['na_ka'], xmin['na_ka'], xmax['na_ka']), 600)
+result = optimize_polish(('na_ka', x1['na_ka']), 400)
+log.append(result)
+x1['na_ka'] = result['na_ka']['x']
+update_na_ka(x1['na_ka'])
 
-#result = optimize_polish(('pas', x1['pas']))
-#log.append(result)
-#x1['pas'] = result['pas']['x']
+result = optimize_polish(('pas', x1['pas']))
+log.append(result)
+x1['pas'] = result['pas']['x']
