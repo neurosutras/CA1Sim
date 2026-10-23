@@ -3,6 +3,7 @@ from specify_cells import *
 from plot_results import *
 import scipy.optimize as optimize
 import os
+from nested.utils import param_dict_to_array, param_array_to_dict
 """
 
 Extend linear kap gradient into basals and obliques, see how it does. Aim for 60% spike attenuation ~200 uM along trunk.
@@ -19,89 +20,57 @@ IV) optimize gbar_nax/nas/sh, gkabar_kap/d, gkdrbar for target na spike threshol
 
 morph_filename = 'EB2-late-bifurcation.swc'
 mech_filename = '20220808_default_biophysics.yaml'
-#mech_filename = '080615 rebalanced na_ka ampa nmda - EB2'
 
 
-#mech_filename = '100215 template dendritic excitability'
-
-
-def check_bounds(x, param_name):
+def update_pas(x_dict):
     """
-    For optimize_polish, based on simplex algorithm, check that the current set of parameters are within the bounds.
-    :param x: array
-    :param param_name: str
-    :return: bool
+    (soma.g_pas, trunk.g_pas slope, trunk.g_pas tau) # include soma.e_pas
+    :param x_dict: dict
     """
-    for i in range(len(x)):
-        if ((xmin[param_name][i] is not None and x[i] < xmin[param_name][i]) or
-            (xmax[param_name][i] is not None and x[i] > xmax[param_name][i])):
-            return False
-    return True
-
-
-def update_pas(x):
-    """
-
-    x0 = [2.28e-05, 1.58e-06, 58.4]
-    :param x: array (soma.g_pas, trunk.g_pas slope, trunk.g_pas tau)
-    """
+    e_pas = cell.mech_dict['soma']['pas']['e']['value']
     e_k = cell.mech_dict['soma']['ions']['ek']['value']
     distance = cell.get_distance_to_node(cell.tree.root, distal_trunk, 1.)
-    slope = (e_k - v_init) / (np.exp(distance / x[2]) - 1.)
-    cell.modify_mech_param('soma', 'pas', 'g', x[0])
-    cell.modify_mech_param('trunk', 'pas', 'g', origin='soma', slope=x[1], tau=x[2])
-    cell.modify_mech_param('trunk', 'pas', 'e', origin='soma', slope=slope, tau=x[2])
+    slope = (e_k - e_pas) / (np.exp(distance / x_dict['trunk.g_pas tau']) - 1.)
+    cell.modify_mech_param('soma', 'pas', 'g', x_dict['soma.g_pas'])
+    cell.modify_mech_param('trunk', 'pas', 'g', origin='soma', slope=x_dict['trunk.g_pas slope'], tau=x_dict['trunk.g_pas tau'])
+    cell.modify_mech_param('trunk', 'pas', 'e', origin='soma', slope=slope, tau=x_dict['trunk.g_pas tau'])
     for sec_type in ['apical', 'tuft']:
         cell.modify_mech_param(sec_type, 'pas', 'e', origin='trunk')
     for sec_type in ['basal', 'axon_hill', 'axon', 'ais', 'trunk', 'apical', 'tuft', 'spine_neck', 'spine_head']:
         cell.reinitialize_subset_mechanisms(sec_type, 'pas')
 
 
-def update_h(x):
+def update_h(x_dict):
     """
-
-    x0 = [1.07e-09, 0.0204, 28.7, 265.5]
-    :param x: array (soma.ghbar_h, trunk.ghbar_h slope, trunk.ghbar_h tau, trunk.ghbar_h xhalf)
+    (soma.ghbar_h, trunk.ghbar_h slope, trunk.ghbar_h tau, trunk.ghbar_h xhalf)
+    :param x_dict: dict
     """
-    cell.modify_mech_param('soma', 'h', 'ghbar', x[0])
-    cell.modify_mech_param('trunk', 'h', 'ghbar', origin='soma', slope=x[1], tau=x[2], xhalf=x[3])
+    cell.modify_mech_param('soma', 'h', 'ghbar', x_dict['soma.ghbar_h'])
+    cell.modify_mech_param('trunk', 'h', 'ghbar', origin='soma', slope=x_dict['trunk.ghbar_h slope'], tau=x_dict['trunk.ghbar_h tau'], xhalf=x_dict['trunk.ghbar_h xhalf'])
     cell.modify_mech_param('basal', 'h', 'ghbar', origin='soma')
     for sec_type in ['apical', 'tuft']:
         cell.modify_mech_param(sec_type, 'h', 'ghbar', origin='trunk')
 
 
-def update_v_rest(x):
+def update_na_ka(x_dict):
     """
-
-    :param x: array (soma.ghbar_h, trunk.ghbar_h slope, trunk.ghbar_h tau, trunk.ghbar_h xhalf)
-    :return:
-    """
-    e_pas = cell.mech_dict['soma']['pas']['e']['value']
-    e_k = cell.mech_dict['soma']['ions']['ek']['value']
-    distance = cell.get_distance_to_node(cell.tree.root, distal_trunk, 1.)
-    slope = (e_k - e_pas) / ((1. / (1. + np.exp((x[3] - distance) / x[2]))) - (1. / (1. + np.exp(x[3] / x[2]))))
-    cell.modify_mech_param('trunk', 'pas', 'e', origin='soma', slope=slope, tau=x[2], xhalf=x[3])
-    for sec_type in ['apical', 'tuft']:
-        cell.modify_mech_param(sec_type, 'pas', 'e', origin='trunk')
-
-
-def update_na_ka(x):
-    """
-
-    :param x: array [soma.sh_nas, soma.gkabar, soma.gkdrbar, trunk.ka factor]
+    [soma.sh_nas, soma.gkabar, soma.gkdrbar, trunk.ka factor]
+    # TODO: include soma.gbar_nas in this optimization
+    # TODO: 'ais', 'axon' have a multiplier on kap
+    :param x_dict: dict
     """
     # cell.modify_mech_param('soma', 'nas', 'gbar', soma_na_gbar)
-    cell.modify_mech_param('soma', 'nas', 'sh', x[0])
-    cell.modify_mech_param('soma', 'kdr', 'gkdrbar', x[2])
-    cell.modify_mech_param('soma', 'kap', 'gkabar', x[1])
-    slope = (x[3] - 1.) * x[1] / 300.
+    cell.modify_mech_param('soma', 'nas', 'sh', x_dict['soma.sh_nas'])
+    cell.modify_mech_param('soma', 'kdr', 'gkdrbar', x_dict['soma.gkdrbar'])
+    cell.modify_mech_param('soma', 'kap', 'gkabar', x_dict['soma.gkabar'])
+    slope = (x_dict['trunk.ka factor'] - 1.) * x_dict['soma.gkabar'] / 300.
     for sec_type in ['basal', 'trunk', 'apical', 'tuft']:
         cell.modify_mech_param(sec_type, 'kap', 'gkabar', origin='soma', min_loc=75., value=0.)
         cell.modify_mech_param(sec_type, 'kap', 'gkabar', origin='soma', max_loc=75., slope=slope, replace=False)
         cell.modify_mech_param(sec_type, 'kad', 'gkabar', origin='soma', max_loc=75., value=0.)
         cell.modify_mech_param(sec_type, 'kad', 'gkabar', origin='soma', min_loc=75., max_loc=300., slope=slope,
-                               value=x[1]+slope*75., replace=False)
-        cell.modify_mech_param(sec_type, 'kad', 'gkabar', origin='soma', min_loc=300., value=x[1]+slope*300.,
+                               value=x_dict['soma.gkabar']+slope*75., replace=False)
+        cell.modify_mech_param(sec_type, 'kad', 'gkabar', origin='soma', min_loc=300., value=x_dict['soma.gkabar']+slope*300.,
                                replace=False)
         cell.modify_mech_param(sec_type, 'nas', 'sh', origin='soma')
         cell.modify_mech_param(sec_type, 'kdr', 'gkdrbar', origin='soma')
@@ -110,13 +79,14 @@ def update_na_ka(x):
     # cell.modify_mech_param('apical', 'nas', 'gbar', origin='trunk', slope=-1.*soma_na_gbar/200., min=0.)
     # cell.modify_mech_param('tuft', 'nas', 'gbar', origin='trunk')
     # cell.modify_mech_param('axon_hill', 'nax', 'gbar', soma_na_gbar * 2.)
-    cell.modify_mech_param('axon_hill', 'nax', 'sh', x[0])
+    cell.modify_mech_param('axon_hill', 'nax', 'sh', x_dict['soma.sh_nas'])
     # cell.modify_mech_param('ais', 'nax', 'gbar', soma_na_gbar * 2. * 5.)
     # cell.modify_mech_param('axon', 'nax', 'gbar', origin='axon_hill')
     for sec_type in ['ais', 'axon']:
         cell.modify_mech_param(sec_type, 'nax', 'sh', origin='axon_hill')
     for sec_type in ['axon_hill', 'ais', 'axon']:
         cell.modify_mech_param(sec_type, 'kdr', 'gkdrbar', origin='soma')
+    for sec_type in ['axon_hill']:
         cell.modify_mech_param(sec_type, 'kap', 'gkabar', origin='soma')
     cell.set_terminal_branch_na_gradient()
 
@@ -300,9 +270,20 @@ def get_EPSP_dur(t, vm, equilibrate, duration):
     return decay_dur
 
 
-def pas_error(x, plot=1):
+def update_mechanisms(x, param_names, cell):
+    x_dict = param_array_to_dict(x, param_names)
+    cell.restore_original_mech_dict()
+    update_pas(x_dict)
+    update_h(x_dict)
+    update_na_ka(x_dict)
+    cell.reinit_mechanisms()
+    cell.init_synaptic_mechanisms()
+
+
+def pas_error(x, param_names, sim, cell, plot=1):
     """
-    :param x: array (soma.g_pas, trunk.g_pas slope, trunk.g_pas tau)
+    :param x: array
+    :param param_names: list of str
     :param plot: int
     :return: float
     """
@@ -312,9 +293,12 @@ def pas_error(x, plot=1):
     sim.tstop = duration
     result = {}
     amp = -0.15
+
+    update_mechanisms(x, param_names, cell)
+
     zero_h()
     zero_na()
-    update_pas(x)
+
     offset_vm('soma')
     sim.modify_stim(0, node=cell.tree.root, loc=0., amp=amp, dur=stim_dur)
     sim.run(v_init)
@@ -342,10 +326,12 @@ def pas_error(x, plot=1):
     return Err
 
 
-def h_error(x, plot=1):
+def h_error(x, param_names, sim, cell, plot=1):
     """
 
     :param x: array (soma.ghbar_h, trunk.ghbar_h slope, trunk.ghbar_h tau, trunk.ghbar_h xhalf)
+    :param sim: class:'QuickSim'
+    :param cell: class:'CA1Pyr'
     :param plot: int
     :return: float
     """
@@ -355,9 +341,10 @@ def h_error(x, plot=1):
     sim.tstop = duration
     result = {}
     amp = -0.15
+
+    update_mechanisms(x, param_names, cell)
     zero_na()
-    update_h(x)
-    #update_v_rest(x)
+
     soma_vm = offset_vm('soma')
     sim.modify_stim(0, node=cell.tree.root, loc=0., amp=amp, dur=stim_dur)
     sim.run(v_init)
@@ -404,15 +391,22 @@ def h_error(x, plot=1):
     return Err
 
 
-def v_rest_error(plot=1):
+def v_rest_error(x, param_names, sim, cell, plot=1):
     """
 
+    :param x: array
+    :param param_names: list
+    :param sim: class:'QuickSim'
+    :param cell: class:'CA1Pyr'
     :param plot: int
     :return: float
     """
     start_time = time.time()
     sim.tstop = equilibrate
     result = {}
+
+    update_mechanisms(x, param_names, cell)
+
     sim.modify_stim(0, amp=0.)
     sim.modify_stim(1, amp=0.)
     sim.run(v_init)
@@ -437,18 +431,20 @@ def v_rest_error(plot=1):
     return Err
 
 
-def na_ka_error(x, plot=1):
+def na_ka_error(x, param_names, sim, cell, plot=1):
     """
 
-    :param x: array [soma.sh_nas, soma.gkabar, soma.gkdrbar, trunk.ka factor]
+    :param x: array
+    :param param_names: list of str
+    :param sim: class:'QuickSim'
+    :param cell: class:'CA1Pyr'
     :param plot: int
     :return: float
     """
-    if not check_bounds(x, 'na_ka'):
-        print(('Process %i: Aborting - Parameters outside optimization bounds.' % (os.getpid())))
-        return 1e9
     start_time = time.time()
-    update_na_ka(x)
+
+    update_mechanisms(x, param_names, cell)
+
     sim.modify_stim(0, node=cell.tree.root, loc=0., dur=100.)
     sim.modify_rec(1, node=distal_trunk, loc=1.)
     duration = equilibrate + 200.
@@ -535,10 +531,13 @@ def na_ka_error(x, plot=1):
     return Err
 
 
-def na_ka_error_soma(x, plot=1):
+def na_ka_error_soma(x, param_names, sim, cell, plot=1):
     """
 
-    :param x: array [soma.sh_nas, soma.gkabar, soma.gkdrbar]
+    :param x: array
+    :param param_names: list of str
+    :param sim: :class:'QuickSim'
+    :param cell: :class:'CA1Pyr'
     :param plot: int
     :return: float
     """
@@ -546,7 +545,9 @@ def na_ka_error_soma(x, plot=1):
         print(('Process %i: Aborting - Parameters outside optimization bounds.' % (os.getpid())))
         return 1e9
     start_time = time.time()
-    update_na_ka_soma(x)
+
+    update_mechanisms(x, param_names, cell)
+
     sim.modify_stim(0, node=cell.tree.root, loc=0., dur=100.)
     duration = equilibrate + 200.
     sim.tstop = duration
@@ -626,15 +627,20 @@ def na_ka_error_soma(x, plot=1):
     return Err
 
 
-def na_ka_error_dend(x, plot=1):
+def na_ka_error_dend(x, param_names, sim, cell, plot=1):
     """
 
-    :param x: array [soma.sh_nas, trunk.ka factor]
+    :param x: array
+    :param param_names: list of str
+    :param sim: :class:'QuickSim'
+    :param cell: :class:'CA1Pyr'
     :param plot: int
     :return: float
     """
     start_time = time.time()
-    update_na_ka_dend(x)
+
+    update_mechanisms(x, param_names, cell)
+
     sim.modify_stim(0, node=cell.tree.root, loc=0., dur=100.)
     sim.modify_rec(1, node=distal_trunk, loc=1.)
     duration = equilibrate + 200.
@@ -673,65 +679,6 @@ def na_ka_error_dend(x, plot=1):
     print(('Process %i: Error: %.4E' % (os.getpid(), Err)))
     sim.modify_rec(1, node=trunk, loc=1.)
     return Err
-
-
-def optimize_polish(param_name, x, maxfev=None):
-    """
-
-    :param param_name: str
-    :param x: array
-    :param xmin: array
-    :param xmax: array
-    :param maxfev: int
-    :return: array
-    """
-    if maxfev is None:
-        maxfev = 200
-    error_functions = {}
-    error_functions['pas'] = pas_error
-    error_functions['h'] = h_error
-    error_functions['v_rest'] = v_rest_error
-    error_functions['na_ka'] = na_ka_error
-    error_functions['na_ka_soma'] = na_ka_error_soma
-    error_functions['na_ka_dend'] = na_ka_error_dend
-
-    result = optimize.minimize(error_functions[param_name], x, method='Nelder-Mead', options={'ftol': 1e-3,
-                                                    'xtol': 1e-3, 'disp': True, 'maxiter': maxfev})
-    formatted_x = '['+', '.join(['%.2E' % xi for xi in result.x])+']'
-    print(('Process: %i optimized %s for %i iterations with Error: %.2f and x: %s' % (os.getpid(), param_name,
-                                                                            result.nit, result.fun, formatted_x)))
-    return {param_name: {'x': result.x, 'Err': result.fun}}
-
-
-def optimize_explore(param_name, x, xmin, xmax, maxfev=None):
-    """
-
-    :param param_name: str
-    :param x: array
-    :param xmin: array
-    :param xmax: array
-    :param maxfev: int
-    :return: array
-    """
-    if maxfev is None:
-        maxfev = 200
-    error_functions = {}
-    error_functions['pas'] = lambda x: pas_error(x, plot=1)
-    error_functions['h'] = lambda x: h_error(x, plot=1)
-    error_functions['na_ka'] = lambda x: na_ka_error(x, plot=1)
-    error_functions['na_ka'] = na_ka_error
-    error_functions['na_ka_soma'] = na_ka_error_soma
-    error_functions['na_ka_dend'] = na_ka_error_dend
-
-    take_step = Normalized_Step(x, xmin, xmax)
-    minimizer_kwargs = dict(method=null_minimizer)
-    print("Currently optimizing:", param_name)
-    result = optimize.basinhopping(error_functions[param_name], x, niter=maxfev, niter_success=maxfev//2,
-                                       disp=True, interval=20, minimizer_kwargs=minimizer_kwargs, take_step=take_step)
-    formatted_x = '['+', '.join(['%.2E' % xi for xi in result.x])+']'
-    print(('Process: %i optimized %s for %i iterations with Error: %.2f and x: %s' % (os.getpid(), param_name,
-                                                                            result.nit, result.fun, formatted_x)))
-    return {param_name: {'x': result.x, 'Err': result.fun}}
 
 
 def check_updates(name, actual, expected):
@@ -901,38 +848,47 @@ x1 = {}
 xmin = {}
 xmax = {}
 
-#x0['pas'] = [1.56E-05, 3.52E-06, 71.2]
-#x0['pas'] = [9.85E-06, 1.12E-05, 62.7]
-#x0['pas'] = [8.88E-06, 7.40E-06, 92.5]
-#x0['pas'] = [8.81E-06, 7.52E-06, 93.6]
-#x0['pas'] = [8.54E-06, 7.67E-06, 96.1]
-x0['pas'] = [1.43E-06, 1.58E-05, 121.9]
-xmin['pas'] = [1.0E-6, 1.0E-06, 25.]
-xmax['pas'] = [2.0E-5, 2.0E-05, 200.]
+param_names = ['soma.g_pas', 'trunk.g_pas slope', 'trunk.g_pas tau', 'soma.ghbar_h', 'trunk.ghbar_h slope',
+               'trunk.ghbar_h tau', 'trunk.ghbar_h xhalf', 'soma.sh_nas', 'soma.gkabar', 'soma.gkdrbar',
+               'trunk.ka factor']
 
-#x0['h'] = [1.01E-08, 1.04E-02, 50.1, 361.5]
-#x0['h'] = [1.01E-08, 1.14E-02, 55.0, 320.8]
-#x0['h'] = [1.76E-08, 6.69E-03, 42.2, 261.8]
-#x0['h'] = [2.21E-08, 2.97E-03, 99.6, 342.2]
-#x0['h'] = [3.75E-08, 4.99E-03, 96.3, 405.3]
-x0['h'] = [5.93E-08, 4.88E-03, 114.4, 459.0]
-xmin['h'] = [1.0E-9, 1.e-4, 25., 50.]
-xmax['h'] = [1.0E-7, 5.e-2, 400., 500.]
+param_bounds_dict = {'soma.g_pas': (1.0E-6, 2.0E-5),
+           'trunk.g_pas slope': (1.0E-6, 2.0E-5),
+           'trunk.g_pas tau': (25., 200.),
+           'soma.ghbar_h': (1.0E-9, 1.0E-7),
+           'trunk.ghbar_h slope': (1.0E-4, 5.0E-2),
+           'trunk.ghbar_h tau': (25., 400.),
+           'trunk.ghbar_h xhalf': (50., 500.),
+           'soma.sh_nas': (1., 5.),
+           'soma.gkabar': (0.005, 0.04),
+           'soma.gkdrbar': (0.005, 0.05),
+           'trunk.ka factor': (1., 5.)}
 
-# [soma.sh_nas, soma.gkabar, soma.gkdrbar, trunk.ka factor]
-#x0['na_ka'] = [3.9, 1.468E-02, 9.518E-03, ]
-#x0['na_ka'] = [5.0, 3.871E-02, 2.288E-02, 2.]
-#x0['na_ka'] = [3.1, 2.640E-02, 3.118E-02, 3.5]
-#x0['na_ka'] = [2.4, 3.5e-2, 3.5e-2, 2.3]
-x0['na_ka'] = [2.5, 3.097E-02, 3.101E-02, 2.9]
-xmin['na_ka'] = [1., 0.005, 0.005, 1.]
-xmax['na_ka'] = [5., 0.04, 0.05, 5.]
+x0_dict = {'soma.g_pas': 1.43E-06,
+           'trunk.g_pas slope': 1.58E-05,
+           'trunk.g_pas tau': 121.9,
+           'soma.ghbar_h': 5.93E-08,
+           'trunk.ghbar_h slope': 4.88E-03,
+           'trunk.ghbar_h tau': 114.4,
+           'trunk.ghbar_h xhalf': 459.0,
+           'soma.sh_nas': 2.5,
+           'soma.gkabar': 3.097E-02,
+           'soma.gkdrbar': 3.101E-02,
+           'trunk.ka factor': 2.9}
 
-x1['pas'] = np.array([1.52e-06, 1.63e-05, 121.9])
-x1['h'] = np.array([2.43e-09, 0.00185, 383.1, 260.7])
-x1['na_ka'] = np.array([1.7, 0.0305, 0.0478, 2.8])
-# soma = cell.tree.root.sec(0.5)
+x1_dict = {'soma.g_pas': 1.52e-06,
+           'trunk.g_pas slope': 1.63e-05,
+           'trunk.g_pas tau': 121.9,
+           'soma.ghbar_h': 2.43e-09,
+           'trunk.ghbar_h slope': 0.00185,
+           'trunk.ghbar_h tau': 383.1,
+           'trunk.ghbar_h xhalf': 260.7,
+           'soma.sh_nas': 1.7,
+           'soma.gkabar': 0.0305,
+           'soma.gkdrbar': 0.0478,
+           'trunk.ka factor': 2.8}
 
+x1 = param_dict_to_array(x1_dict, param_names)
 run_pas = True
 run_h = True
 run_na_ka = True
@@ -941,8 +897,7 @@ run_na_ka = True
 # 1. Passive membrane
 if run_pas:
     print("\nTesting passive membrane")
-    pas_err = pas_error(x1['pas'], plot=1)
-    plot_comparison_table("Passive Membrane", target_val['pas'], pas_results)
+    pas_err = pas_error(x1, param_names, sim, cell, plot=1)
     # check_updates("Soma leak conductance",
     #               soma.pas.g, x1['pas'][0])
     #
@@ -955,11 +910,14 @@ if run_pas:
     #               x1['pas'][2])
     print("Passive membrane error:", pas_err)
 
+    print('Testing resting Vm:')
+    v_rest_err = v_rest_error(x1, param_names, sim, cell, plot=True)
+    print("Resting membrane error:", v_rest_err)
+
 # 2. HCN
 if run_h:
     print("\nTesting HCN")
-    h_err = h_error(x1['h'], plot=1)
-    plot_comparison_table("HCN", target_val['h'], h_results)
+    h_err = h_error(x1, param_names, sim, cell, plot=1)
     # check_updates("Soma HCN conductance",
     #               soma.h.ghbar, x1['h'][0])
     #
@@ -979,8 +937,8 @@ if run_h:
 # 3. Sodium and potassium
 if run_na_ka:
     print("\nTesting Na/K")
-    na_ka_err = na_ka_error(x1['na_ka'], plot=1)
-    plot_comparison_table("Sodium / Potassium", target_val['na_ka'], na_ka_results)
+    na_ka_err = na_ka_error(x1, param_names, sim, cell, plot=1)
+
     # check_updates("Soma sodium shift",
     #               soma.nas.sh, x1['na_ka'][0])
     #
@@ -1007,6 +965,13 @@ if run_na_ka:
     # )
     print("Na/K error:", na_ka_err)
 
+    print("\nTesting Na/K soma")
+    na_ka_err_soma = na_ka_error_soma(x1, param_names, sim, cell, plot=1)
+    print("Na/K soma error:", na_ka_err_soma)
+
+    print("\nTesting Na/K dend")
+    na_ka_err_dend = na_ka_error_dend(x1, param_names, sim, cell, plot=1)
+    print("Na/K dend error:", na_ka_err_dend)
 
 # Display voltage plots
 plt.show()

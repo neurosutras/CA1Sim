@@ -691,6 +691,8 @@ class HocCell(object):
         self.mech_dict = self.load_mech_dict(mech_filename, mech_dir)  # Refer to function_lib for description of structure of
                                                              # mechanism dictionary. loads from .yaml or
                                                              # default_mech_dict in function_lib
+        self.orig_mech_dict = copy.deepcopy(self.mech_dict)
+        
         if not morph_filename is None:
             self.load_morphology_from_swc(morph_filename, morph_dir)
             self.reinit_mechanisms()  # Membrane mechanisms must be reinitialized whenever cable properties (Ra, cm) or
@@ -878,6 +880,19 @@ class HocCell(object):
         else:
             local_mech_dict = copy.deepcopy(default_mech_dict)
             return local_mech_dict
+    
+    def cache_mech_dict(self):
+        self._cached_mech_dict = copy.deepcopy(self.mech_dict)
+    
+    def restore_mechanisms_from_cache(self):
+        self.mech_dict = copy.deepcopy(self._cached_mech_dict)
+        self.reinit_mechanisms()
+        self.init_synaptic_mechanisms()
+        
+    def restore_original_mech_dict(self):
+        self.mech_dict = copy.deepcopy(self.orig_mech_dict)
+        self.reinit_mechanisms()
+        self.init_synaptic_mechanisms()
 
     def _init_cable(self, node):
         """
