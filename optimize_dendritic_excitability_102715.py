@@ -337,6 +337,8 @@ def pas_error(x, plot=1):
     print(('Process %i: Error: %.4E' % (os.getpid(), Err)))
     if plot:
         sim.plot()
+    global pas_results
+    pas_results = result.copy()
     return Err
 
 
@@ -396,6 +398,9 @@ def h_error(x, plot=1):
           (os.getpid(), x[0], x[1], x[2], x[3], result['soma'], result['trunk'], tuft_rinp, result['v_rest_offset'],
           result['delta_EPSP_dur'])))
     print(('Process %i: Error: %.4E' % (os.getpid(), Err)))
+    global h_results
+    h_results = result.copy()
+    h_results['tuft'] = tuft_rinp
     return Err
 
 
@@ -525,6 +530,8 @@ def na_ka_error(x, plot=1):
             result['trunk_amp'], ADP, AHP, result['stability'], result['ais_delay'], result['slow_depo'], v_rest)))
     print(('Process %i: Error: %.4E' % (os.getpid(), Err)))
     sim.modify_rec(1, node=trunk, loc=1.)
+    global na_ka_results
+    na_ka_results = result.copy()
     return Err
 
 
@@ -748,6 +755,60 @@ v_init = -67.
 spines = True  # False
 i_holding = {'soma': 0., 'trunk': 0., 'tuft': 0.}
 
+def print_comparison(name, targets, measured):
+    print("\n" + "=" * 75)
+    print(name + " - TARGET VS SIMULATION")
+    print("=" * 75)
+    print(f"{'Measurement':<22} {'Target':>12} {'Simulated':>12} {'Difference':>12}")
+    print("-" * 75)
+
+    for key, target in targets.items():
+        if key not in measured:
+            continue
+
+        actual = measured[key]
+        difference = actual - target
+
+        print(f"{key:<22} {target:>12.3f} {actual:>12.3f} {difference:>+12.3f}")
+
+    print("=" * 75)
+
+
+def plot_comparison_table(name, targets, measured):
+    keys = [key for key in targets if key in measured]
+
+    rows = []
+    for key in keys:
+        target = float(targets[key])
+        actual = float(measured[key])
+        difference = actual - target
+
+        rows.append([
+            key,
+            f"{target:.3f}",
+            f"{actual:.3f}",
+            f"{difference:+.3f}"
+        ])
+
+    fig, ax = plt.subplots(figsize=(10, max(2.5, len(rows) * 0.5 + 1.5)))
+    ax.axis("off")
+
+    table = ax.table(
+        cellText=rows,
+        colLabels=["Measurement", "Target", "Simulation", "Difference"],
+        cellLoc="center",
+        loc="center"
+    )
+
+    table.auto_set_font_size(False)
+    table.set_fontsize(11)
+    table.scale(1, 1.7)
+
+    ax.set_title(name + ": Target vs Simulation", fontsize=14, pad=15)
+
+    fig.tight_layout()
+    return fig
+
 cell = CA1_Pyr(morph_filename, mech_filename, full_spines=spines)
 
 # look for a trunk bifurcation
@@ -876,10 +937,12 @@ run_pas = True
 run_h = True
 run_na_ka = True
 
+
 # 1. Passive membrane
 if run_pas:
     print("\nTesting passive membrane")
     pas_err = pas_error(x1['pas'], plot=1)
+    plot_comparison_table("Passive Membrane", target_val['pas'], pas_results)
     # check_updates("Soma leak conductance",
     #               soma.pas.g, x1['pas'][0])
     #
@@ -896,6 +959,7 @@ if run_pas:
 if run_h:
     print("\nTesting HCN")
     h_err = h_error(x1['h'], plot=1)
+    plot_comparison_table("HCN", target_val['h'], h_results)
     # check_updates("Soma HCN conductance",
     #               soma.h.ghbar, x1['h'][0])
     #
@@ -916,7 +980,7 @@ if run_h:
 if run_na_ka:
     print("\nTesting Na/K")
     na_ka_err = na_ka_error(x1['na_ka'], plot=1)
-
+    plot_comparison_table("Sodium / Potassium", target_val['na_ka'], na_ka_results)
     # check_updates("Soma sodium shift",
     #               soma.nas.sh, x1['na_ka'][0])
     #
