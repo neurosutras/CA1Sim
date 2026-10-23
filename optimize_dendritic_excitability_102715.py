@@ -36,8 +36,6 @@ def update_pas(x_dict):
     cell.modify_mech_param('trunk', 'pas', 'e', origin='soma', slope=slope, tau=x_dict['trunk.g_pas tau'])
     for sec_type in ['apical', 'tuft']:
         cell.modify_mech_param(sec_type, 'pas', 'e', origin='trunk')
-    for sec_type in ['basal', 'axon_hill', 'axon', 'ais', 'trunk', 'apical', 'tuft', 'spine_neck', 'spine_head']:
-        cell.reinitialize_subset_mechanisms(sec_type, 'pas')
 
 
 def update_h(x_dict):
@@ -88,47 +86,6 @@ def update_na_ka(x_dict):
         cell.modify_mech_param(sec_type, 'kdr', 'gkdrbar', origin='soma')
     for sec_type in ['axon_hill']:
         cell.modify_mech_param(sec_type, 'kap', 'gkabar', origin='soma')
-    cell.set_terminal_branch_na_gradient()
-
-def update_na_ka_soma(x):
-    """
-
-    :param x: array [soma.sh_nas, soma.gkabar, soma.gkdrbar]
-    """
-    cell.modify_mech_param('soma', 'nas', 'sh', x[0])
-    cell.modify_mech_param('soma', 'kdr', 'gkdrbar', x[2])
-    cell.modify_mech_param('soma', 'kap', 'gkabar', x[1])
-    for sec_type in ['basal', 'trunk', 'apical', 'tuft']:
-        cell.modify_mech_param(sec_type, 'nas', 'sh', origin='soma')
-        cell.modify_mech_param(sec_type, 'kdr', 'gkdrbar', origin='soma')
-    cell.modify_mech_param('axon_hill', 'nax', 'sh', x[0])
-    for sec_type in ['ais', 'axon']:
-        cell.modify_mech_param(sec_type, 'nax', 'sh', origin='axon_hill')
-    for sec_type in ['axon_hill', 'ais', 'axon']:
-        cell.modify_mech_param(sec_type, 'kdr', 'gkdrbar', origin='soma')
-        cell.modify_mech_param(sec_type, 'kap', 'gkabar', origin='soma')
-
-
-def update_na_ka_dend(x):
-    """
-
-    :param x: array [soma.sh_nas, trunk.ka factor]
-    """
-    cell.modify_mech_param('soma', 'nas', 'sh', x[0])
-    soma_gkabar = cell.mech_dict['soma']['kap']['gkabar']['value']
-    slope = (x[1] - 1.) * soma_gkabar / 300.
-    for sec_type in ['basal', 'trunk', 'apical', 'tuft']:
-        cell.modify_mech_param(sec_type, 'kap', 'gkabar', origin='soma', min_loc=75., value=0.)
-        cell.modify_mech_param(sec_type, 'kap', 'gkabar', origin='soma', max_loc=75., slope=slope, replace=False)
-        cell.modify_mech_param(sec_type, 'kad', 'gkabar', origin='soma', max_loc=75., value=0.)
-        cell.modify_mech_param(sec_type, 'kad', 'gkabar', origin='soma', min_loc=75., max_loc=300., slope=slope,
-                               value=soma_gkabar+slope*75., replace=False)
-        cell.modify_mech_param(sec_type, 'kad', 'gkabar', origin='soma', min_loc=300., value=soma_gkabar+slope*300.,
-                               replace=False)
-        cell.modify_mech_param(sec_type, 'nas', 'sh', origin='soma')
-    cell.modify_mech_param('axon_hill', 'nax', 'sh', x[0])
-    for sec_type in ['ais', 'axon']:
-        cell.modify_mech_param(sec_type, 'nax', 'sh', origin='axon_hill')
 
 
 def offset_vm(sec_type):
@@ -277,6 +234,7 @@ def update_mechanisms(x, param_names, cell):
     update_h(x_dict)
     update_na_ka(x_dict)
     cell.reinit_mechanisms()
+    cell.set_terminal_branch_na_gradient()
     cell.init_synaptic_mechanisms()
 
 
@@ -287,8 +245,6 @@ def pas_error(x, param_names, sim, cell, plot=1):
     :param plot: int
     :return: float
     """
-    if np.any(x < 0.):
-        return 1e9
     start_time = time.time()
     sim.tstop = duration
     result = {}
@@ -335,8 +291,6 @@ def h_error(x, param_names, sim, cell, plot=1):
     :param plot: int
     :return: float
     """
-    if np.any(x < 1.e-10) or x[2] < 25.:  # or x[2] + x[3] > 300.:
-        return 1e9
     start_time = time.time()
     sim.tstop = duration
     result = {}
@@ -541,9 +495,6 @@ def na_ka_error_soma(x, param_names, sim, cell, plot=1):
     :param plot: int
     :return: float
     """
-    if x[1] > 0.05 or x[2] > 0.05:
-        print(('Process %i: Aborting - Parameters outside optimization bounds.' % (os.getpid())))
-        return 1e9
     start_time = time.time()
 
     update_mechanisms(x, param_names, cell)
@@ -777,44 +728,6 @@ tuft = distal_trunk  # testing optimizing pas and h at tuft bifurcation instead 
 for branch in [trunk, tuft]:
     syn = Synapse(cell, branch.spines[-1], ['AMPA_KIN'], stochastic=0)
 cell.init_synaptic_mechanisms()
-
-"""
-# look for a trunk location ~50 uM from SLM
-distance = cell.get_distance_to_node(trunk, tuft, 0.)
-while distance < 25.:
-    trunk = trunk.parent
-    distance = cell.get_distance_to_node(trunk, tuft, 0.)
-# look for a tuft location ~50 uM from SR
-distance = cell.get_distance_to_node(distal_trunk, tuft, 0.)
-while distance < 25.:
-    tuft_branches = [branch for branch in tuft.children if branch.type == 'tuft' and not cell.is_terminal(branch)]
-    # get the thickest non-terminal tuft branch
-    tuft = max(tuft_branches, key=lambda node: node.sec(0.).diam)
-    distance = cell.get_distance_to_node(distal_trunk, tuft, 0.)
-"""
-
-"""
-cell.modify_mech_param('soma', 'ions', 'ek', -77.)
-cell.reinit_mechanisms()
-"""
-
-# cell.modify_mech_param('soma', 'nas', 'ar', 1.)
-# for sec_type in ['basal', 'trunk', 'apical', 'tuft']:
-#     cell.modify_mech_param(sec_type, 'nas', 'ar', 0.8)
-# cell.modify_mech_param('soma', 'pas', 'e', v_init)
-# for sec_type in ['spine_neck', 'spine_head']:
-#     cell.modify_mech_param(sec_type, 'pas', 'e', origin='soma')
-#
-# soma_na_gbar = 0.04
-# cell.modify_mech_param('ais', 'nax', 'sha', -5.)
-# for sec_type in ['basal', 'trunk', 'apical', 'tuft']:
-#     cell.modify_mech_param(sec_type, 'nas', 'sha', 5.)
-# cell.modify_mech_param('soma', 'km2', 'gkmbar', 0.002)
-# cell.modify_mech_param('axon_hill', 'km2', 'gkmbar', 0.004)
-# for sec_type in ['ais', 'axon']:
-#     cell.modify_mech_param(sec_type, 'km2', 'gkmbar', origin='axon_hill')
-#
-# cell.reinit_mechanisms()
 
 sim = QuickSim(duration)  # , verbose=False)
 sim.append_stim(cell, cell.tree.root, loc=0., amp=0., delay=equilibrate, dur=stim_dur)
