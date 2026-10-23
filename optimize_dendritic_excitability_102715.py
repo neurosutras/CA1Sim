@@ -898,6 +898,7 @@ run_na_ka = True
 if run_pas:
     print("\nTesting passive membrane")
     pas_err = pas_error(x1, param_names, sim, cell, plot=1)
+    plot_comparison_table("Passive Membrane", target_val['pas'], pas_results)
     # check_updates("Soma leak conductance",
     #               soma.pas.g, x1['pas'][0])
     #
@@ -918,6 +919,7 @@ if run_pas:
 if run_h:
     print("\nTesting HCN")
     h_err = h_error(x1, param_names, sim, cell, plot=1)
+    plot_comparison_table("HCN", target_val['h'], h_results)
     # check_updates("Soma HCN conductance",
     #               soma.h.ghbar, x1['h'][0])
     #
@@ -938,7 +940,7 @@ if run_h:
 if run_na_ka:
     print("\nTesting Na/K")
     na_ka_err = na_ka_error(x1, param_names, sim, cell, plot=1)
-
+    plot_comparison_table("Sodium / Potassium", target_val['na_ka'], na_ka_results)
     # check_updates("Soma sodium shift",
     #               soma.nas.sh, x1['na_ka'][0])
     #
